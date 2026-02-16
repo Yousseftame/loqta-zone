@@ -1,16 +1,26 @@
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 import { Globe } from "@/components/ui/globe";
 import { WordRotate } from "@/components/ui/word-rotate";
+import { ArrowLeft } from "lucide-react";
 import React from "react";
-import { Outlet } from "react-router-dom";
+import { Link, Outlet } from "react-router-dom";
 
 export default function AuthLayout() {
   return (
     <div className="min-h-screen flex">
       {/* Theme Toggle - Positioned Absolutely */}
       <div className="fixed top-6 right-6 z-50">
-        <AnimatedThemeToggler />
+        <AnimatedThemeToggler className="w-10 h-10 flex items-center justify-center rounded-lg bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 text-gray-700 dark:text-gray-300" />
       </div>
+
+      {/* Back to Site Button */}
+      <Link
+        to="/"
+        className="fixed top-6 left-6 z-50 group flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-gray-800 border-2  rounded-lg  hover:shadow-xl transition-all duration-300 hover:scale-105 text-gray-700 dark:text-gray-300 hover:border-orange-500 dark:hover:border-orange-400"
+      >
+        <ArrowLeft className="w-4 h-4 transition-transform duration-300 group-hover:-translate-x-1" />
+        <span className="font-medium text-sm">Back to Site</span>
+      </Link>
 
       {/* Left Side - Auth Forms */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8 relative overflow-hidden">

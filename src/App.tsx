@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { RouterProvider } from "react-router-dom";
 import AOS from "aos";
 import { routes } from "./routes/routes";
+import { AdaptiveToastConfig } from "./components/shared/ToastConfig";
 
 
 const App = () => {
@@ -17,6 +18,7 @@ const App = () => {
   return (
     <>
       <RouterProvider router={routes} />
+      <AdaptiveToastConfig />
     </>
   );
 };

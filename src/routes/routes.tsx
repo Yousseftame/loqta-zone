@@ -29,9 +29,9 @@ export const routes = createBrowserRouter([
     errorElement: <NotFound />,
     children: [
       { path: "login", element: <Login /> },
-      { path: "register", element: <Register /> },
+      // { path: "register", element: <Register /> },
       { path: "forget-password", element: <ForgetPassword /> },
-      { path: "reset-password", element: <ResetPassword /> },
+      // { path: "reset-password", element: <ResetPassword /> },
     ],
   },
 
