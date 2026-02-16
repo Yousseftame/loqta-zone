@@ -1,28 +1,13 @@
-import React, { useState } from "react";
+import React from "react";
 import { Mail, Lock, ArrowRight } from "lucide-react";
 import { Input } from "@/components/shared/AuthInput";
 import { Button } from "@/components/shared/AuthButton";
+import { Link } from "react-router-dom";
 import { useLogin } from "@/hooks/useLogin";
 
 export default function Login() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-
-    // Handle login logic here
-    console.log("Login:", { email, password });
-
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 2000);
-  };
-
-   
+  const { email, setEmail, password, setPassword, isLoading, handleSubmit } =
+    useLogin();
 
   return (
     <div className="w-full space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -56,12 +41,12 @@ export default function Login() {
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
               Password
             </label>
-            <button
-              type="button"
+            <Link
+              to="/forget-password"
               className="text-sm text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 font-medium transition-colors"
             >
-              Forgot?
-            </button>
+              Forget Password?
+            </Link>
           </div>
           <Input
             id="password"
@@ -77,7 +62,7 @@ export default function Login() {
         </div>
 
         {/* Remember Me Checkbox */}
-        <div className="flex items-center">
+        {/* <div className="flex items-center">
           <input
             id="remember"
             type="checkbox"
@@ -89,7 +74,7 @@ export default function Login() {
           >
             Remember me for 30 days
           </label>
-        </div>
+        </div> */}
 
         {/* Submit Button */}
         <Button
@@ -100,21 +85,22 @@ export default function Login() {
           icon={<ArrowRight className="w-5 h-5" />}
           iconPosition="right"
           loading={isLoading}
+          disabled={isLoading}
         >
-          Sign In
+          {isLoading ? "Signing In..." : "Sign In"}
         </Button>
       </form>
 
       {/* Sign Up Link */}
-      <p className="text-center text-sm text-gray-600 dark:text-gray-400">
+      {/* <p className="text-center text-sm text-gray-600 dark:text-gray-400">
         Don't have an account?{" "}
-        <a
-          href="/signup"
+        <Link
+          to="/signup"
           className="font-semibold text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 transition-colors"
         >
           Sign up for free
-        </a>
-      </p>
+        </Link>
+      </p> */}
     </div>
   );
 }
