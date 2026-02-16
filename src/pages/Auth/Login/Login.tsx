@@ -17,7 +17,7 @@ export default function Login() {
           Welcome Back
         </h1>
         <p className="text-gray-600 dark:text-gray-400">
-          Sign in to continue your journey
+          Sign in to your Dashboard
         </p>
       </div>
 
