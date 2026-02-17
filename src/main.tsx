@@ -4,6 +4,7 @@ import './index.css'
 import App from './App.tsx'
 import ClickSpark from './components/ClickSpark.tsx';
 import { AuthProvider } from './store/AuthContext/AuthContext.tsx';
+import { ProductProvider } from './store/AdminContext/ProductContext/ProductsCotnext.tsx';
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -16,7 +17,9 @@ createRoot(document.getElementById("root")!).render(
     >
       {/* Your content here */}
       <AuthProvider>
-        <App />
+        <ProductProvider>
+          <App />
+        </ProductProvider>
       </AuthProvider>
     </ClickSpark>
   </StrictMode>,

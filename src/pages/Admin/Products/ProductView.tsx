@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Button,
   Paper,
@@ -9,16 +9,15 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  CircularProgress,
 } from "@mui/material";
 import {
   ArrowLeft,
   Edit,
   Trash2,
   Package,
-  Tag,
   DollarSign,
   Layers,
-  Star,
   Calendar,
   CheckCircle2,
   XCircle,
@@ -28,18 +27,18 @@ import {
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
-  STATIC_PRODUCTS,
- type ProductStatus,
   colors,
-  getCategoryColor,
   getStatusStyle,
   getAvatarColor,
+  type ProductStatus,
 } from "./products-data";
+import type { Product } from "./products-data";
+import { useProducts } from "@/store/AdminContext/ProductContext/ProductsCotnext";
 
 const statusIcon = (s: ProductStatus) =>
-  s === "active" ? (
+  s === "published" ? (
     <CheckCircle2 size={14} />
-  ) : s === "inactive" ? (
+  ) : s === "archived" ? (
     <XCircle size={14} />
   ) : (
     <Clock size={14} />
@@ -48,26 +47,70 @@ const statusIcon = (s: ProductStatus) =>
 export default function ProductView() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const { getProduct, removeProduct } = useProducts();
 
-  const product =
-    STATIC_PRODUCTS.find((p) => p.id === id) ?? STATIC_PRODUCTS[0];
-
+  const [product, setProduct] = useState<Product | null>(null);
+  const [loading, setLoading] = useState(true);
   const [deleteDialog, setDeleteDialog] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [done, setDone] = useState(false);
+  const [activeImg, setActiveImg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!id) return;
+    (async () => {
+      setLoading(true);
+      const p = await getProduct(id);
+      setProduct(p);
+      setActiveImg(p?.thumbnail ?? p?.images?.[0] ?? null);
+      setLoading(false);
+    })();
+  }, [id, getProduct]);
 
   const handleDelete = async () => {
-    setLoading(true);
-    await new Promise((r) => setTimeout(r, 700));
-    setLoading(false);
-    setDone(true);
-    setTimeout(() => navigate("/admin/Products"), 700);
+    if (!product) return;
+    setDeleting(true);
+    try {
+      await removeProduct(product);
+      setDone(true);
+      setTimeout(() => navigate("/admin/Products"), 700);
+    } catch {
+      setDeleting(false);
+    }
   };
 
+  if (loading) {
+    return (
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: "60vh",
+        }}
+      >
+        <CircularProgress sx={{ color: colors.primary }} />
+      </Box>
+    );
+  }
+
+  if (!product) {
+    return (
+      <Box sx={{ p: 4, textAlign: "center" }}>
+        <p style={{ color: colors.textSecondary }}>Product not found.</p>
+        <Button
+          onClick={() => navigate("/admin/Products")}
+          variant="contained"
+          sx={{ mt: 2, bgcolor: colors.primary }}
+        >
+          Back
+        </Button>
+      </Box>
+    );
+  }
+
   const sStyle = getStatusStyle(product.status);
-  const catColor = getCategoryColor(product.category);
-  const avatarBg = getAvatarColor(product.name);
-  const inventoryValue = (product.price * product.stock).toFixed(2);
+  const inventoryValue = (product.price * product.availableQuantity).toFixed(2);
 
   return (
     <Box
@@ -79,7 +122,7 @@ export default function ProductView() {
         minHeight: "100vh",
       }}
     >
-      {/* ── Back ── */}
+      {/* Back */}
       <Button
         startIcon={<ArrowLeft size={16} />}
         onClick={() => navigate("/admin/Products")}
@@ -110,7 +153,6 @@ export default function ProductView() {
           mb: 3,
         }}
       >
-        {/* #2A4863 gradient header */}
         <Box
           sx={{
             background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryLight} 100%)`,
@@ -121,19 +163,36 @@ export default function ProductView() {
             gap: 3,
           }}
         >
-          <Avatar
-            sx={{
-              bgcolor: "rgba(255,255,255,0.25)",
-              width: { xs: 60, md: 72 },
-              height: { xs: 60, md: 72 },
-              fontSize: "2rem",
-              fontWeight: 700,
-              borderRadius: 3,
-              border: "2px solid rgba(255,255,255,0.4)",
-            }}
-          >
-            {product.name.charAt(0)}
-          </Avatar>
+          {/* Thumbnail or Avatar */}
+          {activeImg && activeImg !== "null" ? (
+            <Box
+              component="img"
+              src={activeImg}
+              alt={product.title}
+              sx={{
+                width: { xs: 60, md: 80 },
+                height: { xs: 60, md: 80 },
+                borderRadius: 3,
+                objectFit: "cover",
+                border: "2px solid rgba(255,255,255,0.4)",
+                flexShrink: 0,
+              }}
+            />
+          ) : (
+            <Avatar
+              sx={{
+                bgcolor: "rgba(255,255,255,0.25)",
+                width: { xs: 60, md: 72 },
+                height: { xs: 60, md: 72 },
+                fontSize: "2rem",
+                fontWeight: 700,
+                borderRadius: 3,
+                border: "2px solid rgba(255,255,255,0.4)",
+              }}
+            >
+              {product.title.charAt(0)}
+            </Avatar>
+          )}
 
           <Box sx={{ flex: 1 }}>
             <Box
@@ -153,7 +212,7 @@ export default function ProductView() {
                   fontWeight: 700,
                 }}
               >
-                {product.name}
+                {product.title}
               </h1>
               <Chip
                 icon={statusIcon(product.status)}
@@ -179,43 +238,30 @@ export default function ProductView() {
               {product.description}
             </p>
             <Box sx={{ display: "flex", gap: 1, mt: 1.5, flexWrap: "wrap" }}>
-              <span
-                style={{
-                  fontSize: "0.75rem",
-                  background: "rgba(255,255,255,0.2)",
-                  color: "#fff",
-                  padding: "3px 10px",
-                  borderRadius: 99,
-                  fontWeight: 600,
-                }}
-              >
-                SKU: {product.sku}
-              </span>
-              <span
-                style={{
-                  fontSize: "0.75rem",
-                  background: "rgba(255,255,255,0.2)",
-                  color: "#fff",
-                  padding: "3px 10px",
-                  borderRadius: 99,
-                }}
-              >
-                Added {product.createdAt}
-              </span>
+              {[
+                `Brand: ${product.brand}`,
+                `Model: ${product.model}`,
+                `Category: ${product.category}`,
+              ].map((tag) => (
+                <span
+                  key={tag}
+                  style={{
+                    fontSize: "0.75rem",
+                    background: "rgba(255,255,255,0.2)",
+                    color: "#fff",
+                    padding: "3px 10px",
+                    borderRadius: 99,
+                    fontWeight: 600,
+                  }}
+                >
+                  {tag}
+                </span>
+              ))}
             </Box>
           </Box>
 
-          {/* Action buttons */}
-          <Box
-            sx={{
-              display: "flex",
-              gap: 1.5,
-              flexShrink: 0,
-              flexDirection: { xs: "row", sm: "row" },
-              width: { xs: "100%", sm: "auto" },
-              mt: { xs: 1, sm: 0 },
-            }}
-          >
+          {/* Actions */}
+          <Box sx={{ display: "flex", gap: 1.5, flexShrink: 0 }}>
             <Button
               startIcon={<Edit size={16} />}
               onClick={() => navigate(`/admin/products/${product.id}/edit`)}
@@ -228,8 +274,6 @@ export default function ProductView() {
                 fontWeight: 600,
                 border: "1px solid rgba(255,255,255,0.35)",
                 "&:hover": { bgcolor: "rgba(255,255,255,0.3)" },
-                backdropFilter: "blur(4px)",
-                flex: { xs: 1, sm: "none" },
               }}
             >
               Edit
@@ -244,9 +288,7 @@ export default function ProductView() {
                 textTransform: "none",
                 borderRadius: 2,
                 fontWeight: 600,
-                border: "1px solid rgba(239,68,68,0.4)",
                 "&:hover": { bgcolor: "rgba(239,68,68,0.9)" },
-                flex: { xs: 1, sm: "none" },
               }}
             >
               Delete
@@ -254,7 +296,7 @@ export default function ProductView() {
           </Box>
         </Box>
 
-        {/* ── Stats row — 4 mini cards in gradient header bottom ── */}
+        {/* Stats row */}
         <Box
           sx={{
             display: "grid",
@@ -270,28 +312,30 @@ export default function ProductView() {
               color: colors.primary,
             },
             {
-              label: "Stock",
+              label: "Available",
               value:
-                product.stock === 0 ? "Out of stock" : `${product.stock} units`,
+                product.availableQuantity === 0
+                  ? "Out of stock"
+                  : `${product.availableQuantity} units`,
               icon: <Layers size={16} />,
               color:
-                product.stock === 0
+                product.availableQuantity === 0
                   ? colors.error
-                  : product.stock < 10
+                  : product.availableQuantity < 10
                     ? colors.warning
                     : colors.success,
             },
             {
-              label: "Rating",
-              value: `★ ${product.rating} / 5.0`,
-              icon: <Star size={16} />,
-              color: "#F59E0B",
+              label: "Total Qty",
+              value: `${product.totalQuantity} units`,
+              icon: <Package size={16} />,
+              color: "#0EA5E9",
             },
             {
               label: "Inv. Value",
               value: `$${inventoryValue}`,
-              icon: <Tag size={16} />,
-              color: "#0EA5E9",
+              icon: <DollarSign size={16} />,
+              color: "#7C3AED",
             },
           ].map(({ label, value, icon, color }, i) => (
             <Box
@@ -354,6 +398,77 @@ export default function ProductView() {
         </Box>
       </Paper>
 
+      {/* ── Images Gallery ── */}
+      {product.images.length > 0 && (
+        <Paper
+          elevation={0}
+          sx={{
+            borderRadius: 3,
+            border: `1px solid ${colors.border}`,
+            overflow: "hidden",
+            mb: 3,
+          }}
+        >
+          <Box
+            sx={{
+              px: 3,
+              py: 2.5,
+              borderBottom: `1px solid ${colors.border}`,
+              display: "flex",
+              alignItems: "center",
+              gap: 1.5,
+            }}
+          >
+            <Package size={18} style={{ color: colors.primary }} />
+            <span style={{ fontWeight: 700, color: colors.textPrimary }}>
+              Product Images
+            </span>
+          </Box>
+          <Box sx={{ p: 3 }}>
+            {activeImg && activeImg !== "null" && (
+              <Box
+                component="img"
+                src={activeImg}
+                alt="active"
+                sx={{
+                  width: "100%",
+                  maxHeight: 320,
+                  objectFit: "contain",
+                  borderRadius: 2,
+                  border: `1px solid ${colors.border}`,
+                  mb: 2,
+                  bgcolor: colors.muted,
+                }}
+              />
+            )}
+            <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
+              {product.images.map((url) => (
+                <Box
+                  key={url}
+                  onClick={() => setActiveImg(url)}
+                  sx={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: 2,
+                    overflow: "hidden",
+                    cursor: "pointer",
+                    border: `2px solid ${activeImg === url ? colors.primary : colors.border}`,
+                    transition: "border 0.15s",
+                  }}
+                >
+                  <Box
+                    component="img"
+                    src={url}
+                    alt="thumb"
+                    sx={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  />
+                </Box>
+              ))}
+            </Box>
+          </Box>
+        </Paper>
+      )}
+
       {/* ── Details Card ── */}
       <Paper
         elevation={0}
@@ -378,7 +493,6 @@ export default function ProductView() {
             Product Details
           </span>
         </Box>
-
         <Box
           sx={{
             p: { xs: 2, md: 3 },
@@ -387,113 +501,120 @@ export default function ProductView() {
             gap: 3,
           }}
         >
-          {/* Category */}
-          <Box>
-            <p
-              style={{
-                margin: "0 0 8px",
-                fontSize: "0.75rem",
-                color: colors.textMuted,
-                fontWeight: 600,
-                textTransform: "uppercase",
-                letterSpacing: "0.04em",
-              }}
-            >
-              Category
-            </p>
-            <Chip
-              label={product.category}
-              size="small"
-              sx={{
-                bgcolor: catColor.bg,
-                color: catColor.text,
-                fontWeight: 600,
-              }}
-            />
-          </Box>
-
-          {/* Status */}
-          <Box>
-            <p
-              style={{
-                margin: "0 0 8px",
-                fontSize: "0.75rem",
-                color: colors.textMuted,
-                fontWeight: 600,
-                textTransform: "uppercase",
-                letterSpacing: "0.04em",
-              }}
-            >
-              Status
-            </p>
-            <Chip
-              icon={statusIcon(product.status)}
-              label={product.status}
-              size="small"
-              sx={{
-                bgcolor: sStyle.bg,
-                color: sStyle.color,
-                fontWeight: 700,
-                textTransform: "capitalize",
-              }}
-            />
-          </Box>
-
-          {/* SKU */}
-          <Box>
-            <p
-              style={{
-                margin: "0 0 8px",
-                fontSize: "0.75rem",
-                color: colors.textMuted,
-                fontWeight: 600,
-                textTransform: "uppercase",
-                letterSpacing: "0.04em",
-              }}
-            >
-              SKU
-            </p>
-            <span
-              style={{
-                fontFamily: "monospace",
-                fontSize: "0.9rem",
-                background: colors.muted,
-                padding: "4px 10px",
-                borderRadius: 6,
-                color: colors.textSecondary,
-              }}
-            >
-              {product.sku}
-            </span>
-          </Box>
-
-          {/* Date Added */}
-          <Box>
-            <p
-              style={{
-                margin: "0 0 8px",
-                fontSize: "0.75rem",
-                color: colors.textMuted,
-                fontWeight: 600,
-                textTransform: "uppercase",
-                letterSpacing: "0.04em",
-              }}
-            >
-              Date Added
-            </p>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <Calendar size={14} style={{ color: colors.textMuted }} />
-              <span
+          {[
+            {
+              label: "Status",
+              value: (
+                <Chip
+                  icon={statusIcon(product.status)}
+                  label={product.status}
+                  size="small"
+                  sx={{
+                    bgcolor: sStyle.bg,
+                    color: sStyle.color,
+                    fontWeight: 700,
+                    textTransform: "capitalize",
+                  }}
+                />
+              ),
+            },
+            {
+              label: "Active",
+              value: (
+                <Chip
+                  label={product.isActive ? "Active" : "Inactive"}
+                  size="small"
+                  sx={{
+                    bgcolor: product.isActive ? "#DCFCE7" : "#FEE2E2",
+                    color: product.isActive ? "#22C55E" : "#EF4444",
+                    fontWeight: 700,
+                  }}
+                />
+              ),
+            },
+            {
+              label: "Category",
+              value: (
+                <span
+                  style={{
+                    fontSize: "0.875rem",
+                    color: colors.textPrimary,
+                    fontWeight: 600,
+                  }}
+                >
+                  {product.category}
+                </span>
+              ),
+            },
+            {
+              label: "Date Added",
+              value: (
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <Calendar size={14} style={{ color: colors.textMuted }} />
+                  <span
+                    style={{
+                      fontSize: "0.9rem",
+                      color: colors.textPrimary,
+                      fontWeight: 500,
+                    }}
+                  >
+                    {product.createdAt.toLocaleDateString()}
+                  </span>
+                </Box>
+              ),
+            },
+          ].map(({ label, value }) => (
+            <Box key={label}>
+              <p
                 style={{
-                  fontSize: "0.9rem",
-                  color: colors.textPrimary,
-                  fontWeight: 500,
+                  margin: "0 0 8px",
+                  fontSize: "0.75rem",
+                  color: colors.textMuted,
+                  fontWeight: 600,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.04em",
                 }}
               >
-                {product.createdAt}
-              </span>
+                {label}
+              </p>
+              {value}
             </Box>
-          </Box>
+          ))}
+
+          {/* Features */}
+          {product.features.length > 0 && (
+            <Box>
+              <p
+                style={{
+                  margin: "0 0 8px",
+                  fontSize: "0.75rem",
+                  color: colors.textMuted,
+                  fontWeight: 600,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.04em",
+                }}
+              >
+                Features
+              </p>
+              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+                {product.features.map((f, i) => (
+                  <span
+                    key={i}
+                    style={{
+                      fontSize: "0.78rem",
+                      background: colors.primaryBg,
+                      color: colors.primary,
+                      padding: "3px 10px",
+                      borderRadius: 99,
+                      fontWeight: 600,
+                    }}
+                  >
+                    {f}
+                  </span>
+                ))}
+              </Box>
+            </Box>
+          )}
 
           {/* Description */}
           <Box sx={{ gridColumn: { sm: "1 / -1" } }}>
@@ -528,7 +649,7 @@ export default function ProductView() {
       {/* ── Delete Dialog ── */}
       <Dialog
         open={deleteDialog}
-        onClose={() => !loading && setDeleteDialog(false)}
+        onClose={() => !deleting && setDeleteDialog(false)}
         maxWidth="sm"
         fullWidth
         PaperProps={{ sx: { borderRadius: 3 } }}
@@ -545,7 +666,8 @@ export default function ProductView() {
         </DialogTitle>
         <DialogContent>
           <p style={{ color: colors.textPrimary, marginBottom: 16 }}>
-            Are you sure you want to delete <strong>{product.name}</strong>?
+            Are you sure you want to delete <strong>{product.title}</strong>?
+            All images in Storage will also be permanently removed.
           </p>
           <Box
             sx={{
@@ -563,7 +685,7 @@ export default function ProductView() {
         <DialogActions sx={{ p: 3, gap: 1 }}>
           <Button
             onClick={() => setDeleteDialog(false)}
-            disabled={loading}
+            disabled={deleting}
             variant="outlined"
             sx={{
               textTransform: "none",
@@ -576,9 +698,17 @@ export default function ProductView() {
           </Button>
           <Button
             onClick={handleDelete}
-            disabled={loading || done}
+            disabled={deleting || done}
             variant="contained"
-            startIcon={loading || done ? null : <Trash2 size={16} />}
+            startIcon={
+              deleting ? (
+                <CircularProgress size={14} color="inherit" />
+              ) : done ? (
+                <Check size={16} />
+              ) : (
+                <Trash2 size={16} />
+              )
+            }
             sx={{
               textTransform: "none",
               bgcolor: colors.error,
@@ -587,7 +717,7 @@ export default function ProductView() {
               minWidth: 110,
             }}
           >
-            {done ? <Check size={16} /> : loading ? "Deleting…" : "Delete"}
+            {done ? "Deleted!" : deleting ? "Deleting…" : "Delete"}
           </Button>
         </DialogActions>
       </Dialog>
