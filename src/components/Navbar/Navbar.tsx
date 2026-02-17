@@ -1,5 +1,4 @@
 import React from 'react'
-import logo from "../../assets/loqta-removebg-preview.png";
 import CardNav from '../CardNav';
 
 export default function Navbar() {
@@ -43,7 +42,7 @@ export default function Navbar() {
     <>
       <div className="     fixed top-0 left-0 w-full z-50">
         <CardNav
-          logo={logo}
+          logo="/loqta-removebg-preview.png"
           logoAlt="Company Logo"
           items={items}
           baseColor="#fff"

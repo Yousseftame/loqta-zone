@@ -1,70 +1,81 @@
 import { Toaster } from "react-hot-toast";
 
+/* ================== COLOR SYSTEM ================== */
+
+const colors = {
+  primary: "#2563EB",
+  primaryLight: "#DBEAFE",
+  success: "#16A34A",
+  error: "#DC2626",
+  bgLight: "#FFFFFF",
+  bgDark: "#0F172A",
+  textLight: "#0F172A",
+  textDark: "#F8FAFC",
+  borderLight: "#E2E8F0",
+};
+
+/* ================== LIGHT TOAST ================== */
+
 export const ToastConfig = () => {
   return (
     <Toaster
       position="top-center"
       reverseOrder={false}
-      gutter={8}
+      gutter={12}
+      containerStyle={{
+        top: 24,
+        right: 24,
+      }}
       toastOptions={{
-        // Default options
         duration: 4000,
+
+        /* ===== Default Style ===== */
         style: {
-          background: "#fff",
-          color: "#1f2937",
-          padding: "16px",
-          borderRadius: "12px",
-          boxShadow:
-            "0 10px 40px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.06)",
-          border: "1px solid rgba(229, 231, 235, 0.8)",
-          maxWidth: "420px",
+          background: colors.bgLight,
+          color: colors.textLight,
+          padding: "14px 18px",
+          borderRadius: "16px",
+          border: `1px solid ${colors.borderLight}`,
+          boxShadow: "0 12px 32px rgba(37, 99, 235, 0.08)",
           fontSize: "14px",
-          fontWeight: "500",
+          fontWeight: 500,
+          maxWidth: "420px",
         },
 
-        // Success toast
+        /* ===== Success ===== */
         success: {
           duration: 3500,
           style: {
-            background: "linear-gradient(135deg, #fff 0%, #fef3f2 100%)",
-            color: "#166534",
-            border: "1px solid rgba(251, 146, 60, 0.2)",
-            boxShadow:
-              "0 10px 40px rgba(251, 146, 60, 0.15), 0 2px 8px rgba(251, 146, 60, 0.1)",
+            borderLeft: `4px solid ${colors.success}`,
+            boxShadow: "0 12px 32px rgba(22, 163, 74, 0.08)",
           },
           iconTheme: {
-            primary: "#ea580c",
+            primary: colors.success,
             secondary: "#fff",
           },
         },
 
-        // Error toast
+        /* ===== Error ===== */
         error: {
           duration: 4500,
           style: {
-            background: "linear-gradient(135deg, #fff 0%, #fef2f2 100%)",
-            color: "#991b1b",
-            border: "1px solid rgba(239, 68, 68, 0.2)",
-            boxShadow:
-              "0 10px 40px rgba(239, 68, 68, 0.15), 0 2px 8px rgba(239, 68, 68, 0.1)",
+            borderLeft: `4px solid ${colors.error}`,
+            boxShadow: "0 12px 32px rgba(220, 38, 38, 0.08)",
           },
           iconTheme: {
-            primary: "#dc2626",
+            primary: colors.error,
             secondary: "#fff",
           },
         },
 
-        // Loading toast
+        /* ===== Loading ===== */
         loading: {
           style: {
-            background: "linear-gradient(135deg, #fff 0%, #f0f9ff 100%)",
-            color: "#1e40af",
-            border: "1px solid rgba(59, 130, 246, 0.2)",
-            boxShadow:
-              "0 10px 40px rgba(59, 130, 246, 0.15), 0 2px 8px rgba(59, 130, 246, 0.1)",
+            borderLeft: `4px solid ${colors.primary}`,
+            boxShadow: "0 12px 32px rgba(37, 99, 235, 0.08)",
           },
           iconTheme: {
-            primary: "#3b82f6",
+            primary: colors.primary,
             secondary: "#fff",
           },
         },
@@ -73,69 +84,64 @@ export const ToastConfig = () => {
   );
 };
 
-// Dark mode toast configuration
+/* ================== DARK TOAST ================== */
+
 export const DarkToastConfig = () => {
   return (
     <Toaster
-      position="bottom-center"
+      position="top-center"
       reverseOrder={false}
-      gutter={8}
+      gutter={12}
+      containerStyle={{
+        top: 24,
+        right: 24,
+      }}
       toastOptions={{
         duration: 4000,
+
+        /* ===== Default Dark Style ===== */
         style: {
-          background: "#1f2937",
-          color: "#f9fafb",
-          padding: "16px",
-          borderRadius: "12px",
-          boxShadow:
-            "0 10px 40px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.3)",
-          border: "1px solid rgba(55, 65, 81, 0.8)",
-          maxWidth: "420px",
+          background: colors.bgDark,
+          color: colors.textDark,
+          padding: "14px 18px",
+          borderRadius: "16px",
+          border: "1px solid rgba(255,255,255,0.08)",
+          boxShadow: "0 12px 32px rgba(0,0,0,0.45)",
           fontSize: "14px",
-          fontWeight: "500",
+          fontWeight: 500,
+          maxWidth: "420px",
         },
 
+        /* ===== Success ===== */
         success: {
-          duration: 3500,
           style: {
-            background: "linear-gradient(135deg, #1f2937 0%, #374151 100%)",
-            color: "#86efac",
-            border: "1px solid rgba(251, 146, 60, 0.3)",
-            boxShadow:
-              "0 10px 40px rgba(251, 146, 60, 0.2), 0 2px 8px rgba(251, 146, 60, 0.15)",
+            borderLeft: "4px solid #22C55E",
           },
           iconTheme: {
-            primary: "#fb923c",
-            secondary: "#1f2937",
+            primary: "#22C55E",
+            secondary: colors.bgDark,
           },
         },
 
+        /* ===== Error ===== */
         error: {
-          duration: 4500,
           style: {
-            background: "linear-gradient(135deg, #1f2937 0%, #374151 100%)",
-            color: "#fca5a5",
-            border: "1px solid rgba(239, 68, 68, 0.3)",
-            boxShadow:
-              "0 10px 40px rgba(239, 68, 68, 0.2), 0 2px 8px rgba(239, 68, 68, 0.15)",
+            borderLeft: "4px solid #EF4444",
           },
           iconTheme: {
-            primary: "#ef4444",
-            secondary: "#1f2937",
+            primary: "#EF4444",
+            secondary: colors.bgDark,
           },
         },
 
+        /* ===== Loading ===== */
         loading: {
           style: {
-            background: "linear-gradient(135deg, #1f2937 0%, #374151 100%)",
-            color: "#93c5fd",
-            border: "1px solid rgba(59, 130, 246, 0.3)",
-            boxShadow:
-              "0 10px 40px rgba(59, 130, 246, 0.2), 0 2px 8px rgba(59, 130, 246, 0.15)",
+            borderLeft: `4px solid ${colors.primary}`,
           },
           iconTheme: {
-            primary: "#60a5fa",
-            secondary: "#1f2937",
+            primary: colors.primary,
+            secondary: colors.bgDark,
           },
         },
       }}
@@ -143,9 +149,9 @@ export const DarkToastConfig = () => {
   );
 };
 
-// Adaptive toast that switches based on theme
+/* ================== ADAPTIVE TOAST ================== */
+
 export const AdaptiveToastConfig = () => {
   const isDark = document.documentElement.classList.contains("dark");
-
   return isDark ? <DarkToastConfig /> : <ToastConfig />;
 };

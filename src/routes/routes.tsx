@@ -1,3 +1,4 @@
+import ProtectedRoute from "@/components/ProtectedRoute/ProtectedRoute";
 import AuthLayout from "@/layouts/AuthLayout/AuthLayout";
 import DashboardLayout from "@/layouts/DashboardLayout/DashboardLayout";
 import MainLayout from "@/layouts/MainLayout/MainLayout";
@@ -37,7 +38,12 @@ export const routes = createBrowserRouter([
 
   {
     path: "/admin",
-    element: [<DashboardLayout />],
+    element: [
+      <ProtectedRoute>
+        {" "}
+        <DashboardLayout />{" "}
+      </ProtectedRoute>,
+    ],
     errorElement: <NotFound />,
     children: [
       { index: true, element: <Dashboard /> },

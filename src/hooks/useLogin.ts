@@ -17,7 +17,7 @@ export const useLogin = () => {
 
     try {
       await login(email, password);
-      navigate("/admin/categories");
+      navigate("/admin");
     } catch (error: any) {
       // Error handling is done in AuthContext, but we can add extra handling here if needed
     } finally {

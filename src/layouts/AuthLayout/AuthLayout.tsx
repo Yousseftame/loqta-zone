@@ -16,7 +16,7 @@ export default function AuthLayout() {
       {/* Back to Site Button */}
       <Link
         to="/"
-        className="fixed top-6 left-6 z-50 group flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-gray-800 border-2  rounded-lg  hover:shadow-xl transition-all duration-300 hover:scale-105 text-gray-700 dark:text-gray-300 hover:border-orange-500 dark:hover:border-orange-400"
+        className="fixed top-6 left-6 z-50 group flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-gray-800 border-2  rounded-lg  hover:shadow-xl transition-all duration-300 hover:scale-105 text-gray-700 dark:text-gray-300 hover:border-blue-500 dark:hover:border-blue-400"
       >
         <ArrowLeft className="w-4 h-4 transition-transform duration-300 group-hover:-translate-x-1" />
         <span className="font-medium text-sm">Back to Site</span>
@@ -25,10 +25,10 @@ export default function AuthLayout() {
       {/* Left Side - Auth Forms */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8 relative overflow-hidden">
         {/* Gradient Background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-orange-50/50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900" />
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900" />
 
         {/* Decorative Elements */}
-        <div className="absolute top-20 left-10 w-72 h-72 bg-orange-200/20 dark:bg-orange-500/10 rounded-full blur-3xl" />
+        <div className="absolute top-20 left-10 w-72 h-72 bg-blue-200/20 dark:bg-blue-500/10 rounded-full blur-3xl" />
         <div className="absolute bottom-20 right-10 w-96 h-96 bg-blue-200/20 dark:bg-blue-500/10 rounded-full blur-3xl" />
 
         {/* Content Container */}
@@ -43,7 +43,7 @@ export default function AuthLayout() {
         <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:50px_50px]" />
 
         {/* Glow Effects */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-orange-500/20 rounded-full blur-[120px]" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-blue-500/20 rounded-full blur-[120px]" />
         <div className="absolute top-1/4 right-1/4 w-[400px] h-[400px] bg-blue-500/10 rounded-full blur-[100px]" />
 
         {/* Word Rotate */}

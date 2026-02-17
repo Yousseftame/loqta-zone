@@ -34,33 +34,25 @@ export default function ForgetPassword() {
         </div>
 
         {/* Instructions */}
-        <div className="bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-200 dark:border-orange-800 rounded-xl p-6 space-y-3">
+        <div className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-200 dark:border-blue-800 rounded-xl p-6 space-y-3">
           <h3 className="font-semibold text-gray-900 dark:text-white">
             Next Steps:
           </h3>
           <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
             <li className="flex items-start gap-2">
-              <span className="text-orange-600 dark:text-orange-400 mt-0.5">
-                •
-              </span>
+              <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
               <span>Check your inbox for an email from us</span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="text-orange-600 dark:text-orange-400 mt-0.5">
-                •
-              </span>
+              <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
               <span>Click the reset link in the email</span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="text-orange-600 dark:text-orange-400 mt-0.5">
-                •
-              </span>
+              <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
               <span>Create a new password</span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="text-orange-600 dark:text-orange-400 mt-0.5">
-                •
-              </span>
+              <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
               <span>If you don't see the email, check your spam folder</span>
             </li>
           </ul>
@@ -81,7 +73,7 @@ export default function ForgetPassword() {
           Didn't receive the email?{" "}
           <button
             onClick={() => window.location.reload()}
-            className="font-semibold text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 transition-colors"
+            className="font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
           >
             Try again
           </button>
@@ -95,7 +87,7 @@ export default function ForgetPassword() {
     <div className="w-full space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       {/* Header */}
       <div className="text-center space-y-2">
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-orange-600 to-orange-400 dark:from-orange-400 dark:to-orange-300 bg-clip-text text-transparent">
+        <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-blue-400 dark:from-blue-400 dark:to-blue-300 bg-clip-text text-transparent">
           Forgot Password?
         </h1>
         <p className="text-gray-600 dark:text-gray-400">
@@ -138,7 +130,7 @@ export default function ForgetPassword() {
         Remember your password?{" "}
         <Link
           to="/login"
-          className="font-semibold text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 transition-colors"
+          className="font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
         >
           Back to Login
         </Link>
