@@ -41,9 +41,9 @@ import {
 import { useNavigate } from "react-router-dom";
 import {
   STATIC_PRODUCTS,
- type Product,
- type ProductStatus,
- type ProductCategory,
+  type Product,
+  type ProductStatus,
+  type ProductCategory,
   CATEGORIES,
   STATUSES,
   colors,
@@ -120,7 +120,6 @@ export default function ProductsList() {
   return (
     <Box
       sx={{
-        maxWidth: 1900,
         mx: "auto",
         p: { xs: 2, md: 3 },
         bgcolor: "#F8FAFC",
