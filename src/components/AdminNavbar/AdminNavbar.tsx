@@ -38,12 +38,12 @@ const AdminNavbar = () => {
       {/* Left Section */}
       <div className="flex items-center gap-10">
         {/* Page Title */}
-        <h1 className="text-xl font-semibold text-[#2563EB] tracking-wide">
+        <h1 className="text-xl font-semibold text-[#2A4863] tracking-wide">
           {getPageTitle()}
         </h1>
 
         {/* Search */}
-        <div className="hidden md:flex items-center bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl px-4 py-2 w-80 focus-within:border-[#2563EB] focus-within:ring-2 focus-within:ring-[#DBEAFE] transition">
+        <div className="hidden md:flex items-center bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl px-4 py-2 w-80 focus-within:border-[#2A4863] focus-within:ring-2 focus-within:ring-[#DBEAFE] transition">
           <Search size={16} className="text-gray-400 mr-2" />
           <input
             type="text"
@@ -60,10 +60,10 @@ const AdminNavbar = () => {
           <div className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-[#EFF6FF] transition">
             <Bell
               size={18}
-              className="text-gray-500 group-hover:text-[#2563EB] transition"
+              className="text-gray-500 group-hover:text-[#2A4863] transition"
             />
           </div>
-          <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-[#2563EB] rounded-full"></span>
+          <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-[#2A4863] rounded-full"></span>
         </div>
 
         {/* Profile */}
@@ -72,7 +72,7 @@ const AdminNavbar = () => {
             onClick={() => setProfileOpen(!profileOpen)}
             className="flex items-center gap-3 cursor-pointer group"
           >
-            <div className="w-10 h-10 rounded-full bg-[#DBEAFE] flex items-center justify-center text-[#2563EB] font-semibold group-hover:scale-105 transition">
+            <div className="w-10 h-10 rounded-full bg-[#DBEAFE] flex items-center justify-center text-[#2A4863] font-semibold group-hover:scale-105 transition">
               {adminName.charAt(0).toUpperCase()}
             </div>
 
@@ -85,7 +85,7 @@ const AdminNavbar = () => {
 
             <ChevronDown
               size={16}
-              className="text-gray-400 group-hover:text-[#2563EB] transition"
+              className="text-gray-400 group-hover:text-[#2A4863] transition"
             />
           </div>
 

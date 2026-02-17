@@ -3,7 +3,7 @@ import { Toaster } from "react-hot-toast";
 /* ================== COLOR SYSTEM ================== */
 
 const colors = {
-  primary: "#2563EB",
+  primary: "#2A4863",
   primaryLight: "#DBEAFE",
   success: "#16A34A",
   error: "#DC2626",

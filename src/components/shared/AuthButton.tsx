@@ -31,11 +31,11 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 
     const variants = {
       primary:
-        "group relative bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 overflow-hidden",
+        "group relative bg-gradient-to-r from-[#2A4863] to-[#2A4863] hover:from-[#2A4863] hover:to-[#2A4863] text-white shadow-lg shadow-#2A4863-500/30 hover:shadow-#2A4863-500/50 overflow-hidden",
       secondary:
         "bg-gray-600 hover:bg-gray-700 text-white shadow-lg shadow-gray-500/30 hover:shadow-gray-500/50",
       outline:
-        "border-2 border-blue-500 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30",
+        "border-2 border-[#2A4863] text-[#2A4863] dark:text-[#2A4863] hover:bg-[#2A4863] dark:hover:bg-[#2A4863]",
       ghost:
         "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800",
     };
@@ -61,7 +61,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       >
         {/* Hover Animation for Primary Variant */}
         {variant === "primary" && (
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-700 to-blue-600 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+          <div className="absolute inset-0 bg-gradient-to-r from-#2A4863-700 to-#2A4863-600 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
         )}
 
         {/* Loading Spinner */}

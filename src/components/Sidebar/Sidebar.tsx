@@ -117,7 +117,7 @@ const Sidebar = () => {
                 >
                   {/* Active Left Bar */}
                   {isActive && !collapsed && (
-                    <div className="absolute left-0 top-2 bottom-2 w-1.5 bg-[#2563EB] rounded-r-full" />
+                    <div className="absolute left-0 top-2 bottom-2 w-1.5 bg-[#2A4863] rounded-r-full" />
                   )}
 
                   {/* Icon */}
@@ -125,13 +125,13 @@ const Sidebar = () => {
                     <Icon
                       className={`transition-all duration-300 ${
                         isActive
-                          ? "text-[#2563EB] scale-110"
-                          : "text-gray-400 group-hover:text-[#2563EB]"
+                          ? "text-[#2A4863] scale-110"
+                          : "text-gray-400 group-hover:text-[#2A4863]"
                       }`}
                       style={{ fontSize: "22px" }}
                     />
                     {item.badge && (
-                      <span className="absolute -top-2 -right-2 bg-[#2563EB] text-white text-[10px] px-1.5 py-0.5 rounded-full">
+                      <span className="absolute -top-2 -right-2 bg-[#2A4863] text-white text-[10px] px-1.5 py-0.5 rounded-full">
                         {item.badge}
                       </span>
                     )}
@@ -149,7 +149,7 @@ const Sidebar = () => {
                       className={`text-[15px] font-medium whitespace-nowrap ${
                         isActive
                           ? "text-[#1E40AF]"
-                          : "text-gray-600 group-hover:text-[#2563EB]"
+                          : "text-gray-600 group-hover:text-[#2A4863]"
                       }`}
                     >
                       {item.label}
@@ -171,7 +171,7 @@ const Sidebar = () => {
           <div className="absolute bottom-0 left-0 right-0 border-t border-[#E2E8F0] p-4 space-y-3">
             {/* User Info */}
             <div className="flex items-center gap-3 overflow-hidden">
-              <div className="w-10 h-10 rounded-full bg-[#DBEAFE] flex items-center justify-center text-[#2563EB] font-bold flex-shrink-0">
+              <div className="w-10 h-10 rounded-full bg-[#DBEAFE] flex items-center justify-center text-[#2A4863] font-bold flex-shrink-0">
                 {user?.email?.charAt(0).toUpperCase()}
               </div>
               <div
@@ -212,7 +212,7 @@ const Sidebar = () => {
         {/* Toggle — outside overflow-hidden, never clipped */}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="absolute -right-3 top-28 z-10 bg-white border border-[#E2E8F0] rounded-full p-2 text-gray-500 hover:text-[#2563EB] hover:border-[#2563EB] transition-all duration-300 shadow-md"
+          className="absolute -right-3 top-28 z-10 bg-white border border-[#E2E8F0] rounded-full p-2 text-gray-500 hover:text-[#2A4863] hover:border-[#2A4863] transition-all duration-300 shadow-md"
         >
           {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </button>

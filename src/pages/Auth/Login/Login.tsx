@@ -13,7 +13,7 @@ export default function Login() {
     <div className="w-full space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       {/* Header */}
       <div className="text-center space-y-2">
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-blue-400 dark:from-blue-400 dark:to-blue-300 bg-clip-text text-transparent">
+        <h1 className="text-4xl font-bold bg-gradient-to-r from-[#2A4863] to-[#2A4863] dark:from-[#2A4863] dark:to-[#2A4863] bg-clip-text text-transparent">
           Welcome Back
         </h1>
         <p className="text-gray-600 dark:text-gray-400">
@@ -43,7 +43,7 @@ export default function Login() {
             </label>
             <Link
               to="/forget-password"
-              className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium transition-colors"
+              className="text-sm text-#2A4863-600 dark:text-#2A4863-400 hover:text-#2A4863-700 dark:hover:text-#2A4863-300 font-medium transition-colors"
             >
               Forget Password?
             </Link>
@@ -66,7 +66,7 @@ export default function Login() {
           <input
             id="remember"
             type="checkbox"
-            className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 focus:ring-2"
+            className="w-4 h-4 rounded border-gray-300 text-#2A4863-600 focus:ring-#2A4863-500 focus:ring-2"
           />
           <label
             htmlFor="remember"
@@ -96,7 +96,7 @@ export default function Login() {
         Don't have an account?{" "}
         <Link
           to="/signup"
-          className="font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+          className="font-semibold text-#2A4863-600 dark:text-#2A4863-400 hover:text-#2A4863-700 dark:hover:text-#2A4863-300 transition-colors"
         >
           Sign up for free
         </Link>

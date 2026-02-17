@@ -50,7 +50,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           {/* Glow Effect */}
           <div
             className={cn(
-              "absolute inset-0 bg-gradient-to-r from-blue-500 to-blue-500 rounded-xl blur opacity-0 group-hover:opacity-20 transition-opacity duration-300",
+              "absolute inset-0 bg-gradient-to-r from-#2A4863-500 to-#2A4863-500 rounded-xl blur opacity-0 group-hover:opacity-20 transition-opacity duration-300",
               isFocused && "opacity-30",
               error && "from-red-500 to-red-600",
             )}
@@ -76,7 +76,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
                 showPasswordToggle ? "pr-12" : "pr-4",
                 error
                   ? "border-red-300 dark:border-red-700 focus:border-red-500 dark:focus:border-red-400 focus:ring-4 focus:ring-red-500/10"
-                  : "border-gray-200 dark:border-gray-700 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10",
+                  : "border-gray-200 dark:border-gray-700 focus:border-#2A4863-500 dark:focus:border-#2A4863-400 focus:ring-4 focus:ring-#2A4863-500/10",
                 inputClassName,
               )}
               {...props}
