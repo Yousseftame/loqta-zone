@@ -18,6 +18,7 @@ import {
   Avatar,
   Paper,
   Box,
+  TableContainer,
 } from "@mui/material";
 import {
   Plus,
@@ -564,323 +565,332 @@ export default function ProductsList() {
             },
           }}
         >
-          <Table sx={{ minWidth: 700 }}>
-            <TableHead>
-              <TableRow sx={{ bgcolor: colors.primaryBg }}>
-                {[
-                  "Product",
-                  "SKU",
-                  "Category",
-                  "Price",
-                  "Stock",
-                  "Rating",
-                  "Status",
-                  "Actions",
-                ].map((h) => (
-                  <TableCell
-                    key={h}
-                    sx={{
-                      fontWeight: 700,
-                      color: colors.primaryDark,
-                      fontSize: "0.72rem",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.05em",
-                      whiteSpace: "nowrap",
-                      ...(h === "Actions" && { textAlign: "center" }),
-                    }}
-                  >
-                    {h}
-                  </TableCell>
-                ))}
-              </TableRow>
-            </TableHead>
-
-            <TableBody>
-              {paginated.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 10 }}>
-                    <Package
-                      size={44}
-                      style={{
-                        color: colors.textMuted,
-                        margin: "0 auto 12px",
-                        display: "block",
-                      }}
-                    />
-                    <p style={{ color: colors.textSecondary, fontWeight: 600 }}>
-                      No products found
-                    </p>
-                    <p style={{ color: colors.textMuted, fontSize: "0.85rem" }}>
-                      Try adjusting your search or filters
-                    </p>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                paginated.map((product) => {
-                  const sStyle = getStatusStyle(product.status);
-                  const catColor = getCategoryColor(
-                    product.category as ProductCategory,
-                  );
-                  const isLow = product.stock > 0 && product.stock < 10;
-
-                  return (
-                    <TableRow
-                      key={product.id}
+          <div className="overflow-x-auto">
+            <Table sx={{ minWidth: 700 }}>
+              <TableHead>
+                <TableRow sx={{ bgcolor: colors.primaryBg }}>
+                  {[
+                    "Product",
+                    "SKU",
+                    "Category",
+                    "Price",
+                    "Stock",
+                    "Rating",
+                    "Status",
+                    "Actions",
+                  ].map((h) => (
+                    <TableCell
+                      key={h}
                       sx={{
-                        "&:hover": { bgcolor: colors.muted },
-                        transition: "background 0.15s",
+                        fontWeight: 700,
+                        color: colors.primaryDark,
+                        fontSize: "0.72rem",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.05em",
+                        whiteSpace: "nowrap",
+                        ...(h === "Actions" && { textAlign: "center" }),
                       }}
                     >
-                      {/* Product */}
-                      <TableCell sx={{ minWidth: 220 }}>
-                        <Box
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 1.5,
-                          }}
-                        >
-                          <Avatar
+                      {h}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              </TableHead>
+
+              <TableBody>
+                {paginated.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} align="center" sx={{ py: 10 }}>
+                      <Package
+                        size={44}
+                        style={{
+                          color: colors.textMuted,
+                          margin: "0 auto 12px",
+                          display: "block",
+                        }}
+                      />
+                      <p
+                        style={{ color: colors.textSecondary, fontWeight: 600 }}
+                      >
+                        No products found
+                      </p>
+                      <p
+                        style={{ color: colors.textMuted, fontSize: "0.85rem" }}
+                      >
+                        Try adjusting your search or filters
+                      </p>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  paginated.map((product) => {
+                    const sStyle = getStatusStyle(product.status);
+                    const catColor = getCategoryColor(
+                      product.category as ProductCategory,
+                    );
+                    const isLow = product.stock > 0 && product.stock < 10;
+
+                    return (
+                      <TableRow
+                        key={product.id}
+                        sx={{
+                          "&:hover": { bgcolor: colors.muted },
+                          transition: "background 0.15s",
+                        }}
+                      >
+                        {/* Product */}
+                        <TableCell sx={{ minWidth: 220 }}>
+                          <Box
                             sx={{
-                              bgcolor: getAvatarColor(product.name),
-                              width: 40,
-                              height: 40,
-                              fontSize: "0.95rem",
-                              fontWeight: 700,
-                              borderRadius: 2,
-                              flexShrink: 0,
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 1.5,
                             }}
                           >
-                            {product.name.charAt(0)}
-                          </Avatar>
-                          <div>
-                            <p
+                            <Avatar
+                              sx={{
+                                bgcolor: getAvatarColor(product.name),
+                                width: 40,
+                                height: 40,
+                                fontSize: "0.95rem",
+                                fontWeight: 700,
+                                borderRadius: 2,
+                                flexShrink: 0,
+                              }}
+                            >
+                              {product.name.charAt(0)}
+                            </Avatar>
+                            <div>
+                              <p
+                                style={{
+                                  fontWeight: 600,
+                                  fontSize: "0.875rem",
+                                  color: colors.textPrimary,
+                                  margin: 0,
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                {product.name}
+                              </p>
+                              <p
+                                style={{
+                                  color: colors.textMuted,
+                                  fontSize: "0.75rem",
+                                  margin: "2px 0 0",
+                                  maxWidth: 200,
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                {product.description}
+                              </p>
+                            </div>
+                          </Box>
+                        </TableCell>
+
+                        {/* SKU */}
+                        <TableCell sx={{ minWidth: 140, whiteSpace: "nowrap" }}>
+                          <span
+                            style={{
+                              fontFamily: "monospace",
+                              fontSize: "0.78rem",
+                              background: colors.muted,
+                              padding: "3px 8px",
+                              borderRadius: 6,
+                              color: colors.textSecondary,
+                            }}
+                          >
+                            {product.sku}
+                          </span>
+                        </TableCell>
+
+                        {/* Category */}
+                        <TableCell sx={{ minWidth: 120 }}>
+                          <Chip
+                            label={product.category}
+                            size="small"
+                            sx={{
+                              bgcolor: catColor.bg,
+                              color: catColor.text,
+                              fontWeight: 600,
+                              fontSize: "0.72rem",
+                            }}
+                          />
+                        </TableCell>
+
+                        {/* Price */}
+                        <TableCell sx={{ minWidth: 90, whiteSpace: "nowrap" }}>
+                          <span
+                            style={{
+                              fontWeight: 700,
+                              color: colors.textPrimary,
+                            }}
+                          >
+                            ${product.price.toFixed(2)}
+                          </span>
+                        </TableCell>
+
+                        {/* Stock */}
+                        <TableCell sx={{ minWidth: 100 }}>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 0.75,
+                            }}
+                          >
+                            <span
+                              style={{
+                                fontWeight: 600,
+                                fontSize: "0.875rem",
+                                color:
+                                  product.stock === 0
+                                    ? colors.error
+                                    : isLow
+                                      ? colors.warning
+                                      : colors.textPrimary,
+                              }}
+                            >
+                              {product.stock === 0 ? "—" : product.stock}
+                            </span>
+                            {product.stock === 0 && (
+                              <span
+                                style={{
+                                  fontSize: "0.65rem",
+                                  background: colors.errorBg,
+                                  color: colors.error,
+                                  padding: "1px 6px",
+                                  borderRadius: 99,
+                                  fontWeight: 700,
+                                }}
+                              >
+                                OOS
+                              </span>
+                            )}
+                            {isLow && (
+                              <span
+                                style={{
+                                  fontSize: "0.65rem",
+                                  background: colors.warningBg,
+                                  color: colors.warning,
+                                  padding: "1px 6px",
+                                  borderRadius: 99,
+                                  fontWeight: 700,
+                                }}
+                              >
+                                Low
+                              </span>
+                            )}
+                          </Box>
+                        </TableCell>
+
+                        {/* Rating */}
+                        <TableCell sx={{ minWidth: 80, whiteSpace: "nowrap" }}>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 0.5,
+                            }}
+                          >
+                            <Star
+                              size={13}
+                              style={{ color: "#F59E0B" }}
+                              fill="#F59E0B"
+                            />
+                            <span
                               style={{
                                 fontWeight: 600,
                                 fontSize: "0.875rem",
                                 color: colors.textPrimary,
-                                margin: 0,
-                                whiteSpace: "nowrap",
                               }}
                             >
-                              {product.name}
-                            </p>
-                            <p
-                              style={{
-                                color: colors.textMuted,
-                                fontSize: "0.75rem",
-                                margin: "2px 0 0",
-                                maxWidth: 200,
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                whiteSpace: "nowrap",
-                              }}
-                            >
-                              {product.description}
-                            </p>
-                          </div>
-                        </Box>
-                      </TableCell>
+                              {product.rating}
+                            </span>
+                          </Box>
+                        </TableCell>
 
-                      {/* SKU */}
-                      <TableCell sx={{ minWidth: 140, whiteSpace: "nowrap" }}>
-                        <span
-                          style={{
-                            fontFamily: "monospace",
-                            fontSize: "0.78rem",
-                            background: colors.muted,
-                            padding: "3px 8px",
-                            borderRadius: 6,
-                            color: colors.textSecondary,
-                          }}
-                        >
-                          {product.sku}
-                        </span>
-                      </TableCell>
-
-                      {/* Category */}
-                      <TableCell sx={{ minWidth: 120 }}>
-                        <Chip
-                          label={product.category}
-                          size="small"
-                          sx={{
-                            bgcolor: catColor.bg,
-                            color: catColor.text,
-                            fontWeight: 600,
-                            fontSize: "0.72rem",
-                          }}
-                        />
-                      </TableCell>
-
-                      {/* Price */}
-                      <TableCell sx={{ minWidth: 90, whiteSpace: "nowrap" }}>
-                        <span
-                          style={{ fontWeight: 700, color: colors.textPrimary }}
-                        >
-                          ${product.price.toFixed(2)}
-                        </span>
-                      </TableCell>
-
-                      {/* Stock */}
-                      <TableCell sx={{ minWidth: 100 }}>
-                        <Box
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 0.75,
-                          }}
-                        >
-                          <span
-                            style={{
-                              fontWeight: 600,
-                              fontSize: "0.875rem",
-                              color:
-                                product.stock === 0
-                                  ? colors.error
-                                  : isLow
-                                    ? colors.warning
-                                    : colors.textPrimary,
+                        {/* Status */}
+                        <TableCell sx={{ minWidth: 100 }}>
+                          <Chip
+                            icon={statusIcon(product.status)}
+                            label={product.status}
+                            size="small"
+                            sx={{
+                              bgcolor: sStyle.bg,
+                              color: sStyle.color,
+                              fontWeight: 700,
+                              fontSize: "0.7rem",
+                              textTransform: "capitalize",
                             }}
-                          >
-                            {product.stock === 0 ? "—" : product.stock}
-                          </span>
-                          {product.stock === 0 && (
-                            <span
-                              style={{
-                                fontSize: "0.65rem",
-                                background: colors.errorBg,
-                                color: colors.error,
-                                padding: "1px 6px",
-                                borderRadius: 99,
-                                fontWeight: 700,
-                              }}
-                            >
-                              OOS
-                            </span>
-                          )}
-                          {isLow && (
-                            <span
-                              style={{
-                                fontSize: "0.65rem",
-                                background: colors.warningBg,
-                                color: colors.warning,
-                                padding: "1px 6px",
-                                borderRadius: 99,
-                                fontWeight: 700,
-                              }}
-                            >
-                              Low
-                            </span>
-                          )}
-                        </Box>
-                      </TableCell>
-
-                      {/* Rating */}
-                      <TableCell sx={{ minWidth: 80, whiteSpace: "nowrap" }}>
-                        <Box
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 0.5,
-                          }}
-                        >
-                          <Star
-                            size={13}
-                            style={{ color: "#F59E0B" }}
-                            fill="#F59E0B"
                           />
-                          <span
-                            style={{
-                              fontWeight: 600,
-                              fontSize: "0.875rem",
-                              color: colors.textPrimary,
-                            }}
-                          >
-                            {product.rating}
-                          </span>
-                        </Box>
-                      </TableCell>
+                        </TableCell>
 
-                      {/* Status */}
-                      <TableCell sx={{ minWidth: 100 }}>
-                        <Chip
-                          icon={statusIcon(product.status)}
-                          label={product.status}
-                          size="small"
-                          sx={{
-                            bgcolor: sStyle.bg,
-                            color: sStyle.color,
-                            fontWeight: 700,
-                            fontSize: "0.7rem",
-                            textTransform: "capitalize",
-                          }}
-                        />
-                      </TableCell>
-
-                      {/* Actions — 3 inline icons */}
-                      <TableCell align="center" sx={{ minWidth: 110 }}>
-                        <Box
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            gap: 0.5,
-                          }}
-                        >
-                          {/* View */}
-                          <IconButton
-                            size="small"
-                            onClick={() =>
-                              navigate(`/admin/products/${product.id}`)
-                            }
+                        {/* Actions — 3 inline icons */}
+                        <TableCell align="center" sx={{ minWidth: 110 }}>
+                          <Box
                             sx={{
-                              color: colors.primary,
-                              "&:hover": { bgcolor: colors.primaryBg },
-                              borderRadius: 1.5,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              gap: 0.5,
                             }}
-                            title="View details"
                           >
-                            <Eye size={16} />
-                          </IconButton>
-                          {/* Edit */}
-                          <IconButton
-                            size="small"
-                            onClick={() =>
-                              navigate(`/admin/products/${product.id}/edit`)
-                            }
-                            sx={{
-                              color: "#7C3AED",
-                              "&:hover": { bgcolor: "#F3E8FF" },
-                              borderRadius: 1.5,
-                            }}
-                            title="Edit product"
-                          >
-                            <Edit size={16} />
-                          </IconButton>
-                          {/* Delete */}
-                          <IconButton
-                            size="small"
-                            onClick={() => {
-                              setProductToDelete(product);
-                              setDeleteDialog(true);
-                            }}
-                            sx={{
-                              color: colors.error,
-                              "&:hover": { bgcolor: colors.errorBg },
-                              borderRadius: 1.5,
-                            }}
-                            title="Delete product"
-                          >
-                            <Trash2 size={16} />
-                          </IconButton>
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
+                            {/* View */}
+                            <IconButton
+                              size="small"
+                              onClick={() =>
+                                navigate(`/admin/products/${product.id}`)
+                              }
+                              sx={{
+                                color: colors.primary,
+                                "&:hover": { bgcolor: colors.primaryBg },
+                                borderRadius: 1.5,
+                              }}
+                              title="View details"
+                            >
+                              <Eye size={16} />
+                            </IconButton>
+                            {/* Edit */}
+                            <IconButton
+                              size="small"
+                              onClick={() =>
+                                navigate(`/admin/products/${product.id}/edit`)
+                              }
+                              sx={{
+                                color: "#7C3AED",
+                                "&:hover": { bgcolor: "#F3E8FF" },
+                                borderRadius: 1.5,
+                              }}
+                              title="Edit product"
+                            >
+                              <Edit size={16} />
+                            </IconButton>
+                            {/* Delete */}
+                            <IconButton
+                              size="small"
+                              onClick={() => {
+                                setProductToDelete(product);
+                                setDeleteDialog(true);
+                              }}
+                              sx={{
+                                color: colors.error,
+                                "&:hover": { bgcolor: colors.errorBg },
+                                borderRadius: 1.5,
+                              }}
+                              title="Delete product"
+                            >
+                              <Trash2 size={16} />
+                            </IconButton>
+                          </Box>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </Box>
 
         <Box sx={{ overflowX: "auto" }}>
