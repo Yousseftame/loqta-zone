@@ -1,3 +1,5 @@
+// src/store/AdminContext/ProductContext/ProductsCotnext.tsx
+
 import {
   createContext,
   useContext,
@@ -22,14 +24,10 @@ import {
 } from "@/service/products/productService";
 import { useAuth } from "@/store/AuthContext/AuthContext";
 
-// ─── Context shape ────────────────────────────────────────────────────────────
 interface ProductContextType {
-  // State
   products: Product[];
   loading: boolean;
   error: string | null;
-
-  // CRUD
   refreshProducts: () => Promise<void>;
   getProduct: (id: string) => Promise<Product | null>;
   addProduct: (formData: ProductFormData) => Promise<Product>;
@@ -51,9 +49,8 @@ export const useProducts = () => {
   return ctx;
 };
 
-// ─── Provider ─────────────────────────────────────────────────────────────────
 export const ProductProvider = ({ children }: { children: ReactNode }) => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -62,9 +59,12 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
     setError(null);
     try {
+      console.log("Fetching products...");
       const data = await fetchProducts();
+      console.log("Products fetched:", data.length, data);
       setProducts(data);
     } catch (err: any) {
+      console.error("fetchProducts error:", err);
       const msg = err?.message ?? "Failed to load products";
       setError(msg);
       toast.error(msg);
@@ -73,15 +73,22 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  // Load on mount
+  // ✅ Wait for auth to resolve before fetching
   useEffect(() => {
-    refreshProducts();
-  }, [refreshProducts]);
+    if (authLoading) return; // wait for Firebase auth to initialize
+    if (!user) {
+      // not logged in — don't fetch, stop loading
+      setLoading(false);
+      return;
+    }
+    refreshProducts(); // user is confirmed logged in → fetch
+  }, [authLoading, user, refreshProducts]);
 
   const getProduct = useCallback(async (id: string) => {
     try {
       return await fetchProduct(id);
     } catch (err: any) {
+      console.error("getProduct error:", err);
       toast.error("Failed to fetch product");
       return null;
     }
@@ -89,46 +96,80 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
 
   const addProduct = useCallback(
     async (formData: ProductFormData) => {
-      const product = await createProduct(formData, user?.uid ?? "");
-      setProducts((prev) => [product, ...prev]);
-      toast.success("Product created successfully");
-      return product;
+      try {
+        const product = await createProduct(formData, user?.uid ?? "");
+        setProducts((prev) => [product, ...prev]);
+        toast.success("Product created successfully");
+        return product;
+      } catch (err: any) {
+        console.error("addProduct error:", err);
+        toast.error(err?.message ?? "Failed to create product");
+        throw err;
+      }
     },
     [user],
   );
 
   const editProduct = useCallback(
-    async (id: string, formData: ProductFormData, previousImages: string[]) => {
-      const updated = await updateProduct(id, formData, previousImages);
-      setProducts((prev) => prev.map((p) => (p.id === id ? updated : p)));
-      toast.success("Product updated successfully");
-      return updated;
+    async (
+      id: string,
+      formData: ProductFormData,
+      previousImages: string[],
+    ) => {
+      try {
+        const updated = await updateProduct(id, formData, previousImages);
+        setProducts((prev) => prev.map((p) => (p.id === id ? updated : p)));
+        toast.success("Product updated successfully");
+        return updated;
+      } catch (err: any) {
+        console.error("editProduct error:", err);
+        toast.error(err?.message ?? "Failed to update product");
+        throw err;
+      }
     },
     [],
   );
 
   const removeProduct = useCallback(async (product: Product) => {
-    await deleteProduct(product);
-    setProducts((prev) => prev.filter((p) => p.id !== product.id));
-    toast.success("Product deleted");
+    try {
+      await deleteProduct(product);
+      setProducts((prev) => prev.filter((p) => p.id !== product.id));
+      toast.success("Product deleted");
+    } catch (err: any) {
+      console.error("removeProduct error:", err);
+      toast.error(err?.message ?? "Failed to delete product");
+      throw err;
+    }
   }, []);
 
   const softArchive = useCallback(async (id: string) => {
-    await archiveProduct(id);
-    setProducts((prev) =>
-      prev.map((p) =>
-        p.id === id ? { ...p, isArchived: true, status: "archived" } : p,
-      ),
-    );
-    toast.success("Product archived");
+    try {
+      await archiveProduct(id);
+      setProducts((prev) =>
+        prev.map((p) =>
+          p.id === id
+            ? { ...p, isArchived: true, status: "archived" as const }
+            : p,
+        ),
+      );
+      toast.success("Product archived");
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to archive product");
+      throw err;
+    }
   }, []);
 
   const toggleActive = useCallback(async (id: string, isActive: boolean) => {
-    await toggleProductActive(id, isActive);
-    setProducts((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, isActive } : p)),
-    );
-    toast.success(isActive ? "Product activated" : "Product deactivated");
+    try {
+      await toggleProductActive(id, isActive);
+      setProducts((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, isActive } : p)),
+      );
+      toast.success(isActive ? "Product activated" : "Product deactivated");
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to toggle product");
+      throw err;
+    }
   }, []);
 
   return (
@@ -150,3 +191,4 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
     </ProductContext.Provider>
   );
 };
+

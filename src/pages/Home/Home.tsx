@@ -6,9 +6,17 @@ import ScrollVelocity from '@/components/ScrollVelocity';
 import Shuffle from '@/components/Shuffle';
 import TrueFocus from '@/components/TrueFocus';
 import { AnimatedThemeToggler } from '@/components/ui/animated-theme-toggler';
+import VariableProximity from '@/components/VariableProximity';
 import React from 'react'
+import { useRef } from "react";
+import { Swiper, SwiperSlide } from "swiper/react";
+import { Navigation, Pagination, Autoplay } from "swiper/modules";
+
 
 export default function Home() {
+
+  const containerRef = useRef(null);
+
   return (
     <>
       <AnimatedThemeToggler />
@@ -32,6 +40,34 @@ export default function Home() {
               loop={false}
               round={false}
             /> */}
+
+            <div ref={containerRef} style={{ position: "relative" }}>
+              <VariableProximity
+                label={
+                  "Hover me! And then star React Bits on GitHub, or else..."
+                }
+                className={"variable-proximity-demo"}
+                fromFontVariationSettings="'wght' 400, 'opsz' 9"
+                toFontVariationSettings="'wght' 1000, 'opsz' 40"
+                containerRef={containerRef}
+                radius={100}
+                falloff="linear"
+              />
+            </div>
+
+            <Swiper
+              modules={[Navigation, Pagination, Autoplay]}
+              spaceBetween={20}
+              slidesPerView={4}
+              navigation
+              pagination={{ clickable: true }}
+              autoplay={{ delay: 3000 }}
+              loop
+            >
+              <SwiperSlide>Card 1</SwiperSlide>
+              <SwiperSlide>Card 2</SwiperSlide>
+              <SwiperSlide>Card 3</SwiperSlide>
+            </Swiper>
 
             <CurvedLoop
               marqueeText="LOQTA ✦ ZONE ✦ LOQTA ✦ ZONE ✦ LOQTA ✦"

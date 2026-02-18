@@ -53,10 +53,10 @@ const Sidebar = () => {
       path: "/admin/Products",
     },
     {
-      id: "menu",
-      label: "Menu Management",
+      id: "Auctions",
+      label: "Auctions",
       icon: MenuBook,
-      path: "/admin/voucher",
+      path: "/admin/auctions",
     },
     {
       id: "gallery",
