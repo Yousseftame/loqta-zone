@@ -184,7 +184,7 @@ export default function ProductForm() {
   return (
     <Box
       sx={{
-        maxWidth: 900,
+        width: "100%",
         mx: "auto",
         p: { xs: 2, md: 4 },
         bgcolor: "#F8FAFC",

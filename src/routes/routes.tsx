@@ -3,7 +3,9 @@ import AuthLayout from "@/layouts/AuthLayout/AuthLayout";
 import DashboardLayout from "@/layouts/DashboardLayout/DashboardLayout";
 import MainLayout from "@/layouts/MainLayout/MainLayout";
 import AboutUs from "@/pages/AboutUs/AboutUs";
-import Auctions from "@/pages/Admin/Auctions/Auctions";
+import AuctionForm from "@/pages/Admin/Auctions/AuctionForm";
+import AuctionsList from "@/pages/Admin/Auctions/AuctionsList";
+import AuctionView from "@/pages/Admin/Auctions/AuctionView";
 import Biding from "@/pages/Admin/Biding/Biding";
 import Dashboard from "@/pages/Admin/Dashboard/Dashboard";
 import LastOffer from "@/pages/Admin/LastOffer/LastOffer";
@@ -50,11 +52,17 @@ export const routes = createBrowserRouter([
     errorElement: <NotFound />,
     children: [
       { index: true, element: <Dashboard /> },
+
       { path: "products", element: <ProductsList /> },
       { path: "products/add", element: <ProductForm /> },
       { path: "products/:id", element: <ProductView /> },
       { path: "products/:id/edit", element: <ProductForm /> },
-      { path: "auctions", element: <Auctions /> },
+
+      { path: "auctions", element: <AuctionsList /> },
+      { path: "auctions/add", element: <AuctionForm /> },
+      { path: "auctions/:id", element: <AuctionView /> },
+      { path: "auctions/:id/edit", element: <AuctionForm /> },
+
       { path: "biding", element: <Biding /> },
       { path: "lasroffer", element: <LastOffer /> },
       { path: "requests", element: <RequestSystem /> },

@@ -25,12 +25,7 @@ export const storage = getStorage(app);
 export const analytics = getAnalytics(app);
 export const functions = getFunctions(app);
 
-// After your existing exports, add:
-getDocs(collection(db, "users")).then(snap => {
-  console.log("✅ Firestore works! Docs:", snap.size);
-}).catch(err => {
-  console.error("❌ Firestore error:", err.code, err.message);
-});
+
 
 
 

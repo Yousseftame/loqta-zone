@@ -4,7 +4,6 @@ import {
   Paper,
   Box,
   Chip,
-  Avatar,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -15,65 +14,67 @@ import {
   ArrowLeft,
   Edit,
   Trash2,
-  Package,
+  Gavel,
   DollarSign,
-  Layers,
+  Users,
   Calendar,
-  CheckCircle2,
-  XCircle,
   Clock,
   AlertTriangle,
   Check,
+  Radio,
+  XCircle,
+  CheckCircle2,
+  Tag,
+  TrendingUp,
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
+import { colors } from "../Products/products-data";
 import {
-  colors,
-  getStatusStyle,
-  getAvatarColor,
-  type ProductStatus,
-} from "./products-data";
-import type { Product } from "./products-data";
-import { useProducts } from "@/store/AdminContext/ProductContext/ProductsCotnext";
+  getAuctionStatusStyle,
+  type AuctionStatus,
+  type Auction,
+} from "./auctions-data";
+import { useAuctions } from "@/store/AdminContext/AuctionContext/AuctionContext";
 
-const statusIcon = (s: ProductStatus) =>
-  s === "published" ? (
-    <CheckCircle2 size={14} />
-  ) : s === "archived" ? (
-    <XCircle size={14} />
-  ) : (
+const statusIcon = (s: AuctionStatus) =>
+  s === "live" ? (
+    <Radio size={14} />
+  ) : s === "upcoming" ? (
     <Clock size={14} />
+  ) : s === "ended" ? (
+    <CheckCircle2 size={14} />
+  ) : (
+    <XCircle size={14} />
   );
 
-export default function ProductView() {
+export default function AuctionView() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const { getProduct, removeProduct } = useProducts();
+  const { getAuction, removeAuction, changeStatus } = useAuctions();
 
-  const [product, setProduct] = useState<Product | null>(null);
+  const [auction, setAuction] = useState<Auction | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [done, setDone] = useState(false);
-  const [activeImg, setActiveImg] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
     (async () => {
       setLoading(true);
-      const p = await getProduct(id);
-      setProduct(p);
-      setActiveImg(p?.thumbnail ?? p?.images?.[0] ?? null);
+      const a = await getAuction(id);
+      setAuction(a);
       setLoading(false);
     })();
-  }, [id, getProduct]);
+  }, [id, getAuction]);
 
   const handleDelete = async () => {
-    if (!product) return;
+    if (!auction) return;
     setDeleting(true);
     try {
-      await removeProduct(product);
+      await removeAuction(auction.id);
       setDone(true);
-      setTimeout(() => navigate("/admin/Products"), 700);
+      setTimeout(() => navigate("/admin/auctions"), 700);
     } catch {
       setDeleting(false);
     }
@@ -94,12 +95,12 @@ export default function ProductView() {
     );
   }
 
-  if (!product) {
+  if (!auction) {
     return (
       <Box sx={{ p: 4, textAlign: "center" }}>
-        <p style={{ color: colors.textSecondary }}>Product not found.</p>
+        <p style={{ color: colors.textSecondary }}>Auction not found.</p>
         <Button
-          onClick={() => navigate("/admin/Products")}
+          onClick={() => navigate("/admin/auctions")}
           variant="contained"
           sx={{ mt: 2, bgcolor: colors.primary }}
         >
@@ -109,13 +110,12 @@ export default function ProductView() {
     );
   }
 
-  const sStyle = getStatusStyle(product.status);
-  const inventoryValue = (product.price * product.availableQuantity).toFixed(2);
+  const sStyle = getAuctionStatusStyle(auction.status);
 
   return (
     <Box
       sx={{
-        width: "100%",
+        width :"100%",
         mx: "auto",
         p: { xs: 2, md: 4 },
         bgcolor: "#F8FAFC",
@@ -125,7 +125,7 @@ export default function ProductView() {
       {/* Back */}
       <Button
         startIcon={<ArrowLeft size={16} />}
-        onClick={() => navigate("/admin/Products")}
+        onClick={() => navigate("/admin/auctions")}
         variant="outlined"
         sx={{
           mb: 3,
@@ -140,10 +140,10 @@ export default function ProductView() {
           },
         }}
       >
-        Back to Products
+        Back to Auctions
       </Button>
 
-      {/* ── Hero Card ── */}
+      {/* Hero Card */}
       <Paper
         elevation={0}
         sx={{
@@ -163,36 +163,22 @@ export default function ProductView() {
             gap: 3,
           }}
         >
-          {/* Thumbnail or Avatar */}
-          {activeImg && activeImg !== "null" ? (
-            <Box
-              component="img"
-              src={activeImg}
-              alt={product.title}
-              sx={{
-                width: { xs: 60, md: 80 },
-                height: { xs: 60, md: 80 },
-                borderRadius: 3,
-                objectFit: "cover",
-                border: "2px solid rgba(255,255,255,0.4)",
-                flexShrink: 0,
-              }}
-            />
-          ) : (
-            <Avatar
-              sx={{
-                bgcolor: "rgba(255,255,255,0.25)",
-                width: { xs: 60, md: 72 },
-                height: { xs: 60, md: 72 },
-                fontSize: "2rem",
-                fontWeight: 700,
-                borderRadius: 3,
-                border: "2px solid rgba(255,255,255,0.4)",
-              }}
-            >
-              {product.title.charAt(0)}
-            </Avatar>
-          )}
+          {/* Icon */}
+          <Box
+            sx={{
+              width: { xs: 60, md: 72 },
+              height: { xs: 60, md: 72 },
+              borderRadius: 3,
+              background: "rgba(255,255,255,0.2)",
+              border: "2px solid rgba(255,255,255,0.4)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <Gavel size={32} color="#fff" />
+          </Box>
 
           <Box sx={{ flex: 1 }}>
             <Box
@@ -212,11 +198,11 @@ export default function ProductView() {
                   fontWeight: 700,
                 }}
               >
-                {product.title}
+                Auction #{auction.auctionNumber}
               </h1>
               <Chip
-                icon={statusIcon(product.status)}
-                label={product.status}
+                icon={statusIcon(auction.status)}
+                label={auction.status}
                 size="small"
                 sx={{
                   bgcolor: "rgba(255,255,255,0.25)",
@@ -228,20 +214,11 @@ export default function ProductView() {
                 }}
               />
             </Box>
-            <p
-              style={{
-                margin: 0,
-                color: "rgba(255,255,255,0.75)",
-                fontSize: "0.875rem",
-              }}
-            >
-              {product.description}
-            </p>
             <Box sx={{ display: "flex", gap: 1, mt: 1.5, flexWrap: "wrap" }}>
               {[
-                `Brand: ${product.brand}`,
-                `Model: ${product.model}`,
-                `Category: ${product.category}`,
+                `Bid: ${auction.bidType}`,
+                `Entry: ${auction.entryType}`,
+                auction.lastOfferEnabled ? "Last Offer ON" : "Last Offer OFF",
               ].map((tag) => (
                 <span
                   key={tag}
@@ -264,7 +241,7 @@ export default function ProductView() {
           <Box sx={{ display: "flex", gap: 1.5, flexShrink: 0 }}>
             <Button
               startIcon={<Edit size={16} />}
-              onClick={() => navigate(`/admin/products/${product.id}/edit`)}
+              onClick={() => navigate(`/admin/auctions/${auction.id}/edit`)}
               variant="contained"
               sx={{
                 bgcolor: "rgba(255,255,255,0.2)",
@@ -306,35 +283,27 @@ export default function ProductView() {
         >
           {[
             {
-              label: "Price",
-              value: `$${product.price.toFixed(2)}`,
+              label: "Starting Price",
+              value: `$${auction.startingPrice.toFixed(2)}`,
               icon: <DollarSign size={16} />,
               color: colors.primary,
             },
             {
-              label: "Available",
-              value:
-                product.availableQuantity === 0
-                  ? "Out of stock"
-                  : `${product.availableQuantity} units`,
-              icon: <Layers size={16} />,
-              color:
-                product.availableQuantity === 0
-                  ? colors.error
-                  : product.availableQuantity < 10
-                    ? colors.warning
-                    : colors.success,
+              label: "Current Bid",
+              value: `$${auction.currentBid.toFixed(2)}`,
+              icon: <TrendingUp size={16} />,
+              color: "#22C55E",
             },
             {
-              label: "Total Qty",
-              value: `${product.totalQuantity} units`,
-              icon: <Package size={16} />,
+              label: "Participants",
+              value: auction.totalParticipants,
+              icon: <Users size={16} />,
               color: "#0EA5E9",
             },
             {
-              label: "Inv. Value",
-              value: `$${inventoryValue}`,
-              icon: <DollarSign size={16} />,
+              label: "Total Bids",
+              value: auction.totalBids,
+              icon: <Gavel size={16} />,
               color: "#7C3AED",
             },
           ].map(({ label, value, icon, color }, i) => (
@@ -398,78 +367,7 @@ export default function ProductView() {
         </Box>
       </Paper>
 
-      {/* ── Images Gallery ── */}
-      {product.images.length > 0 && (
-        <Paper
-          elevation={0}
-          sx={{
-            borderRadius: 3,
-            border: `1px solid ${colors.border}`,
-            overflow: "hidden",
-            mb: 3,
-          }}
-        >
-          <Box
-            sx={{
-              px: 3,
-              py: 2.5,
-              borderBottom: `1px solid ${colors.border}`,
-              display: "flex",
-              alignItems: "center",
-              gap: 1.5,
-            }}
-          >
-            <Package size={18} style={{ color: colors.primary }} />
-            <span style={{ fontWeight: 700, color: colors.textPrimary }}>
-              Product Images
-            </span>
-          </Box>
-          <Box sx={{ p: 3 }}>
-            {activeImg && activeImg !== "null" && (
-              <Box
-                component="img"
-                src={activeImg}
-                alt="active"
-                sx={{
-                  width: "100%",
-                  maxHeight: 320,
-                  objectFit: "contain",
-                  borderRadius: 2,
-                  border: `1px solid ${colors.border}`,
-                  mb: 2,
-                  bgcolor: colors.muted,
-                }}
-              />
-            )}
-            <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
-              {product.images.map((url) => (
-                <Box
-                  key={url}
-                  onClick={() => setActiveImg(url)}
-                  sx={{
-                    width: 64,
-                    height: 64,
-                    borderRadius: 2,
-                    overflow: "hidden",
-                    cursor: "pointer",
-                    border: `2px solid ${activeImg === url ? colors.primary : colors.border}`,
-                    transition: "border 0.15s",
-                  }}
-                >
-                  <Box
-                    component="img"
-                    src={url}
-                    alt="thumb"
-                    sx={{ width: "100%", height: "100%", objectFit: "cover" }}
-                  />
-                </Box>
-              ))}
-            </Box>
-          </Box>
-        </Paper>
-      )}
-
-      {/* ── Details Card ── */}
+      {/* Details Card */}
       <Paper
         elevation={0}
         sx={{
@@ -488,9 +386,9 @@ export default function ProductView() {
             gap: 1.5,
           }}
         >
-          <Package size={18} style={{ color: colors.primary }} />
+          <Gavel size={18} style={{ color: colors.primary }} />
           <span style={{ fontWeight: 700, color: colors.textPrimary }}>
-            Product Details
+            Auction Details
           </span>
         </Box>
         <Box
@@ -506,8 +404,8 @@ export default function ProductView() {
               label: "Status",
               value: (
                 <Chip
-                  icon={statusIcon(product.status)}
-                  label={product.status}
+                  icon={statusIcon(auction.status)}
+                  label={auction.status}
                   size="small"
                   sx={{
                     bgcolor: sStyle.bg,
@@ -519,35 +417,86 @@ export default function ProductView() {
               ),
             },
             {
-              label: "Active",
+              label: "Product ID",
+              value: (
+                <span
+                  style={{
+                    fontSize: "0.85rem",
+                    fontFamily: "monospace",
+                    background: colors.primaryBg,
+                    color: colors.primary,
+                    padding: "3px 10px",
+                    borderRadius: 6,
+                    fontWeight: 600,
+                  }}
+                >
+                  {auction.productId}
+                </span>
+              ),
+            },
+            {
+              label: "Bid Type",
               value: (
                 <Chip
-                  label={product.isActive ? "Active" : "Inactive"}
+                  label={auction.bidType}
                   size="small"
                   sx={{
-                    bgcolor: product.isActive ? "#DCFCE7" : "#FEE2E2",
-                    color: product.isActive ? "#22C55E" : "#EF4444",
+                    bgcolor:
+                      auction.bidType === "fixed" ? "#EFF6FF" : "#F3E8FF",
+                    color: auction.bidType === "fixed" ? "#3B82F6" : "#7C3AED",
+                    fontWeight: 700,
+                    textTransform: "capitalize",
+                  }}
+                />
+              ),
+            },
+            {
+              label: "Entry",
+              value:
+                auction.entryType === "paid" ? (
+                  <span style={{ fontWeight: 600, color: colors.warning }}>
+                    Paid — ${auction.entryFee}
+                  </span>
+                ) : (
+                  <Chip
+                    label="Free"
+                    size="small"
+                    sx={{
+                      bgcolor: colors.successBg,
+                      color: colors.success,
+                      fontWeight: 700,
+                    }}
+                  />
+                ),
+            },
+            {
+              label: "Min. Increment",
+              value: (
+                <span style={{ fontWeight: 700, color: colors.textPrimary }}>
+                  ${auction.minimumIncrement.toFixed(2)}
+                </span>
+              ),
+            },
+            {
+              label: "Last Offer",
+              value: (
+                <Chip
+                  label={auction.lastOfferEnabled ? "Enabled" : "Disabled"}
+                  size="small"
+                  sx={{
+                    bgcolor: auction.lastOfferEnabled
+                      ? colors.successBg
+                      : colors.muted,
+                    color: auction.lastOfferEnabled
+                      ? colors.success
+                      : colors.textMuted,
                     fontWeight: 700,
                   }}
                 />
               ),
             },
             {
-              label: "Category",
-              value: (
-                <span
-                  style={{
-                    fontSize: "0.875rem",
-                    color: colors.textPrimary,
-                    fontWeight: 600,
-                  }}
-                >
-                  {product.category}
-                </span>
-              ),
-            },
-            {
-              label: "Date Added",
+              label: "Start Time",
               value: (
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   <Calendar size={14} style={{ color: colors.textMuted }} />
@@ -558,7 +507,74 @@ export default function ProductView() {
                       fontWeight: 500,
                     }}
                   >
-                    {product.createdAt.toLocaleDateString()}
+                    {auction.startTime.toLocaleString()}
+                  </span>
+                </Box>
+              ),
+            },
+            {
+              label: "End Time",
+              value: (
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <Calendar size={14} style={{ color: colors.textMuted }} />
+                  <span
+                    style={{
+                      fontSize: "0.9rem",
+                      color: colors.textPrimary,
+                      fontWeight: 500,
+                    }}
+                  >
+                    {auction.endTime.toLocaleString()}
+                  </span>
+                </Box>
+              ),
+            },
+            {
+              label: "Winner ID",
+              value: auction.winnerId ? (
+                <span
+                  style={{
+                    fontSize: "0.85rem",
+                    fontFamily: "monospace",
+                    color: colors.textPrimary,
+                  }}
+                >
+                  {auction.winnerId}
+                </span>
+              ) : (
+                <span style={{ color: colors.textMuted, fontSize: "0.85rem" }}>
+                  —
+                </span>
+              ),
+            },
+            {
+              label: "Winning Bid",
+              value:
+                auction.winningBid != null ? (
+                  <span style={{ fontWeight: 700, color: "#22C55E" }}>
+                    ${auction.winningBid.toFixed(2)}
+                  </span>
+                ) : (
+                  <span
+                    style={{ color: colors.textMuted, fontSize: "0.85rem" }}
+                  >
+                    —
+                  </span>
+                ),
+            },
+            {
+              label: "Created At",
+              value: (
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <Clock size={14} style={{ color: colors.textMuted }} />
+                  <span
+                    style={{
+                      fontSize: "0.9rem",
+                      color: colors.textPrimary,
+                      fontWeight: 500,
+                    }}
+                  >
+                    {auction.createdAt.toLocaleDateString()}
                   </span>
                 </Box>
               ),
@@ -581,42 +597,7 @@ export default function ProductView() {
             </Box>
           ))}
 
-          {/* Features */}
-          {product.features.length > 0 && (
-            <Box>
-              <p
-                style={{
-                  margin: "0 0 8px",
-                  fontSize: "0.75rem",
-                  color: colors.textMuted,
-                  fontWeight: 600,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.04em",
-                }}
-              >
-                Features
-              </p>
-              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-                {product.features.map((f, i) => (
-                  <span
-                    key={i}
-                    style={{
-                      fontSize: "0.78rem",
-                      background: colors.primaryBg,
-                      color: colors.primary,
-                      padding: "3px 10px",
-                      borderRadius: 99,
-                      fontWeight: 600,
-                    }}
-                  >
-                    {f}
-                  </span>
-                ))}
-              </Box>
-            </Box>
-          )}
-
-          {/* Description */}
+          {/* Quick status change */}
           <Box sx={{ gridColumn: { sm: "1 / -1" } }}>
             <p
               style={{
@@ -628,25 +609,47 @@ export default function ProductView() {
                 letterSpacing: "0.04em",
               }}
             >
-              Description
+              Quick Status Change
             </p>
-            <Box sx={{ bgcolor: colors.muted, borderRadius: 2, p: 2 }}>
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: "0.9rem",
-                  color: colors.textSecondary,
-                  lineHeight: 1.6,
-                }}
-              >
-                {product.description}
-              </p>
+            <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+              {(
+                ["upcoming", "live", "ended", "cancelled"] as AuctionStatus[]
+              ).map((s) => {
+                const ss = getAuctionStatusStyle(s);
+                const active = auction.status === s;
+                return (
+                  <button
+                    key={s}
+                    disabled={active}
+                    onClick={async () => {
+                      await changeStatus(auction.id, s);
+                      setAuction((prev) =>
+                        prev ? { ...prev, status: s } : prev,
+                      );
+                    }}
+                    style={{
+                      padding: "5px 16px",
+                      borderRadius: 99,
+                      fontSize: "0.78rem",
+                      fontWeight: 600,
+                      cursor: active ? "default" : "pointer",
+                      transition: "all 0.15s",
+                      border: `1.5px solid ${active ? ss.color : colors.border}`,
+                      background: active ? ss.bg : "#fff",
+                      color: active ? ss.color : colors.textSecondary,
+                      opacity: active ? 1 : 0.8,
+                    }}
+                  >
+                    {s.charAt(0).toUpperCase() + s.slice(1)}
+                  </button>
+                );
+              })}
             </Box>
           </Box>
         </Box>
       </Paper>
 
-      {/* ── Delete Dialog ── */}
+      {/* Delete Dialog */}
       <Dialog
         open={deleteDialog}
         onClose={() => !deleting && setDeleteDialog(false)}
@@ -666,8 +669,9 @@ export default function ProductView() {
         </DialogTitle>
         <DialogContent>
           <p style={{ color: colors.textPrimary, marginBottom: 16 }}>
-            Are you sure you want to delete <strong>{product.title}</strong>?
-            All images in Storage will also be permanently removed.
+            Are you sure you want to delete{" "}
+            <strong>Auction #{auction.auctionNumber}</strong>? This cannot be
+            undone.
           </p>
           <Box
             sx={{

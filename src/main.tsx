@@ -5,6 +5,7 @@ import App from './App.tsx'
 import ClickSpark from './components/ClickSpark.tsx';
 import { AuthProvider } from './store/AuthContext/AuthContext.tsx';
 import { ProductProvider } from './store/AdminContext/ProductContext/ProductsCotnext.tsx';
+import { AuctionProvider } from './store/AdminContext/AuctionContext/AuctionContext.tsx';
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -18,7 +19,9 @@ createRoot(document.getElementById("root")!).render(
       {/* Your content here */}
       <AuthProvider>
         <ProductProvider>
-          <App />
+          <AuctionProvider>
+            <App />
+          </AuctionProvider>
         </ProductProvider>
       </AuthProvider>
     </ClickSpark>
