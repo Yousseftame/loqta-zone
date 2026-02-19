@@ -63,7 +63,7 @@ const Sidebar = () => {
       id: "Vouchers",
       label: "Vouchers",
       icon: LocalActivityIcon,
-      path: "/admin/voucher",
+      path: "/admin/vouchers",
     },
     {
       id: "section",

@@ -8,6 +8,8 @@ import {
   deleteDoc,
   serverTimestamp,
   Timestamp,
+  query,
+  orderBy,
 } from "firebase/firestore";
 import {
   ref,
@@ -64,7 +66,12 @@ async function deleteImageByUrl(url: string): Promise<void> {
 
 export async function fetchProducts(): Promise<Product[]> {
   try {
-    const snap = await getDocs(collection(db, COLLECTION));
+       const q = query(
+      collection(db, COLLECTION),
+      orderBy("createdAt", "desc")
+    );
+
+    const snap = await getDocs(q);
     return snap.docs.map((d) => docToProduct(d.id, d.data()));
   } catch (err: any) {
     console.warn("Fetch failed:", err.message);

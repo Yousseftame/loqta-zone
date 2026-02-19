@@ -9,6 +9,8 @@ import {
   serverTimestamp,
   Timestamp,
   increment,
+  query,
+  orderBy,
 } from "firebase/firestore";
 import { db } from "@/firebase/firebase";
 import type {
@@ -94,7 +96,12 @@ function formToPayload(formData: AuctionFormData, createdBy = "") {
 // ─── FETCH ALL ────────────────────────────────────────────────────────────────
 
 export async function fetchAuctions(): Promise<Auction[]> {
-  const snap = await getDocs(collection(db, COLLECTION));
+     const q = query(
+      collection(db, COLLECTION),
+      orderBy("createdAt", "desc")
+    );
+
+    const snap = await getDocs(q);
   return snap.docs.map((d) => docToAuction(d.id, d.data()));
 }
 

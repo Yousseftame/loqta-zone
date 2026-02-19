@@ -6,6 +6,7 @@ import ClickSpark from './components/ClickSpark.tsx';
 import { AuthProvider } from './store/AuthContext/AuthContext.tsx';
 import { ProductProvider } from './store/AdminContext/ProductContext/ProductsCotnext.tsx';
 import { AuctionProvider } from './store/AdminContext/AuctionContext/AuctionContext.tsx';
+import { VoucherProvider } from './store/AdminContext/VoucherContext/VoucherContext.tsx';
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -20,7 +21,9 @@ createRoot(document.getElementById("root")!).render(
       <AuthProvider>
         <ProductProvider>
           <AuctionProvider>
-            <App />
+            <VoucherProvider>
+              <App />
+            </VoucherProvider>
           </AuctionProvider>
         </ProductProvider>
       </AuthProvider>

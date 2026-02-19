@@ -17,7 +17,9 @@ import ProductView from "@/pages/Admin/Products/ProductView";
 import RequestSystem from "@/pages/Admin/RequestSystem/RequestSystem";
 import Scheduling from "@/pages/Admin/Scheduling/Scheduling";
 import User from "@/pages/Admin/User/User";
-import Voucher from "@/pages/Admin/Voucher/Voucher";
+import VoucherForm from "@/pages/Admin/Voucher/VoucherForm";
+import VouchersList from "@/pages/Admin/Voucher/VoucherList";
+import VoucherView from "@/pages/Admin/Voucher/VoucherView";
 import ForgetPassword from "@/pages/Auth/ForgetPassword/ForgetPassword";
 import Login from "@/pages/Auth/Login/Login";
 import Register from "@/pages/Auth/Register/Register";
@@ -63,12 +65,16 @@ export const routes = createBrowserRouter([
       { path: "auctions/:id", element: <AuctionView /> },
       { path: "auctions/:id/edit", element: <AuctionForm /> },
 
+      { path: "vouchers", element: <VouchersList /> },
+      { path: "vouchers/add", element: <VoucherForm /> },
+      { path: "vouchers/:id", element: <VoucherView /> },
+      { path: "vouchers/:id/edit", element: <VoucherForm /> },
+
       { path: "biding", element: <Biding /> },
       { path: "lasroffer", element: <LastOffer /> },
       { path: "requests", element: <RequestSystem /> },
       { path: "scheduling", element: <Scheduling /> },
       { path: "users", element: <User /> },
-      { path: "voucher", element: <Voucher /> },
       { path: "payment", element: <Payment /> },
     ],
   },
