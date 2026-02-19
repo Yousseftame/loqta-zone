@@ -635,7 +635,7 @@ export default function AuctionsList() {
                             fontSize: "0.85rem",
                           }}
                         >
-                          ${auction.startingPrice.toFixed(2)}
+                          {auction.startingPrice.toFixed(2)} EGP
                         </span>
                         <p
                           style={{
@@ -656,7 +656,7 @@ export default function AuctionsList() {
                             fontSize: "0.85rem",
                           }}
                         >
-                          ${auction.currentBid.toFixed(2)}
+                          {auction.currentBid.toFixed(2)} EGP
                         </span>
                       </TableCell>
 
@@ -691,7 +691,7 @@ export default function AuctionsList() {
                               color: colors.warning,
                             }}
                           >
-                            ${auction.entryFee}
+                            {auction.entryFee} EGP
                           </span>
                         ) : (
                           <span

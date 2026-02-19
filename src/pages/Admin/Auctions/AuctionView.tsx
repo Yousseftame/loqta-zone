@@ -321,13 +321,13 @@ export default function AuctionView() {
           {[
             {
               label: "Starting Price",
-              value: `$${auction.startingPrice.toFixed(2)}`,
+              value: `${auction.startingPrice.toFixed(2)} EGP`,
               icon: <DollarSign size={16} />,
               color: colors.primary,
             },
             {
               label: "Current Bid",
-              value: `$${auction.currentBid.toFixed(2)}`,
+              value: `${auction.currentBid.toFixed(2)} EGP`,
               icon: <DollarSign size={16} />,
               color: "#22C55E",
             },
@@ -540,7 +540,7 @@ export default function AuctionView() {
                       >
                         Fixed amount:{" "}
                         <strong style={{ color: colors.textPrimary }}>
-                          ${auction.fixedBidValue.toFixed(2)}
+                          {auction.fixedBidValue.toFixed(2)} EGP
                         </strong>
                       </span>
                     )}
@@ -552,7 +552,7 @@ export default function AuctionView() {
               value:
                 auction.entryType === "paid" ? (
                   <span style={{ fontWeight: 600, color: colors.warning }}>
-                    Paid — ${auction.entryFee}
+                    Paid — {auction.entryFee} EGP
                   </span>
                 ) : (
                   <Chip
@@ -570,7 +570,7 @@ export default function AuctionView() {
               label: "Min. Increment",
               value: (
                 <span style={{ fontWeight: 700, color: colors.textPrimary }}>
-                  ${auction.minimumIncrement.toFixed(2)}
+                  {auction.minimumIncrement.toFixed(2)} EGP
                 </span>
               ),
             },
@@ -649,7 +649,7 @@ export default function AuctionView() {
               value:
                 auction.winningBid != null ? (
                   <span style={{ fontWeight: 700, color: "#22C55E" }}>
-                    ${auction.winningBid.toFixed(2)}
+                    {auction.winningBid.toFixed(2)} EGP
                   </span>
                 ) : (
                   <span

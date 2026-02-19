@@ -316,7 +316,7 @@ export default function ProductView() {
           {[
             {
               label: "Price",
-              value: `$${product.price.toFixed(2)}`,
+              value: `${product.price.toFixed(2)} EGP`,
               icon: <DollarSign size={16} />,
               color: colors.primary,
             },
@@ -331,7 +331,7 @@ export default function ProductView() {
             },
             {
               label: "Inventory Value",
-              value: `$${inventoryValue}`,
+              value: `${inventoryValue} EGP`,
               icon: <DollarSign size={16} />,
               color: "#7C3AED",
             },
@@ -695,7 +695,7 @@ export default function ProductView() {
                         fontSize: "0.9rem",
                       }}
                     >
-                      ${auction.currentBid.toFixed(2)}
+                      {auction.currentBid.toFixed(2)} EGP
                     </p>
                     <p
                       style={{
