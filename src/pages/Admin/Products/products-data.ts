@@ -1,23 +1,20 @@
 // ─── Firebase-aligned types ───────────────────────────────────────────────────
 
-export type ProductStatus = "published" | "draft" | "archived";
-
 export interface Product {
-  id: string;                  // Firestore document ID
+  id: string;
   title: string;
   brand: string;
   model: string;
   category: string;
   description: string;
   price: number;
-  availableQuantity: number;
-  totalQuantity: number;
-  status: ProductStatus;
+  quantity: number;          // single quantity field
   isActive: boolean;
   isArchived: boolean;
   features: string[];
-  images: string[];            // Storage download URLs
+  images: string[];
   thumbnail: string | null;
+  totalAuctions: number;        // auto-managed — incremented/decremented by auctionService
   createdAt: Date;
   updatedAt: Date;
   createdBy: string;
@@ -30,17 +27,13 @@ export interface ProductFormData {
   category: string;
   description: string;
   price: string;
-  availableQuantity: string;
-  totalQuantity: string;
-  status: ProductStatus;
+  quantity: string;          // single quantity field
   isActive: boolean;
   features: string[];
-  newImages: File[];           // files queued for upload
-  existingImages: string[];    // already-uploaded URLs to keep
+  newImages: File[];
+  existingImages: string[];
   thumbnail: string | null;
 }
-
-export const STATUSES: ProductStatus[] = ["published", "draft", "archived"];
 
 export const colors = {
   primary: "#2A4863",
@@ -64,14 +57,6 @@ export const colors = {
   textMuted: "#94A3B8",
 };
 
-export const getStatusStyle = (status: ProductStatus) => {
-  switch (status) {
-    case "published": return { bg: "#DCFCE7", color: "#22C55E" };
-    case "draft":     return { bg: "#FFEDD5", color: "#F97316" };
-    case "archived":  return { bg: "#FEE2E2", color: "#EF4444" };
-  }
-};
-
 export const avatarPalette = [
   "#2A4863", "#7C3AED", "#0EA5E9", "#10B981",
   "#F59E0B", "#EF4444", "#EC4899", "#8B5CF6",
@@ -87,9 +72,7 @@ export const DEFAULT_FORM_DATA: ProductFormData = {
   category: "",
   description: "",
   price: "",
-  availableQuantity: "",
-  totalQuantity: "",
-  status: "draft",
+  quantity: "",
   isActive: true,
   features: [],
   newImages: [],

@@ -1,6 +1,6 @@
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type AuctionStatus = "upcoming" | "live" | "ended" | "cancelled";
+export type AuctionStatus = "upcoming" | "live" | "ended";
 export type BidType = "fixed" | "free";
 export type EntryType = "free" | "paid";
 
@@ -14,14 +14,17 @@ export interface Auction {
   currentBid: number;
   minimumIncrement: number;
   bidType: BidType;
+  fixedBidValue: number | null;   // only used when bidType === "fixed"
   // Time
   startTime: Date;
   endTime: Date;
   // Entry
   entryType: EntryType;
   entryFee: number;
-  // Status
+  // Status — auto-calculated from dates, stored for querying
   status: AuctionStatus;
+  // Active
+  isActive: boolean;
   // Winner
   winnerId: string | null;
   winningBid: number | null;
@@ -42,22 +45,26 @@ export interface AuctionFormData {
   startingPrice: string;
   minimumIncrement: string;
   bidType: BidType;
-  startTime: string; // ISO string from datetime-local input
+  fixedBidValue: string;          // only relevant when bidType === "fixed"
+  startTime: string;              // ISO string from datetime-local input
   endTime: string;
   entryType: EntryType;
   entryFee: string;
-  status: AuctionStatus;
+  isActive: boolean;
   lastOfferEnabled: boolean;
+}
+
+// ─── Auto-calculate status from dates ─────────────────────────────────────────
+export function computeAuctionStatus(startTime: Date, endTime: Date): AuctionStatus {
+  const now = new Date();
+  if (now < startTime) return "upcoming";
+  if (now >= startTime && now <= endTime) return "live";
+  return "ended";
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-export const AUCTION_STATUSES: AuctionStatus[] = [
-  "upcoming",
-  "live",
-  "ended",
-  "cancelled",
-];
+export const AUCTION_STATUSES: AuctionStatus[] = ["upcoming", "live", "ended"];
 
 export const DEFAULT_AUCTION_FORM: AuctionFormData = {
   productId: "",
@@ -65,11 +72,12 @@ export const DEFAULT_AUCTION_FORM: AuctionFormData = {
   startingPrice: "",
   minimumIncrement: "",
   bidType: "fixed",
+  fixedBidValue: "",
   startTime: "",
   endTime: "",
   entryType: "free",
   entryFee: "0",
-  status: "upcoming",
+  isActive: true,
   lastOfferEnabled: false,
 };
 
@@ -77,9 +85,8 @@ export const DEFAULT_AUCTION_FORM: AuctionFormData = {
 
 export const getAuctionStatusStyle = (status: AuctionStatus) => {
   switch (status) {
-    case "upcoming":   return { bg: "#EFF6FF", color: "#3B82F6" };
-    case "live":       return { bg: "#DCFCE7", color: "#22C55E" };
-    case "ended":      return { bg: "#F1F5F9", color: "#64748B" };
-    case "cancelled":  return { bg: "#FEE2E2", color: "#EF4444" };
+    case "upcoming":  return { bg: "#EFF6FF", color: "#3B82F6" };
+    case "live":      return { bg: "#DCFCE7", color: "#22C55E" };
+    case "ended":     return { bg: "#F1F5F9", color: "#64748B" };
   }
 };

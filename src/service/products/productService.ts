@@ -7,8 +7,6 @@ import {
   updateDoc,
   deleteDoc,
   serverTimestamp,
-  query,
-  orderBy,
   Timestamp,
 } from "firebase/firestore";
 import {
@@ -18,13 +16,11 @@ import {
   deleteObject,
 } from "firebase/storage";
 import { db, storage } from "@/firebase/firebase";
-import type {
-  Product,
-  ProductFormData,
-  ProductStatus,
-} from "@/pages/Admin/Products/products-data";
+import type { Product, ProductFormData } from "@/pages/Admin/Products/products-data";
 
 const COLLECTION = "products";
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function docToProduct(id: string, data: Record<string, any>): Product {
   return {
@@ -35,29 +31,20 @@ function docToProduct(id: string, data: Record<string, any>): Product {
     category: data.category ?? "",
     description: data.description ?? "",
     price: data.price ?? 0,
-    availableQuantity: data.availableQuantity ?? 0,
-    totalQuantity: data.totalQuantity ?? 0,
-    status: (data.status as ProductStatus) ?? "draft",
+    quantity: data.quantity ?? 0,
     isActive: data.isActive ?? true,
     isArchived: data.isArchived ?? false,
     features: Array.isArray(data.features) ? data.features : [],
     images: Array.isArray(data.images) ? data.images : [],
-    thumbnail:
-      !data.thumbnail || data.thumbnail === "null" ? null : data.thumbnail,
-    createdAt:
-      data.createdAt instanceof Timestamp
-        ? data.createdAt.toDate()
-        : new Date(),
-    updatedAt:
-      data.updatedAt instanceof Timestamp
-        ? data.updatedAt.toDate()
-        : new Date(),
+    thumbnail: !data.thumbnail || data.thumbnail === "null" ? null : data.thumbnail,
+    totalAuctions: data.totalAuctions ?? 0,
+    createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
+    updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date(),
     createdBy: data.createdBy ?? "",
   };
 }
 
 async function uploadImage(productId: string, file: File): Promise<string> {
-  // Use timestamp to avoid filename collisions
   const safeName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
   const storageRef = ref(storage, `products/${productId}/${safeName}`);
   const snapshot = await uploadBytes(storageRef, file);
@@ -74,20 +61,19 @@ async function deleteImageByUrl(url: string): Promise<void> {
 }
 
 // ─── FETCH ALL ────────────────────────────────────────────────────────────────
+
 export async function fetchProducts(): Promise<Product[]> {
   try {
-    const q = query(collection(db, COLLECTION));
-    const snap = await getDocs(q);
-    return snap.docs.map((d) => docToProduct(d.id, d.data()));
-  } catch (err: any) {
-    // If Firestore index doesn't exist yet, fall back to unordered
-    console.warn("Ordered fetch failed, trying unordered:", err.message);
     const snap = await getDocs(collection(db, COLLECTION));
     return snap.docs.map((d) => docToProduct(d.id, d.data()));
+  } catch (err: any) {
+    console.warn("Fetch failed:", err.message);
+    throw err;
   }
 }
 
 // ─── FETCH ONE ────────────────────────────────────────────────────────────────
+
 export async function fetchProduct(id: string): Promise<Product | null> {
   const snap = await getDoc(doc(db, COLLECTION, id));
   if (!snap.exists()) return null;
@@ -95,11 +81,12 @@ export async function fetchProduct(id: string): Promise<Product | null> {
 }
 
 // ─── CREATE ───────────────────────────────────────────────────────────────────
+
 export async function createProduct(
   formData: ProductFormData,
   createdByUid: string,
 ): Promise<Product> {
-  // 1. Build base payload — no images yet
+  // 1. Create doc first to get the ID
   const payload: Record<string, any> = {
     title: formData.title,
     brand: formData.brand,
@@ -107,23 +94,21 @@ export async function createProduct(
     category: formData.category,
     description: formData.description,
     price: Number(formData.price),
-    availableQuantity: Number(formData.availableQuantity),
-    totalQuantity: Number(formData.totalQuantity),
-    status: formData.status,
+    quantity: Number(formData.quantity),
     isActive: formData.isActive,
     isArchived: false,
     features: formData.features,
     images: [],
-    thumbnail: "null",
+    thumbnail: null,
+    totalAuctions: 0,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
     createdBy: createdByUid,
   };
 
-  // 2. Create doc to get the ID
   const docRef = await addDoc(collection(db, COLLECTION), payload);
 
-  // 3. Upload images using the new doc ID
+  // 2. Upload images using the new doc ID
   const uploadedUrls: string[] = [];
   for (const file of formData.newImages) {
     try {
@@ -134,16 +119,15 @@ export async function createProduct(
     }
   }
 
-  // 4. Update doc with image data if any images were uploaded
+  // 3. Update doc with images if any were uploaded
   if (uploadedUrls.length > 0) {
-    const thumbnail = uploadedUrls[0];
     await updateDoc(docRef, {
       images: uploadedUrls,
-      thumbnail,
+      thumbnail: uploadedUrls[0],
     });
   }
 
-  // 5. Build and return product locally (avoids serverTimestamp timing issue)
+  // 4. Return locally-built product
   const now = new Date();
   return {
     id: docRef.id,
@@ -153,14 +137,13 @@ export async function createProduct(
     category: formData.category,
     description: formData.description,
     price: Number(formData.price),
-    availableQuantity: Number(formData.availableQuantity),
-    totalQuantity: Number(formData.totalQuantity),
-    status: formData.status,
+    quantity: Number(formData.quantity),
     isActive: formData.isActive,
     isArchived: false,
     features: formData.features,
     images: uploadedUrls,
     thumbnail: uploadedUrls[0] ?? null,
+    totalAuctions: 0,
     createdAt: now,
     updatedAt: now,
     createdBy: createdByUid,
@@ -168,6 +151,7 @@ export async function createProduct(
 }
 
 // ─── UPDATE ───────────────────────────────────────────────────────────────────
+
 export async function updateProduct(
   id: string,
   formData: ProductFormData,
@@ -184,7 +168,7 @@ export async function updateProduct(
     }
   }
 
-  // 2. Final image list
+  // 2. Final image list = kept existing + newly uploaded
   const finalImages = [...formData.existingImages, ...newUrls];
 
   // 3. Delete removed images from Storage
@@ -196,10 +180,13 @@ export async function updateProduct(
   }
 
   // 4. Determine thumbnail
-  const thumbnail =
-    formData.thumbnail && formData.thumbnail !== "null"
-      ? formData.thumbnail
-      : finalImages[0] ?? "null";
+  // If the saved thumbnail was removed or points to a deleted image, fall back to first available
+  const thumbnailIsValid =
+    formData.thumbnail &&
+    formData.thumbnail !== "null" &&
+    finalImages.includes(formData.thumbnail);
+
+  const thumbnail = thumbnailIsValid ? formData.thumbnail : (finalImages[0] ?? null);
 
   // 5. Update Firestore
   await updateDoc(doc(db, COLLECTION, id), {
@@ -209,13 +196,11 @@ export async function updateProduct(
     category: formData.category,
     description: formData.description,
     price: Number(formData.price),
-    availableQuantity: Number(formData.availableQuantity),
-    totalQuantity: Number(formData.totalQuantity),
-    status: formData.status,
+    quantity: Number(formData.quantity),
     isActive: formData.isActive,
     features: formData.features,
     images: finalImages,
-    thumbnail,
+    thumbnail: thumbnail ?? null,
     updatedAt: serverTimestamp(),
   });
 
@@ -229,14 +214,13 @@ export async function updateProduct(
     category: formData.category,
     description: formData.description,
     price: Number(formData.price),
-    availableQuantity: Number(formData.availableQuantity),
-    totalQuantity: Number(formData.totalQuantity),
-    status: formData.status,
+    quantity: Number(formData.quantity),
     isActive: formData.isActive,
     isArchived: false,
     features: formData.features,
     images: finalImages,
-    thumbnail: thumbnail === "null" ? null : thumbnail,
+    thumbnail,
+    totalAuctions: 0,   // preserved by Firestore — not touched on product update
     createdAt: new Date(),
     updatedAt: now,
     createdBy: "",
@@ -244,6 +228,7 @@ export async function updateProduct(
 }
 
 // ─── DELETE ───────────────────────────────────────────────────────────────────
+
 export async function deleteProduct(product: Product): Promise<void> {
   for (const url of product.images) {
     await deleteImageByUrl(url);
@@ -252,21 +237,10 @@ export async function deleteProduct(product: Product): Promise<void> {
 }
 
 // ─── TOGGLE ACTIVE ────────────────────────────────────────────────────────────
-export async function toggleProductActive(
-  id: string,
-  isActive: boolean,
-): Promise<void> {
+
+export async function toggleProductActive(id: string, isActive: boolean): Promise<void> {
   await updateDoc(doc(db, COLLECTION, id), {
     isActive,
-    updatedAt: serverTimestamp(),
-  });
-}
-
-// ─── ARCHIVE ─────────────────────────────────────────────────────────────────
-export async function archiveProduct(id: string): Promise<void> {
-  await updateDoc(doc(db, COLLECTION, id), {
-    isArchived: true,
-    status: "archived",
     updatedAt: serverTimestamp(),
   });
 }

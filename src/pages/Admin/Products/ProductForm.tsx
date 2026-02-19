@@ -8,24 +8,12 @@ import {
   FormControlLabel,
   CircularProgress,
 } from "@mui/material";
-import {
-  ArrowLeft,
-  Save,
-  Package,
-  Info,
-  Plus,
-  X,
-  Upload,
-  Image,
-} from "lucide-react";
+import { ArrowLeft, Save, Package, Info, Plus, X, Upload } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   colors,
-  STATUSES,
   DEFAULT_FORM_DATA,
-  type ProductStatus,
   type ProductFormData,
-  getStatusStyle,
 } from "./products-data";
 import { useProducts } from "@/store/AdminContext/ProductContext/ProductsCotnext";
 
@@ -52,6 +40,8 @@ export default function ProductForm() {
   const [loadingProduct, setLoadingProduct] = useState(isEdit);
   const [newFeature, setNewFeature] = useState("");
   const [originalImages, setOriginalImages] = useState<string[]>([]);
+  // Preview URLs for new images — kept in sync with form.newImages
+  const [newImagePreviews, setNewImagePreviews] = useState<string[]>([]);
 
   // ── Pre-fill on edit ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -68,9 +58,7 @@ export default function ProductForm() {
           category: p.category,
           description: p.description,
           price: String(p.price),
-          availableQuantity: String(p.availableQuantity),
-          totalQuantity: String(p.totalQuantity),
-          status: p.status,
+          quantity: String(p.quantity),
           isActive: p.isActive,
           features: p.features,
           newImages: [],
@@ -104,20 +92,35 @@ export default function ProductForm() {
   // ── Images ─────────────────────────────────────────────────────────────────
   const handleImageFiles = (files: FileList | null) => {
     if (!files) return;
-    field("newImages", [...form.newImages, ...Array.from(files)]);
+    const newFiles = Array.from(files);
+    const newPreviews = newFiles.map((f) => URL.createObjectURL(f));
+    setForm((prev) => ({
+      ...prev,
+      newImages: [...prev.newImages, ...newFiles],
+    }));
+    setNewImagePreviews((prev) => [...prev, ...newPreviews]);
   };
 
-  const removeNewImage = (i: number) =>
-    field(
-      "newImages",
-      form.newImages.filter((_, idx) => idx !== i),
-    );
+  const removeNewImage = (i: number) => {
+    // Revoke the object URL to free memory
+    URL.revokeObjectURL(newImagePreviews[i]);
+    setForm((prev) => ({
+      ...prev,
+      newImages: prev.newImages.filter((_, idx) => idx !== i),
+    }));
+    setNewImagePreviews((prev) => prev.filter((_, idx) => idx !== i));
+  };
 
-  const removeExistingImage = (url: string) =>
-    field(
-      "existingImages",
-      form.existingImages.filter((u) => u !== url),
-    );
+  const removeExistingImage = (url: string) => {
+    const remaining = form.existingImages.filter((u) => u !== url);
+    const newThumbnail =
+      form.thumbnail === url ? (remaining[0] ?? null) : form.thumbnail;
+    setForm((f) => ({
+      ...f,
+      existingImages: remaining,
+      thumbnail: newThumbnail,
+    }));
+  };
 
   // ── Validation ─────────────────────────────────────────────────────────────
   const validate = () => {
@@ -130,17 +133,11 @@ export default function ProductForm() {
     if (!form.price || isNaN(Number(form.price)) || Number(form.price) < 0)
       e.price = "Enter a valid price";
     if (
-      !form.availableQuantity ||
-      isNaN(Number(form.availableQuantity)) ||
-      Number(form.availableQuantity) < 0
+      !form.quantity ||
+      isNaN(Number(form.quantity)) ||
+      Number(form.quantity) < 0
     )
-      e.availableQuantity = "Enter a valid available quantity";
-    if (
-      !form.totalQuantity ||
-      isNaN(Number(form.totalQuantity)) ||
-      Number(form.totalQuantity) < 0
-    )
-      e.totalQuantity = "Enter a valid total quantity";
+      e.quantity = "Enter a valid quantity";
     return e;
   };
 
@@ -339,11 +336,11 @@ export default function ProductForm() {
             />
           </Box>
 
-          {/* Row 3 — Price + Available Qty + Total Qty */}
+          {/* Row 3 — Price + Quantity */}
           <Box
             sx={{
               display: "grid",
-              gridTemplateColumns: { xs: "1fr", sm: "repeat(3,1fr)" },
+              gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
               gap: 2.5,
             }}
           >
@@ -359,104 +356,47 @@ export default function ProductForm() {
               sx={inputSx}
             />
             <TextField
-              label="Available Qty *"
+              label="Quantity *"
               size="small"
               type="number"
               fullWidth
-              value={form.availableQuantity}
-              onChange={(e) => field("availableQuantity", e.target.value)}
-              error={!!errors.availableQuantity}
-              helperText={errors.availableQuantity}
-              sx={inputSx}
-            />
-            <TextField
-              label="Total Qty *"
-              size="small"
-              type="number"
-              fullWidth
-              value={form.totalQuantity}
-              onChange={(e) => field("totalQuantity", e.target.value)}
-              error={!!errors.totalQuantity}
-              helperText={errors.totalQuantity}
+              value={form.quantity}
+              onChange={(e) => field("quantity", e.target.value)}
+              error={!!errors.quantity}
+              helperText={errors.quantity}
               sx={inputSx}
             />
           </Box>
 
-          {/* Row 4 — Status + isActive */}
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
-              gap: 2.5,
-            }}
-          >
-            {/* Status pills */}
-            <Box>
-              <p
-                style={{
-                  fontSize: "0.75rem",
-                  color: colors.textSecondary,
-                  fontWeight: 600,
-                  marginBottom: 6,
-                }}
-              >
-                Status *
-              </p>
-              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-                {STATUSES.map((s) => {
-                  const ss = getStatusStyle(s);
-                  const active = form.status === s;
-                  return (
-                    <button
-                      key={s}
-                      onClick={() => field("status", s)}
-                      style={{
-                        padding: "5px 16px",
-                        borderRadius: 99,
-                        fontSize: "0.78rem",
-                        fontWeight: 600,
-                        cursor: "pointer",
-                        transition: "all 0.15s",
-                        border: `1.5px solid ${active ? ss.color : colors.border}`,
-                        background: active ? ss.bg : "#fff",
-                        color: active ? ss.color : colors.textSecondary,
-                      }}
-                    >
-                      {s.charAt(0).toUpperCase() + s.slice(1)}
-                    </button>
-                  );
-                })}
-              </Box>
-            </Box>
-            {/* isActive toggle */}
-            <Box sx={{ display: "flex", alignItems: "center" }}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={form.isActive}
-                    onChange={(e) => field("isActive", e.target.checked)}
-                    sx={{
-                      "& .MuiSwitch-switchBase.Mui-checked": {
-                        color: colors.primary,
-                      },
-                      "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track":
-                        { bgcolor: colors.primary },
-                    }}
-                  />
-                }
-                label={
-                  <span
-                    style={{
-                      fontSize: "0.875rem",
-                      fontWeight: 600,
-                      color: colors.textPrimary,
-                    }}
-                  >
-                    Active
-                  </span>
-                }
-              />
-            </Box>
+          {/* Row 4 — isActive toggle */}
+          <Box>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={form.isActive}
+                  onChange={(e) => field("isActive", e.target.checked)}
+                  sx={{
+                    "& .MuiSwitch-switchBase.Mui-checked": {
+                      color: colors.primary,
+                    },
+                    "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
+                      bgcolor: colors.primary,
+                    },
+                  }}
+                />
+              }
+              label={
+                <span
+                  style={{
+                    fontSize: "0.875rem",
+                    fontWeight: 600,
+                    color: colors.textPrimary,
+                  }}
+                >
+                  Active
+                </span>
+              }
+            />
           </Box>
 
           {/* Description */}
@@ -556,7 +496,7 @@ export default function ProductForm() {
             </Box>
           </Box>
 
-          {/* Images upload */}
+          {/* Images */}
           <Box>
             <p
               style={{
@@ -632,18 +572,18 @@ export default function ProductForm() {
               </Box>
             )}
 
-            {/* New images previews */}
-            {form.newImages.length > 0 && (
+            {/* New image previews — using stable preview URLs */}
+            {newImagePreviews.length > 0 && (
               <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.5, mb: 2 }}>
-                {form.newImages.map((file, i) => (
+                {newImagePreviews.map((previewUrl, i) => (
                   <Box
-                    key={i}
+                    key={previewUrl}
                     sx={{ position: "relative", width: 80, height: 80 }}
                   >
                     <Box
                       component="img"
-                      src={URL.createObjectURL(file)}
-                      alt={file.name}
+                      src={previewUrl}
+                      alt={`new-${i}`}
                       sx={{
                         width: 80,
                         height: 80,
@@ -736,48 +676,47 @@ export default function ProductForm() {
               />
             </Box>
 
-            {/* Thumbnail selector */}
-            {(form.existingImages.length > 0 || form.newImages.length > 0) &&
-              form.existingImages.length > 1 && (
-                <Box sx={{ mt: 2 }}>
-                  <p
-                    style={{
-                      fontSize: "0.75rem",
-                      color: colors.textSecondary,
-                      fontWeight: 600,
-                      marginBottom: 6,
-                    }}
-                  >
-                    Select Thumbnail
-                  </p>
-                  <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-                    {form.existingImages.map((url) => (
+            {/* Thumbnail selector — show when 2+ existing images */}
+            {form.existingImages.length > 1 && (
+              <Box sx={{ mt: 2 }}>
+                <p
+                  style={{
+                    fontSize: "0.75rem",
+                    color: colors.textSecondary,
+                    fontWeight: 600,
+                    marginBottom: 6,
+                  }}
+                >
+                  Select Thumbnail
+                </p>
+                <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+                  {form.existingImages.map((url) => (
+                    <Box
+                      key={url}
+                      onClick={() => field("thumbnail", url)}
+                      sx={{
+                        width: 50,
+                        height: 50,
+                        borderRadius: 2,
+                        overflow: "hidden",
+                        cursor: "pointer",
+                        border: `2px solid ${form.thumbnail === url ? colors.primary : colors.border}`,
+                      }}
+                    >
                       <Box
-                        key={url}
-                        onClick={() => field("thumbnail", url)}
+                        component="img"
+                        src={url}
                         sx={{
-                          width: 50,
-                          height: 50,
-                          borderRadius: 2,
-                          overflow: "hidden",
-                          cursor: "pointer",
-                          border: `2px solid ${form.thumbnail === url ? colors.primary : colors.border}`,
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
                         }}
-                      >
-                        <Box
-                          component="img"
-                          src={url}
-                          sx={{
-                            width: "100%",
-                            height: "100%",
-                            objectFit: "cover",
-                          }}
-                        />
-                      </Box>
-                    ))}
-                  </Box>
+                      />
+                    </Box>
+                  ))}
                 </Box>
-              )}
+              </Box>
+            )}
           </Box>
 
           {/* Info banner */}
@@ -805,8 +744,8 @@ export default function ProductForm() {
             >
               <strong>Note:</strong>{" "}
               {isEdit
-                ? "Changes will be saved to Firestore immediately."
-                : "The product will be created in Firestore and images uploaded to Firebase Storage."}
+                ? "Any changes you make here will be saved and reflected immediately across the platform."
+                : "Once you submit, the product will be live and visible based on its active status."}
             </p>
           </Box>
         </Box>

@@ -10,7 +10,6 @@ import toast from "react-hot-toast";
 import type {
   Auction,
   AuctionFormData,
-  AuctionStatus,
 } from "@/pages/Admin/Auctions/auctions-data";
 import {
   fetchAuctions,
@@ -18,7 +17,7 @@ import {
   createAuction,
   updateAuction,
   deleteAuction,
-  updateAuctionStatus,
+  toggleAuctionActive,
 } from "@/service/auctions/auctionService";
 import { useAuth } from "@/store/AuthContext/AuthContext";
 
@@ -31,7 +30,7 @@ interface AuctionContextType {
   addAuction: (formData: AuctionFormData) => Promise<Auction>;
   editAuction: (id: string, formData: AuctionFormData) => Promise<Auction>;
   removeAuction: (id: string) => Promise<void>;
-  changeStatus: (id: string, status: AuctionStatus) => Promise<void>;
+  toggleActive: (id: string, isActive: boolean) => Promise<void>;
 }
 
 const AuctionContext = createContext<AuctionContextType | undefined>(undefined);
@@ -75,7 +74,7 @@ export const AuctionProvider = ({ children }: { children: ReactNode }) => {
   const getAuction = useCallback(async (id: string) => {
     try {
       return await fetchAuction(id);
-    } catch (err: any) {
+    } catch {
       toast.error("Failed to fetch auction");
       return null;
     }
@@ -122,21 +121,18 @@ export const AuctionProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  const changeStatus = useCallback(
-    async (id: string, status: AuctionStatus) => {
-      try {
-        await updateAuctionStatus(id, status);
-        setAuctions((prev) =>
-          prev.map((a) => (a.id === id ? { ...a, status } : a)),
-        );
-        toast.success(`Auction marked as ${status}`);
-      } catch (err: any) {
-        toast.error(err?.message ?? "Failed to update status");
-        throw err;
-      }
-    },
-    [],
-  );
+  const toggleActive = useCallback(async (id: string, isActive: boolean) => {
+    try {
+      await toggleAuctionActive(id, isActive);
+      setAuctions((prev) =>
+        prev.map((a) => (a.id === id ? { ...a, isActive } : a)),
+      );
+      toast.success(isActive ? "Auction activated" : "Auction deactivated");
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to toggle auction");
+      throw err;
+    }
+  }, []);
 
   return (
     <AuctionContext.Provider
@@ -149,7 +145,7 @@ export const AuctionProvider = ({ children }: { children: ReactNode }) => {
         addAuction,
         editAuction,
         removeAuction,
-        changeStatus,
+        toggleActive,
       }}
     >
       {children}

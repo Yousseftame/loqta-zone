@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   Button,
   Paper,
@@ -19,35 +19,37 @@ import {
   DollarSign,
   Layers,
   Calendar,
-  CheckCircle2,
-  XCircle,
-  Clock,
   AlertTriangle,
   Check,
+  Gavel,
+  Radio,
+  Clock,
+  CheckCircle2,
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
-import {
-  colors,
-  getStatusStyle,
-  getAvatarColor,
-  type ProductStatus,
-} from "./products-data";
+import { colors, getAvatarColor } from "./products-data";
 import type { Product } from "./products-data";
 import { useProducts } from "@/store/AdminContext/ProductContext/ProductsCotnext";
+import { useAuctions } from "@/store/AdminContext/AuctionContext/AuctionContext";
+import {
+  getAuctionStatusStyle,
+  type AuctionStatus,
+} from "../Auctions/auctions-data";
 
-const statusIcon = (s: ProductStatus) =>
-  s === "published" ? (
-    <CheckCircle2 size={14} />
-  ) : s === "archived" ? (
-    <XCircle size={14} />
+const auctionStatusIcon = (s: AuctionStatus) =>
+  s === "live" ? (
+    <Radio size={12} />
+  ) : s === "upcoming" ? (
+    <Clock size={12} />
   ) : (
-    <Clock size={14} />
+    <CheckCircle2 size={12} />
   );
 
 export default function ProductView() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { getProduct, removeProduct } = useProducts();
+  const { auctions } = useAuctions();
 
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
@@ -62,7 +64,8 @@ export default function ProductView() {
       setLoading(true);
       const p = await getProduct(id);
       setProduct(p);
-      setActiveImg(p?.thumbnail ?? p?.images?.[0] ?? null);
+      const thumb = p?.thumbnail && p.thumbnail !== "null" ? p.thumbnail : null;
+      setActiveImg(thumb ?? p?.images?.[0] ?? null);
       setLoading(false);
     })();
   }, [id, getProduct]);
@@ -78,6 +81,15 @@ export default function ProductView() {
       setDeleting(false);
     }
   };
+
+  // All auctions linked to this product — computed live, no Firestore field needed
+  const linkedAuctions = useMemo(
+    () =>
+      auctions
+        .filter((a) => a.productId === id)
+        .sort((a, b) => a.auctionNumber - b.auctionNumber),
+    [auctions, id],
+  );
 
   if (loading) {
     return (
@@ -109,8 +121,7 @@ export default function ProductView() {
     );
   }
 
-  const sStyle = getStatusStyle(product.status);
-  const inventoryValue = (product.price * product.availableQuantity).toFixed(2);
+  const inventoryValue = (product.price * product.quantity).toFixed(2);
 
   return (
     <Box
@@ -163,12 +174,14 @@ export default function ProductView() {
             gap: 3,
           }}
         >
-          {/* Thumbnail or Avatar */}
-          {activeImg && activeImg !== "null" ? (
+          {activeImg ? (
             <Box
               component="img"
               src={activeImg}
               alt={product.title}
+              onError={(e: any) => {
+                e.currentTarget.style.display = "none";
+              }}
               sx={{
                 width: { xs: 60, md: 80 },
                 height: { xs: 60, md: 80 },
@@ -215,16 +228,13 @@ export default function ProductView() {
                 {product.title}
               </h1>
               <Chip
-                icon={statusIcon(product.status)}
-                label={product.status}
+                label={product.isActive ? "Active" : "Inactive"}
                 size="small"
                 sx={{
                   bgcolor: "rgba(255,255,255,0.25)",
                   color: "#fff",
                   fontWeight: 700,
                   fontSize: "0.7rem",
-                  textTransform: "capitalize",
-                  "& .MuiChip-icon": { color: "#fff" },
                 }}
               />
             </Box>
@@ -260,7 +270,6 @@ export default function ProductView() {
             </Box>
           </Box>
 
-          {/* Actions */}
           <Box sx={{ display: "flex", gap: 1.5, flexShrink: 0 }}>
             <Button
               startIcon={<Edit size={16} />}
@@ -296,7 +305,7 @@ export default function ProductView() {
           </Box>
         </Box>
 
-        {/* Stats row */}
+        {/* Stats row — now 4 cards including Total Auctions */}
         <Box
           sx={{
             display: "grid",
@@ -312,30 +321,25 @@ export default function ProductView() {
               color: colors.primary,
             },
             {
-              label: "Available",
+              label: "Quantity",
               value:
-                product.availableQuantity === 0
+                product.quantity === 0
                   ? "Out of stock"
-                  : `${product.availableQuantity} units`,
+                  : `${product.quantity} units`,
               icon: <Layers size={16} />,
-              color:
-                product.availableQuantity === 0
-                  ? colors.error
-                  : product.availableQuantity < 10
-                    ? colors.warning
-                    : colors.success,
+              color: product.quantity === 0 ? colors.error : colors.success,
             },
             {
-              label: "Total Qty",
-              value: `${product.totalQuantity} units`,
-              icon: <Package size={16} />,
-              color: "#0EA5E9",
-            },
-            {
-              label: "Inv. Value",
+              label: "Inventory Value",
               value: `$${inventoryValue}`,
               icon: <DollarSign size={16} />,
               color: "#7C3AED",
+            },
+            {
+              label: "Total Auctions",
+              value: product.totalAuctions,
+              icon: <Gavel size={16} />,
+              color: "#0EA5E9",
             },
           ].map(({ label, value, icon, color }, i) => (
             <Box
@@ -399,7 +403,7 @@ export default function ProductView() {
       </Paper>
 
       {/* ── Images Gallery ── */}
-      {product.images.length > 0 && (
+      {product.images && product.images.length > 0 && (
         <Paper
           elevation={0}
           sx={{
@@ -425,11 +429,14 @@ export default function ProductView() {
             </span>
           </Box>
           <Box sx={{ p: 3 }}>
-            {activeImg && activeImg !== "null" && (
+            {activeImg && (
               <Box
                 component="img"
                 src={activeImg}
                 alt="active"
+                onError={(e: any) => {
+                  e.currentTarget.style.display = "none";
+                }}
                 sx={{
                   width: "100%",
                   maxHeight: 320,
@@ -460,6 +467,9 @@ export default function ProductView() {
                     component="img"
                     src={url}
                     alt="thumb"
+                    onError={(e: any) => {
+                      e.currentTarget.style.opacity = "0.3";
+                    }}
                     sx={{ width: "100%", height: "100%", objectFit: "cover" }}
                   />
                 </Box>
@@ -468,6 +478,241 @@ export default function ProductView() {
           </Box>
         </Paper>
       )}
+
+      {/* ── Linked Auctions ── */}
+      <Paper
+        elevation={0}
+        sx={{
+          borderRadius: 3,
+          border: `1px solid ${colors.border}`,
+          overflow: "hidden",
+          mb: 3,
+        }}
+      >
+        <Box
+          sx={{
+            px: 3,
+            py: 2.5,
+            borderBottom: `1px solid ${colors.border}`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+            <Gavel size={18} style={{ color: colors.primary }} />
+            <span style={{ fontWeight: 700, color: colors.textPrimary }}>
+              Linked Auctions
+              <span
+                style={{
+                  marginLeft: 8,
+                  fontSize: "0.75rem",
+                  background: colors.primaryBg,
+                  color: colors.primary,
+                  padding: "2px 8px",
+                  borderRadius: 99,
+                  fontWeight: 700,
+                }}
+              >
+                {linkedAuctions.length}
+              </span>
+            </span>
+          </Box>
+          <Button
+            size="small"
+            onClick={() => navigate("/admin/auctions/add")}
+            variant="outlined"
+            sx={{
+              textTransform: "none",
+              borderColor: colors.border,
+              color: colors.primary,
+              borderRadius: 2,
+              fontSize: "0.78rem",
+              "&:hover": {
+                borderColor: colors.primary,
+                bgcolor: colors.primaryBg,
+              },
+            }}
+          >
+            + Add Auction
+          </Button>
+        </Box>
+
+        {linkedAuctions.length === 0 ? (
+          <Box sx={{ p: 4, textAlign: "center" }}>
+            <Gavel
+              size={36}
+              style={{
+                color: colors.textMuted,
+                margin: "0 auto 10px",
+                display: "block",
+              }}
+            />
+            <p
+              style={{
+                color: colors.textSecondary,
+                fontWeight: 600,
+                margin: 0,
+              }}
+            >
+              No auctions yet
+            </p>
+            <p
+              style={{
+                color: colors.textMuted,
+                fontSize: "0.85rem",
+                margin: "4px 0 0",
+              }}
+            >
+              This product has no linked auctions.
+            </p>
+          </Box>
+        ) : (
+          <Box
+            sx={{ p: 2, display: "flex", flexDirection: "column", gap: 1.5 }}
+          >
+            {linkedAuctions.map((auction) => {
+              const sStyle = getAuctionStatusStyle(auction.status);
+              return (
+                <Box
+                  key={auction.id}
+                  onClick={() => navigate(`/admin/auctions/${auction.id}`)}
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 2,
+                    p: 2,
+                    borderRadius: 2,
+                    border: `1px solid ${colors.border}`,
+                    cursor: "pointer",
+                    transition: "all 0.15s",
+                    "&:hover": {
+                      bgcolor: colors.primaryBg,
+                      borderColor: colors.primary,
+                    },
+                  }}
+                >
+                  {/* Auction number badge */}
+                  <Box
+                    sx={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 2,
+                      bgcolor: colors.primaryBg,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontWeight: 700,
+                        color: colors.primary,
+                        fontSize: "0.85rem",
+                      }}
+                    >
+                      #{auction.auctionNumber}
+                    </span>
+                  </Box>
+
+                  {/* Details */}
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontWeight: 600,
+                          fontSize: "0.875rem",
+                          color: colors.textPrimary,
+                        }}
+                      >
+                        Auction #{auction.auctionNumber}
+                      </span>
+                      <Chip
+                        icon={auctionStatusIcon(auction.status)}
+                        label={auction.status}
+                        size="small"
+                        sx={{
+                          bgcolor: sStyle.bg,
+                          color: sStyle.color,
+                          fontWeight: 700,
+                          fontSize: "0.68rem",
+                          textTransform: "capitalize",
+                        }}
+                      />
+                      <Chip
+                        label={auction.isActive ? "Active" : "Inactive"}
+                        size="small"
+                        sx={{
+                          bgcolor: auction.isActive ? "#DCFCE7" : "#FEE2E2",
+                          color: auction.isActive ? "#22C55E" : "#EF4444",
+                          fontWeight: 700,
+                          fontSize: "0.68rem",
+                        }}
+                      />
+                    </Box>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        gap: 2,
+                        mt: 0.5,
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <span
+                        style={{ fontSize: "0.75rem", color: colors.textMuted }}
+                      >
+                        Start: {auction.startTime.toLocaleDateString()}
+                      </span>
+                      <span
+                        style={{ fontSize: "0.75rem", color: colors.textMuted }}
+                      >
+                        End: {auction.endTime.toLocaleDateString()}
+                      </span>
+                      <span
+                        style={{ fontSize: "0.75rem", color: colors.textMuted }}
+                      >
+                        {auction.totalBids} bids · {auction.totalParticipants}{" "}
+                        participants
+                      </span>
+                    </Box>
+                  </Box>
+
+                  {/* Price info */}
+                  <Box sx={{ textAlign: "right", flexShrink: 0 }}>
+                    <p
+                      style={{
+                        margin: 0,
+                        fontWeight: 700,
+                        color: colors.textPrimary,
+                        fontSize: "0.9rem",
+                      }}
+                    >
+                      ${auction.currentBid.toFixed(2)}
+                    </p>
+                    <p
+                      style={{
+                        margin: "2px 0 0",
+                        fontSize: "0.72rem",
+                        color: colors.textMuted,
+                      }}
+                    >
+                      current bid
+                    </p>
+                  </Box>
+                </Box>
+              );
+            })}
+          </Box>
+        )}
+      </Paper>
 
       {/* ── Details Card ── */}
       <Paper
@@ -502,22 +747,6 @@ export default function ProductView() {
           }}
         >
           {[
-            {
-              label: "Status",
-              value: (
-                <Chip
-                  icon={statusIcon(product.status)}
-                  label={product.status}
-                  size="small"
-                  sx={{
-                    bgcolor: sStyle.bg,
-                    color: sStyle.color,
-                    fontWeight: 700,
-                    textTransform: "capitalize",
-                  }}
-                />
-              ),
-            },
             {
               label: "Active",
               value: (
@@ -563,6 +792,37 @@ export default function ProductView() {
                 </Box>
               ),
             },
+            {
+              label: "Total Auctions",
+              value: (
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <Gavel size={14} style={{ color: colors.textMuted }} />
+                  <span
+                    style={{
+                      fontSize: "0.9rem",
+                      color: colors.textPrimary,
+                      fontWeight: 700,
+                    }}
+                  >
+                    {linkedAuctions.length}
+                  </span>
+                  {linkedAuctions.length > 0 && (
+                    <span
+                      style={{ fontSize: "0.75rem", color: colors.textMuted }}
+                    >
+                      (
+                      {linkedAuctions.filter((a) => a.status === "live").length}{" "}
+                      live,{" "}
+                      {
+                        linkedAuctions.filter((a) => a.status === "upcoming")
+                          .length
+                      }{" "}
+                      upcoming)
+                    </span>
+                  )}
+                </Box>
+              ),
+            },
           ].map(({ label, value }) => (
             <Box key={label}>
               <p
@@ -582,7 +842,7 @@ export default function ProductView() {
           ))}
 
           {/* Features */}
-          {product.features.length > 0 && (
+          {product.features && product.features.length > 0 && (
             <Box>
               <p
                 style={{
@@ -667,8 +927,31 @@ export default function ProductView() {
         <DialogContent>
           <p style={{ color: colors.textPrimary, marginBottom: 16 }}>
             Are you sure you want to delete <strong>{product.title}</strong>?
-            All images in Storage will also be permanently removed.
+            This will also remove all product images.
           </p>
+          {linkedAuctions.length > 0 && (
+            <Box
+              sx={{
+                bgcolor: colors.warningBg,
+                border: `1px solid ${colors.warning}`,
+                borderRadius: 2,
+                p: 2,
+                mb: 2,
+              }}
+            >
+              <p
+                style={{
+                  fontSize: "0.875rem",
+                  color: colors.warning,
+                  margin: 0,
+                }}
+              >
+                <strong>Note:</strong> This product has {linkedAuctions.length}{" "}
+                linked auction{linkedAuctions.length > 1 ? "s" : ""}. Those
+                auctions will not be automatically deleted.
+              </p>
+            </Box>
+          )}
           <Box
             sx={{
               bgcolor: colors.errorBg,

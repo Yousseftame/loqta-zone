@@ -22,10 +22,7 @@ import {
   AlertTriangle,
   Check,
   Radio,
-  XCircle,
   CheckCircle2,
-  Tag,
-  TrendingUp,
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { colors } from "../Products/products-data";
@@ -35,22 +32,22 @@ import {
   type Auction,
 } from "./auctions-data";
 import { useAuctions } from "@/store/AdminContext/AuctionContext/AuctionContext";
+import { useProducts } from "@/store/AdminContext/ProductContext/ProductsCotnext";
 
 const statusIcon = (s: AuctionStatus) =>
   s === "live" ? (
     <Radio size={14} />
   ) : s === "upcoming" ? (
     <Clock size={14} />
-  ) : s === "ended" ? (
-    <CheckCircle2 size={14} />
   ) : (
-    <XCircle size={14} />
+    <CheckCircle2 size={14} />
   );
 
 export default function AuctionView() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const { getAuction, removeAuction, changeStatus } = useAuctions();
+  const { getAuction, removeAuction } = useAuctions();
+  const { products } = useProducts();
 
   const [auction, setAuction] = useState<Auction | null>(null);
   const [loading, setLoading] = useState(true);
@@ -111,11 +108,13 @@ export default function AuctionView() {
   }
 
   const sStyle = getAuctionStatusStyle(auction.status);
+  // Resolve product name from products list
+  const linkedProduct = products.find((p) => p.id === auction.productId);
 
   return (
     <Box
       sx={{
-        width :"100%",
+        width: "100%",
         mx: "auto",
         p: { xs: 2, md: 4 },
         bgcolor: "#F8FAFC",
@@ -163,22 +162,38 @@ export default function AuctionView() {
             gap: 3,
           }}
         >
-          {/* Icon */}
-          <Box
-            sx={{
-              width: { xs: 60, md: 72 },
-              height: { xs: 60, md: 72 },
-              borderRadius: 3,
-              background: "rgba(255,255,255,0.2)",
-              border: "2px solid rgba(255,255,255,0.4)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-            }}
-          >
-            <Gavel size={32} color="#fff" />
-          </Box>
+          {/* Product thumbnail or gavel icon */}
+          {linkedProduct?.thumbnail && linkedProduct.thumbnail !== "null" ? (
+            <Box
+              component="img"
+              src={linkedProduct.thumbnail}
+              alt={linkedProduct.title}
+              sx={{
+                width: { xs: 60, md: 72 },
+                height: { xs: 60, md: 72 },
+                borderRadius: 3,
+                objectFit: "cover",
+                border: "2px solid rgba(255,255,255,0.4)",
+                flexShrink: 0,
+              }}
+            />
+          ) : (
+            <Box
+              sx={{
+                width: { xs: 60, md: 72 },
+                height: { xs: 60, md: 72 },
+                borderRadius: 3,
+                background: "rgba(255,255,255,0.2)",
+                border: "2px solid rgba(255,255,255,0.4)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              <Gavel size={32} color="#fff" />
+            </Box>
+          )}
 
           <Box sx={{ flex: 1 }}>
             <Box
@@ -213,8 +228,30 @@ export default function AuctionView() {
                   "& .MuiChip-icon": { color: "#fff" },
                 }}
               />
+              <Chip
+                label={auction.isActive ? "Active" : "Inactive"}
+                size="small"
+                sx={{
+                  bgcolor: "rgba(255,255,255,0.2)",
+                  color: "#fff",
+                  fontWeight: 700,
+                  fontSize: "0.7rem",
+                }}
+              />
             </Box>
-            <Box sx={{ display: "flex", gap: 1, mt: 1.5, flexWrap: "wrap" }}>
+            {linkedProduct && (
+              <p
+                style={{
+                  margin: "0 0 8px",
+                  color: "rgba(255,255,255,0.85)",
+                  fontSize: "0.9rem",
+                  fontWeight: 600,
+                }}
+              >
+                {linkedProduct.title}
+              </p>
+            )}
+            <Box sx={{ display: "flex", gap: 1, mt: 0.5, flexWrap: "wrap" }}>
               {[
                 `Bid: ${auction.bidType}`,
                 `Entry: ${auction.entryType}`,
@@ -291,7 +328,7 @@ export default function AuctionView() {
             {
               label: "Current Bid",
               value: `$${auction.currentBid.toFixed(2)}`,
-              icon: <TrendingUp size={16} />,
+              icon: <DollarSign size={16} />,
               color: "#22C55E",
             },
             {
@@ -417,8 +454,48 @@ export default function AuctionView() {
               ),
             },
             {
-              label: "Product ID",
+              label: "Active",
               value: (
+                <Chip
+                  label={auction.isActive ? "Active" : "Inactive"}
+                  size="small"
+                  sx={{
+                    bgcolor: auction.isActive ? "#DCFCE7" : "#FEE2E2",
+                    color: auction.isActive ? "#22C55E" : "#EF4444",
+                    fontWeight: 700,
+                  }}
+                />
+              ),
+            },
+            {
+              label: "Product",
+              value: linkedProduct ? (
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  {linkedProduct.thumbnail &&
+                    linkedProduct.thumbnail !== "null" && (
+                      <Box
+                        component="img"
+                        src={linkedProduct.thumbnail}
+                        alt={linkedProduct.title}
+                        sx={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: 1,
+                          objectFit: "cover",
+                        }}
+                      />
+                    )}
+                  <span
+                    style={{
+                      fontSize: "0.875rem",
+                      fontWeight: 600,
+                      color: colors.textPrimary,
+                    }}
+                  >
+                    {linkedProduct.title}
+                  </span>
+                </Box>
+              ) : (
                 <span
                   style={{
                     fontSize: "0.85rem",
@@ -437,17 +514,37 @@ export default function AuctionView() {
             {
               label: "Bid Type",
               value: (
-                <Chip
-                  label={auction.bidType}
-                  size="small"
-                  sx={{
-                    bgcolor:
-                      auction.bidType === "fixed" ? "#EFF6FF" : "#F3E8FF",
-                    color: auction.bidType === "fixed" ? "#3B82F6" : "#7C3AED",
-                    fontWeight: 700,
-                    textTransform: "capitalize",
-                  }}
-                />
+                <Box
+                  sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}
+                >
+                  <Chip
+                    label={auction.bidType}
+                    size="small"
+                    sx={{
+                      bgcolor:
+                        auction.bidType === "fixed" ? "#EFF6FF" : "#F3E8FF",
+                      color:
+                        auction.bidType === "fixed" ? "#3B82F6" : "#7C3AED",
+                      fontWeight: 700,
+                      textTransform: "capitalize",
+                      width: "fit-content",
+                    }}
+                  />
+                  {auction.bidType === "fixed" &&
+                    auction.fixedBidValue != null && (
+                      <span
+                        style={{
+                          fontSize: "0.82rem",
+                          color: colors.textSecondary,
+                        }}
+                      >
+                        Fixed amount:{" "}
+                        <strong style={{ color: colors.textPrimary }}>
+                          ${auction.fixedBidValue.toFixed(2)}
+                        </strong>
+                      </span>
+                    )}
+                </Box>
               ),
             },
             {
@@ -596,56 +693,6 @@ export default function AuctionView() {
               {value}
             </Box>
           ))}
-
-          {/* Quick status change */}
-          <Box sx={{ gridColumn: { sm: "1 / -1" } }}>
-            <p
-              style={{
-                margin: "0 0 8px",
-                fontSize: "0.75rem",
-                color: colors.textMuted,
-                fontWeight: 600,
-                textTransform: "uppercase",
-                letterSpacing: "0.04em",
-              }}
-            >
-              Quick Status Change
-            </p>
-            <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-              {(
-                ["upcoming", "live", "ended", "cancelled"] as AuctionStatus[]
-              ).map((s) => {
-                const ss = getAuctionStatusStyle(s);
-                const active = auction.status === s;
-                return (
-                  <button
-                    key={s}
-                    disabled={active}
-                    onClick={async () => {
-                      await changeStatus(auction.id, s);
-                      setAuction((prev) =>
-                        prev ? { ...prev, status: s } : prev,
-                      );
-                    }}
-                    style={{
-                      padding: "5px 16px",
-                      borderRadius: 99,
-                      fontSize: "0.78rem",
-                      fontWeight: 600,
-                      cursor: active ? "default" : "pointer",
-                      transition: "all 0.15s",
-                      border: `1.5px solid ${active ? ss.color : colors.border}`,
-                      background: active ? ss.bg : "#fff",
-                      color: active ? ss.color : colors.textSecondary,
-                      opacity: active ? 1 : 0.8,
-                    }}
-                  >
-                    {s.charAt(0).toUpperCase() + s.slice(1)}
-                  </button>
-                );
-              })}
-            </Box>
-          </Box>
         </Box>
       </Paper>
 

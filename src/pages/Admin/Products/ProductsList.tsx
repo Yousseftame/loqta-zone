@@ -18,37 +18,25 @@ import {
   Avatar,
   Paper,
   Box,
-  TableContainer,
   CircularProgress,
+  Tooltip,
 } from "@mui/material";
 import {
   Plus,
   Search,
-  Filter,
   X,
   AlertTriangle,
   Eye,
   Edit,
   Trash2,
-  CheckCircle2,
-  XCircle,
-  Clock,
   Package,
-  DollarSign,
-  Star,
   ShoppingBag,
-  Check,
   RefreshCw,
+  CheckCircle2,
+  Gavel,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import {
-  type Product,
-  type ProductStatus,
-  STATUSES,
-  colors,
-  getStatusStyle,
-  getAvatarColor,
-} from "./products-data";
+import { type Product, colors, getAvatarColor } from "./products-data";
 import { useProducts } from "@/store/AdminContext/ProductContext/ProductsCotnext";
 
 export default function ProductsList() {
@@ -58,14 +46,12 @@ export default function ProductsList() {
 
   const [filtered, setFiltered] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [loadingDelete, setLoadingDelete] = useState(false);
 
-  // ── Filter ─────────────────────────────────────────────────────────────────
   useEffect(() => {
     let f = products;
     if (searchTerm) {
@@ -78,12 +64,10 @@ export default function ProductsList() {
           p.category.toLowerCase().includes(s),
       );
     }
-    if (statusFilter !== "all") f = f.filter((p) => p.status === statusFilter);
     setFiltered(f);
     setPage(0);
-  }, [searchTerm, statusFilter, products]);
+  }, [searchTerm, products]);
 
-  // ── Delete ─────────────────────────────────────────────────────────────────
   const handleDelete = async () => {
     if (!productToDelete) return;
     setLoadingDelete(true);
@@ -92,35 +76,19 @@ export default function ProductsList() {
       setDeleteDialog(false);
       setProductToDelete(null);
     } catch {
-      // toast already shown in context
+      // toast shown in context
     } finally {
       setLoadingDelete(false);
     }
   };
 
-  // ── Stats ──────────────────────────────────────────────────────────────────
-  const totalValue = products.reduce(
-    (s, p) => s + p.price * p.availableQuantity,
-    0,
-  );
-  const activeCount = products.filter((p) => p.status === "published").length;
-  const outOfStock = products.filter((p) => p.availableQuantity === 0).length;
-
+  const activeCount = products.filter((p) => p.isActive).length;
+  const inactiveCount = products.length - activeCount;
   const paginated = filtered.slice(
     page * rowsPerPage,
     page * rowsPerPage + rowsPerPage,
   );
 
-  const statusIcon = (s: ProductStatus) =>
-    s === "published" ? (
-      <CheckCircle2 size={12} />
-    ) : s === "archived" ? (
-      <XCircle size={12} />
-    ) : (
-      <Clock size={12} />
-    );
-
-  // ── Loading / error states ─────────────────────────────────────────────────
   if (loading) {
     return (
       <Box
@@ -244,12 +212,12 @@ export default function ProductsList() {
         </Box>
       </Box>
 
-      {/* ── Stats Cards ── */}
+      {/* ── Stat Cards ── */}
       <Box
         sx={{
           display: "grid",
-          gap: 3,
-          gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+          gap: 2.5,
+          gridTemplateColumns: { xs: "1fr 1fr", sm: "repeat(3, 1fr)" },
           mb: 4,
         }}
       >
@@ -257,29 +225,24 @@ export default function ProductsList() {
           {
             label: "Total Products",
             value: products.length,
-            icon: <Package size={22} />,
+            icon: <Package size={20} />,
           },
           {
-            label: "Published",
+            label: "Active Products",
             value: activeCount,
-            icon: <CheckCircle2 size={22} />,
+            icon: <CheckCircle2 size={20} />,
           },
           {
-            label: "Out of Stock",
-            value: outOfStock,
-            icon: <XCircle size={22} />,
-          },
-          {
-            label: "Inventory Value",
-            value: `$${(totalValue / 1000).toFixed(0)}k`,
-            icon: <DollarSign size={22} />,
+            label: "Inactive Products",
+            value: inactiveCount,
+            icon: <Package size={20} />,
           },
         ].map(({ label, value, icon }) => (
           <Paper
             key={label}
             elevation={0}
             sx={{
-              p: { xs: 2, md: 3 },
+              p: { xs: 2, md: 2.5 },
               borderRadius: 3,
               background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryLight} 100%)`,
               color: "#fff",
@@ -295,7 +258,7 @@ export default function ProductsList() {
               <div>
                 <p
                   style={{
-                    fontSize: "0.7rem",
+                    fontSize: "0.65rem",
                     fontWeight: 600,
                     opacity: 0.8,
                     textTransform: "uppercase",
@@ -307,7 +270,7 @@ export default function ProductsList() {
                 </p>
                 <p
                   style={{
-                    fontSize: "2rem",
+                    fontSize: "1.9rem",
                     fontWeight: 700,
                     margin: "4px 0 0",
                   }}
@@ -317,9 +280,9 @@ export default function ProductsList() {
               </div>
               <Box
                 sx={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 12,
+                  width: 40,
+                  height: 40,
+                  borderRadius: 10,
                   background: "rgba(255,255,255,0.2)",
                   display: "flex",
                   alignItems: "center",
@@ -333,122 +296,63 @@ export default function ProductsList() {
         ))}
       </Box>
 
-      {/* ── Filters ── */}
+      {/* ── Search ── */}
       <Paper
         elevation={0}
         sx={{
-          p: 3,
+          p: 2.5,
           mb: 3,
           borderRadius: 3,
           bgcolor: "#fff",
           border: `1px solid ${colors.border}`,
         }}
       >
-        <Box
-          sx={{
-            display: "flex",
-            flexDirection: { xs: "column", md: "row" },
-            gap: 2,
+        <TextField
+          placeholder="Search by title, brand, model or category…"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          variant="outlined"
+          size="small"
+          fullWidth
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <Search size={15} style={{ color: colors.textMuted }} />
+              </InputAdornment>
+            ),
+            endAdornment: searchTerm && (
+              <InputAdornment position="end">
+                <IconButton size="small" onClick={() => setSearchTerm("")}>
+                  <X size={14} />
+                </IconButton>
+              </InputAdornment>
+            ),
           }}
-        >
-          <TextField
-            placeholder="Search by title, brand, model or category…"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            variant="outlined"
-            size="small"
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Search size={16} style={{ color: colors.textMuted }} />
-                </InputAdornment>
-              ),
-              endAdornment: searchTerm && (
-                <InputAdornment position="end">
-                  <IconButton size="small" onClick={() => setSearchTerm("")}>
-                    <X size={14} />
-                  </IconButton>
-                </InputAdornment>
-              ),
-            }}
-            sx={{
-              flex: 1,
-              "& .MuiOutlinedInput-root": {
-                "& fieldset": { borderColor: colors.border },
-                "&:hover fieldset": { borderColor: colors.primary },
-                "&.Mui-focused fieldset": { borderColor: colors.primary },
-              },
-            }}
-          />
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <Filter
-              size={16}
-              style={{ color: colors.textMuted, flexShrink: 0 }}
-            />
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              style={{
-                padding: "8px 14px",
-                borderRadius: 8,
-                border: `1px solid ${colors.border}`,
-                fontSize: "0.85rem",
-                color: colors.textPrimary,
-                background: "#fff",
-                outline: "none",
-              }}
-            >
-              <option value="all">All Status</option>
-              {STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {s.charAt(0).toUpperCase() + s.slice(1)}
-                </option>
-              ))}
-            </select>
-          </Box>
-        </Box>
-        <Box
           sx={{
-            mt: 2,
-            display: "flex",
-            alignItems: "center",
-            gap: 1.5,
-            flexWrap: "wrap",
+            "& .MuiOutlinedInput-root": {
+              "& fieldset": { borderColor: colors.border },
+              "&:hover fieldset": { borderColor: colors.primary },
+              "&.Mui-focused fieldset": { borderColor: colors.primary },
+            },
           }}
-        >
-          <span style={{ fontSize: "0.85rem", color: colors.textSecondary }}>
+        />
+        <Box sx={{ mt: 1.5, display: "flex", alignItems: "center", gap: 1.5 }}>
+          <span style={{ fontSize: "0.82rem", color: colors.textSecondary }}>
             <strong style={{ color: colors.primary }}>{filtered.length}</strong>{" "}
-            results
+            result{filtered.length !== 1 ? "s" : ""}
           </span>
-          {outOfStock > 0 && (
-            <span
-              style={{
-                background: colors.errorBg,
-                color: colors.error,
-                padding: "2px 10px",
-                borderRadius: 99,
-                fontSize: "0.72rem",
-                fontWeight: 700,
-              }}
-            >
-              ⚠ {outOfStock} out of stock
-            </span>
-          )}
-          {(searchTerm || statusFilter !== "all") && (
+          {searchTerm && (
             <Button
               size="small"
-              onClick={() => {
-                setSearchTerm("");
-                setStatusFilter("all");
-              }}
+              onClick={() => setSearchTerm("")}
               sx={{
                 textTransform: "none",
                 color: colors.primary,
-                p: "2px 8px",
-                fontSize: "0.8rem",
+                p: "1px 6px",
+                fontSize: "0.78rem",
               }}
             >
-              Clear filters
+              Clear
             </Button>
           )}
         </Box>
@@ -465,40 +369,42 @@ export default function ProductsList() {
         }}
       >
         <Box sx={{ overflowX: "auto" }}>
-          <Table sx={{ minWidth: 750 }}>
+          <Table sx={{ minWidth: 600 }}>
             <TableHead>
               <TableRow sx={{ bgcolor: colors.primaryBg }}>
                 {[
-                  "Product",
-                  "Brand / Model",
-                  "Category",
-                  "Price",
-                  "Qty",
-                  "Status",
-                  "Active",
-                  "Actions",
-                ].map((h) => (
+                  { label: "Product", align: "left" },
+                  { label: "Category", align: "left" },
+                  { label: "Price", align: "left" },
+                  { label: "Stock", align: "left" },
+                  { label: "Status", align: "left" },
+                  { label: "Actions", align: "center" },
+                ].map(({ label, align }) => (
                   <TableCell
-                    key={h}
+                    key={label}
+                    align={align as any}
                     sx={{
                       fontWeight: 700,
                       color: colors.primaryDark,
-                      fontSize: "0.72rem",
+                      fontSize: "0.71rem",
                       textTransform: "uppercase",
-                      letterSpacing: "0.05em",
+                      letterSpacing: "0.06em",
                       whiteSpace: "nowrap",
-                      ...(h === "Actions" && { textAlign: "center" }),
+                      py: 1.5,
+                      px: 2,
+                      borderBottom: `2px solid ${colors.border}`,
                     }}
                   >
-                    {h}
+                    {label}
                   </TableCell>
                 ))}
               </TableRow>
             </TableHead>
+
             <TableBody>
               {paginated.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 10 }}>
+                  <TableCell colSpan={7} align="center" sx={{ py: 10 }}>
                     <Package
                       size={44}
                       style={{
@@ -507,239 +413,214 @@ export default function ProductsList() {
                         display: "block",
                       }}
                     />
-                    <p style={{ color: colors.textSecondary, fontWeight: 600 }}>
+                    <p
+                      style={{
+                        color: colors.textSecondary,
+                        fontWeight: 600,
+                        margin: 0,
+                      }}
+                    >
                       No products found
                     </p>
-                    <p style={{ color: colors.textMuted, fontSize: "0.85rem" }}>
-                      Try adjusting your search or filters
+                    <p
+                      style={{
+                        color: colors.textMuted,
+                        fontSize: "0.85rem",
+                        margin: "4px 0 0",
+                      }}
+                    >
+                      Try adjusting your search
                     </p>
                   </TableCell>
                 </TableRow>
               ) : (
-                paginated.map((product) => {
-                  const sStyle = getStatusStyle(product.status);
-                  const isLow =
-                    product.availableQuantity > 0 &&
-                    product.availableQuantity < 10;
-                  return (
-                    <TableRow
-                      key={product.id}
-                      sx={{
-                        "&:hover": { bgcolor: colors.muted },
-                        transition: "background 0.15s",
-                      }}
-                    >
-                      {/* Product */}
-                      <TableCell sx={{ minWidth: 220 }}>
-                        <Box
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 1.5,
-                          }}
-                        >
-                          {product.thumbnail && product.thumbnail !== "null" ? (
-                            <Box
-                              component="img"
-                              src={product.thumbnail}
-                              alt={product.title}
-                              sx={{
-                                width: 40,
-                                height: 40,
-                                borderRadius: 2,
-                                objectFit: "cover",
-                                flexShrink: 0,
-                                border: `1px solid ${colors.border}`,
-                              }}
-                            />
-                          ) : (
-                            <Avatar
-                              sx={{
-                                bgcolor: getAvatarColor(product.title),
-                                width: 40,
-                                height: 40,
-                                fontSize: "0.95rem",
-                                fontWeight: 700,
-                                borderRadius: 2,
-                                flexShrink: 0,
-                              }}
-                            >
-                              {product.title.charAt(0)}
-                            </Avatar>
-                          )}
-                          <div>
-                            <p
-                              style={{
-                                fontWeight: 600,
-                                fontSize: "0.875rem",
-                                color: colors.textPrimary,
-                                margin: 0,
-                                whiteSpace: "nowrap",
-                              }}
-                            >
-                              {product.title}
-                            </p>
-                            <p
-                              style={{
-                                color: colors.textMuted,
-                                fontSize: "0.75rem",
-                                margin: "2px 0 0",
-                                maxWidth: 200,
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                whiteSpace: "nowrap",
-                              }}
-                            >
-                              {product.description}
-                            </p>
-                          </div>
+                paginated.map((product, idx) => (
+                  <TableRow
+                    key={product.id}
+                    sx={{
+                      "&:hover": { bgcolor: "#F8FAFF" },
+                      "&:hover .row-actions": { opacity: 1 },
+                      transition: "background 0.12s",
+                      borderBottom:
+                        idx < paginated.length - 1
+                          ? `1px solid ${colors.border}`
+                          : "none",
+                    }}
+                  >
+                    {/* ── Product (thumbnail + title + description) ── */}
+                    <TableCell sx={{ px: 2, py: 1.5, minWidth: 240 }}>
+                      <Box
+                        sx={{ display: "flex", alignItems: "center", gap: 1.5 }}
+                      >
+                        {product.thumbnail && product.thumbnail !== "null" ? (
+                          <Box
+                            component="img"
+                            src={product.thumbnail}
+                            alt={product.title}
+                            onError={(e: any) => {
+                              e.currentTarget.style.display = "none";
+                            }}
+                            sx={{
+                              width: 44,
+                              height: 44,
+                              borderRadius: 2,
+                              objectFit: "cover",
+                              flexShrink: 0,
+                              border: `1px solid ${colors.border}`,
+                            }}
+                          />
+                        ) : (
+                          <Avatar
+                            sx={{
+                              bgcolor: getAvatarColor(product.title),
+                              width: 44,
+                              height: 44,
+                              fontSize: "1rem",
+                              fontWeight: 700,
+                              borderRadius: 2,
+                              flexShrink: 0,
+                            }}
+                          >
+                            {product.title.charAt(0).toUpperCase()}
+                          </Avatar>
+                        )}
+                        <Box sx={{ minWidth: 0 }}>
+                          <p
+                            style={{
+                              fontWeight: 700,
+                              fontSize: "0.875rem",
+                              color: colors.textPrimary,
+                              margin: 0,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                              maxWidth: 180,
+                            }}
+                          >
+                            {product.title}
+                          </p>
+                          <p
+                            style={{
+                              color: colors.textMuted,
+                              fontSize: "0.72rem",
+                              margin: "2px 0 0",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                              maxWidth: 180,
+                            }}
+                          >
+                            {product.brand} · {product.model}
+                          </p>
                         </Box>
-                      </TableCell>
+                      </Box>
+                    </TableCell>
 
-                      {/* Brand / Model */}
-                      <TableCell sx={{ minWidth: 150 }}>
-                        <p
-                          style={{
-                            margin: 0,
-                            fontSize: "0.875rem",
-                            fontWeight: 600,
-                            color: colors.textPrimary,
-                          }}
-                        >
-                          {product.brand}
-                        </p>
-                        <p
-                          style={{
-                            margin: "2px 0 0",
-                            fontSize: "0.75rem",
-                            color: colors.textMuted,
-                          }}
-                        >
-                          {product.model}
-                        </p>
-                      </TableCell>
+                    {/* ── Category ── */}
+                    <TableCell sx={{ px: 2, py: 1.5 }}>
+                      <span
+                        style={{
+                          fontSize: "0.75rem",
+                          background: colors.primaryBg,
+                          color: colors.primary,
+                          padding: "3px 10px",
+                          borderRadius: 99,
+                          fontWeight: 600,
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {product.category}
+                      </span>
+                    </TableCell>
 
-                      {/* Category */}
-                      <TableCell sx={{ minWidth: 120 }}>
+                    {/* ── Price ── */}
+                    <TableCell sx={{ px: 2, py: 1.5, whiteSpace: "nowrap" }}>
+                      <span
+                        style={{
+                          fontWeight: 700,
+                          fontSize: "0.9rem",
+                          color: colors.textPrimary,
+                        }}
+                      >
+                        ${product.price.toFixed(2)}
+                      </span>
+                    </TableCell>
+
+                    {/* ── Stock / Qty ── */}
+                    <TableCell sx={{ px: 2, py: 1.5 }}>
+                      {product.quantity === 0 ? (
                         <span
                           style={{
-                            fontSize: "0.78rem",
-                            background: colors.primaryBg,
-                            color: colors.primary,
-                            padding: "3px 10px",
+                            fontSize: "0.7rem",
+                            background: colors.errorBg,
+                            color: colors.error,
+                            padding: "3px 9px",
                             borderRadius: 99,
-                            fontWeight: 600,
+                            fontWeight: 700,
+                            whiteSpace: "nowrap",
                           }}
                         >
-                          {product.category}
+                          Out of Stock
                         </span>
-                      </TableCell>
-
-                      {/* Price */}
-                      <TableCell sx={{ minWidth: 90, whiteSpace: "nowrap" }}>
-                        <span
-                          style={{ fontWeight: 700, color: colors.textPrimary }}
-                        >
-                          ${product.price.toFixed(2)}
-                        </span>
-                      </TableCell>
-
-                      {/* Qty */}
-                      <TableCell sx={{ minWidth: 100 }}>
+                      ) : (
                         <Box
                           sx={{
                             display: "flex",
-                            alignItems: "center",
-                            gap: 0.75,
+                            alignItems: "baseline",
+                            gap: 0.5,
                           }}
                         >
                           <span
                             style={{
-                              fontWeight: 600,
-                              fontSize: "0.875rem",
-                              color:
-                                product.availableQuantity === 0
-                                  ? colors.error
-                                  : isLow
-                                    ? colors.warning
-                                    : colors.textPrimary,
+                              fontWeight: 700,
+                              fontSize: "0.9rem",
+                              color: colors.textPrimary,
                             }}
                           >
-                            {product.availableQuantity === 0
-                              ? "—"
-                              : product.availableQuantity}
+                            {product.quantity}
                           </span>
-                          {product.availableQuantity === 0 && (
-                            <span
-                              style={{
-                                fontSize: "0.65rem",
-                                background: colors.errorBg,
-                                color: colors.error,
-                                padding: "1px 6px",
-                                borderRadius: 99,
-                                fontWeight: 700,
-                              }}
-                            >
-                              OOS
-                            </span>
-                          )}
-                          {isLow && (
-                            <span
-                              style={{
-                                fontSize: "0.65rem",
-                                background: colors.warningBg,
-                                color: colors.warning,
-                                padding: "1px 6px",
-                                borderRadius: 99,
-                                fontWeight: 700,
-                              }}
-                            >
-                              Low
-                            </span>
-                          )}
+                          <span
+                            style={{
+                              fontSize: "0.7rem",
+                              color: colors.textMuted,
+                            }}
+                          >
+                            units
+                          </span>
                         </Box>
-                      </TableCell>
+                      )}
+                    </TableCell>
 
-                      {/* Status */}
-                      <TableCell sx={{ minWidth: 110 }}>
-                        <Chip
-                          icon={statusIcon(product.status)}
-                          label={product.status}
-                          size="small"
-                          sx={{
-                            bgcolor: sStyle.bg,
-                            color: sStyle.color,
-                            fontWeight: 700,
-                            fontSize: "0.7rem",
-                            textTransform: "capitalize",
-                          }}
-                        />
-                      </TableCell>
+                    {/* ── Status ── */}
+                    <TableCell sx={{ px: 2, py: 1.5 }}>
+                      <Chip
+                        label={product.isActive ? "Active" : "Inactive"}
+                        size="small"
+                        sx={{
+                          bgcolor: product.isActive ? "#DCFCE7" : "#FEE2E2",
+                          color: product.isActive ? "#16A34A" : "#DC2626",
+                          fontWeight: 700,
+                          fontSize: "0.7rem",
+                          height: 22,
+                          border: `1px solid ${product.isActive ? "#BBF7D0" : "#FECACA"}`,
+                        }}
+                      />
+                    </TableCell>
 
-                      {/* Active */}
-                      <TableCell sx={{ minWidth: 80 }}>
-                        <Chip
-                          label={product.isActive ? "Active" : "Inactive"}
-                          size="small"
-                          sx={{
-                            bgcolor: product.isActive ? "#DCFCE7" : "#FEE2E2",
-                            color: product.isActive ? "#22C55E" : "#EF4444",
-                            fontWeight: 700,
-                            fontSize: "0.7rem",
-                          }}
-                        />
-                      </TableCell>
+                  
 
-                      {/* Actions */}
-                      <TableCell align="center" sx={{ minWidth: 110 }}>
-                        <Box
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            gap: 0.5,
-                          }}
-                        >
+                    {/* ── Actions ── */}
+                    <TableCell align="center" sx={{ px: 2, py: 1.5 }}>
+                      <Box
+                        className="row-actions"
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 0.5,
+                        }}
+                      >
+                        <Tooltip title="View" arrow>
                           <IconButton
                             size="small"
                             onClick={() =>
@@ -749,11 +630,13 @@ export default function ProductsList() {
                               color: colors.primary,
                               "&:hover": { bgcolor: colors.primaryBg },
                               borderRadius: 1.5,
+                              p: 0.7,
                             }}
-                            title="View"
                           >
-                            <Eye size={16} />
+                            <Eye size={15} />
                           </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Edit" arrow>
                           <IconButton
                             size="small"
                             onClick={() =>
@@ -763,11 +646,13 @@ export default function ProductsList() {
                               color: "#7C3AED",
                               "&:hover": { bgcolor: "#F3E8FF" },
                               borderRadius: 1.5,
+                              p: 0.7,
                             }}
-                            title="Edit"
                           >
-                            <Edit size={16} />
+                            <Edit size={15} />
                           </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Delete" arrow>
                           <IconButton
                             size="small"
                             onClick={() => {
@@ -778,32 +663,36 @@ export default function ProductsList() {
                               color: colors.error,
                               "&:hover": { bgcolor: colors.errorBg },
                               borderRadius: 1.5,
+                              p: 0.7,
                             }}
-                            title="Delete"
                           >
-                            <Trash2 size={16} />
+                            <Trash2 size={15} />
                           </IconButton>
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
+                        </Tooltip>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ))
               )}
             </TableBody>
           </Table>
         </Box>
-        <TablePagination
-          component="div"
-          count={filtered.length}
-          page={page}
-          onPageChange={(_e, p) => setPage(p)}
-          rowsPerPage={rowsPerPage}
-          onRowsPerPageChange={(e) => {
-            setRowsPerPage(parseInt(e.target.value, 10));
-            setPage(0);
-          }}
-          rowsPerPageOptions={[5, 10, 25, 50]}
-        />
+
+        <Box sx={{ borderTop: `1px solid ${colors.border}` }}>
+          <TablePagination
+            component="div"
+            count={filtered.length}
+            page={page}
+            onPageChange={(_e, p) => setPage(p)}
+            rowsPerPage={rowsPerPage}
+            onRowsPerPageChange={(e) => {
+              setRowsPerPage(parseInt(e.target.value, 10));
+              setPage(0);
+            }}
+            rowsPerPageOptions={[5, 10, 25, 50]}
+            sx={{ "& .MuiTablePagination-toolbar": { px: 2 } }}
+          />
+        </Box>
       </Paper>
 
       {/* ── Delete Dialog ── */}
@@ -827,8 +716,8 @@ export default function ProductsList() {
         <DialogContent>
           <p style={{ color: colors.textPrimary, marginBottom: 16 }}>
             Are you sure you want to delete{" "}
-            <strong>{productToDelete?.title}</strong>? All images will also be
-            deleted from storage.
+            <strong>{productToDelete?.title}</strong>? This will also remove all
+            product images.
           </p>
           <Box
             sx={{

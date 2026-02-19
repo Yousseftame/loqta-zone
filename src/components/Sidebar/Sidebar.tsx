@@ -8,6 +8,7 @@ import {
   Logout,
   Home,
 } from "@mui/icons-material";
+import LocalActivityIcon from "@mui/icons-material/LocalActivity";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import Swal from "sweetalert2";
@@ -59,10 +60,10 @@ const Sidebar = () => {
       path: "/admin/auctions",
     },
     {
-      id: "gallery",
-      label: "Gallery",
-      icon: Image,
-      path: "/admin/admin-gallery",
+      id: "Vouchers",
+      label: "Vouchers",
+      icon: LocalActivityIcon,
+      path: "/admin/voucher",
     },
     {
       id: "section",

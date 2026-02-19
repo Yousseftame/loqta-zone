@@ -45,22 +45,22 @@ import {
   getAuctionStatusStyle,
 } from "./auctions-data";
 import { useAuctions } from "@/store/AdminContext/AuctionContext/AuctionContext";
+import { useProducts } from "@/store/AdminContext/ProductContext/ProductsCotnext";
 
 const statusIcon = (s: AuctionStatus) =>
   s === "live" ? (
     <Radio size={12} />
   ) : s === "upcoming" ? (
     <Clock size={12} />
-  ) : s === "ended" ? (
-    <CheckCircle2 size={12} />
   ) : (
-    <XCircle size={12} />
+    <CheckCircle2 size={12} />
   );
 
 export default function AuctionsList() {
   const navigate = useNavigate();
   const { auctions, loading, error, refreshAuctions, removeAuction } =
     useAuctions();
+  const { products } = useProducts();
 
   const [filtered, setFiltered] = useState<Auction[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -75,11 +75,14 @@ export default function AuctionsList() {
     let f = auctions;
     if (searchTerm) {
       const s = searchTerm.toLowerCase();
-      f = f.filter(
-        (a) =>
+      f = f.filter((a) => {
+        const product = products.find((p) => p.id === a.productId);
+        return (
           a.productId.toLowerCase().includes(s) ||
-          String(a.auctionNumber).includes(s),
-      );
+          String(a.auctionNumber).includes(s) ||
+          (product?.title.toLowerCase().includes(s) ?? false)
+        );
+      });
     }
     if (statusFilter !== "all") f = f.filter((a) => a.status === statusFilter);
     setFiltered(f);
@@ -103,7 +106,9 @@ export default function AuctionsList() {
   // Stats
   const liveCount = auctions.filter((a) => a.status === "live").length;
   const upcomingCount = auctions.filter((a) => a.status === "upcoming").length;
-  const totalBids = auctions.reduce((s, a) => s + a.totalBids, 0);
+  const endedCount = auctions.filter((a) => a.status === "ended").length;
+  const activeCount = auctions.filter((a) => a.isActive).length;
+  const inactiveCount = auctions.filter((a) => !a.isActive).length;
 
   const paginated = filtered.slice(
     page * rowsPerPage,
@@ -233,12 +238,12 @@ export default function AuctionsList() {
         </Box>
       </Box>
 
-      {/* Stats */}
+      {/* Stats — 2 rows × 3 cols */}
       <Box
         sx={{
           display: "grid",
-          gap: 3,
-          gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+          gap: 2,
+          gridTemplateColumns: { xs: "1fr 1fr", sm: "repeat(3, 1fr)" },
           mb: 4,
         }}
       >
@@ -246,25 +251,35 @@ export default function AuctionsList() {
           {
             label: "Total Auctions",
             value: auctions.length,
-            icon: <Gavel size={22} />,
+            icon: <Gavel size={20} />,
           },
-          { label: "Live Now", value: liveCount, icon: <Radio size={22} /> },
+          { label: "Live Now", value: liveCount, icon: <Radio size={20} /> },
           {
             label: "Upcoming",
             value: upcomingCount,
-            icon: <Clock size={22} />,
+            icon: <Clock size={20} />,
           },
           {
-            label: "Total Bids",
-            value: totalBids,
-            icon: <DollarSign size={22} />,
+            label: "Ended",
+            value: endedCount,
+            icon: <CheckCircle2 size={20} />,
+          },
+          {
+            label: "Active",
+            value: activeCount,
+            icon: <CheckCircle2 size={20} />,
+          },
+          {
+            label: "Inactive",
+            value: inactiveCount,
+            icon: <XCircle size={20} />,
           },
         ].map(({ label, value, icon }) => (
           <Paper
             key={label}
             elevation={0}
             sx={{
-              p: { xs: 2, md: 3 },
+              p: { xs: 2, md: 2.5 },
               borderRadius: 3,
               background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryLight} 100%)`,
               color: "#fff",
@@ -280,7 +295,7 @@ export default function AuctionsList() {
               <div>
                 <p
                   style={{
-                    fontSize: "0.7rem",
+                    fontSize: "0.65rem",
                     fontWeight: 600,
                     opacity: 0.8,
                     textTransform: "uppercase",
@@ -292,7 +307,7 @@ export default function AuctionsList() {
                 </p>
                 <p
                   style={{
-                    fontSize: "2rem",
+                    fontSize: "1.75rem",
                     fontWeight: 700,
                     margin: "4px 0 0",
                   }}
@@ -302,9 +317,9 @@ export default function AuctionsList() {
               </div>
               <Box
                 sx={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 12,
+                  width: 40,
+                  height: 40,
+                  borderRadius: 10,
                   background: "rgba(255,255,255,0.2)",
                   display: "flex",
                   alignItems: "center",
@@ -450,14 +465,13 @@ export default function AuctionsList() {
         }}
       >
         <Box sx={{ overflowX: "auto" }}>
-          <Table sx={{ width: "100%", tableLayout: "fixed" }}>
+          <Table sx={{ minWidth: 700 }}>
             <TableHead>
               <TableRow sx={{ bgcolor: colors.primaryBg }}>
                 {[
                   "#",
-                  "Product ID",
-                  "Starting Price",
-                  "Current Bid",
+                  "Product",
+                  "Price",
                   "Bid Type",
                   "Entry",
                   "Start / End",
@@ -485,7 +499,7 @@ export default function AuctionsList() {
             <TableBody>
               {paginated.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10} align="center" sx={{ py: 10 }}>
+                  <TableCell colSpan={9} align="center" sx={{ py: 10 }}>
                     <Gavel
                       size={44}
                       style={{
@@ -514,7 +528,7 @@ export default function AuctionsList() {
                       }}
                     >
                       {/* # */}
-                      <TableCell sx={{  }}>
+                      <TableCell>
                         <span
                           style={{
                             fontWeight: 700,
@@ -526,34 +540,112 @@ export default function AuctionsList() {
                         </span>
                       </TableCell>
 
-                      {/* Product ID */}
-                      <TableCell sx={{ }}>
-                        <span
-                          style={{
-                            fontSize: "0.78rem",
-                            background: colors.primaryBg,
-                            color: colors.primary,
-                            padding: "3px 10px",
-                            borderRadius: 99,
-                            fontWeight: 600,
-                            fontFamily: "monospace",
-                          }}
-                        >
-                          {auction.productId.slice(0, 12)}…
-                        </span>
+                      {/* Product */}
+                      <TableCell sx={{ minWidth: 180 }}>
+                        {(() => {
+                          const product = products.find(
+                            (p) => p.id === auction.productId,
+                          );
+                          return (
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 1,
+                              }}
+                            >
+                              {product?.thumbnail &&
+                              product.thumbnail !== "null" ? (
+                                <Box
+                                  component="img"
+                                  src={product.thumbnail}
+                                  alt={product.title}
+                                  sx={{
+                                    width: 32,
+                                    height: 32,
+                                    borderRadius: 1.5,
+                                    objectFit: "cover",
+                                    flexShrink: 0,
+                                    border: `1px solid ${colors.border}`,
+                                  }}
+                                />
+                              ) : (
+                                <Box
+                                  sx={{
+                                    width: 32,
+                                    height: 32,
+                                    borderRadius: 1.5,
+                                    bgcolor: colors.primaryBg,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    flexShrink: 0,
+                                    fontSize: "0.75rem",
+                                    fontWeight: 700,
+                                    color: colors.primary,
+                                  }}
+                                >
+                                  {product ? product.title.charAt(0) : "?"}
+                                </Box>
+                              )}
+                              <span
+                                style={{
+                                  fontSize: "0.85rem",
+                                  fontWeight: 600,
+                                  color: colors.textPrimary,
+                                  whiteSpace: "nowrap",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  maxWidth: 130,
+                                }}
+                              >
+                                {product ? (
+                                  product.title
+                                ) : (
+                                  <span
+                                    style={{
+                                      color: colors.textMuted,
+                                      fontStyle: "italic",
+                                    }}
+                                  >
+                                    Unknown
+                                  </span>
+                                )}
+                              </span>
+                            </Box>
+                          );
+                        })()}
                       </TableCell>
 
-                      {/* Starting Price */}
-                      <TableCell sx={{ }}>
+                      {/* Price */}
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>
+                        <p
+                          style={{
+                            margin: 0,
+                            fontSize: "0.75rem",
+                            color: colors.textMuted,
+                          }}
+                        >
+                          Start
+                        </p>
                         <span
-                          style={{ fontWeight: 700, color: colors.textPrimary }}
+                          style={{
+                            fontWeight: 700,
+                            color: colors.textPrimary,
+                            fontSize: "0.85rem",
+                          }}
                         >
                           ${auction.startingPrice.toFixed(2)}
                         </span>
-                      </TableCell>
-
-                      {/* Current Bid */}
-                      <TableCell sx={{ }}>
+                        <p
+                          style={{
+                            margin: "2px 0 0",
+                            fontSize: "0.75rem",
+                            color: colors.textMuted,
+                          }}
+                        >
+                          Current
+                        </p>
                         <span
                           style={{
                             fontWeight: 700,
@@ -561,6 +653,7 @@ export default function AuctionsList() {
                               auction.currentBid > auction.startingPrice
                                 ? "#22C55E"
                                 : colors.textPrimary,
+                            fontSize: "0.85rem",
                           }}
                         >
                           ${auction.currentBid.toFixed(2)}
@@ -568,7 +661,7 @@ export default function AuctionsList() {
                       </TableCell>
 
                       {/* Bid Type */}
-                      <TableCell sx={{ }}>
+                      <TableCell>
                         <Chip
                           label={auction.bidType}
                           size="small"
@@ -589,7 +682,7 @@ export default function AuctionsList() {
                       </TableCell>
 
                       {/* Entry */}
-                      <TableCell sx={{ }}>
+                      <TableCell>
                         {auction.entryType === "paid" ? (
                           <span
                             style={{
@@ -614,9 +707,7 @@ export default function AuctionsList() {
                       </TableCell>
 
                       {/* Start / End */}
-                          <TableCell sx={{
-                          
-                       }}>
+                      <TableCell>
                         <p
                           style={{
                             margin: 0,
@@ -639,9 +730,7 @@ export default function AuctionsList() {
                       </TableCell>
 
                       {/* Participants */}
-                          <TableCell sx={{ 
-                          
-                       }}>
+                      <TableCell>
                         <span
                           style={{ fontWeight: 600, color: colors.textPrimary }}
                         >
@@ -658,24 +747,44 @@ export default function AuctionsList() {
                         </span>
                       </TableCell>
 
-                      {/* Status */}
-                      <TableCell sx={{  }}>
-                        <Chip
-                          icon={statusIcon(auction.status)}
-                          label={auction.status}
-                          size="small"
+                      {/* Status + Active */}
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>
+                        <Box
                           sx={{
-                            bgcolor: sStyle.bg,
-                            color: sStyle.color,
-                            fontWeight: 700,
-                            fontSize: "0.7rem",
-                            textTransform: "capitalize",
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 0.5,
                           }}
-                        />
+                        >
+                          <Chip
+                            icon={statusIcon(auction.status)}
+                            label={auction.status}
+                            size="small"
+                            sx={{
+                              bgcolor: sStyle.bg,
+                              color: sStyle.color,
+                              fontWeight: 700,
+                              fontSize: "0.68rem",
+                              textTransform: "capitalize",
+                              width: "fit-content",
+                            }}
+                          />
+                          <Chip
+                            label={auction.isActive ? "Active" : "Inactive"}
+                            size="small"
+                            sx={{
+                              bgcolor: auction.isActive ? "#DCFCE7" : "#FEE2E2",
+                              color: auction.isActive ? "#22C55E" : "#EF4444",
+                              fontWeight: 700,
+                              fontSize: "0.68rem",
+                              width: "fit-content",
+                            }}
+                          />
+                        </Box>
                       </TableCell>
 
                       {/* Actions */}
-                      <TableCell align="center" sx={{ }}>
+                      <TableCell align="center">
                         <Box
                           sx={{
                             display: "flex",
@@ -817,7 +926,7 @@ export default function AuctionsList() {
               bgcolor: colors.error,
               "&:hover": { bgcolor: "#DC2626" },
               borderRadius: 2,
-              
+              minWidth: 110,
             }}
           >
             {loadingDelete ? "Deleting…" : "Delete"}

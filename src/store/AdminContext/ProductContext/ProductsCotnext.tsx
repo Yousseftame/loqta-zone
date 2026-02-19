@@ -1,5 +1,3 @@
-// src/store/AdminContext/ProductContext/ProductsCotnext.tsx
-
 import {
   createContext,
   useContext,
@@ -19,7 +17,6 @@ import {
   createProduct,
   updateProduct,
   deleteProduct,
-  archiveProduct,
   toggleProductActive,
 } from "@/service/products/productService";
 import { useAuth } from "@/store/AuthContext/AuthContext";
@@ -37,7 +34,6 @@ interface ProductContextType {
     previousImages: string[],
   ) => Promise<Product>;
   removeProduct: (product: Product) => Promise<void>;
-  softArchive: (id: string) => Promise<void>;
   toggleActive: (id: string, isActive: boolean) => Promise<void>;
 }
 
@@ -59,12 +55,9 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
     setError(null);
     try {
-      console.log("Fetching products...");
       const data = await fetchProducts();
-      console.log("Products fetched:", data.length, data);
       setProducts(data);
     } catch (err: any) {
-      console.error("fetchProducts error:", err);
       const msg = err?.message ?? "Failed to load products";
       setError(msg);
       toast.error(msg);
@@ -73,22 +66,19 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  // ✅ Wait for auth to resolve before fetching
   useEffect(() => {
-    if (authLoading) return; // wait for Firebase auth to initialize
+    if (authLoading) return;
     if (!user) {
-      // not logged in — don't fetch, stop loading
       setLoading(false);
       return;
     }
-    refreshProducts(); // user is confirmed logged in → fetch
+    refreshProducts();
   }, [authLoading, user, refreshProducts]);
 
   const getProduct = useCallback(async (id: string) => {
     try {
       return await fetchProduct(id);
     } catch (err: any) {
-      console.error("getProduct error:", err);
       toast.error("Failed to fetch product");
       return null;
     }
@@ -102,7 +92,6 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
         toast.success("Product created successfully");
         return product;
       } catch (err: any) {
-        console.error("addProduct error:", err);
         toast.error(err?.message ?? "Failed to create product");
         throw err;
       }
@@ -111,18 +100,18 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const editProduct = useCallback(
-    async (
-      id: string,
-      formData: ProductFormData,
-      previousImages: string[],
-    ) => {
+    async (id: string, formData: ProductFormData, previousImages: string[]) => {
       try {
-        const updated = await updateProduct(id, formData, previousImages);
-        setProducts((prev) => prev.map((p) => (p.id === id ? updated : p)));
+        // Save to Firestore + Storage
+        await updateProduct(id, formData, previousImages);
+        // Re-fetch from Firestore to get real saved URLs (guarantees thumbnail is correct)
+        const fresh = await fetchProduct(id);
+        if (!fresh) throw new Error("Failed to reload product after update");
+        // Update the list with the freshly-fetched product — no page reload needed
+        setProducts((prev) => prev.map((p) => (p.id === id ? fresh : p)));
         toast.success("Product updated successfully");
-        return updated;
+        return fresh;
       } catch (err: any) {
-        console.error("editProduct error:", err);
         toast.error(err?.message ?? "Failed to update product");
         throw err;
       }
@@ -136,25 +125,7 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
       setProducts((prev) => prev.filter((p) => p.id !== product.id));
       toast.success("Product deleted");
     } catch (err: any) {
-      console.error("removeProduct error:", err);
       toast.error(err?.message ?? "Failed to delete product");
-      throw err;
-    }
-  }, []);
-
-  const softArchive = useCallback(async (id: string) => {
-    try {
-      await archiveProduct(id);
-      setProducts((prev) =>
-        prev.map((p) =>
-          p.id === id
-            ? { ...p, isArchived: true, status: "archived" as const }
-            : p,
-        ),
-      );
-      toast.success("Product archived");
-    } catch (err: any) {
-      toast.error(err?.message ?? "Failed to archive product");
       throw err;
     }
   }, []);
@@ -183,7 +154,6 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
         addProduct,
         editProduct,
         removeProduct,
-        softArchive,
         toggleActive,
       }}
     >
@@ -191,4 +161,3 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
     </ProductContext.Provider>
   );
 };
-
