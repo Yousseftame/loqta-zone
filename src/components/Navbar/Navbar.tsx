@@ -14,7 +14,6 @@ const Navbar = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Close lang dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
@@ -109,15 +108,22 @@ const Navbar = () => {
   return (
     <>
       <nav
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
-          isScrolled
-            ? "bg-[#2A4863]/95 backdrop-blur-md shadow-lg py-1"
-            : "bg-transparent py-2 lg:py-2"
-        }`}
+        className="fixed top-0 left-0 right-0 z-50"
+        style={{
+          background: isScrolled
+            ? "linear-gradient(90deg, #0a0a1a 0%, #0d1b2a 50%, #0a0a1a 100%)"
+            : "transparent",
+          backdropFilter: isScrolled ? "blur(12px)" : "blur(0px)",
+          WebkitBackdropFilter: isScrolled ? "blur(12px)" : "blur(0px)",
+          boxShadow: isScrolled ? "0 4px 24px rgba(0,0,0,0.4)" : "none",
+          padding: isScrolled ? "4px 0" : "8px 0",
+          transition:
+            "background 0.5s ease, backdrop-filter 0.5s ease, box-shadow 0.5s ease, padding 0.5s ease",
+        }}
       >
         <div className="max-w-7xl mx-auto px-6 lg:px-12">
           <div className="flex items-center justify-between">
-            {/* Logo — much bigger, bleeds out of navbar intentionally */}
+            {/* Logo */}
             <Link
               to="/"
               className="flex-shrink-0 transition-transform hover:scale-105 duration-300"
@@ -150,8 +156,6 @@ const Navbar = () => {
                 <Link to="/signin" className="btn-nav-signin">
                   Sign In
                 </Link>
-
-                {/* Language Switcher */}
                 <LangSwitcher />
               </div>
             </div>
@@ -180,7 +184,11 @@ const Navbar = () => {
         }`}
       >
         <div
-          className="absolute inset-0 bg-[#2A4863]/97 backdrop-blur-sm"
+          className="absolute inset-0 backdrop-blur-sm"
+          style={{
+            background:
+              "linear-gradient(90deg, #0a0a1aF7 0%, #0d1b2aF7 50%, #0a0a1aF7 100%)",
+          }}
           onClick={() => setIsMenuOpen(false)}
         />
 
