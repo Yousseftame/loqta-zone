@@ -7,6 +7,9 @@ import { AuthProvider } from './store/AuthContext/AuthContext.tsx';
 import { ProductProvider } from './store/AdminContext/ProductContext/ProductsCotnext.tsx';
 import { AuctionProvider } from './store/AdminContext/AuctionContext/AuctionContext.tsx';
 import { VoucherProvider } from './store/AdminContext/VoucherContext/VoucherContext.tsx';
+import "swiper/css";
+import "swiper/css/navigation";
+import "swiper/css/pagination";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
