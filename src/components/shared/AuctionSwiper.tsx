@@ -1,17 +1,19 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect, memo } from "react";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Autoplay, FreeMode } from "swiper/modules";
+import { useInView } from "motion/react";
+import SplitText from "@/components/SplitText";
 import "swiper/css/free-mode";
 import "swiper/css";
 import "swiper/css/navigation";
 import "swiper/css/pagination";
 
-// ── Design tokens matching the site's system ──────────────────
+// ── Design tokens ─────────────────────────────────────────────
 const NAVY = "#2A4863";
 const NAVY2 = "#1e3652";
 const CREAM = "rgb(229, 224, 198)";
 const CREAM2 = "rgba(229, 224, 198, 0.75)";
-const GOLD = "#c9a96e"; // warm accent for prices / highlights
+const GOLD = "#c9a96e";
 
 interface AuctionItem {
   _id: string;
@@ -120,8 +122,10 @@ const auctionItems: AuctionItem[] = [
   },
 ];
 
-// ── Card ──────────────────────────────────────────────────────
-function AuctionCard({ item }: { item: AuctionItem }) {
+// ── Card — wrapped in memo so parent re-renders never touch it ─
+// This eliminates the flicker: card hover state is 100% local
+// and never propagates up to cause a header re-render.
+const AuctionCard = memo(function AuctionCard({ item }: { item: AuctionItem }) {
   const [hovered, setHovered] = useState(false);
 
   return (
@@ -144,7 +148,7 @@ function AuctionCard({ item }: { item: AuctionItem }) {
         userSelect: "none",
       }}
     >
-      {/* ── Promo banner ─────────────────────────────────────── */}
+      {/* Promo banner */}
       <div
         style={{
           background: hovered
@@ -165,7 +169,6 @@ function AuctionCard({ item }: { item: AuctionItem }) {
         <span style={{ position: "relative", zIndex: 1 }}>
           ✦ Apply Promo Code ✦
         </span>
-        {/* shimmer sweep */}
         <div
           style={{
             position: "absolute",
@@ -178,7 +181,7 @@ function AuctionCard({ item }: { item: AuctionItem }) {
         />
       </div>
 
-      {/* ── Image ────────────────────────────────────────────── */}
+      {/* Image */}
       <div
         style={{
           position: "relative",
@@ -203,8 +206,6 @@ function AuctionCard({ item }: { item: AuctionItem }) {
             (e.target as HTMLImageElement).src = "/fallback.jpg";
           }}
         />
-
-        {/* Dark gradient at bottom of image */}
         <div
           style={{
             position: "absolute",
@@ -214,7 +215,7 @@ function AuctionCard({ item }: { item: AuctionItem }) {
           }}
         />
 
-        {/* LOQTA ZONE stamp — top left */}
+        {/* LOQTA ZONE stamp */}
         <div
           style={{
             position: "absolute",
@@ -255,7 +256,7 @@ function AuctionCard({ item }: { item: AuctionItem }) {
           </span>
         </div>
 
-        {/* Time / Hot badge — top right */}
+        {/* Time / Hot badge */}
         <div
           style={{
             position: "absolute",
@@ -283,7 +284,7 @@ function AuctionCard({ item }: { item: AuctionItem }) {
           <span>⏱ {item.timeLeft}</span>
         </div>
 
-        {/* Category + bids — bottom of image */}
+        {/* Category + bids */}
         <div
           style={{
             position: "absolute",
@@ -299,7 +300,7 @@ function AuctionCard({ item }: { item: AuctionItem }) {
             style={{
               background: "rgba(20,35,52,0.75)",
               backdropFilter: "blur(6px)",
-              border: `1px solid ${CREAM2.replace("0.75", "0.25")}`,
+              border: `1px solid rgba(229,224,198,0.25)`,
               borderRadius: 6,
               padding: "4px 10px",
               fontSize: 10,
@@ -331,7 +332,7 @@ function AuctionCard({ item }: { item: AuctionItem }) {
         </div>
       </div>
 
-      {/* ── Card body ─────────────────────────────────────────── */}
+      {/* Card body */}
       <div
         style={{
           padding: "18px 20px 20px",
@@ -341,7 +342,6 @@ function AuctionCard({ item }: { item: AuctionItem }) {
           flex: 1,
         }}
       >
-        {/* Title */}
         <div>
           <h3
             style={{
@@ -367,7 +367,6 @@ function AuctionCard({ item }: { item: AuctionItem }) {
           </p>
         </div>
 
-        {/* Meta */}
         <div
           style={{
             display: "flex",
@@ -388,7 +387,6 @@ function AuctionCard({ item }: { item: AuctionItem }) {
           </span>
         </div>
 
-        {/* Thin divider */}
         <div
           style={{
             height: 1,
@@ -466,11 +464,7 @@ function AuctionCard({ item }: { item: AuctionItem }) {
                   Current Bid
                 </div>
                 <div
-                  style={{
-                    fontSize: 14,
-                    fontWeight: 800,
-                    color: "#2d7a4f",
-                  }}
+                  style={{ fontSize: 14, fontWeight: 800, color: "#2d7a4f" }}
                 >
                   {item.currentBid.toLocaleString()}
                   <span
@@ -483,7 +477,6 @@ function AuctionCard({ item }: { item: AuctionItem }) {
             )}
           </div>
 
-          {/* CTA Button */}
           <button
             style={{
               width: "100%",
@@ -510,13 +503,158 @@ function AuctionCard({ item }: { item: AuctionItem }) {
       </div>
     </div>
   );
-}
+});
 
-// ── Section ───────────────────────────────────────────────────
+// ── Header — fully isolated component, mirrors StatsSection ───
+// once: false  →  re-animates each time the section scrolls into view
+// animKey      →  forces SplitText to remount and replay on each entry
+// memo         →  never re-renders from swiper/card state changes
+const AuctionHeader = memo(function AuctionHeader() {
+  const headerRef = useRef<HTMLDivElement>(null);
+  const isInView = useInView(headerRef, { once: false, margin: "-80px" });
+
+  // Bump this key every time we re-enter the viewport to replay SplitText
+  const [animKey, setAnimKey] = useState(0);
+  const wasInView = useRef(false);
+
+  useEffect(() => {
+    if (isInView && !wasInView.current) {
+      setAnimKey((k) => k + 1);
+      wasInView.current = true;
+    } else if (!isInView) {
+      wasInView.current = false;
+    }
+  }, [isInView]);
+
+  return (
+    <div
+      ref={headerRef}
+      style={{
+        textAlign: "center",
+        marginBottom: 52,
+        padding: "0 24px",
+        position: "relative",
+        zIndex: 1,
+        // Fixed min-height prevents layout shift during animation
+        minHeight: 170,
+      }}
+    >
+      {/* Eyebrow — gold side lines, identical to StatsSection */}
+      <div
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 10,
+          marginBottom: 20,
+          opacity: isInView ? 1 : 0,
+          transform: isInView ? "translateY(0)" : "translateY(14px)",
+          transition: "opacity 0.55s ease, transform 0.55s ease",
+        }}
+      >
+        <div
+          style={{
+            width: 32,
+            height: 1,
+            background: `linear-gradient(90deg, transparent, ${GOLD})`,
+          }}
+        />
+        <span
+          style={{
+            fontSize: 10,
+            fontWeight: 800,
+            color: GOLD,
+            letterSpacing: "0.3em",
+            textTransform: "uppercase",
+          }}
+        >
+          · Live Auctions ·
+        </span>
+        <div
+          style={{
+            width: 32,
+            height: 1,
+            background: `linear-gradient(90deg, ${GOLD}, transparent)`,
+          }}
+        />
+      </div>
+
+      {/* Line 1 — white with rotateX entry */}
+      <div
+        style={{
+          fontSize: "clamp(26px, 4.5vw, 44px)",
+          fontWeight: 900,
+          color: "#ffffff",
+          letterSpacing: "-0.02em",
+          lineHeight: 1.1,
+          marginBottom: 4,
+        }}
+      >
+        <SplitText
+          key={`line1-${animKey}`}
+          text="Upcoming"
+          tag="h2"
+          className=""
+          splitType="chars"
+          duration={1.0}
+          delay={30}
+          ease="power3.out"
+          from={{ opacity: 0, y: 40, rotateX: -20 }}
+          to={{ opacity: 1, y: 0, rotateX: 0 }}
+        />
+      </div>
+
+      {/* Line 2 — gold */}
+      <div
+        style={{
+          fontSize: "clamp(26px, 4.5vw, 44px)",
+          fontWeight: 900,
+          color: GOLD,
+          letterSpacing: "-0.02em",
+          lineHeight: 1.1,
+          marginBottom: 20,
+        }}
+      >
+        <SplitText
+          key={`line2-${animKey}`}
+          text="Auctions."
+          tag="h2"
+          className=""
+          splitType="chars"
+          duration={1.0}
+          delay={30}
+          ease="power3.out"
+          from={{ opacity: 0, y: 40 }}
+          to={{ opacity: 1, y: 0 }}
+        />
+      </div>
+
+      {/* Subtext fades in after headline */}
+      <p
+        style={{
+          margin: "0 auto",
+          color: "rgba(229,224,198,0.45)",
+          fontSize: 14,
+          fontWeight: 400,
+          letterSpacing: "0.01em",
+          maxWidth: 480,
+          lineHeight: 1.7,
+          opacity: isInView ? 1 : 0,
+          transform: isInView ? "translateY(0)" : "translateY(10px)",
+          transition: "opacity 0.7s ease 0.35s, transform 0.7s ease 0.35s",
+        }}
+      >
+        Register now and secure your spot before bidding opens.
+      </p>
+    </div>
+  );
+});
+
+// ── Main section ──────────────────────────────────────────────
 export default function AuctionSwiper() {
   const swiperRef = useRef<any>(null);
   const [activeIdx, setActiveIdx] = useState(0);
   const resumeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   return (
     <section
       style={{
@@ -526,7 +664,7 @@ export default function AuctionSwiper() {
         overflow: "hidden",
       }}
     >
-      {/* Subtle top border matching navbar feel */}
+      {/* Top gold border */}
       <div
         style={{
           position: "absolute",
@@ -577,88 +715,24 @@ export default function AuctionSwiper() {
         }}
       />
 
-      {/* ── Section header ──────────────────────────────────── */}
-      <div style={{ textAlign: "center", marginBottom: 52, padding: "0 24px" }}>
-        {/* Eyebrow pill */}
-        <div
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 8,
-            background: "rgba(229,224,198,0.08)",
-            border: `1.5px solid rgba(229,224,198,0.2)`,
-            borderRadius: 999,
-            padding: "6px 20px",
-            marginBottom: 18,
-            fontSize: 10,
-            fontWeight: 800,
-            color: CREAM,
-            letterSpacing: "0.25em",
-            textTransform: "uppercase",
-          }}
-        >
-          🔨 Loqta Zone · Live Auctions
-        </div>
-
-        <h2
-          style={{
-            margin: 0,
-            fontSize: "clamp(26px, 4.5vw, 44px)",
-            fontWeight: 900,
-            color: "#ffffff",
-            letterSpacing: "-0.02em",
-            lineHeight: 1.1,
-          }}
-        >
-          Upcoming <span style={{ color: GOLD }}>Auctions</span>
-        </h2>
-
-        <p
-          style={{
-            margin: "14px 0 0",
-            color: "rgba(229,224,198,0.5)",
-            fontSize: 14,
-            fontWeight: 400,
-            letterSpacing: "0.01em",
-          }}
-        >
-          Register now and secure your spot before bidding opens.
-        </p>
-      </div>
+      {/* Fully isolated header — card hover state can never reach it */}
+      <AuctionHeader />
 
       {/* ── Swiper ──────────────────────────────────────────── */}
       <div style={{ padding: "0 20px" }}>
         <style>{`
-          .lz-swiper {
-            overflow: visible !important;
-          }
-          .lz-swiper-wrap {
-            overflow: hidden;
-            padding: 8px 4px 0;
-          }
-          .lz-swiper .swiper-slide {
-            height: auto;
-          }
-          /* custom dot styles */
+          .lz-swiper { overflow: visible !important; }
+          .lz-swiper-wrap { overflow: hidden; padding: 8px 4px 0; }
+          .lz-swiper .swiper-slide { height: auto; }
           .lz-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 4px;
+            width: 8px; height: 8px; border-radius: 4px;
             background: rgba(229,224,198,0.2);
-            border: none;
-            cursor: pointer;
+            border: none; cursor: pointer;
             transition: width 0.2s ease, background 0.2s ease;
-            padding: 0;
-            flex-shrink: 0;
+            padding: 0; flex-shrink: 0;
           }
-          .lz-dot.active {
-            width: 26px;
-            background: #c9a96e;
-            border-radius: 4px;
-          }
-          .lz-dot:hover:not(.active) {
-            background: rgba(229,224,198,0.4);
-          }
+          .lz-dot.active { width: 26px; background: #c9a96e; border-radius: 4px; }
+          .lz-dot:hover:not(.active) { background: rgba(229,224,198,0.4); }
         `}</style>
 
         <div className="lz-swiper-wrap">
@@ -671,7 +745,6 @@ export default function AuctionSwiper() {
             onSlideChange={(s) =>
               setActiveIdx(s.realIndex % auctionItems.length)
             }
-            /* ── Continuous belt scroll ── */
             loop={true}
             speed={5000}
             autoplay={{
@@ -698,7 +771,7 @@ export default function AuctionSwiper() {
           </Swiper>
         </div>
 
-        {/* ── Custom dot navigation ── */}
+        {/* Dot navigation */}
         <div
           style={{
             display: "flex",
@@ -715,18 +788,11 @@ export default function AuctionSwiper() {
               onClick={() => {
                 const sw = swiperRef.current;
                 if (!sw) return;
-
-                // Cancel any pending autoplay resume
                 if (resumeTimer.current) clearTimeout(resumeTimer.current);
-
-                // Stop the belt, swipe fast to target (600ms feels like a quick flick)
                 sw.autoplay.stop();
                 sw.params.speed = 600;
                 sw.slideToLoop(i, 600);
-
                 setActiveIdx(i);
-
-                // Resume belt after 2s
                 resumeTimer.current = setTimeout(() => {
                   sw.params.speed = 5000;
                   sw.autoplay.start();
