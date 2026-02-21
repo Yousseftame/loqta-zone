@@ -11,6 +11,7 @@ import React from 'react'
 import { useRef } from "react";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Navigation, Pagination, Autoplay } from "swiper/modules";
+import HeroSections from '@/components/HomeSections/HeroSections';
 
 
 export default function Home() {
@@ -30,6 +31,7 @@ export default function Home() {
             animationDuration={0.5}
             pauseBetweenAnimations={1}
           />
+          
 
           <div style={{ height: "600px", position: "relative" }}>
             {/* <Carousel
