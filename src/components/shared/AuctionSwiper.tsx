@@ -65,8 +65,8 @@ const auctionItems: AuctionItem[] = [
   },
   {
     _id: "3",
-    title: "Apple Watch Series 11",
-    subtitle: "Midnight Aluminum · GPS",
+    title: "Apple Watch S11",
+    subtitle: "Midnight · GPS",
     startingPrice: 1500,
     currency: "EGP",
     image:
@@ -80,7 +80,7 @@ const auctionItems: AuctionItem[] = [
   {
     _id: "4",
     title: "JBL Tune 520BT",
-    subtitle: "Wireless On-Ear · Blue",
+    subtitle: "Wireless · Blue",
     startingPrice: 500,
     currency: "EGP",
     image:
@@ -93,8 +93,8 @@ const auctionItems: AuctionItem[] = [
   },
   {
     _id: "5",
-    title: "Samsung Galaxy S25 Ultra",
-    subtitle: "Titanium Black · 512GB",
+    title: "Galaxy S25 Ultra",
+    subtitle: "Titanium · 512GB",
     startingPrice: 5000,
     currentBid: 6200,
     currency: "EGP",
@@ -110,7 +110,7 @@ const auctionItems: AuctionItem[] = [
   {
     _id: "6",
     title: "Sony WH-1000XM5",
-    subtitle: "Noise Cancelling · Platinum",
+    subtitle: "Noise Cancel · Platinum",
     startingPrice: 3200,
     currency: "EGP",
     image:
@@ -123,377 +123,457 @@ const auctionItems: AuctionItem[] = [
   },
 ];
 
-// ── Card — wrapped in memo so parent re-renders never touch it ─
-// This eliminates the flicker: card hover state is 100% local
-// and never propagates up to cause a header re-render.
+// ── Card ──────────────────────────────────────────────────────
 const AuctionCard = memo(function AuctionCard({ item }: { item: AuctionItem }) {
   const [hovered, setHovered] = useState(false);
 
   return (
-    <div
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        borderRadius: 18,
-        overflow: "hidden",
-        background: "#fff",
-        border: `1px solid ${hovered ? "rgba(42,72,99,0.35)" : "rgba(42,72,99,0.10)"}`,
-        boxShadow: hovered
-          ? `0 20px 56px rgba(42,72,99,0.18), 0 4px 16px rgba(42,72,99,0.10)`
-          : "0 2px 16px rgba(42,72,99,0.07)",
-        transform: hovered ? "translateY(-7px)" : "translateY(0)",
-        transition: "all 0.45s cubic-bezier(0.22, 1, 0.36, 1)",
-        cursor: "pointer",
-        display: "flex",
-        flexDirection: "column",
-        userSelect: "none",
-      }}
-    >
-      {/* Promo banner */}
+    <>
+      {/* Responsive card styles injected once */}
+      <style>{`
+        .lz-card-img { height: 180px; }
+        .lz-card-title { font-size: 11px; }
+        .lz-card-subtitle { font-size: 10px; }
+        .lz-card-meta { display: none !important; }
+        .lz-card-price-label { font-size: 8px; }
+        .lz-card-price-value { font-size: 16px; }
+        .lz-card-bid-label { font-size: 8px; }
+        .lz-card-bid-value { font-size: 11px; }
+        .lz-card-body { padding: 10px 10px 12px; gap: 8px; }
+        .lz-card-price-block { padding: 10px 10px; gap: 8px; }
+        .lz-card-banner { font-size: 8px; padding: 5px 0; letter-spacing: 0.14em; }
+        .lz-card-stamp { width: 38px; height: 38px; top: 8px; left: 8px; }
+        .lz-card-stamp span { font-size: 5px !important; }
+        .lz-card-stamp .lz-stamp-stars { font-size: 6px !important; }
+        .lz-card-badge { font-size: 9px; padding: 3px 8px; top: 8px; right: 8px; }
+        .lz-card-cat { font-size: 8px; padding: 3px 7px; }
+        .lz-card-bids { font-size: 8px; padding: 3px 7px; }
+        .lz-cat-row { bottom: 8px; left: 8px; right: 8px; }
+        .lz-shiny-btn { font-size: 9px !important; padding: 7px 4px !important; }
+
+        @media (min-width: 640px) {
+          .lz-card-img { height: 220px; }
+          .lz-card-title { font-size: 13px; }
+          .lz-card-subtitle { font-size: 11px; }
+          .lz-card-meta { display: flex !important; }
+          .lz-card-price-label { font-size: 9px; }
+          .lz-card-price-value { font-size: 19px; }
+          .lz-card-bid-label { font-size: 9px; }
+          .lz-card-bid-value { font-size: 13px; }
+          .lz-card-body { padding: 14px 14px 16px; gap: 11px; }
+          .lz-card-price-block { padding: 12px 12px; gap: 10px; }
+          .lz-card-banner { font-size: 9px; padding: 7px 0; letter-spacing: 0.18em; }
+          .lz-card-stamp { width: 48px; height: 48px; top: 10px; left: 10px; }
+          .lz-card-stamp span { font-size: 6px !important; }
+          .lz-card-stamp .lz-stamp-stars { font-size: 7px !important; }
+          .lz-card-badge { font-size: 10px; padding: 4px 10px; top: 10px; right: 10px; }
+          .lz-card-cat { font-size: 9px; padding: 3px 9px; }
+          .lz-card-bids { font-size: 9px; padding: 3px 9px; }
+          .lz-cat-row { bottom: 10px; left: 10px; right: 10px; }
+          .lz-shiny-btn { font-size: 10px !important; padding: 9px 6px !important; }
+        }
+
+        @media (min-width: 900px) {
+          .lz-card-img { height: 240px; }
+          .lz-card-title { font-size: 15px; }
+          .lz-card-subtitle { font-size: 12px; }
+          .lz-card-price-label { font-size: 9px; }
+          .lz-card-price-value { font-size: 21px; }
+          .lz-card-bid-value { font-size: 14px; }
+          .lz-card-body { padding: 18px 20px 20px; gap: 14px; }
+          .lz-card-price-block { padding: 14px 16px; gap: 12px; }
+          .lz-card-banner { font-size: 10px; padding: 8px 0; letter-spacing: 0.22em; }
+          .lz-card-stamp { width: 56px; height: 56px; top: 12px; left: 12px; }
+          .lz-card-stamp span { font-size: 6.5px !important; }
+          .lz-card-stamp .lz-stamp-stars { font-size: 8px !important; }
+          .lz-card-badge { font-size: 11px; padding: 5px 12px; top: 12px; right: 12px; }
+          .lz-card-cat { font-size: 10px; padding: 4px 10px; }
+          .lz-card-bids { font-size: 10px; padding: 4px 10px; }
+          .lz-cat-row { bottom: 12px; left: 12px; right: 12px; }
+          .lz-shiny-btn { font-size: 11px !important; padding: 10px 8px !important; }
+        }
+      `}</style>
+
       <div
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
         style={{
-          background: hovered
-            ? `linear-gradient(90deg, ${NAVY2}, ${NAVY})`
-            : `linear-gradient(90deg, ${NAVY}, #3a5a78)`,
-          padding: "8px 0",
-          textAlign: "center",
-          fontSize: 10,
-          fontWeight: 700,
-          letterSpacing: "0.22em",
-          color: CREAM,
-          textTransform: "uppercase",
-          position: "relative",
+          borderRadius: 14,
           overflow: "hidden",
-          transition: "background 0.4s ease",
-        }}
-      >
-        <span style={{ position: "relative", zIndex: 1 }}>
-          ✦ Apply Promo Code ✦
-        </span>
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background:
-              "linear-gradient(90deg, transparent, rgba(229,224,198,0.18), transparent)",
-            transform: hovered ? "translateX(200%)" : "translateX(-100%)",
-            transition: "transform 0.7s ease",
-          }}
-        />
-      </div>
-
-      {/* Image */}
-      <div
-        style={{
-          position: "relative",
-          height: 260,
-          overflow: "hidden",
-          background: "#eef1f4",
-        }}
-      >
-        <img
-          src={item.image}
-          alt={item.title}
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            objectPosition: "center",
-            transform: hovered ? "scale(1.05)" : "scale(1)",
-            transition: "transform 0.65s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
-            display: "block",
-          }}
-          onError={(e) => {
-            (e.target as HTMLImageElement).src = "/fallback.jpg";
-          }}
-        />
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background:
-              "linear-gradient(to bottom, transparent 45%, rgba(20,35,52,0.72) 100%)",
-          }}
-        />
-
-        {/* LOQTA ZONE stamp */}
-        <div
-          style={{
-            position: "absolute",
-            top: 12,
-            left: 12,
-            width: 56,
-            height: 56,
-            borderRadius: "50%",
-            background: `linear-gradient(135deg, ${NAVY}, ${NAVY2})`,
-            border: `2px dashed ${CREAM2}`,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            boxShadow: "0 4px 14px rgba(0,0,0,0.35)",
-            transform: hovered
-              ? "rotate(10deg) scale(1.08)"
-              : "rotate(0deg) scale(1)",
-            transition: "transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1)",
-          }}
-        >
-          <span
-            style={{
-              fontSize: 6.5,
-              fontWeight: 900,
-              color: CREAM,
-              textAlign: "center",
-              lineHeight: 1.4,
-              letterSpacing: "0.05em",
-              textTransform: "uppercase",
-            }}
-          >
-            LOQTA
-            <br />
-            ZONE
-            <br />
-            <span style={{ color: GOLD, fontSize: 8 }}>★★★</span>
-          </span>
-        </div>
-
-        {/* Time / Hot badge */}
-        <div
-          style={{
-            position: "absolute",
-            top: 12,
-            right: 12,
-            background: item.isHot
-              ? "rgba(160, 40, 40, 0.88)"
-              : "rgba(20, 35, 52, 0.72)",
-            backdropFilter: "blur(6px)",
-            borderRadius: 999,
-            padding: "5px 12px",
-            display: "flex",
-            alignItems: "center",
-            gap: 5,
-            fontSize: 11,
-            fontWeight: 700,
-            color: item.isHot ? "#ffd0d0" : CREAM2,
-            letterSpacing: "0.04em",
-            border: item.isHot
-              ? "1px solid rgba(255,100,100,0.35)"
-              : `1px solid rgba(229,224,198,0.2)`,
-          }}
-        >
-          {item.isHot && <span>🔥</span>}
-          <span>⏱ {item.timeLeft}</span>
-        </div>
-
-        {/* Category + bids */}
-        <div
-          style={{
-            position: "absolute",
-            bottom: 12,
-            left: 12,
-            right: 12,
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <div
-            style={{
-              background: "rgba(20,35,52,0.75)",
-              backdropFilter: "blur(6px)",
-              border: `1px solid rgba(229,224,198,0.25)`,
-              borderRadius: 6,
-              padding: "4px 10px",
-              fontSize: 10,
-              fontWeight: 700,
-              color: CREAM,
-              letterSpacing: "0.12em",
-              textTransform: "uppercase",
-            }}
-          >
-            {item.category}
-          </div>
-          {item.bidsCount && (
-            <div
-              style={{
-                background: "rgba(20,35,52,0.75)",
-                backdropFilter: "blur(6px)",
-                border: `1px solid rgba(229,224,198,0.18)`,
-                borderRadius: 999,
-                padding: "4px 10px",
-                fontSize: 10,
-                fontWeight: 600,
-                color: CREAM2,
-                letterSpacing: "0.04em",
-              }}
-            >
-              🔨 {item.bidsCount} bids
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Card body */}
-      <div
-        style={{
-          padding: "18px 20px 20px",
+          background: "#fff",
+          border: `1px solid ${hovered ? "rgba(42,72,99,0.35)" : "rgba(42,72,99,0.10)"}`,
+          boxShadow: hovered
+            ? `0 20px 56px rgba(42,72,99,0.18), 0 4px 16px rgba(42,72,99,0.10)`
+            : "0 2px 16px rgba(42,72,99,0.07)",
+          transform: hovered ? "translateY(-5px)" : "translateY(0)",
+          transition: "all 0.45s cubic-bezier(0.22, 1, 0.36, 1)",
+          cursor: "pointer",
           display: "flex",
           flexDirection: "column",
-          gap: 14,
-          flex: 1,
+          userSelect: "none",
+          width: "100%",
         }}
       >
-        <div>
-          <h3
-            style={{
-              margin: 0,
-              fontSize: 15,
-              fontWeight: 800,
-              color: NAVY,
-              textTransform: "uppercase",
-              letterSpacing: "0.04em",
-            }}
-          >
-            {item.title}
-          </h3>
-          <p
-            style={{
-              margin: "4px 0 0",
-              fontSize: 12,
-              color: "#7a8ea0",
-              fontWeight: 500,
-            }}
-          >
-            {item.subtitle}
-          </p>
-        </div>
-
+        {/* Promo banner */}
         <div
+          className="lz-card-banner"
           style={{
-            display: "flex",
-            gap: 16,
-            fontSize: 11,
-            color: "#8fa0b0",
-            fontWeight: 600,
-            alignItems: "center",
-            letterSpacing: "0.02em",
+            background: hovered
+              ? `linear-gradient(90deg, ${NAVY2}, ${NAVY})`
+              : `linear-gradient(90deg, ${NAVY}, #3a5a78)`,
+            textAlign: "center",
+            fontWeight: 700,
+            color: CREAM,
+            textTransform: "uppercase",
+            position: "relative",
+            overflow: "hidden",
+            transition: "background 0.4s ease",
           }}
         >
-          <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <span style={{ opacity: 0.7 }}>📅</span> {item.auctionDate}
+          <span style={{ position: "relative", zIndex: 1 }}>
+            ✦ Promo Code ✦
           </span>
-          <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <span style={{ opacity: 0.7 }}>🔨</span> No. Auctions:{" "}
-            {item.numAuctions}
-          </span>
-        </div>
-
-        <div
-          style={{
-            height: 1,
-            background: `linear-gradient(90deg, rgba(42,72,99,0.18), transparent)`,
-          }}
-        />
-
-        {/* Price block */}
-        <div
-          style={{
-            borderRadius: 14,
-            background: hovered ? "rgba(42,72,99,0.04)" : "#f7f8fa",
-            border: `1px solid rgba(42,72,99,0.10)`,
-            padding: "14px 16px",
-            display: "flex",
-            flexDirection: "column",
-            gap: 12,
-            transition: "background 0.3s ease",
-          }}
-        >
           <div
             style={{
+              position: "absolute",
+              inset: 0,
+              background:
+                "linear-gradient(90deg, transparent, rgba(229,224,198,0.18), transparent)",
+              transform: hovered ? "translateX(200%)" : "translateX(-100%)",
+              transition: "transform 0.7s ease",
+            }}
+          />
+        </div>
+
+        {/* Image */}
+        <div
+          className="lz-card-img"
+          style={{
+            position: "relative",
+            overflow: "hidden",
+            background: "#eef1f4",
+            flexShrink: 0,
+          }}
+        >
+          <img
+            src={item.image}
+            alt={item.title}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              objectPosition: "center",
+              transform: hovered ? "scale(1.05)" : "scale(1)",
+              transition:
+                "transform 0.65s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
+              display: "block",
+            }}
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = "/fallback.jpg";
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background:
+                "linear-gradient(to bottom, transparent 40%, rgba(20,35,52,0.75) 100%)",
+            }}
+          />
+
+          {/* LOQTA ZONE stamp */}
+          <div
+            className="lz-card-stamp"
+            style={{
+              position: "absolute",
+              borderRadius: "50%",
+              background: `linear-gradient(135deg, ${NAVY}, ${NAVY2})`,
+              border: `2px dashed ${CREAM2}`,
               display: "flex",
-              justifyContent: "space-between",
-              alignItems: "flex-end",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: "0 4px 14px rgba(0,0,0,0.35)",
+              transform: hovered
+                ? "rotate(10deg) scale(1.08)"
+                : "rotate(0deg) scale(1)",
+              transition: "transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1)",
             }}
           >
-            <div>
-              <div
-                style={{
-                  fontSize: 9,
-                  color: "#9aabbb",
-                  fontWeight: 700,
-                  letterSpacing: "0.18em",
-                  textTransform: "uppercase",
-                  marginBottom: 4,
-                }}
-              >
-                Starting From
-              </div>
-              <div
-                style={{
-                  fontSize: 21,
-                  fontWeight: 900,
-                  color: GOLD,
-                  letterSpacing: "-0.01em",
-                  lineHeight: 1,
-                }}
-              >
-                {item.startingPrice.toLocaleString()}
-                <span
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: "#b8996a",
-                    marginLeft: 4,
-                  }}
-                >
-                  {item.currency}
-                </span>
-              </div>
+            <span
+              style={{
+                fontWeight: 900,
+                color: CREAM,
+                textAlign: "center",
+                lineHeight: 1.4,
+                letterSpacing: "0.05em",
+                textTransform: "uppercase",
+              }}
+            >
+              LOQTA
+              <br />
+              ZONE
+              <br />
+              <span className="lz-stamp-stars" style={{ color: GOLD }}>
+                ★★★
+              </span>
+            </span>
+          </div>
+
+          {/* Time / Hot badge */}
+          <div
+            className="lz-card-badge"
+            style={{
+              position: "absolute",
+              background: item.isHot
+                ? "rgba(160, 40, 40, 0.88)"
+                : "rgba(20, 35, 52, 0.72)",
+              backdropFilter: "blur(6px)",
+              borderRadius: 999,
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              fontWeight: 700,
+              color: item.isHot ? "#ffd0d0" : CREAM2,
+              letterSpacing: "0.04em",
+              border: item.isHot
+                ? "1px solid rgba(255,100,100,0.35)"
+                : `1px solid rgba(229,224,198,0.2)`,
+            }}
+          >
+            {item.isHot && <span>🔥</span>}
+            <span>⏱ {item.timeLeft}</span>
+          </div>
+
+          {/* Category + bids */}
+          <div
+            className="lz-cat-row"
+            style={{
+              position: "absolute",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 4,
+            }}
+          >
+            <div
+              className="lz-card-cat"
+              style={{
+                background: "rgba(20,35,52,0.80)",
+                backdropFilter: "blur(6px)",
+                border: `1px solid rgba(229,224,198,0.25)`,
+                borderRadius: 5,
+                fontWeight: 700,
+                color: CREAM,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {item.category}
             </div>
-            {item.currentBid && (
-              <div style={{ textAlign: "right" }}>
+            {item.bidsCount && (
+              <div
+                className="lz-card-bids"
+                style={{
+                  background: "rgba(20,35,52,0.80)",
+                  backdropFilter: "blur(6px)",
+                  border: `1px solid rgba(229,224,198,0.18)`,
+                  borderRadius: 999,
+                  fontWeight: 600,
+                  color: CREAM2,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                🔨 {item.bidsCount}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Card body */}
+        <div
+          className="lz-card-body"
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            flex: 1,
+          }}
+        >
+          {/* Title + subtitle */}
+          <div>
+            <h3
+              className="lz-card-title"
+              style={{
+                margin: 0,
+                fontWeight: 800,
+                color: NAVY,
+                textTransform: "uppercase",
+                letterSpacing: "0.03em",
+                lineHeight: 1.2,
+                // Clamp to 2 lines max
+                display: "-webkit-box",
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+              }}
+            >
+              {item.title}
+            </h3>
+            <p
+              className="lz-card-subtitle"
+              style={{
+                margin: "3px 0 0",
+                color: "#7a8ea0",
+                fontWeight: 500,
+                lineHeight: 1.3,
+                display: "-webkit-box",
+                WebkitLineClamp: 1,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+              }}
+            >
+              {item.subtitle}
+            </p>
+          </div>
+
+          {/* Meta row — hidden on mobile */}
+          <div
+            className="lz-card-meta"
+            style={{
+              gap: 10,
+              color: "#8fa0b0",
+              fontWeight: 600,
+              alignItems: "center",
+              fontSize: 10,
+            }}
+          >
+            <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <span style={{ opacity: 0.7 }}>📅</span> {item.auctionDate}
+            </span>
+            <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <span style={{ opacity: 0.7 }}>🔨</span> ×{item.numAuctions}
+            </span>
+          </div>
+
+          {/* Divider */}
+          <div
+            style={{
+              height: 1,
+              background: `linear-gradient(90deg, rgba(42,72,99,0.18), transparent)`,
+              flexShrink: 0,
+            }}
+          />
+
+          {/* Price block */}
+          <div
+            className="lz-card-price-block"
+            style={{
+              borderRadius: 10,
+              background: hovered ? "rgba(42,72,99,0.04)" : "#f7f8fa",
+              border: `1px solid rgba(42,72,99,0.10)`,
+              display: "flex",
+              flexDirection: "column",
+              transition: "background 0.3s ease",
+              flex: 1,
+              justifyContent: "space-between",
+            }}
+          >
+            {/* Starting + current bid */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-end",
+                marginBottom: 8,
+              }}
+            >
+              <div>
                 <div
+                  className="lz-card-price-label"
                   style={{
-                    fontSize: 9,
                     color: "#9aabbb",
                     fontWeight: 700,
                     letterSpacing: "0.14em",
                     textTransform: "uppercase",
-                    marginBottom: 4,
+                    marginBottom: 2,
                   }}
                 >
-                  Current Bid
+                  From
                 </div>
                 <div
-                  style={{ fontSize: 14, fontWeight: 800, color: "#2d7a4f" }}
+                  className="lz-card-price-value"
+                  style={{
+                    fontWeight: 900,
+                    color: GOLD,
+                    letterSpacing: "-0.01em",
+                    lineHeight: 1,
+                  }}
                 >
-                  {item.currentBid.toLocaleString()}
+                  {item.startingPrice.toLocaleString()}
                   <span
-                    style={{ fontSize: 10, marginLeft: 3, fontWeight: 600 }}
+                    style={{
+                      fontSize: "0.55em",
+                      fontWeight: 600,
+                      color: "#b8996a",
+                      marginLeft: 3,
+                    }}
                   >
                     {item.currency}
                   </span>
                 </div>
               </div>
-            )}
-          </div>
+              {item.currentBid && (
+                <div style={{ textAlign: "right" }}>
+                  <div
+                    className="lz-card-bid-label"
+                    style={{
+                      color: "#9aabbb",
+                      fontWeight: 700,
+                      letterSpacing: "0.1em",
+                      textTransform: "uppercase",
+                      marginBottom: 2,
+                    }}
+                  >
+                    Bid
+                  </div>
+                  <div
+                    className="lz-card-bid-value"
+                    style={{
+                      fontWeight: 800,
+                      color: "#2d7a4f",
+                    }}
+                  >
+                    {item.currentBid.toLocaleString()}
+                    <span
+                      style={{
+                        fontSize: "0.7em",
+                        marginLeft: 2,
+                        fontWeight: 600,
+                      }}
+                    >
+                      {item.currency}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
 
-          <ShinyButton>✦ Register to Join ✦</ShinyButton>
+            {/* CTA */}
+            <ShinyButton className="lz-shiny-btn w-full !rounded-lg">
+              ✦ Register To Join ✦
+            </ShinyButton>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 });
 
-// ── Header — fully isolated component, mirrors StatsSection ───
-// once: false  →  re-animates each time the section scrolls into view
-// animKey      →  forces SplitText to remount and replay on each entry
-// memo         →  never re-renders from swiper/card state changes
+// ── Header ────────────────────────────────────────────────────
 const AuctionHeader = memo(function AuctionHeader() {
   const headerRef = useRef<HTMLDivElement>(null);
   const isInView = useInView(headerRef, { once: false, margin: "-80px" });
-
-  // Bump this key every time we re-enter the viewport to replay SplitText
   const [animKey, setAnimKey] = useState(0);
   const wasInView = useRef(false);
 
@@ -515,11 +595,10 @@ const AuctionHeader = memo(function AuctionHeader() {
         padding: "0 24px",
         position: "relative",
         zIndex: 1,
-        // Fixed min-height prevents layout shift during animation
         minHeight: 170,
       }}
     >
-      {/* Eyebrow — gold side lines, identical to StatsSection */}
+      {/* Eyebrow */}
       <div
         style={{
           display: "inline-flex",
@@ -558,7 +637,7 @@ const AuctionHeader = memo(function AuctionHeader() {
         />
       </div>
 
-      {/* Line 1 — white with rotateX entry */}
+      {/* Line 1 */}
       <div
         style={{
           fontSize: "clamp(26px, 4.5vw, 44px)",
@@ -583,7 +662,7 @@ const AuctionHeader = memo(function AuctionHeader() {
         />
       </div>
 
-      {/* Line 2 — gold */}
+      {/* Line 2 */}
       <div
         style={{
           fontSize: "clamp(26px, 4.5vw, 44px)",
@@ -608,7 +687,7 @@ const AuctionHeader = memo(function AuctionHeader() {
         />
       </div>
 
-      {/* Subtext fades in after headline */}
+      {/* Subtext */}
       <p
         style={{
           margin: "0 auto",
@@ -695,14 +774,13 @@ export default function AuctionSwiper() {
         }}
       />
 
-      {/* Fully isolated header — card hover state can never reach it */}
       <AuctionHeader />
 
-      {/* ── Swiper ──────────────────────────────────────────── */}
-      <div style={{ padding: "0 20px" }}>
+      {/* Swiper */}
+      <div style={{ padding: "0 12px" }}>
         <style>{`
           .lz-swiper { overflow: visible !important; }
-          .lz-swiper-wrap { overflow: hidden; padding: 8px 4px 0; }
+          .lz-swiper-wrap { overflow: hidden; padding: 8px 4px 4px; }
           .lz-swiper .swiper-slide { height: auto; }
           .lz-dot {
             width: 8px; height: 8px; border-radius: 4px;
@@ -711,7 +789,7 @@ export default function AuctionSwiper() {
             transition: width 0.2s ease, background 0.2s ease;
             padding: 0; flex-shrink: 0;
           }
-          .lz-dot.active { width: 26px; background: #c9a96e; border-radius: 4px; }
+          .lz-dot.active { width: 26px; background: #c9a96e; }
           .lz-dot:hover:not(.active) { background: rgba(229,224,198,0.4); }
         `}</style>
 
@@ -726,7 +804,7 @@ export default function AuctionSwiper() {
               setActiveIdx(s.realIndex % auctionItems.length)
             }
             loop={true}
-            speed={5000}
+            speed={4000}
             autoplay={{
               delay: 0,
               disableOnInteraction: false,
@@ -734,17 +812,19 @@ export default function AuctionSwiper() {
             }}
             allowTouchMove={true}
             freeMode={true}
-            slidesPerView={2}
-            spaceBetween={20}
             breakpoints={{
-              0: { slidesPerView: 2, spaceBetween: 14 },
-              640: { slidesPerView: 3, spaceBetween: 18 },
-              900: { slidesPerView: 4, spaceBetween: 20 },
-              1200: { slidesPerView: 5, spaceBetween: 22 },
+              // Mobile: exactly 2 cards, tight gap
+              0: { slidesPerView: 2, spaceBetween: 10 },
+              // Tablet
+              640: { slidesPerView: 3, spaceBetween: 14 },
+              // Small desktop
+              900: { slidesPerView: 4, spaceBetween: 18 },
+              // Large desktop
+              1200: { slidesPerView: 5, spaceBetween: 20 },
             }}
           >
             {[...auctionItems, ...auctionItems].map((item, i) => (
-              <SwiperSlide key={`${item._id}-${i}`}>
+              <SwiperSlide key={`${item._id}-${i}`} style={{ height: "auto" }}>
                 <AuctionCard item={item} />
               </SwiperSlide>
             ))}
@@ -758,7 +838,7 @@ export default function AuctionSwiper() {
             justifyContent: "center",
             alignItems: "center",
             gap: 8,
-            marginTop: 28,
+            marginTop: 24,
           }}
         >
           {auctionItems.map((_, i) => (
@@ -776,7 +856,7 @@ export default function AuctionSwiper() {
                 resumeTimer.current = setTimeout(() => {
                   sw.params.speed = 5000;
                   sw.autoplay.start();
-                }, 2000);
+                }, 1000);
               }}
             />
           ))}
@@ -785,3 +865,4 @@ export default function AuctionSwiper() {
     </section>
   );
 }
+

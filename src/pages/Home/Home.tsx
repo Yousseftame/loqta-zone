@@ -16,6 +16,7 @@ import ImageCard from "@/components/shared/imageCard";
 import { Typography } from "@mui/material";
 import AuctionSwiper from "@/components/shared/AuctionSwiper";
 import StatsSection from "@/components/shared/Statssection";
+import HowItWorksSection from "@/components/shared/Howitworkssection";
 
 export default function Home() {
   const staticRooms = [
@@ -73,6 +74,7 @@ export default function Home() {
 
       <AuctionSwiper />
       <StatsSection />
+      <HowItWorksSection/>
     </>
   );
 }
