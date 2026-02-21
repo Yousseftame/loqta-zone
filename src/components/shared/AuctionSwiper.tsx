@@ -7,6 +7,7 @@ import "swiper/css/free-mode";
 import "swiper/css";
 import "swiper/css/navigation";
 import "swiper/css/pagination";
+import { ShinyButton } from "../ui/shiny-button";
 
 // ── Design tokens ─────────────────────────────────────────────
 const NAVY = "#2A4863";
@@ -477,28 +478,7 @@ const AuctionCard = memo(function AuctionCard({ item }: { item: AuctionItem }) {
             )}
           </div>
 
-          <button
-            style={{
-              width: "100%",
-              padding: "11px 0",
-              borderRadius: 10,
-              border: `1.5px solid ${hovered ? NAVY : "rgba(42,72,99,0.25)"}`,
-              background: hovered
-                ? `linear-gradient(135deg, ${NAVY}, ${NAVY2})`
-                : "transparent",
-              color: hovered ? CREAM : NAVY,
-              fontSize: 11,
-              fontWeight: 800,
-              letterSpacing: "0.2em",
-              textTransform: "uppercase",
-              cursor: "pointer",
-              transition: "all 0.35s cubic-bezier(0.22, 1, 0.36, 1)",
-              outline: "none",
-              boxShadow: hovered ? `0 6px 20px rgba(42,72,99,0.28)` : "none",
-            }}
-          >
-            Register to Join
-          </button>
+          <ShinyButton> Register to Join</ShinyButton>
         </div>
       </div>
     </div>
