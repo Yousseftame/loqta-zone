@@ -55,7 +55,7 @@ const auctionItems: AuctionItem[] = [
     currentBid: 5800,
     currency: "EGP",
     image:
-      "https://images.unsplash.com/photo-1696446702183-cbd52e453f5b?w=700&q=85",
+      "https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=400&q=80",
     auctionDate: "April",
     numAuctions: 2,
     isHot: true,
