@@ -478,7 +478,7 @@ const AuctionCard = memo(function AuctionCard({ item }: { item: AuctionItem }) {
             )}
           </div>
 
-          <ShinyButton> Register to Join</ShinyButton>
+          <ShinyButton>✦ Register to Join ✦</ShinyButton>
         </div>
       </div>
     </div>
