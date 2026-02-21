@@ -219,3 +219,189 @@
   color: var(--color-secondary);
 }
 
+/* ── Navbar Auth Buttons ───────────────────────────────────── */
+
+.btn-nav-register {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.45rem 1.1rem;
+  border: 1.5px solid rgb(229 224 198 / 0.6);
+  color: rgb(229, 224, 198);
+  font-family: 'Monteya', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  border-radius: 4px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+}
+.btn-nav-register:hover {
+  border-color: rgb(229, 224, 198);
+  background-color: rgb(229 224 198 / 0.1);
+}
+
+.btn-nav-signin {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.45rem 1.1rem;
+  background-color: rgb(229, 224, 198);
+  color: #2A4863;
+  font-family: 'Monteya', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  border-radius: 4px;
+  border: 1.5px solid rgb(229, 224, 198);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+}
+.btn-nav-signin:hover {
+  background-color: transparent;
+  color: rgb(229, 224, 198);
+}
+
+.btn-nav-register-mobile {
+  display: block;
+  width: 100%;
+  text-align: center;
+  padding: 0.75rem 1.25rem;
+  border: 1.5px solid rgb(229 224 198 / 0.7);
+  color: rgb(229, 224, 198);
+  font-family: 'Monteya', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+}
+.btn-nav-register-mobile:hover {
+  background-color: rgb(229 224 198 / 0.1);
+}
+
+.btn-nav-signin-mobile {
+  display: block;
+  width: 100%;
+  text-align: center;
+  padding: 0.75rem 1.25rem;
+  background-color: rgb(229, 224, 198);
+  color: #2A4863;
+  font-family: 'Monteya', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  border-radius: 6px;
+  border: 1.5px solid rgb(229, 224, 198);
+  transition: all 0.3s ease;
+}
+.btn-nav-signin-mobile:hover {
+  background-color: transparent;
+  color: rgb(229, 224, 198);
+}
+
+/* ── Language Switcher Bubble ──────────────────────────────── */
+
+.lang-bubble {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  border: 1.5px solid rgb(229 224 198 / 0.35);
+  background: rgb(229 224 198 / 0.08);
+  color: rgb(229, 224, 198);
+  font-family: 'Monteya', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(4px);
+  white-space: nowrap;
+}
+.lang-bubble:hover {
+  background: rgb(229 224 198 / 0.16);
+  border-color: rgb(229 224 198 / 0.6);
+  box-shadow: 0 0 12px rgb(229 224 198 / 0.12);
+}
+
+.lang-bubble-mobile {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  border: 1.5px solid rgb(229 224 198 / 0.4);
+  background: rgb(229 224 198 / 0.1);
+  color: rgb(229, 224, 198);
+  font-family: 'Monteya', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  white-space: nowrap;
+}
+.lang-bubble-mobile:hover {
+  background: rgb(229 224 198 / 0.18);
+}
+
+/* Dropdown panel */
+.lang-dropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  min-width: 150px;
+  background: #1e3a52;
+  border: 1px solid rgb(229 224 198 / 0.15);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgb(229 224 198 / 0.06);
+  z-index: 100;
+  animation: langDropIn 0.18s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Opens upward on mobile (above the button) */
+.lang-dropdown-up {
+  top: auto;
+  bottom: calc(100% + 10px);
+}
+
+@keyframes langDropIn {
+  from { opacity: 0; transform: translateY(-6px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0)   scale(1); }
+}
+
+.lang-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 0.65rem 1rem;
+  color: rgb(229 224 198 / 0.75);
+  font-family: 'Monteya', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+  text-align: left;
+  border: none;
+  background: transparent;
+}
+.lang-option:hover {
+  background: rgb(229 224 198 / 0.08);
+  color: rgb(229, 224, 198);
+}
+.lang-option-active {
+  color: rgb(229, 224, 198);
+  background: rgb(229 224 198 / 0.1);
+  font-weight: 700;
+}
