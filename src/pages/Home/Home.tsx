@@ -19,7 +19,7 @@ export default function Home() {
 
   return (
     <>
-      <AnimatedThemeToggler />
+      {/* <AnimatedThemeToggler /> */}
       <div className="flex-row  justify-center items-center">
         <div className=" mt-50  gap-10">
           <TrueFocus

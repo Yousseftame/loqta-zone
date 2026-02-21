@@ -130,3 +130,92 @@
     animation: none;
     mix-blend-mode: normal;
 }
+
+
+/* Navigation link style - Enhanced */
+.nav-link {
+  font-family: 'Monteya', sans-serif;
+  letter-spacing: 1px;
+   font-weight: 600;
+  text-transform: uppercase;
+  font-size:  .975rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  padding-bottom: 0.25rem;
+  color: rgb(229, 224, 198);
+}
+
+.nav-link::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  height: 5px;
+  background-color: currentColor;
+  transition: width 0.3s  cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.nav-link:hover::after {
+  width: 100%;
+}
+
+/* Nav Reserve button - Enhanced with subtle texture */
+.btn-seaworthy-nav {
+  display: inline-block;
+  padding: 0.55rem .75rem;
+  color: var(--color-secondary);
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid transparent;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-seaworthy-nav::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, 
+    hsl(198 18% 38% / 0.3) 0%, 
+    transparent 50%, 
+    hsl(198 22% 28% / 0.2) 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.btn-seaworthy-nav:hover::before {
+  opacity: 1;
+}
+
+.btn-seaworthy-nav:hover {
+  background-color: #2A4863;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* Solid cream button */
+.btn-seaworthy-solid {
+  display: inline-block;
+  padding: 0.875rem 1.25rem;
+  background-color: var(--color-secondary);
+  color: var(--color-seaworthy-teal);
+  font-family: var(--font-display);
+  font-size: 0.8125rem;
+  border-radius: 20%;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid var(--color-secondary);
+}
+
+.btn-seaworthy-solid:hover {
+  background-color: transparent;
+  color: var(--color-secondary);
+}
+
