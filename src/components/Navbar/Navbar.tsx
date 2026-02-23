@@ -8,8 +8,11 @@ const GOLD2 = "#b8944e";
 const CREAM = "rgb(229, 224, 198)";
 
 const navLinks = [
-  { label: "Auctions", to: "/menu", icon: "🔨" },
-  { label: "How it works", to: "/gallery", icon: "◈" },
+  {
+    label: "Auctions", to: "/", icon:
+      "◇"
+  },
+  { label: "How it works", to: "/how-it-works", icon: "◈" },
   { label: "About Us", to: "/about", icon: "✦" },
   { label: "Contact Us", to: "/contact", icon: "◇" },
 ];
