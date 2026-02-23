@@ -92,15 +92,17 @@ export default function Login() {
       </form>
 
       {/* Sign Up Link */}
-      {/* <p className="text-center text-sm text-gray-600 dark:text-gray-400">
+      <p className="text-center text-sm text-gray-600 dark:text-gray-400">
         Don't have an account?{" "}
         <Link
-          to="/signup"
+          to="/register"
           className="font-semibold text-#2A4863-600 dark:text-#2A4863-400 hover:text-#2A4863-700 dark:hover:text-#2A4863-300 transition-colors"
         >
-          Sign up for free
+          Sign up 
         </Link>
-      </p> */}
+      </p>
+
+      
     </div>
   );
 }

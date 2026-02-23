@@ -1,13 +1,13 @@
-import { useAuth } from '@/store/AuthContext/AuthContext';
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useAuth } from "@/store/AuthContext/AuthContext";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 export const useLogin = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  
+
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -16,27 +16,28 @@ export const useLogin = () => {
     setIsLoading(true);
 
     try {
-      await login(email, password);
-      navigate("/admin");
+      const { role } = await login(email, password);
+      // Role-based redirect
+      if (role === "admin" || role === "superAdmin") {
+        navigate("/admin");
+      } else {
+        navigate("/"); // regular users go to the website
+      }
     } catch (error: any) {
-      // Error handling is done in AuthContext, but we can add extra handling here if needed
+      // Error handled in AuthContext
     } finally {
       setIsLoading(false);
     }
   };
 
-  const togglePasswordVisibility = () => {
-    setShowPassword(!showPassword);
-  };
+  const togglePasswordVisibility = () => setShowPassword(!showPassword);
 
   return {
-    email,
-    setEmail,
-    password,
-    setPassword,
+    email, setEmail,
+    password, setPassword,
     isLoading,
     showPassword,
     handleSubmit,
-    togglePasswordVisibility
+    togglePasswordVisibility,
   };
 };

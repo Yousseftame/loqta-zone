@@ -37,7 +37,7 @@ export const routes = createBrowserRouter([
     errorElement: <NotFound />,
     children: [
       { path: "login", element: <Login /> },
-      // { path: "register", element: <Register /> },
+      { path: "register", element: <Register /> },
       { path: "forget-password", element: <ForgetPassword /> },
       // { path: "reset-password", element: <ResetPassword /> },
     ],
@@ -46,7 +46,7 @@ export const routes = createBrowserRouter([
   {
     path: "/admin",
     element: [
-      <ProtectedRoute>
+      <ProtectedRoute allowedRoles={["admin", "superAdmin"]}>
         {" "}
         <DashboardLayout />{" "}
       </ProtectedRoute>,

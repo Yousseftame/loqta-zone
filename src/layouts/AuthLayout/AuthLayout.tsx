@@ -16,7 +16,7 @@ export default function AuthLayout() {
       {/* Back to Site Button */}
       <Link
         to="/"
-        className="fixed top-6 left-6 z-50 group flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-gray-800 border-2  rounded-lg  hover:shadow-xl transition-all duration-300 hover:scale-105 text-gray-700 dark:text-gray-300 hover:border-gray-500 dark:hover:border-gray-400"
+        className="absolute top-6 left-6 z-50 group flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-gray-800 border-2  rounded-lg  hover:shadow-xl transition-all duration-300 hover:scale-105 text-gray-700 dark:text-gray-300 hover:border-gray-500 dark:hover:border-gray-400"
       >
         <ArrowLeft className="w-4 h-4 transition-transform duration-300 group-hover:-translate-x-1" />
         <span className="font-medium text-sm">Back to Site</span>
