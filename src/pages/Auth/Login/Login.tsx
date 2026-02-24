@@ -17,7 +17,7 @@ export default function Login() {
           Welcome Back
         </h1>
         <p className="text-gray-600 dark:text-gray-400">
-          Sign in to your Dashboard
+          Join Loqta Zone and start bidding
         </p>
       </div>
 
@@ -98,11 +98,9 @@ export default function Login() {
           to="/register"
           className="font-semibold text-#2A4863-600 dark:text-#2A4863-400 hover:text-#2A4863-700 dark:hover:text-#2A4863-300 transition-colors"
         >
-          Sign up 
+          Sign up
         </Link>
       </p>
-
-      
     </div>
   );
 }

@@ -50,11 +50,17 @@ export const useAuth = () => {
   return context;
 };
 
-/** Fetch role from Firebase custom claims (refreshed token) */
-const getRoleFromClaims = async (user: User): Promise<UserRole> => {
-  // Force-refresh so we pick up any newly-set custom claims
-  const idTokenResult = await user.getIdTokenResult(true);
-  return (idTokenResult.claims.role as UserRole) || "user";
+/**
+ * Fetch role from Firestore — source of truth.
+ * Works whether the user just registered, was manually edited in console,
+ * or had their role set via Cloud Function / setUserRole.
+ */
+const getRoleFromFirestore = async (user: User): Promise<UserRole> => {
+  const snap = await getDoc(doc(db, "users", user.uid));
+  if (snap.exists()) {
+    return (snap.data().role as UserRole) || "user";
+  }
+  return "user";
 };
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
@@ -66,7 +72,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
-        const userRole = await getRoleFromClaims(currentUser);
+        const userRole = await getRoleFromFirestore(currentUser);
         setRole(userRole);
       } else {
         setUser(null);
@@ -98,7 +104,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         throw new Error("Account blocked");
       }
 
-      const userRole = await getRoleFromClaims(loggedUser);
+      const userRole = await getRoleFromFirestore(loggedUser);
       setRole(userRole);
       toast.success("Login successful");
       return { role: userRole };

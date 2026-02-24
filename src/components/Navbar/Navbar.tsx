@@ -201,8 +201,28 @@ const Navbar = () => {
         .loq-link:hover::after,.loq-link.active::after { width:100%; }
         .btn-ghost { font-family:'Jost',sans-serif; font-size:11px; font-weight:800; letter-spacing:.18em; text-transform:uppercase; padding:9px 20px; border-radius:999px; border:1px solid rgba(201,169,110,.45); color:${GOLD}; background:transparent; text-decoration:none; transition:all .3s; display:inline-flex; align-items:center; white-space:nowrap; }
         .btn-ghost:hover { background:rgba(201,169,110,.08); border-color:${GOLD}; box-shadow:0 0 18px rgba(201,169,110,.18); }
-        .btn-solid { font-family:'Jost',sans-serif; font-size:11px; font-weight:800; letter-spacing:.18em; text-transform:uppercase; padding:9px 20px; border-radius:999px; border:none; color:#0a0a1a; background:linear-gradient(135deg,${GOLD},${GOLD2}); text-decoration:none; transition:all .3s; display:inline-flex; align-items:center; white-space:nowrap; box-shadow:0 4px 16px rgba(201,169,110,.28); }
-        .btn-solid:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(201,169,110,.42); }
+         .btn-nav-signin {
+          font-family: 'Jost', sans-serif;
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 0.18em;
+          text-transform: uppercase;
+          padding: 9px 20px;
+          border-radius: 999px;
+          border: none;
+          color: #0a0a1a;
+          background: linear-gradient(135deg, ${GOLD}, ${GOLD2});
+          text-decoration: none;
+          transition: all 0.3s ease;
+          white-space: nowrap;
+          box-shadow: 0 4px 16px rgba(201,169,110,0.28);
+          display: inline-flex;
+          align-items: center;
+        }
+        .btn-nav-signin:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 24px rgba(201,169,110,0.42);
+        }
       `}</style>
 
       {/* ── TOP BAR ──────────────────────────────────────────── */}
@@ -251,7 +271,7 @@ const Navbar = () => {
                   <Link to="/register" className="btn-ghost">
                     Register
                   </Link>
-                  <Link to="/login" className="btn-solid">
+                  <Link to="/login" className="btn-nav-signin">
                     Sign In
                   </Link>
                 </>
@@ -673,7 +693,7 @@ const Navbar = () => {
               <Link
                 to="/login"
                 onClick={() => setMenuOpen(false)}
-                className="btn-solid"
+                className="btn-nav-signin"
                 style={{
                   justifyContent: "center",
                   borderRadius: 13,

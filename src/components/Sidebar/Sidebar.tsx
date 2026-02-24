@@ -8,6 +8,15 @@ import {
   Logout,
   Home,
 } from "@mui/icons-material";
+import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
+import FolderSharedIcon from "@mui/icons-material/FolderShared";
+import AccountCircleIcon from "@mui/icons-material/AccountCircle";
+import ContactsIcon from "@mui/icons-material/Contacts";
+import FeedbackIcon from "@mui/icons-material/Feedback";
+import AttachEmailIcon from "@mui/icons-material/AttachEmail";
+import NotificationsIcon from "@mui/icons-material/Notifications";
+import LocalOfferIcon from "@mui/icons-material/LocalOffer";
+import AddCardIcon from "@mui/icons-material/AddCard";
 import LocalActivityIcon from "@mui/icons-material/LocalActivity";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -66,17 +75,60 @@ const Sidebar = () => {
       path: "/admin/vouchers",
     },
     {
-      id: "section",
-      label: "Home Sections",
-      icon: Settings,
-      path: "/admin/home-sections",
+      id: "Notifications",
+      label: "Notifications",
+      icon: NotificationsIcon,
+      path: "/admin/#",
+      badge: 8,
     },
     {
-      id: "contact",
-      label: "Messages",
-      icon: Mail,
-      path: "/admin/messages",
+      id: "Bids",
+      label: "Bids",
+      icon: AddCardIcon,
+      path: "/admin/#",
       badge: 3,
+    },
+    {
+      id: "last offer System",
+      label: "Last Offer System",
+      icon: LocalOfferIcon,
+      path: "/admin/#",
+    },
+    {
+      id: "Auction Requests",
+      label: "Auction Requests",
+      icon: AttachEmailIcon,
+      path: "/admin/#",
+    },
+    {
+      id: "Auction Participants",
+      label: "Auction Participants",
+      icon: FolderSharedIcon,
+      path: "/admin/#",
+    },
+    {
+      id: "FeedBacks",
+      label: "FeedBacks",
+      icon: FeedbackIcon,
+      path: "/admin/#",
+    },
+    {
+      id: "Contacts",
+      label: "Contacts",
+      icon: ContactsIcon,
+      path: "/admin/#",
+    },
+    {
+      id: "Users",
+      label: "Users",
+      icon: AccountCircleIcon,
+      path: "/admin/#",
+    },
+    {
+      id: "Admins",
+      label: "Admins",
+      icon: AdminPanelSettingsIcon,
+      path: "/admin/#",
     },
   ];
 
