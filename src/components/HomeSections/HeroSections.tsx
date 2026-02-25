@@ -29,7 +29,7 @@ export default function HeroSections() {
         .hc-bg {
           position: absolute;
           inset: 0;
-          background-image: url('/src/assets/rahmadiyono-widodo-a2N6j7Or8Bk-unsplash.jpg');
+          background-image: url('/src/assets/heroSection.webp');
           background-size: cover;
           background-position: 62% top;
           background-repeat: no-repeat;

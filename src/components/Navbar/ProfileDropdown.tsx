@@ -194,8 +194,8 @@ export const ProfileDropdown = ({
         onClick={() => setOpen((v) => !v)}
         aria-label="Profile menu"
         style={{
-          width: 36,
-          height: 36,
+          width: 45,
+          height: 45,
           borderRadius: "50%",
           padding: 0,
           cursor: "pointer",
@@ -265,10 +265,12 @@ export const ProfileDropdown = ({
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <div
                 style={{
-                  width: 32,
-                  height: 32,
+                  width: 40,
+                  height: 40,
                   borderRadius: "50%",
-                  background: `linear-gradient(135deg, ${avatarColor}, ${GOLD2})`,
+                  background: user.photoURL
+                    ? "transparent"
+                    : `linear-gradient(135deg, ${avatarColor}, ${GOLD2})`,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -277,9 +279,22 @@ export const ProfileDropdown = ({
                   fontWeight: 800,
                   color: "#fff",
                   fontFamily: "'Jost', sans-serif",
+                  overflow: "hidden",
                 }}
               >
-                {initials}
+                {user.photoURL ? (
+                  <img
+                    src={user.photoURL}
+                    alt="Profile"
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
+                  />
+                ) : (
+                  initials
+                )}
               </div>
               <div style={{ minWidth: 0 }}>
                 <p

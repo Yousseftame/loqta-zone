@@ -531,7 +531,9 @@ const Navbar = () => {
                     width: 40,
                     height: 40,
                     borderRadius: "50%",
-                    background: `linear-gradient(135deg,#64a080,${GOLD2})`,
+                    background: user.photoURL
+                      ? "transparent"
+                      : `linear-gradient(135deg,#64a080,${GOLD2})`,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -541,9 +543,22 @@ const Navbar = () => {
                     color: "#fff",
                     fontFamily: "'Jost',sans-serif",
                     border: "2px solid rgba(201,169,110,.3)",
+                    overflow: "hidden",
                   }}
                 >
-                  {user.displayName?.[0]?.toUpperCase() ?? "?"}
+                  {user.photoURL ? (
+                    <img
+                      src={user.photoURL}
+                      alt="Profile"
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                      }}
+                    />
+                  ) : (
+                    (user.displayName?.[0]?.toUpperCase() ?? "?")
+                  )}
                 </div>
                 <div style={{ minWidth: 0 }}>
                   <p

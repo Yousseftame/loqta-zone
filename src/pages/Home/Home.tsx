@@ -12,7 +12,6 @@ import { useRef } from "react";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Navigation, Pagination, Autoplay } from "swiper/modules";
 import HeroSections from "@/components/HomeSections/HeroSections";
-import ImageCard from "@/components/shared/imageCard";
 import { Typography } from "@mui/material";
 import AuctionSwiper from "@/components/shared/AuctionSwiper";
 import StatsSection from "@/components/shared/Statssection";
@@ -20,44 +19,7 @@ import HowItWorksSection from "@/components/shared/Howitworkssection";
 import AuctionsSection from "@/components/shared/Auctionssection";
 
 export default function Home() {
-  const staticRooms = [
-    {
-      _id: "1",
-      roomNumber: "Luxury Watch",
-      price: 2500,
-      images: ["https://images.unsplash.com/photo-1523170335258-f5ed11844a49"],
-    },
-    {
-      _id: "2",
-      roomNumber: "Vintage Camera",
-      price: 1200,
-      images: ["https://images.unsplash.com/photo-1519183071298-a2962e402c6b"],
-    },
-    {
-      _id: "3",
-      roomNumber: "Classic Car",
-      price: 15000,
-      images: ["https://images.unsplash.com/photo-1493238792000-8113da705763"],
-    },
-    {
-      _id: "4",
-      roomNumber: "Classic Car",
-      price: 15000,
-      images: ["https://images.unsplash.com/photo-1493238792000-8113da705763"],
-    },
-    {
-      _id: "3",
-      roomNumber: "Classic Car",
-      price: 15000,
-      images: ["https://images.unsplash.com/photo-1493238792000-8113da705763"],
-    },
-    {
-      _id: "3",
-      roomNumber: "Classic Car",
-      price: 15000,
-      images: ["https://images.unsplash.com/photo-1493238792000-8113da705763"],
-    },
-  ];
+
 
   return (
     <>

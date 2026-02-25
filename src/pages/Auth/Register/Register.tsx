@@ -176,7 +176,7 @@ export default function Register() {
             id="phone"
             type="tel"
             label="Phone Number"
-            placeholder="01011151366"
+            placeholder="01521607944"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             onBlur={() => handleBlur("phone")}
