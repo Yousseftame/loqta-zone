@@ -17,6 +17,7 @@ import AuctionSwiper from "@/components/shared/AuctionSwiper";
 import StatsSection from "@/components/shared/Statssection";
 import HowItWorksSection from "@/components/shared/Howitworkssection";
 import AuctionsSection from "@/components/shared/Auctionssection";
+import AuctionRequestSection from "@/components/shared/Auctionrequestsection";
 
 export default function Home() {
 
@@ -38,7 +39,8 @@ export default function Home() {
       <AuctionSwiper />
       <StatsSection />
       <HowItWorksSection />
-      <AuctionsSection/>
+      <AuctionsSection />
+      <AuctionRequestSection />
     </>
   );
 }

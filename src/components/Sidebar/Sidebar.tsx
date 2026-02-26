@@ -73,6 +73,13 @@ const Sidebar = () => {
       icon: LocalActivityIcon,
       path: "/admin/vouchers",
     },
+
+    {
+      id: "Auction Requests",
+      label: "Auction Requests",
+      icon: AttachEmailIcon,
+      path: "/admin/#",
+    },
     {
       id: "Notifications",
       label: "Notifications",
@@ -93,12 +100,7 @@ const Sidebar = () => {
       icon: LocalOfferIcon,
       path: "/admin/#",
     },
-    {
-      id: "Auction Requests",
-      label: "Auction Requests",
-      icon: AttachEmailIcon,
-      path: "/admin/#",
-    },
+
     {
       id: "Auction Participants",
       label: "Auction Participants",
