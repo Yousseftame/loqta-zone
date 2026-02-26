@@ -11,6 +11,7 @@ import "swiper/css";
 import "swiper/css/navigation";
 import "swiper/css/pagination";
 import { CategoryProvider } from './store/AdminContext/CategoryContext/CategoryContext.tsx';
+import { AuctionRequestProvider } from './store/AdminContext/AuctionRequestContext/AuctionRequestContext.tsx';
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -27,7 +28,9 @@ createRoot(document.getElementById("root")!).render(
           <ProductProvider>
             <AuctionProvider>
               <VoucherProvider>
-                <App />
+                <AuctionRequestProvider>
+                  <App />
+                </AuctionRequestProvider>
               </VoucherProvider>
             </AuctionProvider>
           </ProductProvider>

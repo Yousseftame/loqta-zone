@@ -78,7 +78,7 @@ const Sidebar = () => {
       id: "Auction Requests",
       label: "Auction Requests",
       icon: AttachEmailIcon,
-      path: "/admin/#",
+      path: "/admin/auctionRequests",
     },
     {
       id: "Notifications",

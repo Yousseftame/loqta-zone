@@ -17,7 +17,8 @@ import ProductForm from "@/pages/Admin/Products/ProductForm";
 import ProductsList from "@/pages/Admin/Products/ProductsList";
 import Products from "@/pages/Admin/Products/ProductsList";
 import ProductView from "@/pages/Admin/Products/ProductView";
-import RequestSystem from "@/pages/Admin/RequestSystem/RequestSystem";
+import AuctionRequestsList from "@/pages/Admin/RequestSystem/AuctionRequestsList";
+import AuctionRequestView from "@/pages/Admin/RequestSystem/AuctionRequestView";
 import Scheduling from "@/pages/Admin/Scheduling/Scheduling";
 import User from "@/pages/Admin/User/User";
 import VoucherForm from "@/pages/Admin/Voucher/VoucherForm";
@@ -78,9 +79,11 @@ export const routes = createBrowserRouter([
       { path: "vouchers/:id", element: <VoucherView /> },
       { path: "vouchers/:id/edit", element: <VoucherForm /> },
 
+      { path: "auctionRequests", element: <AuctionRequestsList /> },
+      { path: "auctionRequests/:id", element: <AuctionRequestView /> },
+
       { path: "biding", element: <Biding /> },
       { path: "lasroffer", element: <LastOffer /> },
-      { path: "requests", element: <RequestSystem /> },
       { path: "scheduling", element: <Scheduling /> },
       { path: "users", element: <User /> },
       { path: "payment", element: <Payment /> },
