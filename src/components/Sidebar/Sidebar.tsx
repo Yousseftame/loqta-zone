@@ -53,7 +53,7 @@ const Sidebar = () => {
       id: "Category",
       label: "Category",
       icon: CategoryIcon,
-      path: "/admin/category",
+      path: "/admin/categories",
     },
     {
       id: "Products",

@@ -31,6 +31,7 @@ import { colors, getAvatarColor } from "./products-data";
 import type { Product } from "./products-data";
 import { useProducts } from "@/store/AdminContext/ProductContext/ProductsCotnext";
 import { useAuctions } from "@/store/AdminContext/AuctionContext/AuctionContext";
+import { useCategories } from "@/store/AdminContext/CategoryContext/CategoryContext";
 import {
   getAuctionStatusStyle,
   type AuctionStatus,
@@ -50,6 +51,7 @@ export default function ProductView() {
   const { id } = useParams<{ id: string }>();
   const { getProduct, removeProduct } = useProducts();
   const { auctions } = useAuctions();
+  const { categories } = useCategories();
 
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
@@ -57,6 +59,14 @@ export default function ProductView() {
   const [deleting, setDeleting] = useState(false);
   const [done, setDone] = useState(false);
   const [activeImg, setActiveImg] = useState<string | null>(null);
+
+  // ── Helper: resolve category ID → display name ─────────────────────────────
+  const getCategoryName = (categoryId: string): string => {
+    if (!categoryId) return "—";
+    const found = categories.find((c) => c.id === categoryId);
+    // Falls back to raw value for legacy products that stored the name directly
+    return found ? found.name.en : categoryId;
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -82,7 +92,6 @@ export default function ProductView() {
     }
   };
 
-  // All auctions linked to this product — computed live, no Firestore field needed
   const linkedAuctions = useMemo(
     () =>
       auctions
@@ -251,7 +260,8 @@ export default function ProductView() {
               {[
                 `Brand: ${product.brand}`,
                 `Model: ${product.model}`,
-                `Category: ${product.category}`,
+                // ✅ Resolve category ID → name for display
+                `Category: ${getCategoryName(product.category)}`,
               ].map((tag) => (
                 <span
                   key={tag}
@@ -305,7 +315,7 @@ export default function ProductView() {
           </Box>
         </Box>
 
-        {/* Stats row — now 4 cards including Total Auctions */}
+        {/* Stats row */}
         <Box
           sx={{
             display: "grid",
@@ -592,7 +602,6 @@ export default function ProductView() {
                     },
                   }}
                 >
-                  {/* Auction number badge */}
                   <Box
                     sx={{
                       width: 40,
@@ -615,8 +624,6 @@ export default function ProductView() {
                       #{auction.auctionNumber}
                     </span>
                   </Box>
-
-                  {/* Details */}
                   <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Box
                       sx={{
@@ -684,8 +691,6 @@ export default function ProductView() {
                       </span>
                     </Box>
                   </Box>
-
-                  {/* Price info */}
                   <Box sx={{ textAlign: "right", flexShrink: 0 }}>
                     <p
                       style={{
@@ -771,7 +776,8 @@ export default function ProductView() {
                     fontWeight: 600,
                   }}
                 >
-                  {product.category}
+                  {/* ✅ Resolve category ID → name for display */}
+                  {getCategoryName(product.category)}
                 </span>
               ),
             },
@@ -947,8 +953,9 @@ export default function ProductView() {
                 }}
               >
                 <strong>Note:</strong> This product has {linkedAuctions.length}{" "}
-                linked auction{linkedAuctions.length > 1 ? "s" : ""}. Those
-                auctions will not be automatically deleted.
+                linked auction
+                {linkedAuctions.length > 1 ? "s" : ""}. Those auctions will not
+                be automatically deleted.
               </p>
             </Box>
           )}

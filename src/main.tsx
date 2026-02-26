@@ -10,6 +10,7 @@ import { VoucherProvider } from './store/AdminContext/VoucherContext/VoucherCont
 import "swiper/css";
 import "swiper/css/navigation";
 import "swiper/css/pagination";
+import { CategoryProvider } from './store/AdminContext/CategoryContext/CategoryContext.tsx';
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -22,13 +23,15 @@ createRoot(document.getElementById("root")!).render(
     >
       {/* Your content here */}
       <AuthProvider>
-        <ProductProvider>
-          <AuctionProvider>
-            <VoucherProvider>
-              <App />
-            </VoucherProvider>
-          </AuctionProvider>
-        </ProductProvider>
+        <CategoryProvider>
+          <ProductProvider>
+            <AuctionProvider>
+              <VoucherProvider>
+                <App />
+              </VoucherProvider>
+            </AuctionProvider>
+          </ProductProvider>
+        </CategoryProvider>
       </AuthProvider>
     </ClickSpark>
   </StrictMode>,

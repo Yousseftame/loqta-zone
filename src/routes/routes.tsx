@@ -7,6 +7,9 @@ import AuctionForm from "@/pages/Admin/Auctions/AuctionForm";
 import AuctionsList from "@/pages/Admin/Auctions/AuctionsList";
 import AuctionView from "@/pages/Admin/Auctions/AuctionView";
 import Biding from "@/pages/Admin/Biding/Biding";
+import CategoryForm from "@/pages/Admin/Categories/Categoryform";
+import CategoriesList from "@/pages/Admin/Categories/CategoryList";
+import CategoryView from "@/pages/Admin/Categories/Categoryview";
 import Dashboard from "@/pages/Admin/Dashboard/Dashboard";
 import LastOffer from "@/pages/Admin/LastOffer/LastOffer";
 import Payment from "@/pages/Admin/Payment/Payment";
@@ -54,6 +57,11 @@ export const routes = createBrowserRouter([
     errorElement: <NotFound />,
     children: [
       { index: true, element: <Dashboard /> },
+
+      { path: "categories", element: <CategoriesList /> },
+      { path: "categories/add", element: <CategoryForm /> },
+      { path: "categories/:id", element: <CategoryView /> },
+      { path: "categories/:id/edit", element: <CategoryForm /> },
 
       { path: "products", element: <ProductsList /> },
       { path: "products/add", element: <ProductForm /> },

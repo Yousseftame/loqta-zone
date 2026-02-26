@@ -7,6 +7,11 @@ import {
   Switch,
   FormControlLabel,
   CircularProgress,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  FormHelperText,
 } from "@mui/material";
 import { ArrowLeft, Save, Package, Info, Plus, X, Upload } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -16,6 +21,7 @@ import {
   type ProductFormData,
 } from "./products-data";
 import { useProducts } from "@/store/AdminContext/ProductContext/ProductsCotnext";
+import { useCategories } from "@/store/AdminContext/CategoryContext/CategoryContext";
 
 const inputSx = {
   "& .MuiOutlinedInput-root": {
@@ -27,11 +33,22 @@ const inputSx = {
   "& .MuiInputLabel-root.Mui-focused": { color: colors.primary },
 };
 
+const selectSx = {
+  bgcolor: "#fff",
+  "& .MuiOutlinedInput-notchedOutline": { borderColor: colors.border },
+  "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: colors.primary },
+  "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+    borderColor: colors.primary,
+    borderWidth: 2,
+  },
+};
+
 export default function ProductForm() {
   const navigate = useNavigate();
   const { id } = useParams<{ id?: string }>();
   const isEdit = Boolean(id);
   const { getProduct, addProduct, editProduct } = useProducts();
+  const { categories } = useCategories();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState<ProductFormData>(DEFAULT_FORM_DATA);
@@ -40,8 +57,10 @@ export default function ProductForm() {
   const [loadingProduct, setLoadingProduct] = useState(isEdit);
   const [newFeature, setNewFeature] = useState("");
   const [originalImages, setOriginalImages] = useState<string[]>([]);
-  // Preview URLs for new images — kept in sync with form.newImages
   const [newImagePreviews, setNewImagePreviews] = useState<string[]>([]);
+
+  // Active categories only for the dropdown
+  const activeCategories = categories.filter((c) => c.isActive);
 
   // ── Pre-fill on edit ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -55,7 +74,7 @@ export default function ProductForm() {
           title: p.title,
           brand: p.brand,
           model: p.model,
-          category: p.category,
+          category: p.category, // stored as category ID
           description: p.description,
           price: String(p.price),
           quantity: String(p.quantity),
@@ -102,7 +121,6 @@ export default function ProductForm() {
   };
 
   const removeNewImage = (i: number) => {
-    // Revoke the object URL to free memory
     URL.revokeObjectURL(newImagePreviews[i]);
     setForm((prev) => ({
       ...prev,
@@ -305,7 +323,7 @@ export default function ProductForm() {
             />
           </Box>
 
-          {/* Row 2 — Model + Category */}
+          {/* Row 2 — Model + Category Select */}
           <Box
             sx={{
               display: "grid",
@@ -323,17 +341,62 @@ export default function ProductForm() {
               helperText={errors.model}
               sx={inputSx}
             />
-            <TextField
-              label="Category *"
-              size="small"
-              fullWidth
-              value={form.category}
-              onChange={(e) => field("category", e.target.value)}
-              error={!!errors.category}
-              helperText={errors.category}
-              sx={inputSx}
-              placeholder="e.g. Electronics"
-            />
+
+            {/* ── Category Select — value = category ID ── */}
+            <FormControl size="small" fullWidth error={!!errors.category}>
+              <InputLabel sx={{ "&.Mui-focused": { color: colors.primary } }}>
+                Category *
+              </InputLabel>
+              <Select
+                value={form.category}
+                label="Category *"
+                onChange={(e) => field("category", e.target.value)}
+                sx={selectSx}
+              >
+                {activeCategories.length === 0 && (
+                  <MenuItem disabled value="">
+                    <em>No active categories found</em>
+                  </MenuItem>
+                )}
+                {activeCategories.map((cat) => (
+                  // ✅ value = cat.id  (stored in Firestore)
+                  // displayed label = cat.name.en + cat.name.ar
+                  <MenuItem key={cat.id} value={cat.id}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <span style={{ fontWeight: 600, fontSize: "0.875rem" }}>
+                        {cat.name.en}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: "0.75rem",
+                          color: colors.textMuted,
+                        }}
+                      >
+                        — {cat.name.ar}
+                      </span>
+                    </Box>
+                  </MenuItem>
+                ))}
+              </Select>
+              {errors.category && (
+                <FormHelperText>{errors.category}</FormHelperText>
+              )}
+              {activeCategories.length === 0 && (
+                <FormHelperText sx={{ color: colors.warning }}>
+                  No active categories.{" "}
+                  <span
+                    onClick={() => navigate("/admin/categories/add")}
+                    style={{
+                      cursor: "pointer",
+                      textDecoration: "underline",
+                      color: colors.primary,
+                    }}
+                  >
+                    Add one first.
+                  </span>
+                </FormHelperText>
+              )}
+            </FormControl>
           </Box>
 
           {/* Row 3 — Price + Quantity */}
@@ -572,7 +635,7 @@ export default function ProductForm() {
               </Box>
             )}
 
-            {/* New image previews — using stable preview URLs */}
+            {/* New image previews */}
             {newImagePreviews.length > 0 && (
               <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.5, mb: 2 }}>
                 {newImagePreviews.map((previewUrl, i) => (
@@ -676,7 +739,7 @@ export default function ProductForm() {
               />
             </Box>
 
-            {/* Thumbnail selector — show when 2+ existing images */}
+            {/* Thumbnail selector */}
             {form.existingImages.length > 1 && (
               <Box sx={{ mt: 2 }}>
                 <p

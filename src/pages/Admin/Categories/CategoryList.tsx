@@ -15,7 +15,6 @@ import {
   DialogActions,
   TablePagination,
   InputAdornment,
-  Avatar,
   Paper,
   Box,
   TableContainer,
@@ -29,65 +28,53 @@ import {
   Eye,
   Edit,
   Trash2,
-  Package,
-  DollarSign,
-  ShoppingBag,
-  RefreshCw,
+  Tag,
   CheckCircle2,
+  RefreshCw,
+  Globe,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { type Product, colors, getAvatarColor } from "./products-data";
-import { useProducts } from "@/store/AdminContext/ProductContext/ProductsCotnext";
+import { colors } from "./Categories-data";
+import type { Category } from "./Categories-data";
 import { useCategories } from "@/store/AdminContext/CategoryContext/CategoryContext";
 
-export default function ProductsList() {
+export default function CategoriesList() {
   const navigate = useNavigate();
-  const { products, loading, error, refreshProducts, removeProduct } =
-    useProducts();
-  const { categories } = useCategories();
+  const { categories, loading, error, refreshCategories, removeCategory } =
+    useCategories();
 
-  const [filtered, setFiltered] = useState<Product[]>([]);
+  const [filtered, setFiltered] = useState<Category[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [deleteDialog, setDeleteDialog] = useState(false);
-  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(
+    null,
+  );
   const [loadingDelete, setLoadingDelete] = useState(false);
 
-  // ── Helper: resolve category ID → display name ────────────────────────────
-  const getCategoryName = (categoryId: string): string => {
-    if (!categoryId) return "—";
-    const found = categories.find((c) => c.id === categoryId);
-    // If found by ID, show the EN name; otherwise fall back to the raw value
-    // (handles legacy products that stored name instead of ID)
-    return found ? found.name.en : categoryId;
-  };
-
-  // ── Filter ─────────────────────────────────────────────────────────────────
   useEffect(() => {
-    let f = products;
+    let f = categories;
     if (searchTerm) {
       const s = searchTerm.toLowerCase();
       f = f.filter(
-        (p) =>
-          p.title.toLowerCase().includes(s) ||
-          p.brand.toLowerCase().includes(s) ||
-          p.model.toLowerCase().includes(s) ||
-          getCategoryName(p.category).toLowerCase().includes(s),
+        (c) =>
+          c.name.en.toLowerCase().includes(s) ||
+          c.name.ar.toLowerCase().includes(s) ||
+          c.description.en.toLowerCase().includes(s),
       );
     }
     setFiltered(f);
     setPage(0);
-  }, [searchTerm, products, categories]);
+  }, [searchTerm, categories]);
 
-  // ── Delete ─────────────────────────────────────────────────────────────────
   const handleDelete = async () => {
-    if (!productToDelete) return;
+    if (!categoryToDelete) return;
     setLoadingDelete(true);
     try {
-      await removeProduct(productToDelete);
+      await removeCategory(categoryToDelete.id);
       setDeleteDialog(false);
-      setProductToDelete(null);
+      setCategoryToDelete(null);
     } catch {
       // toast shown in context
     } finally {
@@ -95,7 +82,7 @@ export default function ProductsList() {
     }
   };
 
-  const activeCount = products.filter((p) => p.isActive).length;
+  const activeCount = categories.filter((c) => c.isActive).length;
   const paginated = filtered.slice(
     page * rowsPerPage,
     page * rowsPerPage + rowsPerPage,
@@ -130,7 +117,7 @@ export default function ProductsList() {
       >
         <p style={{ color: colors.error }}>{error}</p>
         <Button
-          onClick={refreshProducts}
+          onClick={refreshCategories}
           startIcon={<RefreshCw size={16} />}
           variant="contained"
           sx={{ bgcolor: colors.primary }}
@@ -170,7 +157,7 @@ export default function ProductsList() {
               fontWeight: 700,
             }}
           >
-            <ShoppingBag
+            <Tag
               size={28}
               style={{
                 display: "inline",
@@ -178,7 +165,7 @@ export default function ProductsList() {
                 verticalAlign: "middle",
               }}
             />
-            Products
+            Categories
           </h1>
           <p
             style={{
@@ -187,12 +174,12 @@ export default function ProductsList() {
               fontSize: "0.875rem",
             }}
           >
-            Manage your product catalogue
+            Manage product categories
           </p>
         </div>
         <Box sx={{ display: "flex", gap: 1 }}>
           <IconButton
-            onClick={refreshProducts}
+            onClick={refreshCategories}
             sx={{
               color: colors.primary,
               border: `1px solid ${colors.border}`,
@@ -205,7 +192,7 @@ export default function ProductsList() {
           <Button
             variant="contained"
             startIcon={<Plus size={18} />}
-            onClick={() => navigate("/admin/products/add")}
+            onClick={() => navigate("/admin/categories/add")}
             sx={{
               bgcolor: colors.primary,
               color: "white",
@@ -219,12 +206,12 @@ export default function ProductsList() {
               "&:hover": { bgcolor: "#111" },
             }}
           >
-            Add New Product
+            Add New Category
           </Button>
         </Box>
       </Box>
 
-      {/* ── 2 Stat Cards ── */}
+      {/* ── Stat Cards ── */}
       <Box
         sx={{
           display: "grid",
@@ -235,12 +222,12 @@ export default function ProductsList() {
       >
         {[
           {
-            label: "Total Products",
-            value: products.length,
-            icon: <Package size={22} />,
+            label: "Total Categories",
+            value: categories.length,
+            icon: <Tag size={22} />,
           },
           {
-            label: "Active Products",
+            label: "Active Categories",
             value: activeCount,
             icon: <CheckCircle2 size={22} />,
           },
@@ -315,7 +302,7 @@ export default function ProductsList() {
         }}
       >
         <TextField
-          placeholder="Search by title, brand, model or category…"
+          placeholder="Search by name or description…"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           variant="outlined"
@@ -366,16 +353,15 @@ export default function ProductsList() {
         }}
       >
         <Box sx={{ overflowX: "auto" }}>
-          <Table sx={{ minWidth: 650 }}>
+          <Table sx={{ minWidth: 600 }}>
             <TableHead>
               <TableRow sx={{ bgcolor: colors.primaryBg }}>
                 {[
-                  "Product",
-                  "Brand / Model",
-                  "Category",
-                  "Price",
-                  "Qty",
-                  "Active",
+                  "Name (EN)",
+                  "Name (AR)",
+                  "Description",
+                  "Status",
+                  "Created",
                   "Actions",
                 ].map((h) => (
                   <TableCell
@@ -398,8 +384,8 @@ export default function ProductsList() {
             <TableBody>
               {paginated.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 10 }}>
-                    <Package
+                  <TableCell colSpan={6} align="center" sx={{ py: 10 }}>
+                    <Tag
                       size={44}
                       style={{
                         color: colors.textMuted,
@@ -408,176 +394,108 @@ export default function ProductsList() {
                       }}
                     />
                     <p style={{ color: colors.textSecondary, fontWeight: 600 }}>
-                      No products found
+                      No categories found
                     </p>
                     <p style={{ color: colors.textMuted, fontSize: "0.85rem" }}>
-                      Try adjusting your search
+                      Try adjusting your search or add a new category
                     </p>
                   </TableCell>
                 </TableRow>
               ) : (
-                paginated.map((product) => (
+                paginated.map((category) => (
                   <TableRow
-                    key={product.id}
+                    key={category.id}
                     sx={{
                       "&:hover": { bgcolor: colors.muted },
                       transition: "background 0.15s",
                     }}
                   >
-                    {/* Product */}
-                    <TableCell sx={{ minWidth: 220 }}>
+                    {/* Name EN */}
+                    <TableCell sx={{ minWidth: 150 }}>
                       <Box
-                        sx={{ display: "flex", alignItems: "center", gap: 1.5 }}
+                        sx={{ display: "flex", alignItems: "center", gap: 1 }}
                       >
-                        {product.thumbnail && product.thumbnail !== "null" ? (
-                          <Box
-                            component="img"
-                            src={product.thumbnail}
-                            alt={product.title}
-                            sx={{
-                              width: 40,
-                              height: 40,
-                              borderRadius: 2,
-                              objectFit: "cover",
-                              flexShrink: 0,
-                              border: `1px solid ${colors.border}`,
-                            }}
-                          />
-                        ) : (
-                          <Avatar
-                            sx={{
-                              bgcolor: getAvatarColor(product.title),
-                              width: 40,
-                              height: 40,
-                              fontSize: "0.95rem",
-                              fontWeight: 700,
-                              borderRadius: 2,
-                              flexShrink: 0,
-                            }}
-                          >
-                            {product.title.charAt(0)}
-                          </Avatar>
-                        )}
-                        <div>
-                          <p
-                            style={{
-                              fontWeight: 600,
-                              fontSize: "0.875rem",
-                              color: colors.textPrimary,
-                              margin: 0,
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {product.title}
-                          </p>
-                          <p
-                            style={{
-                              color: colors.textMuted,
-                              fontSize: "0.75rem",
-                              margin: "2px 0 0",
-                              maxWidth: 200,
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {product.description}
-                          </p>
-                        </div>
+                        <Box
+                          sx={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: 2,
+                            bgcolor: colors.primaryBg,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            flexShrink: 0,
+                          }}
+                        >
+                          <Globe size={14} style={{ color: colors.primary }} />
+                        </Box>
+                        <span
+                          style={{
+                            fontWeight: 600,
+                            fontSize: "0.875rem",
+                            color: colors.textPrimary,
+                          }}
+                        >
+                          {category.name.en}
+                        </span>
                       </Box>
                     </TableCell>
 
-                    {/* Brand / Model */}
-                    <TableCell sx={{ minWidth: 150 }}>
+                    {/* Name AR */}
+                    <TableCell sx={{ minWidth: 130 }}>
+                      <span
+                        style={{
+                          fontSize: "0.875rem",
+                          color: colors.textPrimary,
+                          fontFamily: "inherit",
+                          direction: "rtl",
+                          display: "block",
+                        }}
+                      >
+                        {category.name.ar}
+                      </span>
+                    </TableCell>
+
+                    {/* Description */}
+                    <TableCell sx={{ minWidth: 200, maxWidth: 300 }}>
                       <p
                         style={{
                           margin: 0,
-                          fontSize: "0.875rem",
-                          fontWeight: 600,
-                          color: colors.textPrimary,
+                          fontSize: "0.8rem",
+                          color: colors.textSecondary,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
                         }}
                       >
-                        {product.brand}
-                      </p>
-                      <p
-                        style={{
-                          margin: "2px 0 0",
-                          fontSize: "0.75rem",
-                          color: colors.textMuted,
-                        }}
-                      >
-                        {product.model}
+                        {category.description.en}
                       </p>
                     </TableCell>
 
-                    {/* Category — resolved from ID to name */}
-                    <TableCell sx={{ minWidth: 120 }}>
-                      <span
-                        style={{
-                          fontSize: "0.78rem",
-                          background: colors.primaryBg,
-                          color: colors.primary,
-                          padding: "3px 10px",
-                          borderRadius: 99,
-                          fontWeight: 600,
-                        }}
-                      >
-                        {getCategoryName(product.category)}
-                      </span>
-                    </TableCell>
-
-                    {/* Price */}
-                    <TableCell sx={{ minWidth: 90, whiteSpace: "nowrap" }}>
-                      <span
-                        style={{ fontWeight: 700, color: colors.textPrimary }}
-                      >
-                        {product.price.toFixed(2)} EGP
-                      </span>
-                    </TableCell>
-
-                    {/* Qty */}
-                    <TableCell sx={{ minWidth: 80 }}>
-                      <span
-                        style={{
-                          fontWeight: 600,
-                          fontSize: "0.875rem",
-                          color:
-                            product.quantity === 0
-                              ? colors.error
-                              : colors.textPrimary,
-                        }}
-                      >
-                        {product.quantity === 0 ? (
-                          <span
-                            style={{
-                              fontSize: "0.65rem",
-                              background: colors.errorBg,
-                              color: colors.error,
-                              padding: "2px 8px",
-                              borderRadius: 99,
-                              fontWeight: 700,
-                            }}
-                          >
-                            Out of Stock
-                          </span>
-                        ) : (
-                          product.quantity
-                        )}
-                      </span>
-                    </TableCell>
-
-                    {/* Active */}
-                    <TableCell sx={{ minWidth: 80 }}>
+                    {/* Status */}
+                    <TableCell sx={{ minWidth: 90 }}>
                       <Chip
-                        label={product.isActive ? "Active" : "Inactive"}
+                        label={category.isActive ? "Active" : "Inactive"}
                         size="small"
                         sx={{
-                          bgcolor: product.isActive ? "#DCFCE7" : "#FEE2E2",
-                          color: product.isActive ? "#22C55E" : "#EF4444",
+                          bgcolor: category.isActive ? "#DCFCE7" : "#FEE2E2",
+                          color: category.isActive ? "#22C55E" : "#EF4444",
                           fontWeight: 700,
                           fontSize: "0.7rem",
                         }}
                       />
+                    </TableCell>
+
+                    {/* Created */}
+                    <TableCell sx={{ minWidth: 110, whiteSpace: "nowrap" }}>
+                      <span
+                        style={{
+                          fontSize: "0.78rem",
+                          color: colors.textMuted,
+                        }}
+                      >
+                        {category.createdAt.toLocaleDateString()}
+                      </span>
                     </TableCell>
 
                     {/* Actions */}
@@ -593,7 +511,7 @@ export default function ProductsList() {
                         <IconButton
                           size="small"
                           onClick={() =>
-                            navigate(`/admin/products/${product.id}`)
+                            navigate(`/admin/categories/${category.id}`)
                           }
                           sx={{
                             color: colors.primary,
@@ -607,7 +525,7 @@ export default function ProductsList() {
                         <IconButton
                           size="small"
                           onClick={() =>
-                            navigate(`/admin/products/${product.id}/edit`)
+                            navigate(`/admin/categories/${category.id}/edit`)
                           }
                           sx={{
                             color: "#7C3AED",
@@ -621,7 +539,7 @@ export default function ProductsList() {
                         <IconButton
                           size="small"
                           onClick={() => {
-                            setProductToDelete(product);
+                            setCategoryToDelete(category);
                             setDeleteDialog(true);
                           }}
                           sx={{
@@ -676,8 +594,7 @@ export default function ProductsList() {
         <DialogContent>
           <p style={{ color: colors.textPrimary, marginBottom: 16 }}>
             Are you sure you want to delete{" "}
-            <strong>{productToDelete?.title}</strong>? This will also remove all
-            product images.
+            <strong>{categoryToDelete?.name.en}</strong>?
           </p>
           <Box
             sx={{
@@ -688,7 +605,8 @@ export default function ProductsList() {
             }}
           >
             <p style={{ fontSize: "0.875rem", color: colors.error, margin: 0 }}>
-              <strong>Warning:</strong> This action cannot be undone.
+              <strong>Warning:</strong> This action cannot be undone. Products
+              using this category will not be automatically updated.
             </p>
           </Box>
         </DialogContent>
