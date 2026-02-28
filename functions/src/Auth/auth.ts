@@ -6,7 +6,6 @@
  *  2. setUserRole     — Callable function (admin only) to change a user's role
  */
 
-import * as admin from "firebase-admin";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
