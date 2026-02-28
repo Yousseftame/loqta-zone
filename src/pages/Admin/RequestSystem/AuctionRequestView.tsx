@@ -10,6 +10,7 @@ import {
   Select,
   MenuItem,
   TextField,
+  FormHelperText,
 } from "@mui/material";
 import {
   ArrowLeft,
@@ -18,7 +19,6 @@ import {
   User,
   Tag,
   DollarSign,
-  AlignLeft,
   Zap,
   Calendar,
   Link2,
@@ -35,6 +35,8 @@ import {
   type AuctionRequestFormData,
 } from "./auction-requests-data";
 import { useAuctionRequests } from "@/store/AdminContext/AuctionRequestContext/AuctionRequestContext";
+import { useAuctions } from "@/store/AdminContext/AuctionContext/AuctionContext";
+import { useProducts } from "@/store/AdminContext/ProductContext/ProductsCotnext";
 
 const inputSx = {
   "& .MuiOutlinedInput-root": {
@@ -60,6 +62,8 @@ export default function AuctionRequestView() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { getRequest, editRequest } = useAuctionRequests();
+  const { auctions } = useAuctions();
+  const { products } = useProducts();
 
   const [request, setRequest] = useState<AuctionRequest | null>(null);
   const [loading, setLoading] = useState(true);
@@ -71,6 +75,14 @@ export default function AuctionRequestView() {
     notes: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Build a label for each auction: "Auction #3 — iPhone 15 Pro"
+  const getAuctionLabel = (auctionId: string): string => {
+    const auction = auctions.find((a) => a.id === auctionId);
+    if (!auction) return auctionId;
+    const product = products.find((p) => p.id === auction.productId);
+    return `Auction #${auction.auctionNumber}${product ? ` — ${product.title}` : ""}`;
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -96,12 +108,8 @@ export default function AuctionRequestView() {
 
   const validate = () => {
     const e: Record<string, string> = {};
-    if (
-      form.status === "matched" &&
-      !form.matchedAuctionId.trim()
-    ) {
-      e.matchedAuctionId =
-        "Matched Auction ID is required when status is 'matched'";
+    if (form.status === "matched" && !form.matchedAuctionId) {
+      e.matchedAuctionId = "Please select an auction when status is 'Matched'";
     }
     return e;
   };
@@ -586,28 +594,159 @@ export default function AuctionRequestView() {
             </Select>
           </FormControl>
 
-          {/* Matched Auction ID */}
-          <TextField
-            label="Matched Auction ID"
-            size="small"
-            fullWidth
-            placeholder="Paste the Firestore auction document ID…"
-            value={form.matchedAuctionId}
-            onChange={(e) => field("matchedAuctionId", e.target.value)}
-            error={!!errors.matchedAuctionId}
-            helperText={
-              errors.matchedAuctionId ||
-              "Required when setting status to 'Matched'"
-            }
-            InputProps={{
-              startAdornment: (
-                <Box sx={{ mr: 1, display: "flex", color: colors.textMuted }}>
-                  <Link2 size={16} />
-                </Box>
-              ),
-            }}
-            sx={inputSx}
-          />
+          {/* ── Matched Auction SELECT (replaces free-text input) ── */}
+          <FormControl size="small" fullWidth error={!!errors.matchedAuctionId}>
+            <InputLabel
+              sx={{
+                "&.Mui-focused": { color: colors.primary },
+                display: "flex",
+                alignItems: "center",
+                gap: 0.5,
+              }}
+            >
+              Matched Auction
+            </InputLabel>
+            <Select
+              value={form.matchedAuctionId}
+              label="Matched Auction"
+              onChange={(e) => field("matchedAuctionId", e.target.value)}
+              sx={selectSx}
+              displayEmpty
+              renderValue={(selected) => {
+                if (!selected) {
+                  return (
+                    <span
+                      style={{ color: colors.textMuted, fontSize: "0.875rem" }}
+                    >
+                      — None —
+                    </span>
+                  );
+                }
+                return (
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <Link2
+                      size={14}
+                      style={{ color: colors.primary, flexShrink: 0 }}
+                    />
+                    <span style={{ fontSize: "0.875rem", fontWeight: 600 }}>
+                      {getAuctionLabel(selected)}
+                    </span>
+                  </Box>
+                );
+              }}
+            >
+              {/* None option — clears the field */}
+              <MenuItem value="">
+                <span style={{ color: colors.textMuted, fontSize: "0.875rem" }}>
+                  — None —
+                </span>
+              </MenuItem>
+
+              {auctions.length === 0 && (
+                <MenuItem disabled value="">
+                  <em style={{ fontSize: "0.875rem", color: colors.textMuted }}>
+                    No auctions available
+                  </em>
+                </MenuItem>
+              )}
+
+              {auctions.map((auction) => {
+                const product = products.find(
+                  (p) => p.id === auction.productId,
+                );
+                const statusColors: Record<string, string> = {
+                  live: "#16A34A",
+                  upcoming: "#D97706",
+                  ended: "#94A3B8",
+                };
+                return (
+                  <MenuItem key={auction.id} value={auction.id}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        width: "100%",
+                        gap: 2,
+                      }}
+                    >
+                      <Box
+                        sx={{ display: "flex", alignItems: "center", gap: 1.5 }}
+                      >
+                        {/* Auction number badge */}
+                        <Box
+                          sx={{
+                            minWidth: 32,
+                            height: 24,
+                            borderRadius: 1,
+                            bgcolor: colors.primaryBg,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            px: 0.75,
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontSize: "0.7rem",
+                              fontWeight: 700,
+                              color: colors.primary,
+                            }}
+                          >
+                            #{auction.auctionNumber}
+                          </span>
+                        </Box>
+
+                        <div>
+                          <p
+                            style={{
+                              margin: 0,
+                              fontWeight: 600,
+                              fontSize: "0.875rem",
+                              color: colors.textPrimary,
+                            }}
+                          >
+                            {product?.title ?? "Unknown Product"}
+                          </p>
+                          <p
+                            style={{
+                              margin: "1px 0 0",
+                              fontSize: "0.72rem",
+                              color: colors.textMuted,
+                            }}
+                          >
+                            {auction.startTime.toLocaleDateString()} →{" "}
+                            {auction.endTime.toLocaleDateString()}
+                          </p>
+                        </div>
+                      </Box>
+
+                      {/* Status pill */}
+                      <span
+                        style={{
+                          fontSize: "0.68rem",
+                          fontWeight: 700,
+                          color:
+                            statusColors[auction.status] ?? colors.textMuted,
+                          background: `${statusColors[auction.status] ?? colors.textMuted}18`,
+                          padding: "2px 8px",
+                          borderRadius: 99,
+                          textTransform: "capitalize",
+                          flexShrink: 0,
+                        }}
+                      >
+                        {auction.status}
+                      </span>
+                    </Box>
+                  </MenuItem>
+                );
+              })}
+            </Select>
+            <FormHelperText>
+              {errors.matchedAuctionId ||
+                "Required when setting status to 'Matched'"}
+            </FormHelperText>
+          </FormControl>
 
           {/* Admin notes override */}
           <TextField
@@ -646,8 +785,8 @@ export default function AuctionRequestView() {
               }}
             >
               <strong>Note:</strong> Only <strong>Status</strong>,{" "}
-              <strong>Matched Auction ID</strong>, and <strong>Notes</strong>{" "}
-              can be edited by admins. All other fields are set by the user.
+              <strong>Matched Auction</strong>, and <strong>Notes</strong> can
+              be edited by admins. All other fields are set by the user.
             </p>
           </Box>
         </Box>
