@@ -185,7 +185,7 @@ export default function AdminContactList() {
         </IconButton>
       </Box>
 
-      {/* ── Stat Cards — same gradient style as Products ── */}
+      {/* ── Stat Cards — all same primary gradient ── */}
       <Box
         sx={{
           display: "grid",
@@ -195,29 +195,17 @@ export default function AdminContactList() {
         }}
       >
         {[
-          {
-            label: "New Messages",
-            value: newCount,
-            gradient: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryLight} 100%)`,
-          },
-          {
-            label: "Seen",
-            value: seenCount,
-            gradient: "linear-gradient(135deg, #7C3AED 0%, #9F67FA 100%)",
-          },
-          {
-            label: "Replied",
-            value: repliedCount,
-            gradient: "linear-gradient(135deg, #059669 0%, #34D399 100%)",
-          },
-        ].map(({ label, value, gradient }) => (
+          { label: "New Messages", value: newCount },
+          { label: "Seen", value: seenCount },
+          { label: "Replied", value: repliedCount },
+        ].map(({ label, value }) => (
           <Paper
             key={label}
             elevation={0}
             sx={{
               p: { xs: 2, md: 3 },
               borderRadius: 3,
-              background: gradient,
+              background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryLight} 100%)`,
               color: "#fff",
             }}
           >
@@ -351,7 +339,7 @@ export default function AdminContactList() {
         </Box>
       </Paper>
 
-      {/* ── Table ── */}
+      {/* ── Table — no forced minWidth, matches products table style ── */}
       <Paper
         elevation={0}
         sx={{
@@ -361,260 +349,243 @@ export default function AdminContactList() {
           overflow: "hidden",
         }}
       >
-        <Box sx={{ overflowX: "auto" }}>
-          <Table sx={{ minWidth: 750 }}>
-            <TableHead>
-              <TableRow sx={{ bgcolor: colors.primaryBg }}>
-                {[
-                  "Sender",
-                  "Subject",
-                  "Message Preview",
-                  "Status",
-                  "Date",
-                  "Actions",
-                ].map((h) => (
-                  <TableCell
-                    key={h}
+        <Table>
+          <TableHead>
+            <TableRow sx={{ bgcolor: colors.primaryBg }}>
+              {[
+                { label: "Sender" },
+                { label: "Subject" },
+                { label: "Message Preview" },
+                { label: "Status" },
+                { label: "Date" },
+                { label: "Actions", center: true },
+              ].map(({ label, center }) => (
+                <TableCell
+                  key={label}
+                  sx={{
+                    fontWeight: 700,
+                    color: colors.primaryDark,
+                    fontSize: "0.72rem",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                    whiteSpace: "nowrap",
+                    ...(center && { textAlign: "center" }),
+                  }}
+                >
+                  {label}
+                </TableCell>
+              ))}
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {paginated.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} align="center" sx={{ py: 10 }}>
+                  <Mail
+                    size={44}
+                    style={{
+                      color: colors.textMuted,
+                      margin: "0 auto 12px",
+                      display: "block",
+                    }}
+                  />
+                  <p style={{ color: colors.textSecondary, fontWeight: 600 }}>
+                    No messages found
+                  </p>
+                  <p style={{ color: colors.textMuted, fontSize: "0.85rem" }}>
+                    Try adjusting your search
+                  </p>
+                </TableCell>
+              </TableRow>
+            ) : (
+              paginated.map((msg) => {
+                const isUpdating = updatingId === msg.id;
+                return (
+                  <TableRow
+                    key={msg.id}
                     sx={{
-                      fontWeight: 700,
-                      color: colors.primaryDark,
-                      fontSize: "0.72rem",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.05em",
-                      whiteSpace: "nowrap",
-                      ...(h === "Actions" && { textAlign: "center" }),
+                      "&:hover": { bgcolor: colors.muted },
+                      transition: "background 0.15s",
                     }}
                   >
-                    {h}
-                  </TableCell>
-                ))}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {paginated.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 10 }}>
-                    <Mail
-                      size={44}
-                      style={{
-                        color: colors.textMuted,
-                        margin: "0 auto 12px",
-                        display: "block",
-                      }}
-                    />
-                    <p style={{ color: colors.textSecondary, fontWeight: 600 }}>
-                      No messages found
-                    </p>
-                    <p style={{ color: colors.textMuted, fontSize: "0.85rem" }}>
-                      Try adjusting your search
-                    </p>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                paginated.map((msg) => {
-                  const sStyle = getContactStatusStyle(msg.status);
-                  const isUpdating = updatingId === msg.id;
-                  return (
-                    <TableRow
-                      key={msg.id}
-                      sx={{
-                        "&:hover": { bgcolor: colors.muted },
-                        transition: "background 0.15s",
-                      }}
-                    >
-                      {/* Sender */}
-                      <TableCell sx={{ minWidth: 180 }}>
+                    {/* Sender */}
+                    <TableCell>
+                      <Box
+                        sx={{ display: "flex", alignItems: "center", gap: 1.5 }}
+                      >
                         <Box
                           sx={{
+                            width: 36,
+                            height: 36,
+                            borderRadius: "50%",
+                            bgcolor:
+                              msg.status === "new"
+                                ? "#FEF3C7"
+                                : colors.primaryBg,
                             display: "flex",
                             alignItems: "center",
-                            gap: 1.5,
+                            justifyContent: "center",
+                            flexShrink: 0,
+                            fontWeight: 700,
+                            color:
+                              msg.status === "new" ? "#D97706" : colors.primary,
+                            fontSize: "0.85rem",
                           }}
                         >
-                          <Box
-                            sx={{
-                              width: 36,
-                              height: 36,
-                              borderRadius: "50%",
-                              bgcolor:
-                                msg.status === "new"
-                                  ? "#FEF3C7"
-                                  : colors.primaryBg,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              flexShrink: 0,
-                              fontWeight: 700,
-                              color:
-                                msg.status === "new"
-                                  ? "#D97706"
-                                  : colors.primary,
-                              fontSize: "0.85rem",
-                            }}
-                          >
-                            {msg.name.charAt(0).toUpperCase()}
-                          </Box>
-                          <div>
-                            <p
-                              style={{
-                                margin: 0,
-                                fontWeight: msg.status === "new" ? 700 : 600,
-                                fontSize: "0.875rem",
-                                color: colors.textPrimary,
-                              }}
-                            >
-                              {msg.name}
-                            </p>
-                            <p
-                              style={{
-                                margin: "2px 0 0",
-                                fontSize: "0.72rem",
-                                color: colors.textMuted,
-                              }}
-                            >
-                              {msg.email}
-                            </p>
-                          </div>
+                          {msg.name.charAt(0).toUpperCase()}
                         </Box>
-                      </TableCell>
-
-                      {/* Subject */}
-                      <TableCell sx={{ minWidth: 140 }}>
-                        <span
-                          style={{
-                            fontSize: "0.78rem",
-                            background: colors.primaryBg,
-                            color: colors.primary,
-                            padding: "3px 10px",
-                            borderRadius: 99,
-                            fontWeight: 600,
-                          }}
-                        >
-                          {(SUBJECT_LABELS[msg.subject] ?? msg.subject) || "—"}
-                        </span>
-                      </TableCell>
-
-                      {/* Message Preview */}
-                      <TableCell sx={{ minWidth: 200, maxWidth: 260 }}>
-                        <p
-                          style={{
-                            margin: 0,
-                            fontSize: "0.82rem",
-                            color: colors.textSecondary,
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                            maxWidth: 240,
-                          }}
-                        >
-                          {msg.message}
-                        </p>
-                      </TableCell>
-
-                      {/* Status — inline select dropdown, fully reversible */}
-                      <TableCell sx={{ minWidth: 150 }}>
-                        <FormControl
-                          size="small"
-                          disabled={isUpdating}
-                          sx={{ minWidth: 130 }}
-                        >
-                          <Select
-                            value={msg.status}
-                            onChange={(e) =>
-                              handleStatusChange(
-                                msg.id,
-                                e.target.value as ContactStatus,
-                              )
-                            }
-                            renderValue={(val) => {
-                              const s = getContactStatusStyle(
-                                val as ContactStatus,
-                              );
-                              return (
-                                <Chip
-                                  label={isUpdating ? "Saving…" : s.label}
-                                  size="small"
-                                  sx={{
-                                    bgcolor: s.bg,
-                                    color: s.color,
-                                    fontWeight: 700,
-                                    fontSize: "0.7rem",
-                                    cursor: "pointer",
-                                    pointerEvents: "none",
-                                  }}
-                                />
-                              );
-                            }}
-                            sx={{
-                              "& .MuiOutlinedInput-notchedOutline": {
-                                borderColor: colors.border,
-                              },
-                              "&:hover .MuiOutlinedInput-notchedOutline": {
-                                borderColor: colors.primary,
-                              },
-                              "& .MuiSelect-select": { py: 0.75, pl: 1 },
+                        <div>
+                          <p
+                            style={{
+                              margin: 0,
+                              fontWeight: msg.status === "new" ? 700 : 600,
+                              fontSize: "0.875rem",
+                              color: colors.textPrimary,
                             }}
                           >
-                            {STATUS_CHANGE_OPTIONS.map((o) => {
-                              const s = getContactStatusStyle(o.value);
-                              return (
-                                <MenuItem
-                                  key={o.value}
-                                  value={o.value}
-                                  sx={{ gap: 1 }}
-                                >
-                                  <Chip
-                                    label={o.label}
-                                    size="small"
-                                    sx={{
-                                      bgcolor: s.bg,
-                                      color: s.color,
-                                      fontWeight: 700,
-                                      fontSize: "0.7rem",
-                                      pointerEvents: "none",
-                                    }}
-                                  />
-                                </MenuItem>
-                              );
-                            })}
-                          </Select>
-                        </FormControl>
-                      </TableCell>
+                            {msg.name}
+                          </p>
+                          <p
+                            style={{
+                              margin: "2px 0 0",
+                              fontSize: "0.72rem",
+                              color: colors.textMuted,
+                            }}
+                          >
+                            {msg.email}
+                          </p>
+                        </div>
+                      </Box>
+                    </TableCell>
 
-                      {/* Date */}
-                      <TableCell
-                        sx={{
-                          minWidth: 100,
+                    {/* Subject */}
+                    <TableCell>
+                      <span
+                        style={{
                           fontSize: "0.78rem",
-                          color: colors.textMuted,
+                          background: colors.primaryBg,
+                          color: colors.primary,
+                          padding: "3px 10px",
+                          borderRadius: 99,
+                          fontWeight: 600,
                           whiteSpace: "nowrap",
                         }}
                       >
-                        {msg.createdAt.toLocaleDateString()}
-                      </TableCell>
+                        {(SUBJECT_LABELS[msg.subject] ?? msg.subject) || "—"}
+                      </span>
+                    </TableCell>
 
-                      {/* Actions — ONLY navigates, zero status side-effects */}
-                      <TableCell align="center" sx={{ minWidth: 80 }}>
-                        <IconButton
-                          size="small"
-                          onClick={() => navigate(`/admin/contacts/${msg.id}`)}
-                          sx={{
-                            color: colors.primary,
-                            "&:hover": { bgcolor: colors.primaryBg },
-                            borderRadius: 1.5,
-                          }}
-                          title="View full message"
-                        >
-                          <Eye size={16} />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        </Box>
+                    {/* Message Preview */}
+                    <TableCell sx={{ maxWidth: 260 }}>
+                      <p
+                        style={{
+                          margin: 0,
+                          fontSize: "0.82rem",
+                          color: colors.textSecondary,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {msg.message}
+                      </p>
+                    </TableCell>
+
+                    {/* Status — chip only, no border/box */}
+                    <TableCell>
+                      <Select
+                        value={msg.status}
+                        disabled={isUpdating}
+                        onChange={(e) =>
+                          handleStatusChange(
+                            msg.id,
+                            e.target.value as ContactStatus,
+                          )
+                        }
+                        renderValue={(val) => {
+                          const s = getContactStatusStyle(val as ContactStatus);
+                          return (
+                            <Chip
+                              label={isUpdating ? "…" : s.label}
+                              size="small"
+                              sx={{
+                                bgcolor: s.bg,
+                                color: s.color,
+                                fontWeight: 700,
+                                fontSize: "0.7rem",
+                                pointerEvents: "none",
+                                height: 22,
+                              }}
+                            />
+                          );
+                        }}
+                        sx={{
+                          "& .MuiOutlinedInput-notchedOutline": {
+                            border: "none",
+                          },
+                          "& .MuiSelect-select": { p: "0 !important" },
+                          "& .MuiSelect-icon": { display: "none" },
+                          bgcolor: "transparent",
+                          cursor: "pointer",
+                        }}
+                      >
+                        {STATUS_CHANGE_OPTIONS.map((o) => {
+                          const s = getContactStatusStyle(o.value);
+                          return (
+                            <MenuItem
+                              key={o.value}
+                              value={o.value}
+                              sx={{ gap: 1 }}
+                            >
+                              <Chip
+                                label={o.label}
+                                size="small"
+                                sx={{
+                                  bgcolor: s.bg,
+                                  color: s.color,
+                                  fontWeight: 700,
+                                  fontSize: "0.7rem",
+                                  pointerEvents: "none",
+                                }}
+                              />
+                            </MenuItem>
+                          );
+                        })}
+                      </Select>
+                    </TableCell>
+
+                    {/* Date */}
+                    <TableCell
+                      sx={{
+                        fontSize: "0.78rem",
+                        color: colors.textMuted,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {msg.createdAt.toLocaleDateString()}
+                    </TableCell>
+
+                    {/* Actions */}
+                    <TableCell align="center">
+                      <IconButton
+                        size="small"
+                        onClick={() => navigate(`/admin/contacts/${msg.id}`)}
+                        sx={{
+                          color: colors.primary,
+                          "&:hover": { bgcolor: colors.primaryBg },
+                          borderRadius: 1.5,
+                        }}
+                        title="View full message"
+                      >
+                        <Eye size={16} />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
         <TablePagination
           component="div"
           count={filtered.length}

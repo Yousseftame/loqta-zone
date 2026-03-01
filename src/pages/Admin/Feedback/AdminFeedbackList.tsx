@@ -208,7 +208,7 @@ export default function AdminFeedbackList() {
         </IconButton>
       </Box>
 
-      {/* ── Stat Cards — same gradient style as Products ── */}
+      {/* ── Stat Cards — all same primary gradient ── */}
       <Box
         sx={{
           display: "grid",
@@ -218,29 +218,17 @@ export default function AdminFeedbackList() {
         }}
       >
         {[
-          {
-            label: "New Feedback",
-            value: newCount,
-            gradient: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryLight} 100%)`,
-          },
-          {
-            label: "Seen",
-            value: seenCount,
-            gradient: "linear-gradient(135deg, #7C3AED 0%, #9F67FA 100%)",
-          },
-          {
-            label: "Avg. Rating",
-            value: avgRating,
-            gradient: "linear-gradient(135deg, #D97706 0%, #FBBF24 100%)",
-          },
-        ].map(({ label, value, gradient }) => (
+          { label: "New Feedback", value: newCount },
+          { label: "Seen", value: seenCount },
+          { label: "Avg. Rating", value: avgRating },
+        ].map(({ label, value }) => (
           <Paper
             key={label}
             elevation={0}
             sx={{
               p: { xs: 2, md: 3 },
               borderRadius: 3,
-              background: gradient,
+              background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryLight} 100%)`,
               color: "#fff",
             }}
           >
@@ -374,7 +362,7 @@ export default function AdminFeedbackList() {
         </Box>
       </Paper>
 
-      {/* ── Table ── */}
+      {/* ── Table — no forced minWidth, matches products table style ── */}
       <Paper
         elevation={0}
         sx={{
@@ -384,281 +372,268 @@ export default function AdminFeedbackList() {
           overflow: "hidden",
         }}
       >
-        <Box sx={{ overflowX: "auto" }}>
-          <Table sx={{ minWidth: 800 }}>
-            <TableHead>
-              <TableRow sx={{ bgcolor: colors.primaryBg }}>
-                {[
-                  "User",
-                  "Category",
-                  "Rating",
-                  "Title",
-                  "Recommend",
-                  "Status",
-                  "Date",
-                  "Actions",
-                ].map((h) => (
-                  <TableCell
-                    key={h}
+        <Table>
+          <TableHead>
+            <TableRow sx={{ bgcolor: colors.primaryBg }}>
+              {[
+                { label: "User" },
+                { label: "Category" },
+                { label: "Rating" },
+                { label: "Title" },
+                { label: "Recommend" },
+                { label: "Status" },
+                { label: "Date" },
+                { label: "Actions", center: true },
+              ].map(({ label, center }) => (
+                <TableCell
+                  key={label}
+                  sx={{
+                    fontWeight: 700,
+                    color: colors.primaryDark,
+                    fontSize: "0.72rem",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                    whiteSpace: "nowrap",
+                    ...(center && { textAlign: "center" }),
+                  }}
+                >
+                  {label}
+                </TableCell>
+              ))}
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {paginated.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={8} align="center" sx={{ py: 10 }}>
+                  <Star
+                    size={44}
+                    style={{
+                      color: colors.textMuted,
+                      margin: "0 auto 12px",
+                      display: "block",
+                    }}
+                  />
+                  <p style={{ color: colors.textSecondary, fontWeight: 600 }}>
+                    No feedback found
+                  </p>
+                  <p style={{ color: colors.textMuted, fontSize: "0.85rem" }}>
+                    Try adjusting your search
+                  </p>
+                </TableCell>
+              </TableRow>
+            ) : (
+              paginated.map((fb) => {
+                const sStyle = getFeedbackStatusStyle(fb.status);
+                const isUpdating = updatingId === fb.id;
+                return (
+                  <TableRow
+                    key={fb.id}
                     sx={{
-                      fontWeight: 700,
-                      color: colors.primaryDark,
-                      fontSize: "0.72rem",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.05em",
-                      whiteSpace: "nowrap",
-                      ...(h === "Actions" && { textAlign: "center" }),
+                      "&:hover": { bgcolor: colors.muted },
+                      transition: "background 0.15s",
                     }}
                   >
-                    {h}
-                  </TableCell>
-                ))}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {paginated.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 10 }}>
-                    <Star
-                      size={44}
-                      style={{
-                        color: colors.textMuted,
-                        margin: "0 auto 12px",
-                        display: "block",
-                      }}
-                    />
-                    <p style={{ color: colors.textSecondary, fontWeight: 600 }}>
-                      No feedback found
-                    </p>
-                    <p style={{ color: colors.textMuted, fontSize: "0.85rem" }}>
-                      Try adjusting your search
-                    </p>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                paginated.map((fb) => {
-                  const sStyle = getFeedbackStatusStyle(fb.status);
-                  const isUpdating = updatingId === fb.id;
-                  return (
-                    <TableRow
-                      key={fb.id}
-                      sx={{
-                        "&:hover": { bgcolor: colors.muted },
-                        transition: "background 0.15s",
-                      }}
-                    >
-                      {/* User */}
-                      <TableCell sx={{ minWidth: 160 }}>
+                    {/* User */}
+                    <TableCell>
+                      <Box
+                        sx={{ display: "flex", alignItems: "center", gap: 1.5 }}
+                      >
                         <Box
                           sx={{
+                            width: 34,
+                            height: 34,
+                            borderRadius: "50%",
+                            bgcolor:
+                              fb.status === "new"
+                                ? "#FEF3C7"
+                                : colors.primaryBg,
                             display: "flex",
                             alignItems: "center",
-                            gap: 1.5,
+                            justifyContent: "center",
+                            flexShrink: 0,
+                            fontWeight: 700,
+                            color:
+                              fb.status === "new" ? "#D97706" : colors.primary,
+                            fontSize: "0.8rem",
                           }}
                         >
-                          <Box
-                            sx={{
-                              width: 34,
-                              height: 34,
-                              borderRadius: "50%",
-                              bgcolor:
-                                fb.status === "new"
-                                  ? "#FEF3C7"
-                                  : colors.primaryBg,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              flexShrink: 0,
-                              fontWeight: 700,
-                              color:
-                                fb.status === "new"
-                                  ? "#D97706"
-                                  : colors.primary,
-                              fontSize: "0.8rem",
-                            }}
-                          >
-                            {fb.name ? fb.name.charAt(0).toUpperCase() : "?"}
-                          </Box>
-                          <div>
-                            <p
-                              style={{
-                                margin: 0,
-                                fontWeight: fb.status === "new" ? 700 : 600,
-                                fontSize: "0.85rem",
-                                color: colors.textPrimary,
-                              }}
-                            >
-                              {fb.name || "Anonymous"}
-                            </p>
-                            <p
-                              style={{
-                                margin: "2px 0 0",
-                                fontSize: "0.7rem",
-                                color: colors.textMuted,
-                              }}
-                            >
-                              {fb.email || "—"}
-                            </p>
-                          </div>
+                          {fb.name ? fb.name.charAt(0).toUpperCase() : "?"}
                         </Box>
-                      </TableCell>
-
-                      {/* Category */}
-                      <TableCell sx={{ minWidth: 130 }}>
-                        <span
-                          style={{
-                            fontSize: "0.75rem",
-                            background: colors.primaryBg,
-                            color: colors.primary,
-                            padding: "3px 10px",
-                            borderRadius: 99,
-                            fontWeight: 600,
-                          }}
-                        >
-                          {(FEEDBACK_CATEGORY_LABELS[fb.category] ??
-                            fb.category) ||
-                            "—"}
-                        </span>
-                      </TableCell>
-
-                      {/* Rating */}
-                      <TableCell sx={{ minWidth: 140 }}>
-                        <StarDisplay rating={fb.rating} />
-                      </TableCell>
-
-                      {/* Title */}
-                      <TableCell sx={{ minWidth: 160, maxWidth: 200 }}>
-                        <p
-                          style={{
-                            margin: 0,
-                            fontSize: "0.82rem",
-                            color: colors.textSecondary,
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {fb.title || "—"}
-                        </p>
-                      </TableCell>
-
-                      {/* Recommend */}
-                      <TableCell sx={{ minWidth: 110 }}>
-                        <span
-                          style={{
-                            fontSize: "0.72rem",
-                            color: colors.textMuted,
-                            fontStyle: fb.recommend ? "normal" : "italic",
-                          }}
-                        >
-                          {fb.recommend || "—"}
-                        </span>
-                      </TableCell>
-
-                      {/* Status — inline select dropdown, fully reversible */}
-                      <TableCell sx={{ minWidth: 130 }}>
-                        <FormControl
-                          size="small"
-                          disabled={isUpdating}
-                          sx={{ minWidth: 115 }}
-                        >
-                          <Select
-                            value={fb.status}
-                            onChange={(e) =>
-                              handleStatusChange(
-                                fb.id,
-                                e.target.value as FeedbackStatus,
-                              )
-                            }
-                            renderValue={(val) => {
-                              const s = getFeedbackStatusStyle(
-                                val as FeedbackStatus,
-                              );
-                              return (
-                                <Chip
-                                  label={isUpdating ? "Saving…" : s.label}
-                                  size="small"
-                                  sx={{
-                                    bgcolor: s.bg,
-                                    color: s.color,
-                                    fontWeight: 700,
-                                    fontSize: "0.7rem",
-                                    cursor: "pointer",
-                                    pointerEvents: "none",
-                                  }}
-                                />
-                              );
-                            }}
-                            sx={{
-                              "& .MuiOutlinedInput-notchedOutline": {
-                                borderColor: colors.border,
-                              },
-                              "&:hover .MuiOutlinedInput-notchedOutline": {
-                                borderColor: colors.primary,
-                              },
-                              "& .MuiSelect-select": { py: 0.75, pl: 1 },
+                        <div>
+                          <p
+                            style={{
+                              margin: 0,
+                              fontWeight: fb.status === "new" ? 700 : 600,
+                              fontSize: "0.85rem",
+                              color: colors.textPrimary,
                             }}
                           >
-                            {STATUS_CHANGE_OPTIONS.map((o) => {
-                              const s = getFeedbackStatusStyle(o.value);
-                              return (
-                                <MenuItem
-                                  key={o.value}
-                                  value={o.value}
-                                  sx={{ gap: 1 }}
-                                >
-                                  <Chip
-                                    label={o.label}
-                                    size="small"
-                                    sx={{
-                                      bgcolor: s.bg,
-                                      color: s.color,
-                                      fontWeight: 700,
-                                      fontSize: "0.7rem",
-                                      pointerEvents: "none",
-                                    }}
-                                  />
-                                </MenuItem>
-                              );
-                            })}
-                          </Select>
-                        </FormControl>
-                      </TableCell>
+                            {fb.name || "Anonymous"}
+                          </p>
+                          <p
+                            style={{
+                              margin: "2px 0 0",
+                              fontSize: "0.7rem",
+                              color: colors.textMuted,
+                            }}
+                          >
+                            {fb.email || "—"}
+                          </p>
+                        </div>
+                      </Box>
+                    </TableCell>
 
-                      {/* Date */}
-                      <TableCell
-                        sx={{
-                          minWidth: 100,
-                          fontSize: "0.78rem",
-                          color: colors.textMuted,
+                    {/* Category */}
+                    <TableCell>
+                      <span
+                        style={{
+                          fontSize: "0.75rem",
+                          background: colors.primaryBg,
+                          color: colors.primary,
+                          padding: "3px 10px",
+                          borderRadius: 99,
+                          fontWeight: 600,
                           whiteSpace: "nowrap",
                         }}
                       >
-                        {fb.createdAt.toLocaleDateString()}
-                      </TableCell>
+                        {(FEEDBACK_CATEGORY_LABELS[fb.category] ??
+                          fb.category) ||
+                          "—"}
+                      </span>
+                    </TableCell>
 
-                      {/* Actions — ONLY navigates, zero status side-effects */}
-                      <TableCell align="center" sx={{ minWidth: 80 }}>
-                        <IconButton
-                          size="small"
-                          onClick={() => navigate(`/admin/feedback/${fb.id}`)}
-                          sx={{
-                            color: colors.primary,
-                            "&:hover": { bgcolor: colors.primaryBg },
-                            borderRadius: 1.5,
-                          }}
-                          title="View full feedback"
-                        >
-                          <Eye size={16} />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        </Box>
+                    {/* Rating */}
+                    <TableCell>
+                      <StarDisplay rating={fb.rating} />
+                    </TableCell>
+
+                    {/* Title */}
+                    <TableCell sx={{ maxWidth: 160 }}>
+                      <p
+                        style={{
+                          margin: 0,
+                          fontSize: "0.82rem",
+                          color: colors.textSecondary,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {fb.title || "—"}
+                      </p>
+                    </TableCell>
+
+                    {/* Recommend */}
+                    <TableCell>
+                      <span
+                        style={{
+                          fontSize: "0.72rem",
+                          color: colors.textMuted,
+                          fontStyle: fb.recommend ? "normal" : "italic",
+                        }}
+                      >
+                        {fb.recommend || "—"}
+                      </span>
+                    </TableCell>
+
+                    {/* Status — chip only, no border/box */}
+                    <TableCell>
+                      <Select
+                        value={fb.status}
+                        disabled={isUpdating}
+                        onChange={(e) =>
+                          handleStatusChange(
+                            fb.id,
+                            e.target.value as FeedbackStatus,
+                          )
+                        }
+                        renderValue={(val) => {
+                          const s = getFeedbackStatusStyle(
+                            val as FeedbackStatus,
+                          );
+                          return (
+                            <Chip
+                              label={isUpdating ? "…" : s.label}
+                              size="small"
+                              sx={{
+                                bgcolor: s.bg,
+                                color: s.color,
+                                fontWeight: 700,
+                                fontSize: "0.7rem",
+                                pointerEvents: "none",
+                                height: 22,
+                              }}
+                            />
+                          );
+                        }}
+                        sx={{
+                          "& .MuiOutlinedInput-notchedOutline": {
+                            border: "none",
+                          },
+                          "& .MuiSelect-select": { p: "0 !important" },
+                          "& .MuiSelect-icon": { display: "none" },
+                          bgcolor: "transparent",
+                          cursor: "pointer",
+                        }}
+                      >
+                        {STATUS_CHANGE_OPTIONS.map((o) => {
+                          const s = getFeedbackStatusStyle(o.value);
+                          return (
+                            <MenuItem
+                              key={o.value}
+                              value={o.value}
+                              sx={{ gap: 1 }}
+                            >
+                              <Chip
+                                label={o.label}
+                                size="small"
+                                sx={{
+                                  bgcolor: s.bg,
+                                  color: s.color,
+                                  fontWeight: 700,
+                                  fontSize: "0.7rem",
+                                  pointerEvents: "none",
+                                }}
+                              />
+                            </MenuItem>
+                          );
+                        })}
+                      </Select>
+                    </TableCell>
+
+                    {/* Date */}
+                    <TableCell
+                      sx={{
+                        fontSize: "0.78rem",
+                        color: colors.textMuted,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {fb.createdAt.toLocaleDateString()}
+                    </TableCell>
+
+                    {/* Actions */}
+                    <TableCell align="center">
+                      <IconButton
+                        size="small"
+                        onClick={() => navigate(`/admin/feedback/${fb.id}`)}
+                        sx={{
+                          color: colors.primary,
+                          "&:hover": { bgcolor: colors.primaryBg },
+                          borderRadius: 1.5,
+                        }}
+                        title="View full feedback"
+                      >
+                        <Eye size={16} />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
         <TablePagination
           component="div"
           count={filtered.length}
