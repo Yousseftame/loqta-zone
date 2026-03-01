@@ -12,9 +12,9 @@ import type {
   AuctionRequestFormData,
 } from "@/pages/Admin/RequestSystem/auction-requests-data";
 import {
-    fetchAuctionRequests,
-    fetchAuctionRequest,
-    updateAuctionRequest,
+  fetchAuctionRequests,
+  fetchAuctionRequest,
+  updateAuctionRequest,
 } from "@/service/auctionRequest/auctionRequestService";
 import { useAuth } from "@/store/AuthContext/AuthContext";
 
@@ -48,10 +48,12 @@ export const AuctionRequestProvider = ({
 }: {
   children: ReactNode;
 }) => {
-  const { user, loading: authLoading } = useAuth();
+  const { user, role, loading: authLoading } = useAuth();
   const [requests, setRequests] = useState<AuctionRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const isAdmin = role === "admin" || role === "superAdmin";
 
   const refreshRequests = useCallback(async () => {
     setLoading(true);
@@ -70,12 +72,17 @@ export const AuctionRequestProvider = ({
 
   useEffect(() => {
     if (authLoading) return;
-    if (!user) {
+
+    // ← KEY FIX: only fetch if user is admin/superAdmin
+    // Regular users cannot list the AuctionRequests collection
+    if (!user || !isAdmin) {
       setLoading(false);
+      setRequests([]);
       return;
     }
+
     refreshRequests();
-  }, [authLoading, user, refreshRequests]);
+  }, [authLoading, user, isAdmin, refreshRequests]);
 
   const getRequest = useCallback(async (id: string) => {
     try {

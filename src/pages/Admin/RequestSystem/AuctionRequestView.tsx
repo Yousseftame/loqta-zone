@@ -125,6 +125,7 @@ export default function AuctionRequestView() {
     try {
       const updated = await editRequest(id, form);
       setRequest(updated);
+      navigate("/admin/auctionRequests");
     } catch {
       // toast shown in context
     } finally {
