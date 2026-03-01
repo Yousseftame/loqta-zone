@@ -7,7 +7,6 @@ import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import ContactsIcon from "@mui/icons-material/Contacts";
 import FeedbackIcon from "@mui/icons-material/Feedback";
 import AttachEmailIcon from "@mui/icons-material/AttachEmail";
-import NotificationsIcon from "@mui/icons-material/Notifications";
 import LocalOfferIcon from "@mui/icons-material/LocalOffer";
 import AddCardIcon from "@mui/icons-material/AddCard";
 import LocalActivityIcon from "@mui/icons-material/LocalActivity";
@@ -15,12 +14,14 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import Swal from "sweetalert2";
 import { useAuth } from "../../store/AuthContext/AuthContext";
+import { useContactFeedback } from "../../store/AdminContext/ContactFeedbackContext/ContactFeedbackContext";
 
 const Sidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { logout, user } = useAuth();
+  const { contactNewCount, feedbackNewCount } = useContactFeedback();
   let timerInterval: ReturnType<typeof setInterval>;
 
   const handleLogout = async () => {
@@ -73,33 +74,31 @@ const Sidebar = () => {
       icon: LocalActivityIcon,
       path: "/admin/vouchers",
     },
-
     {
       id: "Auction Requests",
       label: "Auction Requests",
       icon: AttachEmailIcon,
       path: "/admin/auctionRequests",
     },
-
-    {
-      id: "Feedback",
-      label: "Feedback",
-      icon: FeedbackIcon,
-      path: "/admin/#",
-    },
     {
       id: "Contacts",
       label: "Contacts",
       icon: ContactsIcon,
-      path: "/admin/#",
+      path: "/admin/contacts",
+      badge: contactNewCount,
     },
-
+    {
+      id: "Feedback",
+      label: "Feedback",
+      icon: FeedbackIcon,
+      path: "/admin/feedback",
+      badge: feedbackNewCount,
+    },
     {
       id: "Bids",
       label: "Bids",
       icon: AddCardIcon,
       path: "/admin/#",
-      badge: 3,
     },
     {
       id: "last offer System",
@@ -107,14 +106,12 @@ const Sidebar = () => {
       icon: LocalOfferIcon,
       path: "/admin/#",
     },
-
     {
       id: "Auction Participants",
       label: "Auction Participants",
       icon: FolderSharedIcon,
       path: "/admin/#",
     },
-
     {
       id: "Users",
       label: "Users",
@@ -152,7 +149,6 @@ const Sidebar = () => {
             className="flex-1 overflow-y-auto min-h-0"
             style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
           >
-            
             <nav className="mt-6 px-3 space-y-2">
               {menuItems.map((item) => {
                 const Icon = item.icon;
@@ -160,6 +156,8 @@ const Sidebar = () => {
                   item.path === "/admin"
                     ? location.pathname === "/admin"
                     : location.pathname.startsWith(item.path);
+
+                const showBadge = item.badge !== undefined && item.badge > 0;
 
                 return (
                   <button
@@ -174,7 +172,7 @@ const Sidebar = () => {
                       <div className="absolute left-0 top-2 bottom-2 w-1.5 bg-[#2A4863] rounded-r-full" />
                     )}
 
-                    {/* Icon */}
+                    {/* Icon + Badge wrapper */}
                     <div className="relative flex-shrink-0">
                       <Icon
                         className={`transition-all duration-300 ${
@@ -184,9 +182,20 @@ const Sidebar = () => {
                         }`}
                         style={{ fontSize: "22px" }}
                       />
-                      {item.badge && (
-                        <span className="absolute -top-2 -right-2 bg-[#2A4863] text-white text-[10px] px-1.5 py-0.5 rounded-full">
-                          {item.badge}
+                      {showBadge && (
+                        <span
+                          className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center"
+                          style={{
+                            minWidth: 18,
+                            height: 18,
+                            padding: "0 4px",
+                            lineHeight: "18px",
+                            boxShadow: "0 1px 4px rgba(239,68,68,0.5)",
+                            animation:
+                              "badgePop 0.3s cubic-bezier(0.34,1.56,0.64,1)",
+                          }}
+                        >
+                          {item.badge! > 99 ? "99+" : item.badge}
                         </span>
                       )}
                     </div>
@@ -210,10 +219,21 @@ const Sidebar = () => {
                       </span>
                     </div>
 
+                    {/* New count label (expanded sidebar only) */}
+                    {!collapsed && showBadge && (
+                      <span
+                        className="ml-auto text-[10px] font-bold text-red-500 bg-red-50 border border-red-200 rounded-full px-2 py-0.5 flex-shrink-0"
+                        style={{ marginLeft: "auto" }}
+                      >
+                        {item.badge} new
+                      </span>
+                    )}
+
                     {/* Tooltip when collapsed */}
                     {collapsed && (
                       <span className="absolute left-16 z-50 bg-[#1E40AF] text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-md">
                         {item.label}
+                        {showBadge && ` (${item.badge} new)`}
                       </span>
                     )}
                   </button>
@@ -286,6 +306,14 @@ const Sidebar = () => {
           {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </button>
       </div>
+
+      {/* Badge pop animation */}
+      <style>{`
+        @keyframes badgePop {
+          from { transform: scale(0); opacity: 0; }
+          to   { transform: scale(1); opacity: 1; }
+        }
+      `}</style>
     </div>
   );
 };

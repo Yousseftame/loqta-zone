@@ -1,4 +1,8 @@
 import React, { useRef, useState, useEffect } from "react";
+import {
+  submitContactMessage,
+  submitFeedbackMessage,
+} from "@/service/contactFeedback/contactFeedbackService";
 
 // ── Design tokens ─────────────────────────────────────────────
 const GOLD = "#c9a96e";
@@ -56,7 +60,6 @@ function Field({
 }) {
   const [focused, setFocused] = useState(false);
   const hasValue = value.length > 0;
-
   const sharedStyle: React.CSSProperties = {
     width: "100%",
     background: focused ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.025)",
@@ -73,7 +76,6 @@ function Field({
     resize: "none" as const,
     ...(textarea ? {} : { height: 52, display: "flex", alignItems: "center" }),
   };
-
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
       <label
@@ -161,8 +163,8 @@ function StarRating({
           gap: 6,
         }}
       >
-        <span style={{ opacity: 0.7 }}>⭐</span>
-        Your Rating <span style={{ color: GOLD, opacity: 0.7 }}>*</span>
+        <span style={{ opacity: 0.7 }}>⭐</span>Your Rating{" "}
+        <span style={{ color: GOLD, opacity: 0.7 }}>*</span>
       </label>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         {[1, 2, 3, 4, 5].map((star) => (
@@ -349,7 +351,6 @@ function SubmitBtn({ label, loading }: { label: string; loading: boolean }) {
         gap: 8,
       }}
     >
-      {/* Shimmer */}
       {hov && !loading && (
         <div
           style={{
@@ -383,7 +384,7 @@ function SubmitBtn({ label, loading }: { label: string; loading: boolean }) {
   );
 }
 
-// ── Success toast ─────────────────────────────────────────────
+// ── Success state ─────────────────────────────────────────────
 function SuccessState({
   message,
   onReset,
@@ -592,7 +593,6 @@ function FormCard({
         position: "relative",
       }}
     >
-      {/* Top accent */}
       <div
         style={{
           position: "absolute",
@@ -605,8 +605,6 @@ function FormCard({
           opacity: 0.6,
         }}
       />
-
-      {/* Corner glow */}
       <div
         style={{
           position: "absolute",
@@ -619,8 +617,6 @@ function FormCard({
           pointerEvents: "none",
         }}
       />
-
-      {/* Form header */}
       <div
         style={{
           padding: "32px 32px 0",
@@ -674,7 +670,6 @@ function FormCard({
           </h2>
         </div>
       </div>
-
       <div style={{ padding: "0 32px 32px" }}>{children}</div>
     </div>
   );
@@ -691,17 +686,33 @@ function ContactForm({ visible }: { visible: boolean }) {
   });
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const [error, setError] = useState("");
 
   const set = (k: keyof typeof form) => (v: string) =>
     setForm((f) => ({ ...f, [k]: v }));
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!form.name.trim() || !form.email.trim() || !form.message.trim()) {
+      setError("Please fill in all required fields.");
+      return;
+    }
+    setError("");
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      await submitContactMessage(form);
       setSent(true);
-    }, 1800);
+    } catch (err) {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetForm = () => {
+    setSent(false);
+    setForm({ name: "", email: "", phone: "", subject: "", message: "" });
+    setError("");
   };
 
   if (sent)
@@ -715,16 +726,7 @@ function ContactForm({ visible }: { visible: boolean }) {
       >
         <SuccessState
           message="Your message has been received!"
-          onReset={() => {
-            setSent(false);
-            setForm({
-              name: "",
-              email: "",
-              phone: "",
-              subject: "",
-              message: "",
-            });
-          }}
+          onReset={resetForm}
         />
       </FormCard>
     );
@@ -741,7 +743,6 @@ function ContactForm({ visible }: { visible: boolean }) {
         onSubmit={handleSubmit}
         style={{ display: "flex", flexDirection: "column", gap: 18 }}
       >
-        {/* Name + Email row */}
         <div
           style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}
           className="form-row"
@@ -764,7 +765,6 @@ function ContactForm({ visible }: { visible: boolean }) {
             icon="✉"
           />
         </div>
-        {/* Phone + Subject row */}
         <div
           style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}
           className="form-row"
@@ -793,7 +793,6 @@ function ContactForm({ visible }: { visible: boolean }) {
             ]}
           />
         </div>
-        {/* Message */}
         <Field
           label="Your Message"
           placeholder="Write your message here…"
@@ -804,8 +803,18 @@ function ContactForm({ visible }: { visible: boolean }) {
           rows={5}
           icon="💬"
         />
-
-        {/* Divider */}
+        {error && (
+          <p
+            style={{
+              margin: 0,
+              fontSize: 12,
+              color: "#EF4444",
+              fontWeight: 600,
+            }}
+          >
+            {error}
+          </p>
+        )}
         <div
           style={{
             height: 1,
@@ -813,7 +822,6 @@ function ContactForm({ visible }: { visible: boolean }) {
               "linear-gradient(90deg, transparent, rgba(229,224,198,0.08), transparent)",
           }}
         />
-
         <SubmitBtn label="✦ Send Message" loading={loading} />
       </form>
     </FormCard>
@@ -833,18 +841,53 @@ function FeedbackForm({ visible }: { visible: boolean }) {
   });
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const [error, setError] = useState("");
 
   const set = (k: keyof typeof form) => (v: string | number) =>
     setForm((f) => ({ ...f, [k]: v }));
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.rating) return;
+    if (!form.rating) {
+      setError("Please select a rating.");
+      return;
+    }
+    if (!form.feedback.trim()) {
+      setError("Please provide your feedback.");
+      return;
+    }
+    setError("");
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      await submitFeedbackMessage({
+        name: form.name,
+        email: form.email,
+        category: form.category,
+        rating: form.rating,
+        title: form.title,
+        feedback: form.feedback,
+        recommend: form.recommend,
+      });
       setSent(true);
-    }, 1800);
+    } catch (err) {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetForm = () => {
+    setSent(false);
+    setForm({
+      name: "",
+      email: "",
+      category: "",
+      rating: 0,
+      title: "",
+      feedback: "",
+      recommend: "",
+    });
+    setError("");
   };
 
   if (sent)
@@ -859,18 +902,7 @@ function FeedbackForm({ visible }: { visible: boolean }) {
       >
         <SuccessState
           message="Thank you for your feedback!"
-          onReset={() => {
-            setSent(false);
-            setForm({
-              name: "",
-              email: "",
-              category: "",
-              rating: 0,
-              title: "",
-              feedback: "",
-              recommend: "",
-            });
-          }}
+          onReset={resetForm}
         />
       </FormCard>
     );
@@ -888,7 +920,6 @@ function FeedbackForm({ visible }: { visible: boolean }) {
         onSubmit={handleSubmit}
         style={{ display: "flex", flexDirection: "column", gap: 18 }}
       >
-        {/* Name + Email */}
         <div
           style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}
           className="form-row"
@@ -909,8 +940,6 @@ function FeedbackForm({ visible }: { visible: boolean }) {
             icon="✉"
           />
         </div>
-
-        {/* Category */}
         <SelectField
           label="Feedback Category"
           icon="◇"
@@ -926,11 +955,7 @@ function FeedbackForm({ visible }: { visible: boolean }) {
             { val: "general", label: "General Experience" },
           ]}
         />
-
-        {/* Star rating */}
         <StarRating value={form.rating} onChange={(v) => set("rating")(v)} />
-
-        {/* Title */}
         <Field
           label="Feedback Title"
           placeholder="Sum it up in a few words…"
@@ -938,8 +963,6 @@ function FeedbackForm({ visible }: { visible: boolean }) {
           onChange={set("title")}
           icon="✦"
         />
-
-        {/* Feedback */}
         <Field
           label="Detailed Feedback"
           placeholder="Tell us about your experience in detail…"
@@ -950,8 +973,6 @@ function FeedbackForm({ visible }: { visible: boolean }) {
           rows={5}
           icon="💬"
         />
-
-        {/* Would you recommend */}
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <label
             style={{
@@ -1001,8 +1022,18 @@ function FeedbackForm({ visible }: { visible: boolean }) {
             )}
           </div>
         </div>
-
-        {/* Divider */}
+        {error && (
+          <p
+            style={{
+              margin: 0,
+              fontSize: 12,
+              color: "#EF4444",
+              fontWeight: 600,
+            }}
+          >
+            {error}
+          </p>
+        )}
         <div
           style={{
             height: 1,
@@ -1010,7 +1041,6 @@ function FeedbackForm({ visible }: { visible: boolean }) {
               "linear-gradient(90deg, transparent, rgba(229,224,198,0.08), transparent)",
           }}
         />
-
         <SubmitBtn label="✦ Submit Feedback" loading={loading} />
       </form>
     </FormCard>
@@ -1022,11 +1052,9 @@ export default function ContactUs() {
   const heroRef = useRef<HTMLDivElement>(null);
   const formsRef = useRef<HTMLDivElement>(null);
   const infoRef = useRef<HTMLDivElement>(null);
-
   const heroVisible = useInView(heroRef, 0.05);
   const formsVisible = useInView(formsRef, 0.05);
   const infoVisible = useInView(infoRef, 0.05);
-
   const [scrollY, setScrollY] = useState(0);
   useEffect(() => {
     const fn = () => setScrollY(window.scrollY);
@@ -1038,80 +1066,30 @@ export default function ContactUs() {
     <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,700;1,700;1,900&family=Jost:wght@200;300;400;600;700;800&display=swap');
-
         * { box-sizing: border-box; }
-
-        .cu-page {
-          font-family: 'Jost', 'Helvetica Neue', sans-serif;
-          background: ${BG};
-          min-height: 100vh;
-          color: ${CREAM};
-          overflow-x: hidden;
-        }
-
-        .cu-grain {
-          position: fixed; inset: 0; z-index: 0;
-          opacity: 0.025; pointer-events: none;
-          background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-          background-size: 200px 200px;
-        }
-
-        @keyframes heroUp {
-          from { opacity: 0; transform: translateY(56px) skewY(1.5deg); }
-          to   { opacity: 1; transform: translateY(0) skewY(0); }
-        }
-        @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(22px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-        @keyframes popIn {
-          from { transform: scale(0.5); opacity: 0; }
-          to   { transform: scale(1); opacity: 1; }
-        }
-        @keyframes shimmerBtn {
-          from { transform: translateX(-100%); }
-          to   { transform: translateX(200%); }
-        }
-        @keyframes pulseRing {
-          0%,100% { transform: translate(-50%,-50%) scale(1); opacity: 0.4; }
-          50% { transform: translate(-50%,-50%) scale(1.08); opacity: 0.65; }
-        }
-
+        .cu-page { font-family: 'Jost', 'Helvetica Neue', sans-serif; background: ${BG}; min-height: 100vh; color: ${CREAM}; overflow-x: hidden; }
+        .cu-grain { position: fixed; inset: 0; z-index: 0; opacity: 0.025; pointer-events: none; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); background-size: 200px 200px; }
+        @keyframes heroUp { from { opacity: 0; transform: translateY(56px) skewY(1.5deg); } to { opacity: 1; transform: translateY(0) skewY(0); } }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes popIn { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        @keyframes shimmerBtn { from { transform: translateX(-100%); } to { transform: translateX(200%); } }
+        @keyframes pulseRing { 0%,100% { transform: translate(-50%,-50%) scale(1); opacity: 0.4; } 50% { transform: translate(-50%,-50%) scale(1.08); opacity: 0.65; } }
         .hero-w1 { animation: heroUp 1.15s cubic-bezier(0.22,1,0.36,1) 0.2s both; }
         .hero-w2 { animation: heroUp 1.15s cubic-bezier(0.22,1,0.36,1) 0.36s both; }
         .hero-sub { animation: fadeUp 0.9s ease 0.8s both; }
         .hero-meta { animation: fadeUp 0.9s ease 1.05s both; }
         .hero-scroll { animation: fadeUp 0.9s ease 1.4s both; }
-
-        @keyframes scrollPulse {
-          0%,100% { transform: scaleY(1); opacity: 0.5; }
-          50% { transform: scaleY(1.25); opacity: 1; }
-        }
+        @keyframes scrollPulse { 0%,100% { transform: scaleY(1); opacity: 0.5; } 50% { transform: scaleY(1.25); opacity: 1; } }
         .scroll-line { animation: scrollPulse 2.8s ease-in-out 1.6s infinite; }
-
-        /* Mobile responsiveness */
-        @media (max-width: 700px) {
-          .form-row { grid-template-columns: 1fr !important; }
-          .forms-layout { grid-template-columns: 1fr !important; }
-          .info-grid { grid-template-columns: 1fr !important; }
-          .hero-txt { font-size: clamp(64px, 20vw, 96px) !important; }
-        }
-
-        input::placeholder, textarea::placeholder, select::placeholder {
-          color: rgba(229,224,198,0.28) !important;
-        }
-        input, textarea, select {
-          color-scheme: dark;
-        }
+        @media (max-width: 700px) { .form-row { grid-template-columns: 1fr !important; } .forms-layout { grid-template-columns: 1fr !important; } .info-grid { grid-template-columns: 1fr !important; } .hero-txt { font-size: clamp(64px, 20vw, 96px) !important; } }
+        input::placeholder, textarea::placeholder { color: rgba(229,224,198,0.28) !important; }
+        input, textarea, select { color-scheme: dark; }
       `}</style>
-
       <div className="cu-page">
         <div className="cu-grain" />
 
-        {/* ════════ HERO ════════ */}
+        {/* HERO */}
         <section
           ref={heroRef}
           style={{
@@ -1125,7 +1103,6 @@ export default function ContactUs() {
             padding: "140px 32px 80px",
           }}
         >
-          {/* Background glows */}
           <div
             style={{ position: "absolute", inset: 0, pointerEvents: "none" }}
           >
@@ -1155,20 +1132,7 @@ export default function ContactUs() {
                 background: `radial-gradient(circle, rgba(201,169,110,0.09) 0%, transparent 70%)`,
               }}
             />
-            <div
-              style={{
-                position: "absolute",
-                bottom: "8%",
-                left: "4%",
-                width: 280,
-                height: 280,
-                borderRadius: "50%",
-                background: `radial-gradient(circle, rgba(163,201,168,0.06) 0%, transparent 70%)`,
-              }}
-            />
           </div>
-
-          {/* Decorative rings */}
           {[280, 480, 720].map((sz, i) => (
             <div
               key={i}
@@ -1185,8 +1149,6 @@ export default function ContactUs() {
               }}
             />
           ))}
-
-          {/* Top gold border */}
           <div
             style={{
               position: "absolute",
@@ -1198,8 +1160,6 @@ export default function ContactUs() {
               opacity: 0.38,
             }}
           />
-
-          {/* Eyebrow */}
           <div
             className="hero-sub"
             style={{
@@ -1236,8 +1196,6 @@ export default function ContactUs() {
               }}
             />
           </div>
-
-          {/* Headline */}
           <div
             style={{
               textAlign: "center",
@@ -1281,8 +1239,6 @@ export default function ContactUs() {
               </span>
             </div>
           </div>
-
-          {/* Subtitle */}
           <p
             className="hero-sub"
             style={{
@@ -1301,8 +1257,6 @@ export default function ContactUs() {
             Have a question, need support, or want to share your experience?
             We're here — always ready to help.
           </p>
-
-          {/* Quick info pills */}
           <div
             className="hero-meta"
             style={{
@@ -1341,8 +1295,6 @@ export default function ContactUs() {
               </div>
             ))}
           </div>
-
-          {/* Scroll cue */}
           <div
             className="hero-scroll"
             style={{
@@ -1381,7 +1333,7 @@ export default function ContactUs() {
           </div>
         </section>
 
-        {/* ════════ FORMS ════════ */}
+        {/* FORMS */}
         <section
           ref={formsRef}
           style={{
@@ -1391,7 +1343,6 @@ export default function ContactUs() {
             overflow: "hidden",
           }}
         >
-          {/* Top separator */}
           <div
             style={{
               position: "absolute",
@@ -1403,8 +1354,6 @@ export default function ContactUs() {
               opacity: 0.28,
             }}
           />
-
-          {/* Bg glow */}
           <div
             style={{
               position: "absolute",
@@ -1419,8 +1368,6 @@ export default function ContactUs() {
               pointerEvents: "none",
             }}
           />
-
-          {/* Section label */}
           <div
             style={{
               textAlign: "center",
@@ -1478,8 +1425,6 @@ export default function ContactUs() {
               <span style={{ color: GOLD }}>or Share Feedback.</span>
             </h2>
           </div>
-
-          {/* Two forms side by side */}
           <div
             className="forms-layout"
             style={{
@@ -1498,7 +1443,7 @@ export default function ContactUs() {
           </div>
         </section>
 
-        {/* ════════ CONTACT INFO ════════ */}
+        {/* CONTACT INFO */}
         <section
           ref={infoRef}
           style={{
@@ -1517,9 +1462,7 @@ export default function ContactUs() {
               background: `linear-gradient(90deg, transparent, rgba(229,224,198,0.1), transparent)`,
             }}
           />
-
           <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-            {/* Header */}
             <div
               style={{
                 textAlign: "center",
@@ -1552,8 +1495,6 @@ export default function ContactUs() {
                 <span style={{ color: GOLD }}>Connect.</span>
               </h2>
             </div>
-
-            {/* Info grid */}
             <div
               className="info-grid"
               style={{
@@ -1614,8 +1555,6 @@ export default function ContactUs() {
                 </div>
               ))}
             </div>
-
-            {/* Bottom note */}
             <div
               style={{
                 marginTop: 56,

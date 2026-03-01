@@ -10,7 +10,11 @@ import Biding from "@/pages/Admin/Biding/Biding";
 import CategoryForm from "@/pages/Admin/Categories/Categoryform";
 import CategoriesList from "@/pages/Admin/Categories/CategoryList";
 import CategoryView from "@/pages/Admin/Categories/Categoryview";
+import AdminContactList from "@/pages/Admin/ContactUs/AdminContactList";
+import AdminContactView from "@/pages/Admin/ContactUs/AdminContactView";
 import Dashboard from "@/pages/Admin/Dashboard/Dashboard";
+import AdminFeedbackList from "@/pages/Admin/Feedback/AdminFeedbackList";
+import AdminFeedbackView from "@/pages/Admin/Feedback/AdminFeedbackView";
 import LastOffer from "@/pages/Admin/LastOffer/LastOffer";
 import Payment from "@/pages/Admin/Payment/Payment";
 import ProductForm from "@/pages/Admin/Products/ProductForm";
@@ -81,6 +85,13 @@ export const routes = createBrowserRouter([
 
       { path: "auctionRequests", element: <AuctionRequestsList /> },
       { path: "auctionRequests/:id", element: <AuctionRequestView /> },
+
+      { path: "contacts", element: <AdminContactList /> },
+      { path: "contacts/:id", element: <AdminContactView /> },
+
+
+      { path: "feedback", element: <AdminFeedbackList /> },
+      { path: "feedback/:id", element: <AdminFeedbackView /> },
 
       { path: "biding", element: <Biding /> },
       { path: "lasroffer", element: <LastOffer /> },

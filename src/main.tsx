@@ -12,6 +12,7 @@ import "swiper/css/navigation";
 import "swiper/css/pagination";
 import { CategoryProvider } from './store/AdminContext/CategoryContext/CategoryContext.tsx';
 import { AuctionRequestProvider } from './store/AdminContext/AuctionRequestContext/AuctionRequestContext.tsx';
+import { ContactFeedbackProvider } from './store/AdminContext/ContactFeedbackContext/ContactFeedbackContext.tsx';
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -29,7 +30,9 @@ createRoot(document.getElementById("root")!).render(
             <AuctionProvider>
               <VoucherProvider>
                 <AuctionRequestProvider>
-                  <App />
+                  <ContactFeedbackProvider>
+                    <App />
+                  </ContactFeedbackProvider>
                 </AuctionRequestProvider>
               </VoucherProvider>
             </AuctionProvider>
