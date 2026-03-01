@@ -6,6 +6,10 @@ import {
   Button,
   CircularProgress,
   Divider,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
 } from "@mui/material";
 import {
   ArrowLeft,
@@ -15,8 +19,7 @@ import {
   Calendar,
   Tag,
   MessageSquare,
-  MailOpen,
-  MessageSquareReply,
+  Save,
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useContactFeedback } from "@/store/AdminContext/ContactFeedbackContext/ContactFeedbackContext";
@@ -28,6 +31,12 @@ import {
   type ContactStatus,
 } from "./contact-feedback-data";
 
+const STATUS_OPTIONS: { value: ContactStatus; label: string }[] = [
+  { value: "new", label: "New" },
+  { value: "seen", label: "Seen" },
+  { value: "replied", label: "Replied" },
+];
+
 export default function AdminContactView() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
@@ -35,31 +44,34 @@ export default function AdminContactView() {
 
   const [msg, setMsg] = useState<ContactMessage | null>(null);
   const [loading, setLoading] = useState(true);
-  const [updating, setUpdating] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState<ContactStatus>("new");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
 
+  // Load message — NO auto-status change
   useEffect(() => {
     if (!id) return;
     (async () => {
       setLoading(true);
       const data = await getContact(id);
-      setMsg(data);
-      // Auto-mark as seen when opened
-      if (data && data.status === "new") {
-        await changeContactStatus(id, "seen");
-        setMsg((prev) => (prev ? { ...prev, status: "seen" } : prev));
+      if (data) {
+        setMsg(data);
+        setSelectedStatus(data.status);
       }
       setLoading(false);
     })();
   }, [id]);
 
-  const handleStatusChange = async (status: ContactStatus) => {
-    if (!id || !msg) return;
-    setUpdating(true);
+  const handleSave = async () => {
+    if (!id || !msg || selectedStatus === msg.status) return;
+    setSaving(true);
     try {
-      await changeContactStatus(id, status);
-      setMsg((prev) => (prev ? { ...prev, status } : prev));
+      await changeContactStatus(id, selectedStatus);
+      setMsg((prev) => (prev ? { ...prev, status: selectedStatus } : prev));
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
     } finally {
-      setUpdating(false);
+      setSaving(false);
     }
   };
 
@@ -93,7 +105,9 @@ export default function AdminContactView() {
     );
   }
 
-  const sStyle = getContactStatusStyle(msg.status);
+  const currentStyle = getContactStatusStyle(msg.status);
+  const selectedStyle = getContactStatusStyle(selectedStatus);
+  const isDirty = selectedStatus !== msg.status;
 
   return (
     <Box
@@ -125,7 +139,7 @@ export default function AdminContactView() {
         Back to Messages
       </Button>
 
-      {/* Hero card */}
+      {/* ── Hero Card ── */}
       <Paper
         elevation={0}
         sx={{
@@ -145,6 +159,7 @@ export default function AdminContactView() {
             gap: 3,
           }}
         >
+          {/* Avatar */}
           <Box
             sx={{
               width: { xs: 56, md: 72 },
@@ -163,6 +178,8 @@ export default function AdminContactView() {
           >
             {msg.name.charAt(0).toUpperCase()}
           </Box>
+
+          {/* Info */}
           <Box sx={{ flex: 1 }}>
             <Box
               sx={{
@@ -184,7 +201,7 @@ export default function AdminContactView() {
                 {msg.name}
               </h1>
               <Chip
-                label={sStyle.label}
+                label={currentStyle.label}
                 size="small"
                 sx={{
                   bgcolor: "rgba(255,255,255,0.25)",
@@ -196,77 +213,118 @@ export default function AdminContactView() {
             </Box>
             <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
               {[
-                { icon: <Mail size={12} />, text: msg.email },
-                msg.phone && { icon: <Phone size={12} />, text: msg.phone },
-              ]
-                .filter(Boolean)
-                .map((item: any) => (
-                  <span
-                    key={item.text}
-                    style={{
-                      fontSize: "0.75rem",
-                      background: "rgba(255,255,255,0.2)",
-                      color: "#fff",
-                      padding: "3px 10px",
-                      borderRadius: 99,
-                      fontWeight: 600,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 5,
-                    }}
-                  >
-                    {item.icon} {item.text}
-                  </span>
-                ))}
+                { icon: "✉", text: msg.email },
+                ...(msg.phone ? [{ icon: "📞", text: msg.phone }] : []),
+              ].map((item) => (
+                <span
+                  key={item.text}
+                  style={{
+                    fontSize: "0.75rem",
+                    background: "rgba(255,255,255,0.2)",
+                    color: "#fff",
+                    padding: "3px 10px",
+                    borderRadius: 99,
+                    fontWeight: 600,
+                  }}
+                >
+                  {item.icon} {item.text}
+                </span>
+              ))}
             </Box>
           </Box>
 
-          {/* Status actions */}
+          {/* Status changer in hero */}
           <Box
-            sx={{ display: "flex", gap: 1.5, flexShrink: 0, flexWrap: "wrap" }}
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1.5,
+              flexShrink: 0,
+              flexWrap: "wrap",
+            }}
           >
-            {msg.status !== "seen" && msg.status !== "replied" && (
-              <Button
-                disabled={updating}
-                onClick={() => handleStatusChange("seen")}
-                variant="contained"
-                startIcon={<MailOpen size={15} />}
+            <FormControl size="small" sx={{ minWidth: 130 }}>
+              <Select
+                value={selectedStatus}
+                onChange={(e) =>
+                  setSelectedStatus(e.target.value as ContactStatus)
+                }
+                renderValue={(val) => {
+                  const s = getContactStatusStyle(val as ContactStatus);
+                  return (
+                    <Chip
+                      label={s.label}
+                      size="small"
+                      sx={{
+                        bgcolor: "rgba(255,255,255,0.9)",
+                        color: s.color,
+                        fontWeight: 700,
+                        fontSize: "0.7rem",
+                        pointerEvents: "none",
+                      }}
+                    />
+                  );
+                }}
                 sx={{
+                  bgcolor: "rgba(255,255,255,0.15)",
+                  "& .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "rgba(255,255,255,0.4)",
+                  },
+                  "&:hover .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "rgba(255,255,255,0.7)",
+                  },
+                  "& .MuiSelect-icon": { color: "#fff" },
+                  "& .MuiSelect-select": { py: 0.75, pl: 1 },
+                }}
+              >
+                {STATUS_OPTIONS.map((o) => {
+                  const s = getContactStatusStyle(o.value);
+                  return (
+                    <MenuItem key={o.value} value={o.value} sx={{ gap: 1 }}>
+                      <Chip
+                        label={o.label}
+                        size="small"
+                        sx={{
+                          bgcolor: s.bg,
+                          color: s.color,
+                          fontWeight: 700,
+                          fontSize: "0.7rem",
+                          pointerEvents: "none",
+                        }}
+                      />
+                    </MenuItem>
+                  );
+                })}
+              </Select>
+            </FormControl>
+            <Button
+              onClick={handleSave}
+              disabled={saving || !isDirty}
+              variant="contained"
+              startIcon={<Save size={15} />}
+              sx={{
+                bgcolor: isDirty
+                  ? "rgba(255,255,255,0.9)"
+                  : "rgba(255,255,255,0.25)",
+                color: isDirty ? colors.primary : "rgba(255,255,255,0.6)",
+                textTransform: "none",
+                borderRadius: 2,
+                fontWeight: 700,
+                "&:hover": { bgcolor: "#fff" },
+                "&:disabled": {
                   bgcolor: "rgba(255,255,255,0.2)",
-                  color: "#fff",
-                  textTransform: "none",
-                  borderRadius: 2,
-                  fontWeight: 600,
-                  border: "1px solid rgba(255,255,255,0.35)",
-                  "&:hover": { bgcolor: "rgba(255,255,255,0.3)" },
-                }}
-              >
-                Mark Seen
-              </Button>
-            )}
-            {msg.status !== "replied" && (
-              <Button
-                disabled={updating}
-                onClick={() => handleStatusChange("replied")}
-                variant="contained"
-                startIcon={<MessageSquareReply size={15} />}
-                sx={{
-                  bgcolor: "rgba(34,197,94,0.75)",
-                  color: "#fff",
-                  textTransform: "none",
-                  borderRadius: 2,
-                  fontWeight: 600,
-                  "&:hover": { bgcolor: "rgba(34,197,94,0.9)" },
-                }}
-              >
-                Mark Replied
-              </Button>
-            )}
+                  color: "rgba(255,255,255,0.5)",
+                },
+                transition: "all 0.2s",
+              }}
+            >
+              {saving ? "Saving…" : saved ? "Saved ✓" : "Save"}
+            </Button>
           </Box>
         </Box>
       </Paper>
 
-      {/* Details */}
+      {/* ── Details ── */}
       <Paper
         elevation={0}
         sx={{
@@ -324,21 +382,6 @@ export default function AdminContactView() {
                 icon: <Calendar size={14} />,
                 value: msg.createdAt.toLocaleString(),
               },
-              {
-                label: "Status",
-                icon: null,
-                value: (
-                  <Chip
-                    label={sStyle.label}
-                    size="small"
-                    sx={{
-                      bgcolor: sStyle.bg,
-                      color: sStyle.color,
-                      fontWeight: 700,
-                    }}
-                  />
-                ),
-              },
             ].map(({ label, icon, value }) => (
               <Box key={label}>
                 <p
@@ -354,24 +397,46 @@ export default function AdminContactView() {
                     gap: 5,
                   }}
                 >
-                  <span style={{ color: colors.primary }}>{icon}</span> {label}
+                  <span style={{ color: colors.primary }}>{icon}</span>
+                  {label}
                 </p>
-                {typeof value === "string" ? (
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: "0.9rem",
-                      color: colors.textPrimary,
-                      fontWeight: 500,
-                    }}
-                  >
-                    {value}
-                  </p>
-                ) : (
-                  value
-                )}
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: "0.9rem",
+                    color: colors.textPrimary,
+                    fontWeight: 500,
+                  }}
+                >
+                  {value}
+                </p>
               </Box>
             ))}
+
+            {/* Current status display */}
+            <Box>
+              <p
+                style={{
+                  margin: "0 0 6px",
+                  fontSize: "0.72rem",
+                  color: colors.textMuted,
+                  fontWeight: 700,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                }}
+              >
+                Current Status
+              </p>
+              <Chip
+                label={currentStyle.label}
+                size="small"
+                sx={{
+                  bgcolor: currentStyle.bg,
+                  color: currentStyle.color,
+                  fontWeight: 700,
+                }}
+              />
+            </Box>
           </Box>
 
           <Divider />
@@ -445,8 +510,8 @@ export default function AdminContactView() {
               >
                 {msg.email}
               </a>{" "}
-              — After replying, mark this message as <strong>Replied</strong>{" "}
-              above.
+              — After replying, change the status to <strong>Replied</strong>{" "}
+              above and click Save.
             </p>
           </Box>
         </Box>

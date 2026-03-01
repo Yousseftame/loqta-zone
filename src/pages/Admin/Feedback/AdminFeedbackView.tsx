@@ -6,6 +6,9 @@ import {
   Button,
   CircularProgress,
   Divider,
+  Select,
+  MenuItem,
+  FormControl,
 } from "@mui/material";
 import {
   ArrowLeft,
@@ -15,7 +18,7 @@ import {
   Star,
   MessageSquare,
   ThumbsUp,
-  MailOpen,
+  Save,
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useContactFeedback } from "@/store/AdminContext/ContactFeedbackContext/ContactFeedbackContext";
@@ -27,6 +30,11 @@ import {
   type FeedbackMessage,
   type FeedbackStatus,
 } from "../ContactUs/contact-feedback-data";
+
+const STATUS_OPTIONS: { value: FeedbackStatus; label: string }[] = [
+  { value: "new", label: "New" },
+  { value: "seen", label: "Seen" },
+];
 
 function StarDisplay({ rating }: { rating: number }) {
   return (
@@ -60,31 +68,34 @@ export default function AdminFeedbackView() {
 
   const [fb, setFb] = useState<FeedbackMessage | null>(null);
   const [loading, setLoading] = useState(true);
-  const [updating, setUpdating] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState<FeedbackStatus>("new");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
 
+  // Load feedback — NO auto-status change
   useEffect(() => {
     if (!id) return;
     (async () => {
       setLoading(true);
       const data = await getFeedback(id);
-      setFb(data);
-      // Auto-mark as seen when opened
-      if (data && data.status === "new") {
-        await changeFeedbackStatus(id, "seen");
-        setFb((prev) => (prev ? { ...prev, status: "seen" } : prev));
+      if (data) {
+        setFb(data);
+        setSelectedStatus(data.status);
       }
       setLoading(false);
     })();
   }, [id]);
 
-  const handleStatusChange = async (status: FeedbackStatus) => {
-    if (!id || !fb) return;
-    setUpdating(true);
+  const handleSave = async () => {
+    if (!id || !fb || selectedStatus === fb.status) return;
+    setSaving(true);
     try {
-      await changeFeedbackStatus(id, status);
-      setFb((prev) => (prev ? { ...prev, status } : prev));
+      await changeFeedbackStatus(id, selectedStatus);
+      setFb((prev) => (prev ? { ...prev, status: selectedStatus } : prev));
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
     } finally {
-      setUpdating(false);
+      setSaving(false);
     }
   };
 
@@ -118,7 +129,8 @@ export default function AdminFeedbackView() {
     );
   }
 
-  const sStyle = getFeedbackStatusStyle(fb.status);
+  const currentStyle = getFeedbackStatusStyle(fb.status);
+  const isDirty = selectedStatus !== fb.status;
 
   return (
     <Box
@@ -150,7 +162,7 @@ export default function AdminFeedbackView() {
         Back to Feedback
       </Button>
 
-      {/* Hero */}
+      {/* ── Hero Card ── */}
       <Paper
         elevation={0}
         sx={{
@@ -162,7 +174,7 @@ export default function AdminFeedbackView() {
       >
         <Box
           sx={{
-            background: `linear-gradient(135deg, #7C3AED 0%, #9F67FA 100%)`,
+            background: "linear-gradient(135deg, #7C3AED 0%, #9F67FA 100%)",
             p: { xs: 3, md: 4 },
             display: "flex",
             flexDirection: { xs: "column", sm: "row" },
@@ -170,6 +182,7 @@ export default function AdminFeedbackView() {
             gap: 3,
           }}
         >
+          {/* Avatar */}
           <Box
             sx={{
               width: { xs: 56, md: 72 },
@@ -188,6 +201,8 @@ export default function AdminFeedbackView() {
           >
             {fb.name ? fb.name.charAt(0).toUpperCase() : "★"}
           </Box>
+
+          {/* Info */}
           <Box sx={{ flex: 1 }}>
             <Box
               sx={{
@@ -209,7 +224,7 @@ export default function AdminFeedbackView() {
                 {fb.title || "Feedback"}
               </h1>
               <Chip
-                label={sStyle.label}
+                label={currentStyle.label}
                 size="small"
                 sx={{
                   bgcolor: "rgba(255,255,255,0.25)",
@@ -232,7 +247,7 @@ export default function AdminFeedbackView() {
               </strong>
               {fb.email && <> · {fb.email}</>}
             </p>
-            {/* Stars in hero */}
+            {/* Stars */}
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               {[1, 2, 3, 4, 5].map((s) => (
                 <Star
@@ -254,31 +269,98 @@ export default function AdminFeedbackView() {
             </Box>
           </Box>
 
-          {/* Status action */}
-          {fb.status === "new" && (
+          {/* Status changer in hero */}
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1.5,
+              flexShrink: 0,
+              flexWrap: "wrap",
+            }}
+          >
+            <FormControl size="small" sx={{ minWidth: 120 }}>
+              <Select
+                value={selectedStatus}
+                onChange={(e) =>
+                  setSelectedStatus(e.target.value as FeedbackStatus)
+                }
+                renderValue={(val) => {
+                  const s = getFeedbackStatusStyle(val as FeedbackStatus);
+                  return (
+                    <Chip
+                      label={s.label}
+                      size="small"
+                      sx={{
+                        bgcolor: "rgba(255,255,255,0.9)",
+                        color: s.color,
+                        fontWeight: 700,
+                        fontSize: "0.7rem",
+                        pointerEvents: "none",
+                      }}
+                    />
+                  );
+                }}
+                sx={{
+                  bgcolor: "rgba(255,255,255,0.15)",
+                  "& .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "rgba(255,255,255,0.4)",
+                  },
+                  "&:hover .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "rgba(255,255,255,0.7)",
+                  },
+                  "& .MuiSelect-icon": { color: "#fff" },
+                  "& .MuiSelect-select": { py: 0.75, pl: 1 },
+                }}
+              >
+                {STATUS_OPTIONS.map((o) => {
+                  const s = getFeedbackStatusStyle(o.value);
+                  return (
+                    <MenuItem key={o.value} value={o.value} sx={{ gap: 1 }}>
+                      <Chip
+                        label={o.label}
+                        size="small"
+                        sx={{
+                          bgcolor: s.bg,
+                          color: s.color,
+                          fontWeight: 700,
+                          fontSize: "0.7rem",
+                          pointerEvents: "none",
+                        }}
+                      />
+                    </MenuItem>
+                  );
+                })}
+              </Select>
+            </FormControl>
             <Button
-              disabled={updating}
-              onClick={() => handleStatusChange("seen")}
+              onClick={handleSave}
+              disabled={saving || !isDirty}
               variant="contained"
-              startIcon={<MailOpen size={15} />}
+              startIcon={<Save size={15} />}
               sx={{
-                bgcolor: "rgba(255,255,255,0.2)",
-                color: "#fff",
+                bgcolor: isDirty
+                  ? "rgba(255,255,255,0.9)"
+                  : "rgba(255,255,255,0.25)",
+                color: isDirty ? "#7C3AED" : "rgba(255,255,255,0.6)",
                 textTransform: "none",
                 borderRadius: 2,
-                fontWeight: 600,
-                border: "1px solid rgba(255,255,255,0.35)",
-                "&:hover": { bgcolor: "rgba(255,255,255,0.3)" },
-                flexShrink: 0,
+                fontWeight: 700,
+                "&:hover": { bgcolor: "#fff" },
+                "&:disabled": {
+                  bgcolor: "rgba(255,255,255,0.2)",
+                  color: "rgba(255,255,255,0.5)",
+                },
+                transition: "all 0.2s",
               }}
             >
-              Mark as Seen
+              {saving ? "Saving…" : saved ? "Saved ✓" : "Save"}
             </Button>
-          )}
+          </Box>
         </Box>
       </Paper>
 
-      {/* Details */}
+      {/* ── Details ── */}
       <Paper
         elevation={0}
         sx={{
@@ -355,7 +437,8 @@ export default function AdminFeedbackView() {
                     gap: 5,
                   }}
                 >
-                  <span style={{ color: "#7C3AED" }}>{icon}</span> {label}
+                  <span style={{ color: "#7C3AED" }}>{icon}</span>
+                  {label}
                 </p>
                 <p
                   style={{
@@ -387,7 +470,7 @@ export default function AdminFeedbackView() {
               <StarDisplay rating={fb.rating} />
             </Box>
 
-            {/* Status */}
+            {/* Current status */}
             <Box>
               <p
                 style={{
@@ -399,14 +482,14 @@ export default function AdminFeedbackView() {
                   letterSpacing: "0.05em",
                 }}
               >
-                Status
+                Current Status
               </p>
               <Chip
-                label={sStyle.label}
+                label={currentStyle.label}
                 size="small"
                 sx={{
-                  bgcolor: sStyle.bg,
-                  color: sStyle.color,
+                  bgcolor: currentStyle.bg,
+                  color: currentStyle.color,
                   fontWeight: 700,
                 }}
               />

@@ -18,15 +18,7 @@ import {
   MenuItem,
   FormControl,
 } from "@mui/material";
-import {
-  Search,
-  X,
-  Eye,
-  RefreshCw,
-  Mail,
-  MailOpen,
-  MessageSquareReply,
-} from "lucide-react";
+import { Search, X, Eye, RefreshCw, Mail } from "lucide-react";
 import ContactsIcon from "@mui/icons-material/Contacts";
 import { useNavigate } from "react-router-dom";
 import { useContactFeedback } from "@/store/AdminContext/ContactFeedbackContext/ContactFeedbackContext";
@@ -37,8 +29,14 @@ import {
   type ContactStatus,
 } from "./contact-feedback-data";
 
-const STATUS_OPTIONS: { value: "" | ContactStatus; label: string }[] = [
+const STATUS_FILTER_OPTIONS: { value: "" | ContactStatus; label: string }[] = [
   { value: "", label: "All Statuses" },
+  { value: "new", label: "New" },
+  { value: "seen", label: "Seen" },
+  { value: "replied", label: "Replied" },
+];
+
+const STATUS_CHANGE_OPTIONS: { value: ContactStatus; label: string }[] = [
   { value: "new", label: "New" },
   { value: "seen", label: "Seen" },
   { value: "replied", label: "Replied" },
@@ -58,6 +56,7 @@ export default function AdminContactList() {
   const [statusFilter, setStatusFilter] = useState<"" | ContactStatus>("");
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   const filtered = contacts.filter((c) => {
     const s = search.toLowerCase();
@@ -79,6 +78,15 @@ export default function AdminContactList() {
   const newCount = contacts.filter((c) => c.status === "new").length;
   const seenCount = contacts.filter((c) => c.status === "seen").length;
   const repliedCount = contacts.filter((c) => c.status === "replied").length;
+
+  const handleStatusChange = async (id: string, status: ContactStatus) => {
+    setUpdatingId(id);
+    try {
+      await changeContactStatus(id, status);
+    } finally {
+      setUpdatingId(null);
+    }
+  };
 
   if (contactLoading) {
     return (
@@ -129,7 +137,7 @@ export default function AdminContactList() {
         minHeight: "100vh",
       }}
     >
-      {/* Header */}
+      {/* ── Header ── */}
       <Box
         sx={{
           mb: 4,
@@ -147,12 +155,11 @@ export default function AdminContactList() {
               margin: 0,
               fontSize: "1.75rem",
               fontWeight: 700,
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
             }}
           >
-            <ContactsIcon style={{ fontSize: 32 }} />
+            <ContactsIcon
+              style={{ fontSize: 28, marginRight: 8, verticalAlign: "middle" }}
+            />
             Contact Messages
           </h1>
           <p
@@ -178,139 +185,173 @@ export default function AdminContactList() {
         </IconButton>
       </Box>
 
-      {/* Stat cards */}
+      {/* ── Stat Cards — same gradient style as Products ── */}
       <Box
         sx={{
           display: "grid",
-          gap: 2,
-          gridTemplateColumns: { xs: "1fr 1fr", sm: "repeat(3, 1fr)" },
+          gap: 3,
+          gridTemplateColumns: { xs: "1fr", sm: "repeat(3, 1fr)" },
           mb: 4,
         }}
       >
         {[
-          { label: "New", value: newCount, color: "#D97706", bg: "#FEF3C7" },
-          { label: "Seen", value: seenCount, color: "#2563EB", bg: "#DBEAFE" },
+          {
+            label: "New Messages",
+            value: newCount,
+            gradient: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryLight} 100%)`,
+          },
+          {
+            label: "Seen",
+            value: seenCount,
+            gradient: "linear-gradient(135deg, #7C3AED 0%, #9F67FA 100%)",
+          },
           {
             label: "Replied",
             value: repliedCount,
-            color: "#16A34A",
-            bg: "#DCFCE7",
+            gradient: "linear-gradient(135deg, #059669 0%, #34D399 100%)",
           },
-        ].map(({ label, value, color, bg }) => (
+        ].map(({ label, value, gradient }) => (
           <Paper
             key={label}
             elevation={0}
             sx={{
               p: { xs: 2, md: 3 },
               borderRadius: 3,
-              border: `1px solid ${colors.border}`,
-              bgcolor: bg,
+              background: gradient,
+              color: "#fff",
             }}
           >
-            <p
-              style={{
-                margin: 0,
-                fontSize: "0.7rem",
-                fontWeight: 700,
-                color,
-                textTransform: "uppercase",
-                letterSpacing: "0.06em",
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
               }}
             >
-              {label}
-            </p>
-            <p
-              style={{
-                margin: "4px 0 0",
-                fontSize: "2rem",
-                fontWeight: 700,
-                color,
-              }}
-            >
-              {value}
-            </p>
+              <div>
+                <p
+                  style={{
+                    fontSize: "0.7rem",
+                    fontWeight: 600,
+                    opacity: 0.8,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.06em",
+                    margin: 0,
+                  }}
+                >
+                  {label}
+                </p>
+                <p
+                  style={{
+                    fontSize: "2rem",
+                    fontWeight: 700,
+                    margin: "4px 0 0",
+                  }}
+                >
+                  {value}
+                </p>
+              </div>
+              <Box
+                sx={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 12,
+                  background: "rgba(255,255,255,0.2)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Mail size={22} color="#fff" />
+              </Box>
+            </Box>
           </Paper>
         ))}
       </Box>
 
-      {/* Filters */}
+      {/* ── Search & Filter ── */}
       <Paper
         elevation={0}
         sx={{
-          p: 2.5,
+          p: 3,
           mb: 3,
           borderRadius: 3,
           bgcolor: "#fff",
           border: `1px solid ${colors.border}`,
-          display: "flex",
-          gap: 2,
-          flexWrap: "wrap",
-          alignItems: "center",
         }}
       >
-        <TextField
-          placeholder="Search by name, email, subject…"
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPage(0);
-          }}
-          variant="outlined"
-          size="small"
+        <Box
           sx={{
-            flex: 1,
-            minWidth: 220,
-            "& .MuiOutlinedInput-root": {
-              "& fieldset": { borderColor: colors.border },
-              "&:hover fieldset": { borderColor: colors.primary },
-              "&.Mui-focused fieldset": { borderColor: colors.primary },
-            },
-          }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <Search size={16} style={{ color: colors.textMuted }} />
-              </InputAdornment>
-            ),
-            endAdornment: search && (
-              <InputAdornment position="end">
-                <IconButton size="small" onClick={() => setSearch("")}>
-                  <X size={14} />
-                </IconButton>
-              </InputAdornment>
-            ),
-          }}
-        />
-        <FormControl size="small" sx={{ minWidth: 150 }}>
-          <Select
-            value={statusFilter}
-            onChange={(e) => {
-              setStatusFilter(e.target.value as "" | ContactStatus);
-              setPage(0);
-            }}
-            displayEmpty
-            sx={{ "& fieldset": { borderColor: colors.border } }}
-          >
-            {STATUS_OPTIONS.map((o) => (
-              <MenuItem key={o.value} value={o.value}>
-                {o.label}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        <p
-          style={{
-            margin: 0,
-            fontSize: "0.85rem",
-            color: colors.textSecondary,
+            display: "flex",
+            gap: 2,
+            flexWrap: "wrap",
+            alignItems: "center",
           }}
         >
-          <strong style={{ color: colors.primary }}>{filtered.length}</strong>{" "}
-          results
-        </p>
+          <TextField
+            placeholder="Search by name, email, subject…"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(0);
+            }}
+            variant="outlined"
+            size="small"
+            sx={{
+              flex: 1,
+              minWidth: 220,
+              "& .MuiOutlinedInput-root": {
+                "& fieldset": { borderColor: colors.border },
+                "&:hover fieldset": { borderColor: colors.primary },
+                "&.Mui-focused fieldset": { borderColor: colors.primary },
+              },
+            }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Search size={16} style={{ color: colors.textMuted }} />
+                </InputAdornment>
+              ),
+              endAdornment: search && (
+                <InputAdornment position="end">
+                  <IconButton size="small" onClick={() => setSearch("")}>
+                    <X size={14} />
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+          />
+          <FormControl size="small" sx={{ minWidth: 160 }}>
+            <Select
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value as "" | ContactStatus);
+                setPage(0);
+              }}
+              displayEmpty
+              sx={{ "& fieldset": { borderColor: colors.border } }}
+            >
+              {STATUS_FILTER_OPTIONS.map((o) => (
+                <MenuItem key={o.value} value={o.value}>
+                  {o.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <p
+            style={{
+              margin: 0,
+              fontSize: "0.85rem",
+              color: colors.textSecondary,
+            }}
+          >
+            <strong style={{ color: colors.primary }}>{filtered.length}</strong>{" "}
+            results
+          </p>
+        </Box>
       </Paper>
 
-      {/* Table */}
+      {/* ── Table ── */}
       <Paper
         elevation={0}
         sx={{
@@ -321,7 +362,7 @@ export default function AdminContactList() {
         }}
       >
         <Box sx={{ overflowX: "auto" }}>
-          <Table sx={{ minWidth: 650 }}>
+          <Table sx={{ minWidth: 750 }}>
             <TableHead>
               <TableRow sx={{ bgcolor: colors.primaryBg }}>
                 {[
@@ -364,18 +405,21 @@ export default function AdminContactList() {
                     <p style={{ color: colors.textSecondary, fontWeight: 600 }}>
                       No messages found
                     </p>
+                    <p style={{ color: colors.textMuted, fontSize: "0.85rem" }}>
+                      Try adjusting your search
+                    </p>
                   </TableCell>
                 </TableRow>
               ) : (
                 paginated.map((msg) => {
                   const sStyle = getContactStatusStyle(msg.status);
+                  const isUpdating = updatingId === msg.id;
                   return (
                     <TableRow
                       key={msg.id}
                       sx={{
                         "&:hover": { bgcolor: colors.muted },
                         transition: "background 0.15s",
-                        fontWeight: msg.status === "new" ? 700 : 400,
                       }}
                     >
                       {/* Sender */}
@@ -467,18 +511,74 @@ export default function AdminContactList() {
                         </p>
                       </TableCell>
 
-                      {/* Status */}
-                      <TableCell sx={{ minWidth: 100 }}>
-                        <Chip
-                          label={sStyle.label}
+                      {/* Status — inline select dropdown, fully reversible */}
+                      <TableCell sx={{ minWidth: 150 }}>
+                        <FormControl
                           size="small"
-                          sx={{
-                            bgcolor: sStyle.bg,
-                            color: sStyle.color,
-                            fontWeight: 700,
-                            fontSize: "0.7rem",
-                          }}
-                        />
+                          disabled={isUpdating}
+                          sx={{ minWidth: 130 }}
+                        >
+                          <Select
+                            value={msg.status}
+                            onChange={(e) =>
+                              handleStatusChange(
+                                msg.id,
+                                e.target.value as ContactStatus,
+                              )
+                            }
+                            renderValue={(val) => {
+                              const s = getContactStatusStyle(
+                                val as ContactStatus,
+                              );
+                              return (
+                                <Chip
+                                  label={isUpdating ? "Saving…" : s.label}
+                                  size="small"
+                                  sx={{
+                                    bgcolor: s.bg,
+                                    color: s.color,
+                                    fontWeight: 700,
+                                    fontSize: "0.7rem",
+                                    cursor: "pointer",
+                                    pointerEvents: "none",
+                                  }}
+                                />
+                              );
+                            }}
+                            sx={{
+                              "& .MuiOutlinedInput-notchedOutline": {
+                                borderColor: colors.border,
+                              },
+                              "&:hover .MuiOutlinedInput-notchedOutline": {
+                                borderColor: colors.primary,
+                              },
+                              "& .MuiSelect-select": { py: 0.75, pl: 1 },
+                            }}
+                          >
+                            {STATUS_CHANGE_OPTIONS.map((o) => {
+                              const s = getContactStatusStyle(o.value);
+                              return (
+                                <MenuItem
+                                  key={o.value}
+                                  value={o.value}
+                                  sx={{ gap: 1 }}
+                                >
+                                  <Chip
+                                    label={o.label}
+                                    size="small"
+                                    sx={{
+                                      bgcolor: s.bg,
+                                      color: s.color,
+                                      fontWeight: 700,
+                                      fontSize: "0.7rem",
+                                      pointerEvents: "none",
+                                    }}
+                                  />
+                                </MenuItem>
+                              );
+                            })}
+                          </Select>
+                        </FormControl>
                       </TableCell>
 
                       {/* Date */}
@@ -493,63 +593,20 @@ export default function AdminContactList() {
                         {msg.createdAt.toLocaleDateString()}
                       </TableCell>
 
-                      {/* Actions */}
-                      <TableCell align="center" sx={{ minWidth: 130 }}>
-                        <Box
+                      {/* Actions — ONLY navigates, zero status side-effects */}
+                      <TableCell align="center" sx={{ minWidth: 80 }}>
+                        <IconButton
+                          size="small"
+                          onClick={() => navigate(`/admin/contacts/${msg.id}`)}
                           sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            gap: 0.5,
+                            color: colors.primary,
+                            "&:hover": { bgcolor: colors.primaryBg },
+                            borderRadius: 1.5,
                           }}
+                          title="View full message"
                         >
-                          <IconButton
-                            size="small"
-                            onClick={() =>
-                              navigate(`/admin/contacts/${msg.id}`)
-                            }
-                            sx={{
-                              color: colors.primary,
-                              "&:hover": { bgcolor: colors.primaryBg },
-                              borderRadius: 1.5,
-                            }}
-                            title="View"
-                          >
-                            <Eye size={16} />
-                          </IconButton>
-                          {msg.status === "new" && (
-                            <IconButton
-                              size="small"
-                              onClick={() =>
-                                changeContactStatus(msg.id, "seen")
-                              }
-                              sx={{
-                                color: "#2563EB",
-                                "&:hover": { bgcolor: "#DBEAFE" },
-                                borderRadius: 1.5,
-                              }}
-                              title="Mark as Seen"
-                            >
-                              <MailOpen size={16} />
-                            </IconButton>
-                          )}
-                          {msg.status !== "replied" && (
-                            <IconButton
-                              size="small"
-                              onClick={() =>
-                                changeContactStatus(msg.id, "replied")
-                              }
-                              sx={{
-                                color: "#16A34A",
-                                "&:hover": { bgcolor: "#DCFCE7" },
-                                borderRadius: 1.5,
-                              }}
-                              title="Mark as Replied"
-                            >
-                              <MessageSquareReply size={16} />
-                            </IconButton>
-                          )}
-                        </Box>
+                          <Eye size={16} />
+                        </IconButton>
                       </TableCell>
                     </TableRow>
                   );
