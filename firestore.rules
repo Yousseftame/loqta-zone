@@ -1,0 +1,90 @@
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helper functions ──────────────────────────────────────────────────────
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isAdmin() {
+      return isSignedIn() &&
+        request.auth.token.role in ["admin", "superAdmin"];
+    }
+
+    // ── users/{uid} ───────────────────────────────────────────────────────────
+    match /users/{uid} {
+      allow read:   if isOwner(uid) || isAdmin();
+      allow create: if isOwner(uid);
+      allow update: if isOwner(uid) || isAdmin();
+      allow delete: if isAdmin();
+
+      // ── users/{uid}/notifications/{notifId} ──────────────────────────────
+      match /notifications/{notifId} {
+        // Users can only read their own notifications
+        allow read: if isOwner(uid);
+
+        // Users can mark as read (update isRead only) or dismiss (delete)
+        // They CANNOT create notifications — only Cloud Functions do that
+        allow create: if false;
+
+        allow update: if isOwner(uid)
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(["isRead"]);
+
+        allow delete: if isOwner(uid);
+
+        // Admins can do anything (for support/debugging)
+        allow read, write: if isAdmin();
+      }
+    }
+
+    // ── AuctionRequests/{requestId} ───────────────────────────────────────────
+    match /AuctionRequests/{requestId} {
+      // Users can read their own requests, admins can read all
+      allow read: if isSignedIn() &&
+        (resource.data.userId == request.auth.uid || isAdmin());
+
+      // Users can create their own requests
+      allow create: if isSignedIn() &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.status == "pending";
+
+      // Only admins can update requests (change status / matchedAuctionId)
+      allow update: if isAdmin();
+
+      // Only admins can delete
+      allow delete: if isAdmin();
+    }
+
+    // ── auctions/{auctionId} ─────────────────────────────────────────────────
+    match /auctions/{auctionId} {
+      allow read:  if true; // public read
+      allow write: if isAdmin();
+    }
+
+    // ── products/{productId} ─────────────────────────────────────────────────
+    match /products/{productId} {
+      allow read:  if true; // public read
+      allow write: if isAdmin();
+    }
+
+    // ── categories/{categoryId} ──────────────────────────────────────────────
+    match /categories/{categoryId} {
+      allow read:  if true;
+      allow write: if isAdmin();
+    }
+
+    // ── vouchers/{voucherId} ─────────────────────────────────────────────────
+    match /vouchers/{voucherId} {
+      allow read:  if isSignedIn();
+      allow write: if isAdmin();
+    }
+  }
+}
