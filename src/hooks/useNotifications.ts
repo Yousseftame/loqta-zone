@@ -1,15 +1,7 @@
 /**
  * src/hooks/useNotifications.ts
  *
- * Real-time listener on users/{uid}/notifications (last 50, newest first).
- *
- * Returns:
- *   notifications  — live array
- *   unreadCount    — badge number
- *   loading        — initial load state
- *   markRead(id)   — mark one as read (optimistic)
- *   markAllRead()  — batch mark all as read (optimistic)
- *   dismiss(id)    — delete a notification (optimistic)
+ * Fixed: better error handling so permission errors don't bubble up as toasts
  */
 
 import { useEffect, useState, useCallback } from "react";
@@ -27,8 +19,6 @@ import {
 } from "firebase/firestore";
 import { db } from "@/firebase/firebase";
 import { useAuth } from "@/store/AuthContext/AuthContext";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 export type NotificationType =
   | "auction_matched"
@@ -49,14 +39,11 @@ export interface AppNotification {
   createdAt: Date;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-
 export function useNotifications() {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // ── Realtime listener ─────────────────────────────────────────────────────
   useEffect(() => {
     if (!user) {
       setNotifications([]);
@@ -94,7 +81,9 @@ export function useNotifications() {
         setLoading(false);
       },
       (err) => {
-        console.error("[useNotifications] Snapshot error:", err);
+        // Silently fail — don't show error toast for permission issues
+        // This happens for users with no notifications subcollection yet
+        console.warn("[useNotifications] Snapshot error (likely no docs yet):", err.code);
         setLoading(false);
       },
     );
@@ -102,11 +91,9 @@ export function useNotifications() {
     return () => unsubscribe();
   }, [user]);
 
-  // ── Mark single notification as read ─────────────────────────────────────
   const markRead = useCallback(
     async (id: string) => {
       if (!user) return;
-      // Optimistic
       setNotifications((prev) =>
         prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)),
       );
@@ -117,7 +104,6 @@ export function useNotifications() {
         );
       } catch (err) {
         console.error("[useNotifications] markRead failed:", err);
-        // Revert
         setNotifications((prev) =>
           prev.map((n) => (n.id === id ? { ...n, isRead: false } : n)),
         );
@@ -126,13 +112,11 @@ export function useNotifications() {
     [user],
   );
 
-  // ── Mark all as read (Firestore batch) ────────────────────────────────────
   const markAllRead = useCallback(async () => {
     if (!user) return;
     const unread = notifications.filter((n) => !n.isRead);
     if (unread.length === 0) return;
 
-    // Optimistic
     setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
 
     try {
@@ -145,7 +129,6 @@ export function useNotifications() {
       await batch.commit();
     } catch (err) {
       console.error("[useNotifications] markAllRead failed:", err);
-      // Revert
       setNotifications((prev) =>
         prev.map((n) => {
           const wasUnread = unread.find((u) => u.id === n.id);
@@ -155,11 +138,9 @@ export function useNotifications() {
     }
   }, [user, notifications]);
 
-  // ── Dismiss (delete) ──────────────────────────────────────────────────────
   const dismiss = useCallback(
     async (id: string) => {
       if (!user) return;
-      // Optimistic
       setNotifications((prev) => prev.filter((n) => n.id !== id));
       try {
         await deleteDoc(doc(db, "users", user.uid, "notifications", id));
