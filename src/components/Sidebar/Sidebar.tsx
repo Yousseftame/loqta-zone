@@ -80,13 +80,7 @@ const Sidebar = () => {
       icon: AttachEmailIcon,
       path: "/admin/auctionRequests",
     },
-    {
-      id: "Notifications",
-      label: "Notifications",
-      icon: NotificationsIcon,
-      path: "/admin/#",
-      badge: 8,
-    },
+   
     {
       id: "Bids",
       label: "Bids",

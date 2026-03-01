@@ -17,7 +17,7 @@ export default function MainLayout() {
         </main>
         <Footer />
       </div>
-    
+    <ScrollToTop/>
       <NotificationBell />
     </div>
   );

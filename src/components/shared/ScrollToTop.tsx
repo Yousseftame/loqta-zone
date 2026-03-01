@@ -39,7 +39,7 @@ export default function ScrollToTop() {
     >
       <button
         onClick={scrollToTop}
-        className="p-4 rounded-full bg-[#c9a96e]/80 text-white shadow-lg hover:bg-[#c9a96e] transition-all duration-300 hover:scale-110 group"
+        className="p-5 rounded-full bg-[#c9a96e]/80 text-white shadow-lg hover:bg-[#c9a96e] transition-all duration-300 hover:scale-110 group"
         aria-label="Scroll to top"
       >
         <MoveUp />
