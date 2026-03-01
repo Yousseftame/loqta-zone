@@ -80,7 +80,20 @@ const Sidebar = () => {
       icon: AttachEmailIcon,
       path: "/admin/auctionRequests",
     },
-   
+
+    {
+      id: "Feedback",
+      label: "Feedback",
+      icon: FeedbackIcon,
+      path: "/admin/#",
+    },
+    {
+      id: "Contacts",
+      label: "Contacts",
+      icon: ContactsIcon,
+      path: "/admin/#",
+    },
+
     {
       id: "Bids",
       label: "Bids",
@@ -101,18 +114,7 @@ const Sidebar = () => {
       icon: FolderSharedIcon,
       path: "/admin/#",
     },
-    {
-      id: "Feedback",
-      label: "Feedback",
-      icon: FeedbackIcon,
-      path: "/admin/#",
-    },
-    {
-      id: "Contacts",
-      label: "Contacts",
-      icon: ContactsIcon,
-      path: "/admin/#",
-    },
+
     {
       id: "Users",
       label: "Users",

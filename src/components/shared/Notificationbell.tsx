@@ -235,14 +235,10 @@ export const NotificationBell = () => {
           <div className="nf-panel">
             <div className="nf-head">
               <div className="nf-head-left">
-                <img
-                  src="/loqta-removebg-preview.png"
-                  alt="Loqta"
-                  className="nf-head-logo"
-                />
+               
                 <span className="nf-head-title">Notifications</span>
                 {unreadCount > 0 && (
-                  <span className="nf-new-pill">{unreadCount} NEW</span>
+                  <span className="nf-new-pill">{unreadCount} NEW </span>
                 )}
               </div>
               {unreadCount > 0 && (
@@ -345,7 +341,7 @@ export const NotificationBell = () => {
               </>
             )}
             <span className="nf-arc" />
-            <span className="nf-shine" />
+           
             <img
               src="/loqta-removebg-preview.png"
               alt="Loqta Zone"
