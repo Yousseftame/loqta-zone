@@ -1,0 +1,35 @@
+{
+  "nav": {
+    "auctions": "المزادات",
+    "howItWorks": "كيف يعمل",
+    "about": "من نحن",
+    "contact": "تواصل معنا",
+    "menu": "القائمة",
+    "language": "اللغة"
+  },
+  "auth": {
+    "register": "إنشاء حساب",
+    "signIn": "تسجيل الدخول",
+    "signOut": "تسجيل الخروج",
+    "myProfile": "ملفي الشخصي",
+    "myBids": "مزايداتي",
+    "watchlist": "المفضلة",
+    "settings": "الإعدادات",
+    "dashboard": "لوحة التحكم"
+  },
+  "common": {
+    "loading": "جاري التحميل...",
+    "save": "حفظ",
+    "cancel": "إلغاء",
+    "delete": "حذف",
+    "edit": "تعديل",
+    "search": "بحث",
+    "confirm": "تأكيد",
+    "member": "عضو",
+    "admin": "مدير",
+    "superAdmin": "مدير عام"
+  },
+  "footer": {
+    "copyright": "لقطة زون · مزادات مميزة"
+  }
+}

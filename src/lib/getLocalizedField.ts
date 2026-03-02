@@ -1,10 +1,14 @@
-/**
- * Gets the correct language field from a Firestore multilingual map
- * @param {object} field - e.g. { en: "Hello", ar: "مرحبا" }
- * @param {string} lang - current language 'en' | 'ar'
- * @param {string} fallback - fallback if field missing
- */
-export const getLocalizedField = (field :any, lang :any, fallback = '') => {
+type LocalizedMap = {
+  en?: string;
+  ar?: string;
+  [key: string]: string | undefined;
+};
+
+export const getLocalizedField = (
+  field: LocalizedMap | null | undefined,
+  lang: 'en' | 'ar',
+  fallback = ''
+): string => {
   if (!field) return fallback;
-  return field[lang] || field['en'] || fallback;
+  return field[lang] ?? field['en'] ?? fallback;
 };

@@ -1,8 +1,6 @@
 import { useState, useEffect } from "react";
 import {
   X,
-  Globe,
-  ChevronDown,
   Menu,
   LogOut,
   User,
@@ -12,143 +10,35 @@ import {
   Settings,
 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "@/store/AuthContext/AuthContext";
 import { ProfileDropdown } from "./ProfileDropdown";
+import LangSwitcher from "./LangSwitcher";
 
 // ── Design tokens ──────────────────────────────────────────────
 const GOLD = "#c9a96e";
 const GOLD2 = "#b8944e";
 const CREAM = "rgb(229, 224, 198)";
 
+// ── Nav links — labels come from i18n now ──────────────────────
 const NAV_LINKS = [
-  { label: "Auctions", to: "/", icon: "◇" },
-  { label: "How it works", to: "/how-it-works", icon: "◈" },
-  { label: "About Us", to: "/about", icon: "✦" },
-  { label: "Contact Us", to: "/contact", icon: "◇" },
+  { labelKey: "nav.auctions", to: "/", icon: "◇" },
+  { labelKey: "nav.howItWorks", to: "/how-it-works", icon: "◈" },
+  { labelKey: "nav.about", to: "/about", icon: "✦" },
+  { labelKey: "nav.contact", to: "/contact", icon: "◇" },
 ];
 
 const USER_MOBILE_ITEMS = [
-  { label: "My Profile", to: "/profile", Icon: User },
-  { label: "My Bids", to: "/my-bids", Icon: Ticket },
-  { label: "Watchlist", to: "/watchlist", Icon: Heart },
-  { label: "Settings", to: "/settings", Icon: Settings },
+  { labelKey: "auth.myProfile", to: "/profile", Icon: User },
+  { labelKey: "auth.myBids", to: "/my-bids", Icon: Ticket },
+  { labelKey: "auth.watchlist", to: "/watchlist", Icon: Heart },
+  { labelKey: "auth.settings", to: "/settings", Icon: Settings },
 ];
+
 const ADMIN_MOBILE_ITEMS = [
-  { label: "Dashboard", to: "/admin", Icon: LayoutDashboard },
-  { label: "Settings", to: "/settings", Icon: Settings },
+  { labelKey: "auth.dashboard", to: "/admin", Icon: LayoutDashboard },
+  { labelKey: "auth.settings", to: "/settings", Icon: Settings },
 ];
-
-// ── Language Switcher ──────────────────────────────────────────
-const LangSwitcher = ({ mobile = false }: { mobile?: boolean }) => {
-  const [lang, setLang] = useState<"en" | "ar">("en");
-  const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    const fn = (e: MouseEvent) => {
-      if (!(e.target as HTMLElement).closest(".lang-sw")) setOpen(false);
-    };
-    document.addEventListener("mousedown", fn);
-    return () => document.removeEventListener("mousedown", fn);
-  }, []);
-
-  return (
-    <div className="lang-sw" style={{ position: "relative" }}>
-      <button
-        onClick={() => setOpen((v) => !v)}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 5,
-          background: open ? "rgba(201,169,110,.08)" : "rgba(255,255,255,.04)",
-          border: `1px solid ${open ? "rgba(201,169,110,.35)" : "rgba(229,224,198,.12)"}`,
-          borderRadius: 999,
-          padding: mobile ? "8px 14px" : "6px 12px",
-          color: "rgba(229,224,198,.7)",
-          cursor: "pointer",
-          fontSize: mobile ? 13 : 11,
-          fontWeight: 700,
-          letterSpacing: ".08em",
-          fontFamily: "'Jost',sans-serif",
-          transition: "all .25s",
-          whiteSpace: "nowrap",
-        }}
-      >
-        <Globe
-          size={mobile ? 14 : 12}
-          strokeWidth={2}
-          style={{ opacity: 0.8 }}
-        />
-        <span>{lang.toUpperCase()}</span>
-        <ChevronDown
-          size={10}
-          strokeWidth={2.5}
-          style={{
-            transform: open ? "rotate(180deg)" : "none",
-            transition: "transform .22s",
-            opacity: 0.65,
-          }}
-        />
-      </button>
-
-      {open && (
-        <div
-          style={{
-            position: "absolute",
-            top: mobile ? "auto" : "calc(100% + 8px)",
-            bottom: mobile ? "calc(100% + 8px)" : "auto",
-            right: 0,
-            background: "linear-gradient(160deg,#162d45,#0d1b2a)",
-            border: "1px solid rgba(201,169,110,.18)",
-            borderRadius: 12,
-            padding: 6,
-            minWidth: 148,
-            boxShadow: "0 16px 40px rgba(0,0,0,.55)",
-            zIndex: 100,
-            animation: "loqDropIn .22s cubic-bezier(.22,1,.36,1)",
-          }}
-        >
-          {(["en", "ar"] as const).map((l) => (
-            <button
-              key={l}
-              onClick={() => {
-                setLang(l);
-                setOpen(false);
-              }}
-              style={{
-                width: "100%",
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "9px 10px",
-                background:
-                  lang === l ? "rgba(201,169,110,.12)" : "transparent",
-                border: "none",
-                borderRadius: 8,
-                cursor: "pointer",
-                color: lang === l ? GOLD : "rgba(229,224,198,.55)",
-                fontSize: 12,
-                fontWeight: lang === l ? 700 : 500,
-                fontFamily: "'Jost',sans-serif",
-                textAlign: "left",
-                transition: "all .2s",
-              }}
-            >
-              <span style={{ fontSize: 16 }}>{l === "en" ? "🇬🇧" : "🇪🇬"}</span>
-              <span>{l === "en" ? "English" : "العربية"}</span>
-              {lang === l && (
-                <span
-                  style={{ marginLeft: "auto", fontSize: 10, opacity: 0.65 }}
-                >
-                  ✓
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
 
 // ══════════════════════════════════════════════════════════════
 // NAVBAR
@@ -159,6 +49,8 @@ const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, role, logout } = useAuth();
+  const { t } = useTranslation();
+
   const mobileItems =
     role === "admin" || role === "superAdmin"
       ? ADMIN_MOBILE_ITEMS
@@ -201,7 +93,7 @@ const Navbar = () => {
         .loq-link:hover::after,.loq-link.active::after { width:100%; }
         .btn-ghost { font-family:'Jost',sans-serif; font-size:11px; font-weight:800; letter-spacing:.18em; text-transform:uppercase; padding:9px 20px; border-radius:999px; border:1px solid rgba(201,169,110,.45); color:${GOLD}; background:transparent; text-decoration:none; transition:all .3s; display:inline-flex; align-items:center; white-space:nowrap; }
         .btn-ghost:hover { background:rgba(201,169,110,.08); border-color:${GOLD}; box-shadow:0 0 18px rgba(201,169,110,.18); }
-         .btn-nav-signin {
+        .btn-nav-signin {
           font-family: 'Jost', sans-serif;
           font-size: 11px;
           font-weight: 800;
@@ -256,11 +148,11 @@ const Navbar = () => {
           <div className="hidden lg:flex items-center gap-8 ml-auto">
             {NAV_LINKS.map((l) => (
               <Link
-                key={l.label}
+                key={l.labelKey}
                 to={l.to}
                 className={`loq-link ${location.pathname === l.to ? "active" : ""}`}
               >
-                {l.label}
+                {t(l.labelKey)}
               </Link>
             ))}
             <div className="flex items-center gap-3 ml-2">
@@ -269,10 +161,10 @@ const Navbar = () => {
               ) : (
                 <>
                   <Link to="/register" className="btn-ghost">
-                    Register
+                    {t("auth.register")}
                   </Link>
                   <Link to="/login" className="btn-nav-signin">
-                    Sign In
+                    {t("auth.signIn")}
                   </Link>
                 </>
               )}
@@ -412,7 +304,7 @@ const Navbar = () => {
               fontFamily: "'Jost',sans-serif",
             }}
           >
-            Menu
+            {t("nav.menu")}
           </span>
         </div>
 
@@ -430,7 +322,7 @@ const Navbar = () => {
             const active = location.pathname === link.to;
             return (
               <Link
-                key={link.label}
+                key={link.labelKey}
                 to={link.to}
                 onClick={() => setMenuOpen(false)}
                 style={{
@@ -471,7 +363,7 @@ const Navbar = () => {
                 >
                   {link.icon}
                 </span>
-                <span style={{ flex: 1 }}>{link.label}</span>
+                <span style={{ flex: 1 }}>{t(link.labelKey)}</span>
                 {active && (
                   <span
                     style={{
@@ -591,7 +483,7 @@ const Navbar = () => {
                 </div>
               </div>
 
-              {mobileItems.map(({ label, to, Icon }) => (
+              {mobileItems.map(({ labelKey, to, Icon }) => (
                 <Link
                   key={to}
                   to={to}
@@ -636,7 +528,7 @@ const Navbar = () => {
                   >
                     <Icon size={14} strokeWidth={2} style={{ opacity: 0.65 }} />
                   </span>
-                  {label}
+                  {t(labelKey)}
                 </Link>
               ))}
 
@@ -688,7 +580,7 @@ const Navbar = () => {
                 >
                   <LogOut size={14} strokeWidth={2} />
                 </span>
-                Sign Out
+                {t("auth.signOut")}
               </button>
             </>
           ) : (
@@ -703,7 +595,7 @@ const Navbar = () => {
                   padding: 13,
                 }}
               >
-                ✦ Register
+                ✦ {t("auth.register")}
               </Link>
               <Link
                 to="/login"
@@ -715,7 +607,7 @@ const Navbar = () => {
                   padding: 13,
                 }}
               >
-                Sign In
+                {t("auth.signIn")}
               </Link>
             </>
           )}
@@ -741,7 +633,7 @@ const Navbar = () => {
               fontFamily: "'Jost',sans-serif",
             }}
           >
-            Language
+            {t("nav.language")}
           </p>
           <LangSwitcher mobile />
         </div>
@@ -766,7 +658,7 @@ const Navbar = () => {
               fontFamily: "'Jost',sans-serif",
             }}
           >
-            © {new Date().getFullYear()} Loqta Zone · Premium Auctions
+            © {new Date().getFullYear()} {t("footer.copyright")}
           </p>
         </div>
       </div>

@@ -1,0 +1,35 @@
+{
+  "nav": {
+    "auctions": "Auctions",
+    "howItWorks": "How it works",
+    "about": "About Us",
+    "contact": "Contact Us",
+    "menu": "Menu",
+    "language": "Language"
+  },
+  "auth": {
+    "register": "Register",
+    "signIn": "Sign In",
+    "signOut": "Sign Out",
+    "myProfile": "My Profile",
+    "myBids": "My Bids",
+    "watchlist": "Watchlist",
+    "settings": "Settings",
+    "dashboard": "Dashboard"
+  },
+  "common": {
+    "loading": "Loading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "search": "Search",
+    "confirm": "Confirm",
+    "member": "Member",
+    "admin": "Admin",
+    "superAdmin": "Super Admin"
+  },
+  "footer": {
+    "copyright": "Loqta Zone · Premium Auctions"
+  }
+}
