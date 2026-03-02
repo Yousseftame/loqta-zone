@@ -14,11 +14,26 @@ import {
   TablePagination,
   CircularProgress,
   Button,
-  Select,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Tooltip,
+  Menu,
   MenuItem,
   FormControl,
+  Select,
 } from "@mui/material";
-import { Search, X, Eye, RefreshCw, Star } from "lucide-react";
+import {
+  Search,
+  X,
+  Eye,
+  RefreshCw,
+  Star,
+  Trash2,
+  ChevronDown,
+  AlertTriangle,
+} from "lucide-react";
 import FeedbackIcon from "@mui/icons-material/Feedback";
 import { useNavigate } from "react-router-dom";
 import { useContactFeedback } from "@/store/AdminContext/ContactFeedbackContext/ContactFeedbackContext";
@@ -27,16 +42,12 @@ import {
   getFeedbackStatusStyle,
   FEEDBACK_CATEGORY_LABELS,
   STAR_LABELS,
+  type FeedbackMessage,
   type FeedbackStatus,
 } from "../ContactUs/contact-feedback-data";
 
 const STATUS_FILTER_OPTIONS: { value: "" | FeedbackStatus; label: string }[] = [
   { value: "", label: "All Statuses" },
-  { value: "new", label: "New" },
-  { value: "seen", label: "Seen" },
-];
-
-const STATUS_CHANGE_OPTIONS: { value: FeedbackStatus; label: string }[] = [
   { value: "new", label: "New" },
   { value: "seen", label: "Seen" },
 ];
@@ -69,6 +80,7 @@ export default function AdminFeedbackList() {
     feedbackError,
     refreshFeedbacks,
     changeFeedbackStatus,
+    removeFeedback,
   } = useContactFeedback();
 
   const [search, setSearch] = useState("");
@@ -76,6 +88,13 @@ export default function AdminFeedbackList() {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [menuAnchor, setMenuAnchor] = useState<{
+    el: HTMLElement;
+    id: string;
+  } | null>(null);
+  const [deleteDialog, setDeleteDialog] = useState(false);
+  const [fbToDelete, setFbToDelete] = useState<FeedbackMessage | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const filtered = feedbacks.filter((f) => {
     const s = search.toLowerCase();
@@ -108,6 +127,18 @@ export default function AdminFeedbackList() {
       await changeFeedbackStatus(id, status);
     } finally {
       setUpdatingId(null);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!fbToDelete) return;
+    setDeleting(true);
+    try {
+      await removeFeedback(fbToDelete.id);
+      setDeleteDialog(false);
+      setFbToDelete(null);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -208,7 +239,7 @@ export default function AdminFeedbackList() {
         </IconButton>
       </Box>
 
-      {/* ── Stat Cards — all same primary gradient ── */}
+      {/* ── Stat Cards ── */}
       <Box
         sx={{
           display: "grid",
@@ -362,7 +393,7 @@ export default function AdminFeedbackList() {
         </Box>
       </Paper>
 
-      {/* ── Table — no forced minWidth, matches products table style ── */}
+      {/* ── Table ── */}
       <Paper
         elevation={0}
         sx={{
@@ -424,7 +455,6 @@ export default function AdminFeedbackList() {
               </TableRow>
             ) : (
               paginated.map((fb) => {
-                const sStyle = getFeedbackStatusStyle(fb.status);
                 const isUpdating = updatingId === fb.id;
                 return (
                   <TableRow
@@ -537,60 +567,68 @@ export default function AdminFeedbackList() {
                       </span>
                     </TableCell>
 
-                    {/* Status — chip only, no border/box */}
+                    {/* Status — click chip to open dropdown menu */}
                     <TableCell>
-                      <Select
-                        value={fb.status}
-                        disabled={isUpdating}
-                        onChange={(e) =>
-                          handleStatusChange(
-                            fb.id,
-                            e.target.value as FeedbackStatus,
-                          )
+                      <Tooltip
+                        title="Click to change status"
+                        placement="top"
+                        arrow
+                      >
+                        <Chip
+                          label={
+                            isUpdating
+                              ? "…"
+                              : getFeedbackStatusStyle(fb.status).label
+                          }
+                          size="small"
+                          onClick={(e) =>
+                            setMenuAnchor({ el: e.currentTarget, id: fb.id })
+                          }
+                          icon={<ChevronDown size={11} />}
+                          sx={{
+                            bgcolor: getFeedbackStatusStyle(fb.status).bg,
+                            color: getFeedbackStatusStyle(fb.status).color,
+                            fontWeight: 700,
+                            fontSize: "0.7rem",
+                            cursor: "pointer",
+                            "& .MuiChip-icon": { color: "inherit", ml: "6px" },
+                            "&:hover": { opacity: 0.8 },
+                          }}
+                        />
+                      </Tooltip>
+                      <Menu
+                        anchorEl={
+                          menuAnchor?.id === fb.id ? menuAnchor.el : null
                         }
-                        renderValue={(val) => {
-                          const s = getFeedbackStatusStyle(
-                            val as FeedbackStatus,
-                          );
-                          return (
-                            <Chip
-                              label={isUpdating ? "…" : s.label}
-                              size="small"
-                              sx={{
-                                bgcolor: s.bg,
-                                color: s.color,
-                                fontWeight: 700,
-                                fontSize: "0.7rem",
-                                pointerEvents: "none",
-                                height: 22,
-                              }}
-                            />
-                          );
+                        open={menuAnchor?.id === fb.id}
+                        onClose={() => setMenuAnchor(null)}
+                        anchorOrigin={{
+                          vertical: "bottom",
+                          horizontal: "left",
                         }}
-                        sx={{
-                          "& .MuiOutlinedInput-notchedOutline": {
-                            border: "none",
-                          },
-                          "& .MuiSelect-select": { p: "0 !important" },
-                          "& .MuiSelect-icon": { display: "none" },
-                          bgcolor: "transparent",
-                          cursor: "pointer",
+                        transformOrigin={{
+                          vertical: "top",
+                          horizontal: "left",
                         }}
                       >
-                        {STATUS_CHANGE_OPTIONS.map((o) => {
-                          const s = getFeedbackStatusStyle(o.value);
+                        {(["new", "seen"] as FeedbackStatus[]).map((s) => {
+                          const style = getFeedbackStatusStyle(s);
                           return (
                             <MenuItem
-                              key={o.value}
-                              value={o.value}
+                              key={s}
+                              onClick={() => {
+                                setMenuAnchor(null);
+                                handleStatusChange(fb.id, s);
+                              }}
+                              selected={fb.status === s}
                               sx={{ gap: 1 }}
                             >
                               <Chip
-                                label={o.label}
+                                label={style.label}
                                 size="small"
                                 sx={{
-                                  bgcolor: s.bg,
-                                  color: s.color,
+                                  bgcolor: style.bg,
+                                  color: style.color,
                                   fontWeight: 700,
                                   fontSize: "0.7rem",
                                   pointerEvents: "none",
@@ -599,7 +637,7 @@ export default function AdminFeedbackList() {
                             </MenuItem>
                           );
                         })}
-                      </Select>
+                      </Menu>
                     </TableCell>
 
                     {/* Date */}
@@ -615,18 +653,42 @@ export default function AdminFeedbackList() {
 
                     {/* Actions */}
                     <TableCell align="center">
-                      <IconButton
-                        size="small"
-                        onClick={() => navigate(`/admin/feedback/${fb.id}`)}
+                      <Box
                         sx={{
-                          color: colors.primary,
-                          "&:hover": { bgcolor: colors.primaryBg },
-                          borderRadius: 1.5,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 0.5,
                         }}
-                        title="View full feedback"
                       >
-                        <Eye size={16} />
-                      </IconButton>
+                        <IconButton
+                          size="small"
+                          onClick={() => navigate(`/admin/feedback/${fb.id}`)}
+                          sx={{
+                            color: colors.primary,
+                            "&:hover": { bgcolor: colors.primaryBg },
+                            borderRadius: 1.5,
+                          }}
+                          title="View full feedback"
+                        >
+                          <Eye size={16} />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            setFbToDelete(fb);
+                            setDeleteDialog(true);
+                          }}
+                          sx={{
+                            color: colors.error,
+                            "&:hover": { bgcolor: colors.errorBg },
+                            borderRadius: 1.5,
+                          }}
+                          title="Delete feedback"
+                        >
+                          <Trash2 size={16} />
+                        </IconButton>
+                      </Box>
                     </TableCell>
                   </TableRow>
                 );
@@ -647,6 +709,82 @@ export default function AdminFeedbackList() {
           rowsPerPageOptions={[5, 10, 25, 50]}
         />
       </Paper>
+
+      {/* ── Delete Dialog ── */}
+      <Dialog
+        open={deleteDialog}
+        onClose={() => !deleting && setDeleteDialog(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 3 } }}
+      >
+        <DialogTitle
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 1.5,
+            color: colors.error,
+          }}
+        >
+          <AlertTriangle size={22} /> Delete Feedback
+        </DialogTitle>
+        <DialogContent>
+          <p style={{ color: colors.textPrimary, marginBottom: 12 }}>
+            Are you sure you want to delete feedback from{" "}
+            <strong>{fbToDelete?.name || "Anonymous"}</strong>? This action
+            cannot be undone.
+          </p>
+          <Box
+            sx={{
+              bgcolor: colors.errorBg,
+              border: `1px solid ${colors.error}`,
+              borderRadius: 2,
+              p: 2,
+            }}
+          >
+            <p style={{ fontSize: "0.875rem", color: colors.error, margin: 0 }}>
+              <strong>Warning:</strong> This will permanently remove the
+              feedback from Firestore.
+            </p>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, gap: 1 }}>
+          <Button
+            onClick={() => setDeleteDialog(false)}
+            disabled={deleting}
+            variant="outlined"
+            sx={{
+              textTransform: "none",
+              borderColor: colors.border,
+              color: colors.textPrimary,
+              borderRadius: 2,
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDeleteConfirm}
+            disabled={deleting}
+            variant="contained"
+            startIcon={
+              deleting ? (
+                <CircularProgress size={14} color="inherit" />
+              ) : (
+                <Trash2 size={16} />
+              )
+            }
+            sx={{
+              textTransform: "none",
+              bgcolor: colors.error,
+              "&:hover": { bgcolor: "#DC2626" },
+              borderRadius: 2,
+              minWidth: 100,
+            }}
+          >
+            {deleting ? "Deleting…" : "Delete"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

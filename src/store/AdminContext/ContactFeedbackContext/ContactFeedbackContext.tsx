@@ -17,9 +17,11 @@ import {
   fetchContactMessages,
   fetchContactMessage,
   updateContactStatus,
+  deleteContactMessage,
   fetchFeedbackMessages,
   fetchFeedbackMessage,
   updateFeedbackStatus,
+  deleteFeedbackMessage,
 } from "@/service/contactFeedback/contactFeedbackService";
 import { useAuth } from "@/store/AuthContext/AuthContext";
 
@@ -32,6 +34,7 @@ interface ContactFeedbackContextType {
   refreshContacts: () => Promise<void>;
   getContact: (id: string) => Promise<ContactMessage | null>;
   changeContactStatus: (id: string, status: ContactStatus) => Promise<void>;
+  removeContact: (id: string) => Promise<void>;
 
   // Feedback
   feedbacks: FeedbackMessage[];
@@ -41,6 +44,7 @@ interface ContactFeedbackContextType {
   refreshFeedbacks: () => Promise<void>;
   getFeedback: (id: string) => Promise<FeedbackMessage | null>;
   changeFeedbackStatus: (id: string, status: FeedbackStatus) => Promise<void>;
+  removeFeedback: (id: string) => Promise<void>;
 }
 
 const ContactFeedbackContext = createContext<
@@ -152,6 +156,18 @@ export const ContactFeedbackProvider = ({
     [],
   );
 
+  // ── Delete contact ─────────────────────────────────────────────────────────
+  const removeContact = useCallback(async (id: string) => {
+    try {
+      await deleteContactMessage(id);
+      setContacts((prev) => prev.filter((c) => c.id !== id));
+      toast.success("Message deleted");
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to delete message");
+      throw err;
+    }
+  }, []);
+
   // ── Get single feedback ────────────────────────────────────────────────────
   const getFeedback = useCallback(async (id: string) => {
     try {
@@ -181,6 +197,18 @@ export const ContactFeedbackProvider = ({
     [],
   );
 
+  // ── Delete feedback ────────────────────────────────────────────────────────
+  const removeFeedback = useCallback(async (id: string) => {
+    try {
+      await deleteFeedbackMessage(id);
+      setFeedbacks((prev) => prev.filter((f) => f.id !== id));
+      toast.success("Feedback deleted");
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to delete feedback");
+      throw err;
+    }
+  }, []);
+
   return (
     <ContactFeedbackContext.Provider
       value={{
@@ -191,6 +219,7 @@ export const ContactFeedbackProvider = ({
         refreshContacts,
         getContact,
         changeContactStatus,
+        removeContact,
         feedbacks,
         feedbackLoading,
         feedbackError,
@@ -198,6 +227,7 @@ export const ContactFeedbackProvider = ({
         refreshFeedbacks,
         getFeedback,
         changeFeedbackStatus,
+        removeFeedback,
       }}
     >
       {children}

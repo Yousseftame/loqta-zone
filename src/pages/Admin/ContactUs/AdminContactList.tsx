@@ -14,11 +14,26 @@ import {
   TablePagination,
   CircularProgress,
   Button,
-  Select,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Tooltip,
+  Menu,
   MenuItem,
   FormControl,
+  Select,
 } from "@mui/material";
-import { Search, X, Eye, RefreshCw, Mail } from "lucide-react";
+import {
+  Search,
+  X,
+  Eye,
+  RefreshCw,
+  Mail,
+  Trash2,
+  ChevronDown,
+  AlertTriangle,
+} from "lucide-react";
 import ContactsIcon from "@mui/icons-material/Contacts";
 import { useNavigate } from "react-router-dom";
 import { useContactFeedback } from "@/store/AdminContext/ContactFeedbackContext/ContactFeedbackContext";
@@ -26,17 +41,12 @@ import {
   colors,
   getContactStatusStyle,
   SUBJECT_LABELS,
+  type ContactMessage,
   type ContactStatus,
 } from "./contact-feedback-data";
 
 const STATUS_FILTER_OPTIONS: { value: "" | ContactStatus; label: string }[] = [
   { value: "", label: "All Statuses" },
-  { value: "new", label: "New" },
-  { value: "seen", label: "Seen" },
-  { value: "replied", label: "Replied" },
-];
-
-const STATUS_CHANGE_OPTIONS: { value: ContactStatus; label: string }[] = [
   { value: "new", label: "New" },
   { value: "seen", label: "Seen" },
   { value: "replied", label: "Replied" },
@@ -50,6 +60,7 @@ export default function AdminContactList() {
     contactError,
     refreshContacts,
     changeContactStatus,
+    removeContact,
   } = useContactFeedback();
 
   const [search, setSearch] = useState("");
@@ -57,6 +68,13 @@ export default function AdminContactList() {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [menuAnchor, setMenuAnchor] = useState<{
+    el: HTMLElement;
+    id: string;
+  } | null>(null);
+  const [deleteDialog, setDeleteDialog] = useState(false);
+  const [msgToDelete, setMsgToDelete] = useState<ContactMessage | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const filtered = contacts.filter((c) => {
     const s = search.toLowerCase();
@@ -85,6 +103,18 @@ export default function AdminContactList() {
       await changeContactStatus(id, status);
     } finally {
       setUpdatingId(null);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!msgToDelete) return;
+    setDeleting(true);
+    try {
+      await removeContact(msgToDelete.id);
+      setDeleteDialog(false);
+      setMsgToDelete(null);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -185,7 +215,7 @@ export default function AdminContactList() {
         </IconButton>
       </Box>
 
-      {/* ── Stat Cards — all same primary gradient ── */}
+      {/* ── Stat Cards ── */}
       <Box
         sx={{
           display: "grid",
@@ -339,7 +369,7 @@ export default function AdminContactList() {
         </Box>
       </Paper>
 
-      {/* ── Table — no forced minWidth, matches products table style ── */}
+      {/* ── Table ── */}
       <Paper
         elevation={0}
         sx={{
@@ -491,67 +521,79 @@ export default function AdminContactList() {
                       </p>
                     </TableCell>
 
-                    {/* Status — chip only, no border/box */}
+                    {/* Status — click chip to open dropdown menu */}
                     <TableCell>
-                      <Select
-                        value={msg.status}
-                        disabled={isUpdating}
-                        onChange={(e) =>
-                          handleStatusChange(
-                            msg.id,
-                            e.target.value as ContactStatus,
-                          )
+                      <Tooltip
+                        title="Click to change status"
+                        placement="top"
+                        arrow
+                      >
+                        <Chip
+                          label={
+                            isUpdating
+                              ? "…"
+                              : getContactStatusStyle(msg.status).label
+                          }
+                          size="small"
+                          onClick={(e) =>
+                            setMenuAnchor({ el: e.currentTarget, id: msg.id })
+                          }
+                          icon={<ChevronDown size={11} />}
+                          sx={{
+                            bgcolor: getContactStatusStyle(msg.status).bg,
+                            color: getContactStatusStyle(msg.status).color,
+                            fontWeight: 700,
+                            fontSize: "0.7rem",
+                            cursor: "pointer",
+                            "& .MuiChip-icon": { color: "inherit", ml: "6px" },
+                            "&:hover": { opacity: 0.8 },
+                          }}
+                        />
+                      </Tooltip>
+                      <Menu
+                        anchorEl={
+                          menuAnchor?.id === msg.id ? menuAnchor.el : null
                         }
-                        renderValue={(val) => {
-                          const s = getContactStatusStyle(val as ContactStatus);
-                          return (
-                            <Chip
-                              label={isUpdating ? "…" : s.label}
-                              size="small"
-                              sx={{
-                                bgcolor: s.bg,
-                                color: s.color,
-                                fontWeight: 700,
-                                fontSize: "0.7rem",
-                                pointerEvents: "none",
-                                height: 22,
-                              }}
-                            />
-                          );
+                        open={menuAnchor?.id === msg.id}
+                        onClose={() => setMenuAnchor(null)}
+                        anchorOrigin={{
+                          vertical: "bottom",
+                          horizontal: "left",
                         }}
-                        sx={{
-                          "& .MuiOutlinedInput-notchedOutline": {
-                            border: "none",
-                          },
-                          "& .MuiSelect-select": { p: "0 !important" },
-                          "& .MuiSelect-icon": { display: "none" },
-                          bgcolor: "transparent",
-                          cursor: "pointer",
+                        transformOrigin={{
+                          vertical: "top",
+                          horizontal: "left",
                         }}
                       >
-                        {STATUS_CHANGE_OPTIONS.map((o) => {
-                          const s = getContactStatusStyle(o.value);
-                          return (
-                            <MenuItem
-                              key={o.value}
-                              value={o.value}
-                              sx={{ gap: 1 }}
-                            >
-                              <Chip
-                                label={o.label}
-                                size="small"
-                                sx={{
-                                  bgcolor: s.bg,
-                                  color: s.color,
-                                  fontWeight: 700,
-                                  fontSize: "0.7rem",
-                                  pointerEvents: "none",
+                        {(["new", "seen", "replied"] as ContactStatus[]).map(
+                          (s) => {
+                            const style = getContactStatusStyle(s);
+                            return (
+                              <MenuItem
+                                key={s}
+                                onClick={() => {
+                                  setMenuAnchor(null);
+                                  handleStatusChange(msg.id, s);
                                 }}
-                              />
-                            </MenuItem>
-                          );
-                        })}
-                      </Select>
+                                selected={msg.status === s}
+                                sx={{ gap: 1 }}
+                              >
+                                <Chip
+                                  label={style.label}
+                                  size="small"
+                                  sx={{
+                                    bgcolor: style.bg,
+                                    color: style.color,
+                                    fontWeight: 700,
+                                    fontSize: "0.7rem",
+                                    pointerEvents: "none",
+                                  }}
+                                />
+                              </MenuItem>
+                            );
+                          },
+                        )}
+                      </Menu>
                     </TableCell>
 
                     {/* Date */}
@@ -567,18 +609,42 @@ export default function AdminContactList() {
 
                     {/* Actions */}
                     <TableCell align="center">
-                      <IconButton
-                        size="small"
-                        onClick={() => navigate(`/admin/contacts/${msg.id}`)}
+                      <Box
                         sx={{
-                          color: colors.primary,
-                          "&:hover": { bgcolor: colors.primaryBg },
-                          borderRadius: 1.5,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 0.5,
                         }}
-                        title="View full message"
                       >
-                        <Eye size={16} />
-                      </IconButton>
+                        <IconButton
+                          size="small"
+                          onClick={() => navigate(`/admin/contacts/${msg.id}`)}
+                          sx={{
+                            color: colors.primary,
+                            "&:hover": { bgcolor: colors.primaryBg },
+                            borderRadius: 1.5,
+                          }}
+                          title="View full message"
+                        >
+                          <Eye size={16} />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            setMsgToDelete(msg);
+                            setDeleteDialog(true);
+                          }}
+                          sx={{
+                            color: colors.error,
+                            "&:hover": { bgcolor: colors.errorBg },
+                            borderRadius: 1.5,
+                          }}
+                          title="Delete message"
+                        >
+                          <Trash2 size={16} />
+                        </IconButton>
+                      </Box>
                     </TableCell>
                   </TableRow>
                 );
@@ -599,6 +665,81 @@ export default function AdminContactList() {
           rowsPerPageOptions={[5, 10, 25, 50]}
         />
       </Paper>
+
+      {/* ── Delete Dialog ── */}
+      <Dialog
+        open={deleteDialog}
+        onClose={() => !deleting && setDeleteDialog(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 3 } }}
+      >
+        <DialogTitle
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 1.5,
+            color: colors.error,
+          }}
+        >
+          <AlertTriangle size={22} /> Delete Message
+        </DialogTitle>
+        <DialogContent>
+          <p style={{ color: colors.textPrimary, marginBottom: 12 }}>
+            Are you sure you want to delete the message from{" "}
+            <strong>{msgToDelete?.name}</strong>? This action cannot be undone.
+          </p>
+          <Box
+            sx={{
+              bgcolor: colors.errorBg,
+              border: `1px solid ${colors.error}`,
+              borderRadius: 2,
+              p: 2,
+            }}
+          >
+            <p style={{ fontSize: "0.875rem", color: colors.error, margin: 0 }}>
+              <strong>Warning:</strong> This will permanently remove the message
+              from Firestore.
+            </p>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, gap: 1 }}>
+          <Button
+            onClick={() => setDeleteDialog(false)}
+            disabled={deleting}
+            variant="outlined"
+            sx={{
+              textTransform: "none",
+              borderColor: colors.border,
+              color: colors.textPrimary,
+              borderRadius: 2,
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDeleteConfirm}
+            disabled={deleting}
+            variant="contained"
+            startIcon={
+              deleting ? (
+                <CircularProgress size={14} color="inherit" />
+              ) : (
+                <Trash2 size={16} />
+              )
+            }
+            sx={{
+              textTransform: "none",
+              bgcolor: colors.error,
+              "&:hover": { bgcolor: "#DC2626" },
+              borderRadius: 2,
+              minWidth: 100,
+            }}
+          >
+            {deleting ? "Deleting…" : "Delete"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

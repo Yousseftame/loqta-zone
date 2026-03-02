@@ -5,6 +5,7 @@ import {
   getDoc,
   addDoc,
   updateDoc,
+  deleteDoc,
   serverTimestamp,
   Timestamp,
   query,
@@ -117,6 +118,12 @@ export async function updateContactStatus(
   });
 }
 
+// ─── CONTACT — Delete ─────────────────────────────────────────────────────────
+
+export async function deleteContactMessage(id: string): Promise<void> {
+  await deleteDoc(doc(db, CONTACT_COLLECTION, id));
+}
+
 // ─── CONTACT — New Count ──────────────────────────────────────────────────────
 
 export async function fetchContactNewCount(): Promise<number> {
@@ -178,6 +185,12 @@ export async function updateFeedbackStatus(
     status,
     updatedAt: serverTimestamp(),
   });
+}
+
+// ─── FEEDBACK — Delete ────────────────────────────────────────────────────────
+
+export async function deleteFeedbackMessage(id: string): Promise<void> {
+  await deleteDoc(doc(db, FEEDBACK_COLLECTION, id));
 }
 
 // ─── FEEDBACK — New Count ─────────────────────────────────────────────────────

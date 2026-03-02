@@ -9,6 +9,10 @@ import {
   Select,
   MenuItem,
   FormControl,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from "@mui/material";
 import {
   ArrowLeft,
@@ -19,6 +23,8 @@ import {
   MessageSquare,
   ThumbsUp,
   Save,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useContactFeedback } from "@/store/AdminContext/ContactFeedbackContext/ContactFeedbackContext";
@@ -64,15 +70,17 @@ function StarDisplay({ rating }: { rating: number }) {
 export default function AdminFeedbackView() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const { getFeedback, changeFeedbackStatus } = useContactFeedback();
+  const { getFeedback, changeFeedbackStatus, removeFeedback } =
+    useContactFeedback();
 
   const [fb, setFb] = useState<FeedbackMessage | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedStatus, setSelectedStatus] = useState<FeedbackStatus>("new");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [deleteDialog, setDeleteDialog] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
-  // Load feedback — NO auto-status change
   useEffect(() => {
     if (!id) return;
     (async () => {
@@ -96,6 +104,17 @@ export default function AdminFeedbackView() {
       setTimeout(() => setSaved(false), 2000);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!id) return;
+    setDeleting(true);
+    try {
+      await removeFeedback(id);
+      navigate("/admin/feedback");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -174,7 +193,7 @@ export default function AdminFeedbackView() {
       >
         <Box
           sx={{
-            background: "linear-gradient(135deg, #7C3AED 0%, #9F67FA 100%)",
+            background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryLight} 100%)`,
             p: { xs: 3, md: 4 },
             display: "flex",
             flexDirection: { xs: "column", sm: "row" },
@@ -247,7 +266,6 @@ export default function AdminFeedbackView() {
               </strong>
               {fb.email && <> · {fb.email}</>}
             </p>
-            {/* Stars */}
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               {[1, 2, 3, 4, 5].map((s) => (
                 <Star
@@ -269,7 +287,7 @@ export default function AdminFeedbackView() {
             </Box>
           </Box>
 
-          {/* Status changer in hero */}
+          {/* Status changer + delete in hero */}
           <Box
             sx={{
               display: "flex",
@@ -355,6 +373,21 @@ export default function AdminFeedbackView() {
               }}
             >
               {saving ? "Saving…" : saved ? "Saved ✓" : "Save"}
+            </Button>
+            <Button
+              onClick={() => setDeleteDialog(true)}
+              variant="contained"
+              startIcon={<Trash2 size={15} />}
+              sx={{
+                bgcolor: "rgba(239,68,68,0.75)",
+                color: "#fff",
+                textTransform: "none",
+                borderRadius: 2,
+                fontWeight: 700,
+                "&:hover": { bgcolor: "rgba(239,68,68,0.9)" },
+              }}
+            >
+              Delete
             </Button>
           </Box>
         </Box>
@@ -470,7 +503,7 @@ export default function AdminFeedbackView() {
               <StarDisplay rating={fb.rating} />
             </Box>
 
-            {/* Current status */}
+            {/* Status — enhanced inline changer */}
             <Box>
               <p
                 style={{
@@ -482,17 +515,82 @@ export default function AdminFeedbackView() {
                   letterSpacing: "0.05em",
                 }}
               >
-                Current Status
+                Status
               </p>
-              <Chip
-                label={currentStyle.label}
-                size="small"
+              <Box
                 sx={{
-                  bgcolor: currentStyle.bg,
-                  color: currentStyle.color,
-                  fontWeight: 700,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 2,
+                  flexWrap: "wrap",
                 }}
-              />
+              >
+                {/* Current persisted status */}
+                <Chip
+                  label={currentStyle.label}
+                  size="small"
+                  sx={{
+                    bgcolor: currentStyle.bg,
+                    color: currentStyle.color,
+                    fontWeight: 700,
+                  }}
+                />
+                {/* Inline quick-change */}
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <span
+                    style={{ fontSize: "0.72rem", color: colors.textMuted }}
+                  >
+                    Change to:
+                  </span>
+                  <Box sx={{ display: "flex", gap: 0.75 }}>
+                    {STATUS_OPTIONS.filter((o) => o.value !== fb.status).map(
+                      (o) => {
+                        const s = getFeedbackStatusStyle(o.value);
+                        const isSelected = selectedStatus === o.value;
+                        return (
+                          <Chip
+                            key={o.value}
+                            label={o.label}
+                            size="small"
+                            onClick={() => setSelectedStatus(o.value)}
+                            sx={{
+                              bgcolor: isSelected ? s.bg : "#F1F5F9",
+                              color: isSelected ? s.color : colors.textMuted,
+                              fontWeight: 700,
+                              fontSize: "0.68rem",
+                              border: isSelected
+                                ? `1.5px solid ${s.color}`
+                                : "1.5px solid transparent",
+                              cursor: "pointer",
+                              transition: "all 0.15s",
+                              "&:hover": { bgcolor: s.bg, color: s.color },
+                            }}
+                          />
+                        );
+                      },
+                    )}
+                  </Box>
+                </Box>
+                {isDirty && (
+                  <Button
+                    onClick={handleSave}
+                    disabled={saving}
+                    size="small"
+                    variant="contained"
+                    sx={{
+                      bgcolor: "#7C3AED",
+                      textTransform: "none",
+                      borderRadius: 2,
+                      fontSize: "0.72rem",
+                      px: 1.5,
+                      py: 0.5,
+                      minWidth: 0,
+                    }}
+                  >
+                    {saving ? "…" : "Save"}
+                  </Button>
+                )}
+              </Box>
             </Box>
           </Box>
 
@@ -561,6 +659,82 @@ export default function AdminFeedbackView() {
           </Box>
         </Box>
       </Paper>
+
+      {/* ── Delete Dialog ── */}
+      <Dialog
+        open={deleteDialog}
+        onClose={() => !deleting && setDeleteDialog(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 3 } }}
+      >
+        <DialogTitle
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 1.5,
+            color: colors.error,
+          }}
+        >
+          <AlertTriangle size={22} /> Delete Feedback
+        </DialogTitle>
+        <DialogContent>
+          <p style={{ color: colors.textPrimary, marginBottom: 12 }}>
+            Are you sure you want to delete the feedback from{" "}
+            <strong>{fb.name || "Anonymous"}</strong>? This action cannot be
+            undone.
+          </p>
+          <Box
+            sx={{
+              bgcolor: colors.errorBg,
+              border: `1px solid ${colors.error}`,
+              borderRadius: 2,
+              p: 2,
+            }}
+          >
+            <p style={{ fontSize: "0.875rem", color: colors.error, margin: 0 }}>
+              <strong>Warning:</strong> This will permanently remove the
+              feedback from Firestore.
+            </p>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, gap: 1 }}>
+          <Button
+            onClick={() => setDeleteDialog(false)}
+            disabled={deleting}
+            variant="outlined"
+            sx={{
+              textTransform: "none",
+              borderColor: colors.border,
+              color: colors.textPrimary,
+              borderRadius: 2,
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDelete}
+            disabled={deleting}
+            variant="contained"
+            startIcon={
+              deleting ? (
+                <CircularProgress size={14} color="inherit" />
+              ) : (
+                <Trash2 size={16} />
+              )
+            }
+            sx={{
+              textTransform: "none",
+              bgcolor: colors.error,
+              "&:hover": { bgcolor: "#DC2626" },
+              borderRadius: 2,
+              minWidth: 100,
+            }}
+          >
+            {deleting ? "Deleting…" : "Delete"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
