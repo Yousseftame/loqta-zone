@@ -29,12 +29,9 @@
     "admin": "Admin",
     "superAdmin": "Super Admin"
   },
-  "footer": {
-    "copyright": "Loqta Zone · Premium Auctions"
-  },
   "hero": {
-    "loqta":"LOQTA",
-    "zone":"ZONE",
+    "loqta": "LOQTA",
+    "zone": "ZONE",
     "tagline": "Premium Online Auctions",
     "editorialDirection": "Editorial Direction",
     "season": "2026 — Season I",
@@ -50,15 +47,12 @@
     "bid": "Bid",
     "registerToJoin": "✦ Register To Join ✦"
   },
-  
   "statsSection": {
     "eyebrow": "By The Numbers",
     "titleLine1": "Trusted by Thousands",
     "titleLine2": "Across Every Auction.",
     "description": "Real numbers from a platform built on transparency, trust, and results."
   },
-
-
   "stats": {
     "users": {
       "label": "Registered Users",
@@ -77,48 +71,165 @@
       "description": "Total value transacted"
     }
   },
-
-  "howitwork":{
-  "eyebrow": "· Simple Process ·",
-  "title": {
-    "first": "How It",
-    "second": "Works."
-  },
-  "description": "Four simple steps to start winning premium auctions across Egypt.",
-  "steps": [
-    {
-      "subtitle": "Register in Minutes",
-      "title": "Create Your Account",
-      "description": "Sign up with your email or phone number. Verify your identity securely and unlock access to Egypt's most exclusive online auction marketplace.",
-      "tag": "Free · 2 Min Setup"
+  "howitwork": {
+    "eyebrow": "· Simple Process ·",
+    "title": {
+      "first": "How It",
+      "second": "Works."
     },
-    {
-      "subtitle": "Discover Premium Lots",
-      "title": "Browse Live Auctions",
-      "description": "Explore curated auctions across electronics, beauty, wearables, and more. Filter by category, budget, or time remaining to find your perfect item.",
-      "tag": "Updated Daily"
-    },
-    {
-      "subtitle": "Secure & Transparent",
-      "title": "Place Your Bid",
-      "description": "Register for the auction, apply a promo code if you have one, and place your bid. Real-time updates keep you in the loop every second.",
-      "tag": "Live Countdown"
-    },
-    {
-      "subtitle": "Fast Nationwide Delivery",
-      "title": "Win & Receive",
-      "description": "If your bid wins, we handle the rest. Secure payment processing and verified delivery straight to your door — anywhere in Egypt.",
-      "tag": "Guaranteed Delivery"
+    "description": "Four simple steps to start winning premium auctions across Egypt.",
+    "steps": [
+      {
+        "subtitle": "Register in Minutes",
+        "title": "Create Your Account",
+        "description": "Sign up with your email or phone number. Verify your identity securely and unlock access to Egypt's most exclusive online auction marketplace.",
+        "tag": "Free · 2 Min Setup"
+      },
+      {
+        "subtitle": "Discover Premium Lots",
+        "title": "Browse Live Auctions",
+        "description": "Explore curated auctions across electronics, beauty, wearables, and more. Filter by category, budget, or time remaining to find your perfect item.",
+        "tag": "Updated Daily"
+      },
+      {
+        "subtitle": "Secure & Transparent",
+        "title": "Place Your Bid",
+        "description": "Register for the auction, apply a promo code if you have one, and place your bid. Real-time updates keep you in the loop every second.",
+        "tag": "Live Countdown"
+      },
+      {
+        "subtitle": "Fast Nationwide Delivery",
+        "title": "Win & Receive",
+        "description": "If your bid wins, we handle the rest. Secure payment processing and verified delivery straight to your door — anywhere in Egypt.",
+        "tag": "Guaranteed Delivery"
+      }
+    ],
+    "cta": {
+      "label": "Ready to start?",
+      "button": "Join Loqta Zone ✦"
     }
-  ],
-  "cta": {
-    "label": "Ready to start?",
-    "button": "Join Loqta Zone ✦"
+  },
+  "auctionsSection": {
+    "eyebrow": "· Auction House ·",
+    "titleLine1": "Live &",
+    "titleLine2": "Past Auctions.",
+    "subtitleUpcoming": "Discover exclusive upcoming auctions and register before seats run out.",
+    "subtitlePast": "Browse our completed auctions and meet the winning bidders.",
+    "tabUpcoming": "Upcoming Auctions",
+    "tabPast": "Past Auctions",
+    "upcomingCount": "{{count}} Upcoming Sessions",
+    "pastCount": "{{count}} Completed Auctions",
+    "startingFrom": "Starting from",
+    "sessionStartsIn": "⏱ Session Starts In",
+    "registerToJoin": "✦ Register to Join",
+    "piece": "Piece",
+    "pieces": "Pieces",
+    "ended": "● ENDED",
+    "days": "Days",
+    "hours": "Hours",
+    "mins": "Mins",
+    "secs": "Secs",
+    "soldOut": "SOLD OUT",
+    "winningPrice": "Winning Price",
+    "session": "Session",
+    "winner": "Winner",
+    "name": "Name",
+    "country": "Country"
+  },
+  "auctionRequest": {
+    "eyebrow": "· Request an Auction ·",
+    "titleLine1": "Can't find what",
+    "titleLine2": "you're looking for?",
+    "subtitle": "Tell us what item you'd like to bid on. We'll match it with an upcoming auction or create one just for you.",
+    "cardEyebrow": "Auction Request",
+    "cardTitle": "Find Your Next Bid",
+    "loginTitle": "Sign in to submit a request",
+    "loginSubtitle": "Create an account or log in to request your dream auction item.",
+    "loginBtn": "✦ Sign In",
+    "fields": {
+      "productName": "Product / Item Name",
+      "productNamePlaceholder": "e.g. PlayStation 5, Vintage Rolex, Signed Jersey…",
+      "budget": "Max Budget (Optional)",
+      "budgetPlaceholder": "e.g. 5,000 EGP — leave blank if flexible",
+      "notes": "Additional Notes",
+      "notesPlaceholder": "Any specific version, color, condition or details we should know…",
+      "category": "Category",
+      "timeline": "Timeline"
+    },
+    "categories": {
+      "electronics": "Electronics",
+      "fashion": "Fashion",
+      "watches": "Watches",
+      "collectibles": "Collectibles",
+      "gaming": "Gaming",
+      "jewelry": "Jewelry",
+      "art": "Art & Decor",
+      "other": "Other"
+    },
+    "urgency": {
+      "flexible": "Flexible",
+      "flexibleDesc": "Whenever available",
+      "soon": "Within 1 week",
+      "soonDesc": "Would love it soon",
+      "urgent": "ASAP",
+      "urgentDesc": "Need it right away"
+    },
+    "submitBtn": "✦ Submit Request",
+    "submitting": "Submitting…",
+    "errorCategory": "Please select a category.",
+    "errorGeneric": "Something went wrong. Please try again.",
+    "success": {
+      "title": "Request Submitted!",
+      "description": "Our team will review your request and notify you when a matching auction becomes available.",
+      "stepSubmitted": "Submitted",
+      "stepReviewing": "Reviewing",
+      "stepMatched": "Matched",
+      "submitAnother": "Submit Another"
+    }
+  },
+  "footer": {
+    "subtagline": "Premium Auctions · Egypt",
+    "tagline": "Egypt's most exclusive online auction platform — where every bid is a chance to win premium products at unbeatable prices.",
+    "followUs": "Follow Us",
+    "badges": {
+      "securePayments": "🔒 Secure Payments",
+      "fastDelivery": "🚚 Fast Delivery",
+      "verifiedWinners": "🏆 Verified Winners"
+    },
+    "sections": {
+      "explore": "Explore",
+      "legal": "Legal",
+      "contact": "Contact"
+    },
+    "quickLinks": {
+      "upcomingAuctions": "Upcoming Auctions",
+      "pastResults": "Past Results",
+      "howItWorks": "How It Works",
+      "registerToBid": "Register to Bid",
+      "promoCodes": "Promo Codes"
+    },
+    "legalLinks": {
+      "terms": "Terms & Conditions",
+      "privacy": "Privacy Policy",
+      "refund": "Refund Policy",
+      "cookie": "Cookie Policy"
+    },
+    "contact": {
+      "email": "hello@loqtazone.com",
+      "phone": "+20 100 000 0000",
+      "location": "Cairo, Egypt"
+    },
+    "newsletter": {
+      "eyebrow": "✦ Stay in the Loop",
+      "description": "Get notified about upcoming auctions, exclusive deals and promo codes.",
+      "placeholder": "your@email.com",
+      "joinBtn": "Join",
+      "disclaimer": "No spam. Auction alerts only. Unsubscribe anytime.",
+      "success": "✦ You're on the list — we'll be in touch!"
+    },
+    "bottom": {
+      "copyright": "© {{year}} Loqta Zone. All rights reserved.",
+      "crafted": "Crafted with ✦ in Egypt"
+    }
   }
-}
-
-
-
-
-
 }

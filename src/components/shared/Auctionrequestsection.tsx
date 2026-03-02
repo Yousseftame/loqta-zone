@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect } from "react";
 import { db } from "@/firebase/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { useAuth } from "@/store/AuthContext/AuthContext";
+import { useTranslation } from "react-i18next";
 
 // ── Design tokens (matching Contact page) ─────────────────────
 const GOLD = "#c9a96e";
@@ -141,15 +142,15 @@ function Field({
 }
 
 // ── Category pill selector ─────────────────────────────────────
-const CATEGORIES = [
-  { val: "electronics", label: "Electronics", icon: "💻" },
-  { val: "fashion", label: "Fashion", icon: "👗" },
-  { val: "watches", label: "Watches", icon: "⌚" },
-  { val: "collectibles", label: "Collectibles", icon: "🏺" },
-  { val: "gaming", label: "Gaming", icon: "🎮" },
-  { val: "jewelry", label: "Jewelry", icon: "💎" },
-  { val: "art", label: "Art & Decor", icon: "🎨" },
-  { val: "other", label: "Other", icon: "◈" },
+const CATEGORY_KEYS = [
+  { val: "electronics", icon: "💻" },
+  { val: "fashion", icon: "👗" },
+  { val: "watches", icon: "⌚" },
+  { val: "collectibles", icon: "🏺" },
+  { val: "gaming", icon: "🎮" },
+  { val: "jewelry", icon: "💎" },
+  { val: "art", icon: "🎨" },
+  { val: "other", icon: "◈" },
 ];
 
 function CategoryPicker({
@@ -159,6 +160,8 @@ function CategoryPicker({
   value: string;
   onChange: (v: string) => void;
 }) {
+  const { t } = useTranslation();
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <label
@@ -174,10 +177,11 @@ function CategoryPicker({
         }}
       >
         <span style={{ opacity: 0.7 }}>◇</span>
-        Category <span style={{ color: GOLD, opacity: 0.7 }}>*</span>
+        {t("auctionRequest.fields.category")}{" "}
+        <span style={{ color: GOLD, opacity: 0.7 }}>*</span>
       </label>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-        {CATEGORIES.map((cat) => {
+        {CATEGORY_KEYS.map((cat) => {
           const active = value === cat.val;
           return (
             <button
@@ -206,7 +210,7 @@ function CategoryPicker({
               }}
             >
               <span>{cat.icon}</span>
-              {cat.label}
+              {t(`auctionRequest.categories.${cat.val}`)}
             </button>
           );
         })}
@@ -216,25 +220,10 @@ function CategoryPicker({
 }
 
 // ── Urgency selector ───────────────────────────────────────────
-const URGENCY = [
-  {
-    val: "flexible",
-    label: "Flexible",
-    desc: "Whenever available",
-    color: "#5ee8a0",
-  },
-  {
-    val: "soon",
-    label: "Within 1 week",
-    desc: "Would love it soon",
-    color: GOLD,
-  },
-  {
-    val: "urgent",
-    label: "ASAP",
-    desc: "Need it right away",
-    color: "#ff6b9d",
-  },
+const URGENCY_KEYS = [
+  { val: "flexible", color: "#5ee8a0" },
+  { val: "soon", color: GOLD },
+  { val: "urgent", color: "#ff6b9d" },
 ];
 
 function UrgencyPicker({
@@ -244,6 +233,8 @@ function UrgencyPicker({
   value: string;
   onChange: (v: string) => void;
 }) {
+  const { t } = useTranslation();
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <label
@@ -258,12 +249,13 @@ function UrgencyPicker({
           gap: 6,
         }}
       >
-        <span style={{ opacity: 0.7 }}>⚡</span> Timeline
+        <span style={{ opacity: 0.7 }}>⚡</span>{" "}
+        {t("auctionRequest.fields.timeline")}
       </label>
       <div
         style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}
       >
-        {URGENCY.map((u) => {
+        {URGENCY_KEYS.map((u) => {
           const active = value === u.val;
           return (
             <button
@@ -284,12 +276,12 @@ function UrgencyPicker({
               }}
             >
               <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 3 }}>
-                {u.label}
+                {t(`auctionRequest.urgency.${u.val}`)}
               </div>
               <div
                 style={{ fontSize: 10, opacity: 0.6, letterSpacing: "0.04em" }}
               >
-                {u.desc}
+                {t(`auctionRequest.urgency.${u.val}Desc`)}
               </div>
             </button>
           );
@@ -299,9 +291,10 @@ function UrgencyPicker({
   );
 }
 
-// ── Submit button (matching Contact) ──────────────────────────
+// ── Submit button ──────────────────────────────────────────────
 function SubmitBtn({ label, loading }: { label: string; loading: boolean }) {
   const [hov, setHov] = useState(false);
+  const { t } = useTranslation();
   return (
     <button
       type="submit"
@@ -359,7 +352,7 @@ function SubmitBtn({ label, loading }: { label: string; loading: boolean }) {
               display: "inline-block",
             }}
           />
-          Submitting…
+          {t("auctionRequest.submitting")}
         </span>
       ) : (
         <span>{label}</span>
@@ -376,6 +369,8 @@ function SuccessState({
   productName: string;
   onReset: () => void;
 }) {
+  const { t } = useTranslation();
+
   return (
     <div
       style={{
@@ -388,7 +383,6 @@ function SuccessState({
         textAlign: "center",
       }}
     >
-      {/* Animated checkmark */}
       <div style={{ position: "relative" }}>
         <div
           style={{
@@ -407,7 +401,6 @@ function SuccessState({
         >
           ✦
         </div>
-        {/* Orbiting ring */}
         <div
           style={{
             position: "absolute",
@@ -430,7 +423,7 @@ function SuccessState({
             fontStyle: "italic",
           }}
         >
-          Request Submitted!
+          {t("auctionRequest.success.title")}
         </h3>
         <p
           style={{
@@ -451,12 +444,10 @@ function SuccessState({
             maxWidth: 320,
           }}
         >
-          Our team will review your request and notify you when a matching
-          auction becomes available.
+          {t("auctionRequest.success.description")}
         </p>
       </div>
 
-      {/* Status tracker */}
       <div
         style={{
           display: "flex",
@@ -471,11 +462,11 @@ function SuccessState({
         }}
       >
         {[
-          { label: "Submitted", done: true },
-          { label: "Reviewing", done: false },
-          { label: "Matched", done: false },
+          { labelKey: "success.stepSubmitted", done: true },
+          { labelKey: "success.stepReviewing", done: false },
+          { labelKey: "success.stepMatched", done: false },
         ].map((step, i, arr) => (
-          <React.Fragment key={step.label}>
+          <React.Fragment key={step.labelKey}>
             <div style={{ textAlign: "center", flex: 1 }}>
               <div
                 style={{
@@ -506,7 +497,7 @@ function SuccessState({
                   color: step.done ? GOLD : "rgba(229,224,198,0.3)",
                 }}
               >
-                {step.label}
+                {t(`auctionRequest.${step.labelKey}`)}
               </div>
             </div>
             {i < arr.length - 1 && (
@@ -547,7 +538,7 @@ function SuccessState({
             "transparent";
         }}
       >
-        Submit Another
+        {t("auctionRequest.success.submitAnother")}
       </button>
     </div>
   );
@@ -560,6 +551,7 @@ export default function AuctionRequestSection() {
   const sectionRef = useRef<HTMLDivElement>(null);
   const visible = useInView(sectionRef, 0.05);
   const { user } = useAuth();
+  const { t } = useTranslation();
 
   const [form, setForm] = useState({
     productName: "",
@@ -580,7 +572,7 @@ export default function AuctionRequestSection() {
     e.preventDefault();
     if (!form.productName.trim()) return;
     if (!form.category) {
-      setError("Please select a category.");
+      setError(t("auctionRequest.errorCategory"));
       return;
     }
 
@@ -603,7 +595,7 @@ export default function AuctionRequestSection() {
       setSubmittedName(form.productName.trim());
       setSent(true);
     } catch (err: any) {
-      setError("Something went wrong. Please try again.");
+      setError(t("auctionRequest.errorGeneric"));
     } finally {
       setLoading(false);
     }
@@ -716,7 +708,6 @@ export default function AuctionRequestSection() {
           background: linear-gradient(90deg, transparent, rgba(229,224,198,0.08), transparent);
         }
 
-        /* Login prompt */
         .ar-login-prompt {
           display: flex;
           flex-direction: column;
@@ -736,7 +727,6 @@ export default function AuctionRequestSection() {
       <section className="ar-section" ref={sectionRef}>
         {/* ── Background atmosphere ── */}
         <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-          {/* Center glow */}
           <div
             style={{
               position: "absolute",
@@ -750,7 +740,6 @@ export default function AuctionRequestSection() {
                 "radial-gradient(ellipse, rgba(42,72,99,0.18) 0%, transparent 65%)",
             }}
           />
-          {/* Gold accent top-right */}
           <div
             style={{
               position: "absolute",
@@ -762,7 +751,6 @@ export default function AuctionRequestSection() {
               background: `radial-gradient(circle, ${GOLD}0a 0%, transparent 70%)`,
             }}
           />
-          {/* Decorative rings */}
           {[300, 520, 780].map((sz, i) => (
             <div
               key={i}
@@ -780,7 +768,6 @@ export default function AuctionRequestSection() {
           ))}
         </div>
 
-        {/* ── Top separator ── */}
         <div
           style={{
             position: "absolute",
@@ -806,7 +793,6 @@ export default function AuctionRequestSection() {
               "opacity 0.8s cubic-bezier(0.22,1,0.36,1), transform 0.8s cubic-bezier(0.22,1,0.36,1)",
           }}
         >
-          {/* Eyebrow */}
           <div
             style={{
               display: "inline-flex",
@@ -831,7 +817,7 @@ export default function AuctionRequestSection() {
                 textTransform: "uppercase",
               }}
             >
-              · Request an Auction ·
+              {t("auctionRequest.eyebrow")}
             </span>
             <div
               style={{
@@ -842,7 +828,6 @@ export default function AuctionRequestSection() {
             />
           </div>
 
-          {/* Headline */}
           <div style={{ overflow: "hidden", marginBottom: 8 }}>
             <h2
               style={{
@@ -859,7 +844,7 @@ export default function AuctionRequestSection() {
                   : "none",
               }}
             >
-              Can't find what
+              {t("auctionRequest.titleLine1")}
             </h2>
           </div>
           <div style={{ overflow: "hidden", marginBottom: 20 }}>
@@ -879,7 +864,7 @@ export default function AuctionRequestSection() {
                   : "none",
               }}
             >
-              you're looking for?
+              {t("auctionRequest.titleLine2")}
             </h2>
           </div>
 
@@ -895,8 +880,7 @@ export default function AuctionRequestSection() {
               animation: visible ? "arFadeUp 0.9s ease 0.55s both" : "none",
             }}
           >
-            Tell us what item you'd like to bid on. We'll match it with an
-            upcoming auction or create one just for you.
+            {t("auctionRequest.subtitle")}
           </p>
         </div>
 
@@ -926,7 +910,6 @@ export default function AuctionRequestSection() {
               marginBottom: 28,
             }}
           >
-            
             <div>
               <div
                 style={{
@@ -938,7 +921,7 @@ export default function AuctionRequestSection() {
                   marginBottom: 4,
                 }}
               >
-                Auction Request
+                {t("auctionRequest.cardEyebrow")}
               </div>
               <h3
                 style={{
@@ -949,7 +932,7 @@ export default function AuctionRequestSection() {
                   letterSpacing: "-0.01em",
                 }}
               >
-                Find Your Next Bid
+                {t("auctionRequest.cardTitle")}
               </h3>
             </div>
           </div>
@@ -984,7 +967,7 @@ export default function AuctionRequestSection() {
                     color: CREAM,
                   }}
                 >
-                  Sign in to submit a request
+                  {t("auctionRequest.loginTitle")}
                 </p>
                 <p
                   style={{
@@ -994,8 +977,7 @@ export default function AuctionRequestSection() {
                     lineHeight: 1.7,
                   }}
                 >
-                  Create an account or log in to request your dream auction
-                  item.
+                  {t("auctionRequest.loginSubtitle")}
                 </p>
               </div>
               <a
@@ -1017,7 +999,7 @@ export default function AuctionRequestSection() {
                   transition: "all 0.3s ease",
                 }}
               >
-                ✦ Sign In
+                {t("auctionRequest.loginBtn")}
               </a>
             </div>
           ) : sent ? (
@@ -1031,38 +1013,35 @@ export default function AuctionRequestSection() {
               <div
                 style={{ display: "flex", flexDirection: "column", gap: 22 }}
               >
-                {/* Product name */}
                 <Field
-                  label="Product / Item Name"
-                  placeholder="e.g. PlayStation 5, Vintage Rolex, Signed Jersey…"
+                  label={t("auctionRequest.fields.productName")}
+                  placeholder={t(
+                    "auctionRequest.fields.productNamePlaceholder",
+                  )}
                   value={form.productName}
                   onChange={set("productName")}
                   required
                   icon="🏷"
                 />
 
-                {/* Category picker */}
                 <CategoryPicker
                   value={form.category}
                   onChange={set("category")}
                 />
 
-                {/* Budget (optional) */}
                 <Field
-                  label="Max Budget (Optional)"
-                  placeholder="e.g. 5,000 EGP — leave blank if flexible"
+                  label={t("auctionRequest.fields.budget")}
+                  placeholder={t("auctionRequest.fields.budgetPlaceholder")}
                   value={form.budget}
                   onChange={set("budget")}
                   icon="💰"
                 />
 
-                {/* Urgency */}
                 <UrgencyPicker value={form.urgency} onChange={set("urgency")} />
 
-                {/* Notes */}
                 <Field
-                  label="Additional Notes"
-                  placeholder="Any specific version, color, condition or details we should know…"
+                  label={t("auctionRequest.fields.notes")}
+                  placeholder={t("auctionRequest.fields.notesPlaceholder")}
                   value={form.notes}
                   onChange={set("notes")}
                   textarea
@@ -1070,7 +1049,6 @@ export default function AuctionRequestSection() {
                   icon="💬"
                 />
 
-                {/* Error */}
                 {error && (
                   <div className="ar-error">
                     <span>⚠</span> {error}
@@ -1079,7 +1057,10 @@ export default function AuctionRequestSection() {
 
                 <div className="ar-divider" />
 
-                <SubmitBtn label="✦ Submit Request" loading={loading} />
+                <SubmitBtn
+                  label={t("auctionRequest.submitBtn")}
+                  loading={loading}
+                />
               </div>
             </form>
           )}

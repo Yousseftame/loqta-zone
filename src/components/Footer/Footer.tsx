@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 
 // ── Design tokens ─────────────────────────────────────────────
 const GOLD = "#c9a96e";
@@ -74,21 +75,6 @@ const socials = [
       </svg>
     ),
   },
-];
-
-const quickLinks = [
-  { label: "Upcoming Auctions", href: "#" },
-  { label: "Past Results", href: "#" },
-  { label: "How It Works", href: "#" },
-  { label: "Register to Bid", href: "#" },
-  { label: "Promo Codes", href: "#" },
-];
-
-const legalLinks = [
-  { label: "Terms & Conditions", href: "#" },
-  { label: "Privacy Policy", href: "#" },
-  { label: "Refund Policy", href: "#" },
-  { label: "Cookie Policy", href: "#" },
 ];
 
 // ── Social icon button ────────────────────────────────────────
@@ -167,6 +153,7 @@ function Newsletter() {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [focused, setFocused] = useState(false);
+  const { t } = useTranslation();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -192,7 +179,7 @@ function Newsletter() {
           gap: 8,
         }}
       >
-        ✦ You're on the list — we'll be in touch!
+        {t("footer.newsletter.success")}
       </div>
     );
   }
@@ -219,7 +206,7 @@ function Newsletter() {
           onChange={(e) => setEmail(e.target.value)}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
-          placeholder="your@email.com"
+          placeholder={t("footer.newsletter.placeholder")}
           required
           style={{
             flex: 1,
@@ -255,7 +242,7 @@ function Newsletter() {
             (e.currentTarget as HTMLButtonElement).style.opacity = "1";
           }}
         >
-          Join
+          {t("footer.newsletter.joinBtn")}
         </button>
       </div>
       <p
@@ -266,7 +253,7 @@ function Newsletter() {
           letterSpacing: "0.05em",
         }}
       >
-        No spam. Auction alerts only. Unsubscribe anytime.
+        {t("footer.newsletter.disclaimer")}
       </p>
     </form>
   );
@@ -276,6 +263,7 @@ function Newsletter() {
 export default function Footer() {
   const footerRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
+  const { t } = useTranslation();
 
   useEffect(() => {
     const el = footerRef.current;
@@ -294,6 +282,34 @@ export default function Footer() {
   }, []);
 
   const year = new Date().getFullYear();
+
+  // Build translated link arrays
+  const quickLinks = [
+    { label: t("footer.quickLinks.upcomingAuctions"), href: "#" },
+    { label: t("footer.quickLinks.pastResults"), href: "#" },
+    { label: t("footer.quickLinks.howItWorks"), href: "#" },
+    { label: t("footer.quickLinks.registerToBid"), href: "#" },
+    { label: t("footer.quickLinks.promoCodes"), href: "#" },
+  ];
+
+  const legalLinks = [
+    { label: t("footer.legalLinks.terms"), href: "#" },
+    { label: t("footer.legalLinks.privacy"), href: "#" },
+    { label: t("footer.legalLinks.refund"), href: "#" },
+    { label: t("footer.legalLinks.cookie"), href: "#" },
+  ];
+
+  const contactItems = [
+    { icon: "✉", label: t("footer.contact.email") },
+    { icon: "📞", label: t("footer.contact.phone") },
+    { icon: "📍", label: t("footer.contact.location") },
+  ];
+
+  const badges = [
+    t("footer.badges.securePayments"),
+    t("footer.badges.fastDelivery"),
+    t("footer.badges.verifiedWinners"),
+  ];
 
   return (
     <footer
@@ -448,7 +464,7 @@ export default function Footer() {
                     textTransform: "uppercase",
                   }}
                 >
-                  Premium Auctions · Egypt
+                  {t("footer.subtagline")}
                 </span>
               </div>
             </div>
@@ -464,8 +480,7 @@ export default function Footer() {
                 maxWidth: 280,
               }}
             >
-              Egypt's most exclusive online auction platform — where every bid
-              is a chance to win premium products at unbeatable prices.
+              {t("footer.tagline")}
             </p>
 
             {/* Socials */}
@@ -480,7 +495,7 @@ export default function Footer() {
                   marginBottom: 12,
                 }}
               >
-                Follow Us
+                {t("footer.followUs")}
               </div>
               <div style={{ display: "flex", gap: 10 }}>
                 {socials.map((s) => (
@@ -491,11 +506,7 @@ export default function Footer() {
 
             {/* Trust badges */}
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-              {[
-                "🔒 Secure Payments",
-                "🚚 Fast Delivery",
-                "🏆 Verified Winners",
-              ].map((badge) => (
+              {badges.map((badge) => (
                 <div
                   key={badge}
                   style={{
@@ -547,7 +558,7 @@ export default function Footer() {
                       background: `linear-gradient(90deg, ${GOLD}, transparent)`,
                     }}
                   />
-                  Explore
+                  {t("footer.sections.explore")}
                 </div>
                 <div
                   style={{ display: "flex", flexDirection: "column", gap: 10 }}
@@ -580,7 +591,7 @@ export default function Footer() {
                       background: `linear-gradient(90deg, ${GOLD}, transparent)`,
                     }}
                   />
-                  Legal
+                  {t("footer.sections.legal")}
                 </div>
                 <div
                   style={{ display: "flex", flexDirection: "column", gap: 10 }}
@@ -613,16 +624,12 @@ export default function Footer() {
                       background: `linear-gradient(90deg, ${GOLD}, transparent)`,
                     }}
                   />
-                  Contact
+                  {t("footer.sections.contact")}
                 </div>
                 <div
                   style={{ display: "flex", flexDirection: "column", gap: 12 }}
                 >
-                  {[
-                    { icon: "✉", label: "hello@loqtazone.com" },
-                    { icon: "📞", label: "+20 100 000 0000" },
-                    { icon: "📍", label: "Cairo, Egypt" },
-                  ].map(({ icon, label }) => (
+                  {contactItems.map(({ icon, label }) => (
                     <div
                       key={label}
                       style={{
@@ -662,7 +669,6 @@ export default function Footer() {
                 overflow: "hidden",
               }}
             >
-              {/* Corner accent */}
               <div
                 style={{
                   position: "absolute",
@@ -683,7 +689,7 @@ export default function Footer() {
                   marginBottom: 6,
                 }}
               >
-                ✦ Stay in the Loop
+                {t("footer.newsletter.eyebrow")}
               </div>
               <p
                 style={{
@@ -693,8 +699,7 @@ export default function Footer() {
                   lineHeight: 1.6,
                 }}
               >
-                Get notified about upcoming auctions, exclusive deals and promo
-                codes.
+                {t("footer.newsletter.description")}
               </p>
               <Newsletter />
             </div>
@@ -734,7 +739,7 @@ export default function Footer() {
               letterSpacing: "0.04em",
             }}
           >
-            © {year} Loqta Zone. All rights reserved.
+            {t("footer.bottom.copyright", { year })}
           </div>
 
           {/* Legal links inline */}
@@ -776,7 +781,7 @@ export default function Footer() {
               fontWeight: 500,
             }}
           >
-            Crafted with ✦ in Egypt
+            {t("footer.bottom.crafted")}
           </div>
         </div>
       </div>

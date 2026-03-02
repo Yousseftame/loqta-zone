@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import SplitText from "@/components/SplitText";
+import { useTranslation } from "react-i18next";
 
 // ── Design tokens ─────────────────────────────────────────────
 const GOLD = "#c9a96e";
@@ -22,7 +23,7 @@ const upcomingAuctions = [
     pieces: 1,
     endsAt: new Date(
       Date.now() + 1 * 60 * 60 * 1000 + 24 * 60 * 1000,
-    ).toISOString(), // ~1h24m
+    ).toISOString(),
     sessionDate: "Feb 21, 2026 · 8:00 PM – 10:01 PM",
     category: "Electronics",
     isHot: true,
@@ -36,7 +37,7 @@ const upcomingAuctions = [
     startingPrice: 500,
     currency: "EGP",
     pieces: 1,
-    endsAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days
+    endsAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
     sessionDate: "Feb 23, 2026 · 6:00 PM – 10:00 PM",
     category: "Fragrance",
     isHot: false,
@@ -50,7 +51,7 @@ const upcomingAuctions = [
     startingPrice: 8000,
     currency: "EGP",
     pieces: 2,
-    endsAt: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString(), // 6 days
+    endsAt: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString(),
     sessionDate: "Feb 27, 2026 · 7:00 PM – 10:01 PM",
     category: "Phones",
     isHot: true,
@@ -219,10 +220,7 @@ function FlipTile({
         flexShrink: 0,
       }}
     >
-      {/* Back plate */}
       <div style={{ ...font }}>{next}</div>
-
-      {/* Top flap */}
       <div
         style={{
           position: "absolute",
@@ -241,8 +239,6 @@ function FlipTile({
       >
         <div style={{ ...font }}>{current}</div>
       </div>
-
-      {/* Bottom flap */}
       <div
         style={{
           position: "absolute",
@@ -261,8 +257,6 @@ function FlipTile({
       >
         <div style={{ ...font, top: `-${H / 2}px` }}>{next}</div>
       </div>
-
-      {/* Centre divider */}
       <div
         style={{
           position: "absolute",
@@ -328,8 +322,8 @@ function FlipDigit({
 function CountdownBar({ endsAt }: { endsAt: string }) {
   const { d, h, m, s, done } = useCountdown(endsAt);
   const isMobile = useIsMobile();
+  const { t } = useTranslation();
 
-  // Tile dimensions — smaller on mobile so they always fit
   const W = isMobile ? 28 : 40;
   const H = isMobile ? 38 : 54;
   const R = isMobile ? 6 : 9;
@@ -355,7 +349,7 @@ function CountdownBar({ endsAt }: { endsAt: string }) {
           letterSpacing: "0.1em",
         }}
       >
-        ● ENDED
+        {t("auctionsSection.ended")}
       </div>
     );
   }
@@ -389,13 +383,41 @@ function CountdownBar({ endsAt }: { endsAt: string }) {
         flexWrap: "nowrap",
       }}
     >
-      <FlipDigit value={d} label="Days" W={W} H={H} R={R} fontSize={FS} />
+      <FlipDigit
+        value={d}
+        label={t("auctionsSection.days")}
+        W={W}
+        H={H}
+        R={R}
+        fontSize={FS}
+      />
       <Sep />
-      <FlipDigit value={h} label="Hours" W={W} H={H} R={R} fontSize={FS} />
+      <FlipDigit
+        value={h}
+        label={t("auctionsSection.hours")}
+        W={W}
+        H={H}
+        R={R}
+        fontSize={FS}
+      />
       <Sep />
-      <FlipDigit value={m} label="Mins" W={W} H={H} R={R} fontSize={FS} />
+      <FlipDigit
+        value={m}
+        label={t("auctionsSection.mins")}
+        W={W}
+        H={H}
+        R={R}
+        fontSize={FS}
+      />
       <Sep />
-      <FlipDigit value={s} label="Secs" W={W} H={H} R={R} fontSize={FS} />
+      <FlipDigit
+        value={s}
+        label={t("auctionsSection.secs")}
+        W={W}
+        H={H}
+        R={R}
+        fontSize={FS}
+      />
     </div>
   );
 }
@@ -411,6 +433,7 @@ function UpcomingCard({
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
   const [hovered, setHovered] = useState(false);
+  const { t } = useTranslation();
 
   useEffect(() => {
     const el = ref.current;
@@ -484,7 +507,6 @@ function UpcomingCard({
               "linear-gradient(to right, transparent 50%, rgba(10,10,26,0.6))",
           }}
         />
-        {/* Category badge */}
         <div
           style={{
             position: "absolute",
@@ -535,7 +557,6 @@ function UpcomingCard({
           gap: 12,
         }}
       >
-        {/* Top row */}
         <div className="auction-card-top-row">
           <div>
             <h3
@@ -562,7 +583,6 @@ function UpcomingCard({
             </p>
           </div>
 
-          {/* Register button */}
           <button
             className="auction-register-btn"
             style={{
@@ -598,11 +618,10 @@ function UpcomingCard({
                 `0 4px 20px ${GOLD}44`;
             }}
           >
-            ✦ Register to Join
+            {t("auctionsSection.registerToJoin")}
           </button>
         </div>
 
-        {/* Session info */}
         <div
           style={{ display: "flex", flexWrap: "wrap", gap: 16, fontSize: 11 }}
         >
@@ -627,12 +646,14 @@ function UpcomingCard({
           >
             <span style={{ color: GOLD, fontSize: 13 }}>📦</span>
             <span>
-              {item.pieces} {item.pieces === 1 ? "Piece" : "Pieces"}
+              {item.pieces}{" "}
+              {item.pieces === 1
+                ? t("auctionsSection.piece")
+                : t("auctionsSection.pieces")}
             </span>
           </div>
         </div>
 
-        {/* Price */}
         <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
           <span
             style={{
@@ -643,7 +664,7 @@ function UpcomingCard({
               textTransform: "uppercase",
             }}
           >
-            Starting from
+            {t("auctionsSection.startingFrom")}
           </span>
           <span
             style={{
@@ -660,7 +681,6 @@ function UpcomingCard({
           </span>
         </div>
 
-        {/* Divider */}
         <div
           style={{
             height: 1,
@@ -668,7 +688,6 @@ function UpcomingCard({
           }}
         />
 
-        {/* Countdown */}
         <div>
           <div
             style={{
@@ -680,7 +699,7 @@ function UpcomingCard({
               marginBottom: 8,
             }}
           >
-            ⏱ Session Starts In
+            {t("auctionsSection.sessionStartsIn")}
           </div>
           <CountdownBar endsAt={item.endsAt} />
         </div>
@@ -700,6 +719,7 @@ function PastCard({
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
   const [hovered, setHovered] = useState(false);
+  const { t } = useTranslation();
 
   useEffect(() => {
     const el = ref.current;
@@ -738,7 +758,6 @@ function PastCard({
           : "0 4px 20px rgba(0,0,0,0.18)",
       }}
     >
-      {/* Image + sold out overlay */}
       <div
         className="auction-card-img"
         style={{
@@ -775,8 +794,6 @@ function PastCard({
               "linear-gradient(to right, transparent 40%, rgba(10,10,26,0.55))",
           }}
         />
-
-        {/* SOLD OUT stamp */}
         <div
           style={{
             position: "absolute",
@@ -797,11 +814,10 @@ function PastCard({
             background: "rgba(10,10,26,0.5)",
           }}
         >
-          SOLD OUT
+          {t("auctionsSection.soldOut")}
         </div>
       </div>
 
-      {/* Content */}
       <div
         className="auction-card-content"
         style={{
@@ -811,7 +827,6 @@ function PastCard({
           gap: 14,
         }}
       >
-        {/* Title row */}
         <div>
           <h3
             style={{
@@ -836,7 +851,6 @@ function PastCard({
           </p>
         </div>
 
-        {/* Session + price */}
         <div
           style={{ display: "flex", flexWrap: "wrap", gap: 16, fontSize: 11 }}
         >
@@ -849,7 +863,9 @@ function PastCard({
             }}
           >
             <span style={{ color: GOLD, fontSize: 13 }}>📅</span>
-            <span>Session: {item.sessionDate}</span>
+            <span>
+              {t("auctionsSection.session")}: {item.sessionDate}
+            </span>
           </div>
         </div>
 
@@ -863,7 +879,7 @@ function PastCard({
               textTransform: "uppercase",
             }}
           >
-            Winning Price
+            {t("auctionsSection.winningPrice")}
           </span>
           <span
             style={{
@@ -880,7 +896,6 @@ function PastCard({
           </span>
         </div>
 
-        {/* Divider */}
         <div
           style={{
             height: 1,
@@ -889,7 +904,6 @@ function PastCard({
           }}
         />
 
-        {/* Winner row */}
         <div>
           <div
             style={{
@@ -899,7 +913,11 @@ function PastCard({
               marginBottom: 8,
             }}
           >
-            {["Winner", "Name", "Country"].map((h) => (
+            {[
+              t("auctionsSection.winner"),
+              t("auctionsSection.name"),
+              t("auctionsSection.country"),
+            ].map((h) => (
               <span
                 key={h}
                 style={{
@@ -929,7 +947,6 @@ function PastCard({
               alignItems: "center",
             }}
           >
-            {/* Avatar */}
             <div
               style={{
                 width: 40,
@@ -955,11 +972,9 @@ function PastCard({
                 </span>
               )}
             </div>
-            {/* Name */}
             <span style={{ fontSize: 13, fontWeight: 700, color: CREAM }}>
               {item.winner.name}
             </span>
-            {/* Country */}
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{ fontSize: 22 }}>{item.winner.country}</span>
               <span style={{ fontSize: 11, color: "rgba(229,224,198,0.45)" }}>
@@ -1021,8 +1036,6 @@ function TabButton({
       >
         {label}
       </span>
-
-      {/* Active underline */}
       <div
         style={{
           position: "absolute",
@@ -1038,7 +1051,6 @@ function TabButton({
           boxShadow: active ? `0 0 10px ${GOLD}88` : "none",
         }}
       />
-      {/* Hover underline (when not active) */}
       {!active && (
         <div
           style={{
@@ -1066,6 +1078,7 @@ export default function AuctionsSection() {
   const headerRef = useRef<HTMLDivElement>(null);
   const [headerVisible, setHeaderVisible] = useState(false);
   const [animKey, setAnimKey] = useState(0);
+  const { t, i18n } = useTranslation();
 
   useEffect(() => {
     const el = headerRef.current;
@@ -1083,6 +1096,11 @@ export default function AuctionsSection() {
     obs.observe(el);
     return () => obs.disconnect();
   }, []);
+
+  // Re-animate SplitText on language change
+  useEffect(() => {
+    setAnimKey((k) => k + 1);
+  }, [i18n.language]);
 
   const switchTab = (tab: "upcoming" | "past") => {
     if (tab === activeTab || animating) return;
@@ -1118,8 +1136,6 @@ export default function AuctionsSection() {
           transform: translateY(-8px);
           transition: opacity 0.2s ease, transform 0.2s ease;
         }
-
-        /* Desktop card layout */
         .auction-card {
           display: grid;
           grid-template-columns: 220px 1fr;
@@ -1145,8 +1161,6 @@ export default function AuctionsSection() {
           justify-content: space-between;
           gap: 16px;
         }
-
-        /* Mobile ≤ 640px */
         @media (max-width: 640px) {
           .auction-card {
             grid-template-columns: 1fr !important;
@@ -1214,7 +1228,6 @@ export default function AuctionsSection() {
         }}
       />
 
-      {/* Top separator */}
       <div
         style={{
           position: "absolute",
@@ -1237,7 +1250,6 @@ export default function AuctionsSection() {
           zIndex: 1,
         }}
       >
-        {/* Eyebrow */}
         <div
           style={{
             display: "inline-flex",
@@ -1265,7 +1277,7 @@ export default function AuctionsSection() {
               textTransform: "uppercase",
             }}
           >
-            · Auction House ·
+            {t("auctionsSection.eyebrow")}
           </span>
           <div
             style={{
@@ -1276,7 +1288,6 @@ export default function AuctionsSection() {
           />
         </div>
 
-        {/* Line 1 — white */}
         <div
           style={{
             fontSize: "clamp(32px, 5vw, 56px)",
@@ -1289,7 +1300,7 @@ export default function AuctionsSection() {
         >
           <SplitText
             key={`auctions-line1-${animKey}`}
-            text="Live &"
+            text={t("auctionsSection.titleLine1")}
             tag="h2"
             className=""
             splitType="chars"
@@ -1301,7 +1312,6 @@ export default function AuctionsSection() {
           />
         </div>
 
-        {/* Line 2 — gold */}
         <div
           style={{
             fontSize: "clamp(32px, 5vw, 56px)",
@@ -1314,7 +1324,7 @@ export default function AuctionsSection() {
         >
           <SplitText
             key={`auctions-line2-${animKey}`}
-            text="Past Auctions."
+            text={t("auctionsSection.titleLine2")}
             tag="h2"
             className=""
             splitType="chars"
@@ -1340,8 +1350,8 @@ export default function AuctionsSection() {
           }}
         >
           {activeTab === "upcoming"
-            ? "Discover exclusive upcoming auctions and register before seats run out."
-            : "Browse our completed auctions and meet the winning bidders."}
+            ? t("auctionsSection.subtitleUpcoming")
+            : t("auctionsSection.subtitlePast")}
         </p>
       </div>
 
@@ -1368,13 +1378,13 @@ export default function AuctionsSection() {
           }}
         >
           <TabButton
-            label="Upcoming Auctions"
+            label={t("auctionsSection.tabUpcoming")}
             icon=""
             active={activeTab === "upcoming"}
             onClick={() => switchTab("upcoming")}
           />
           <TabButton
-            label="Past Auctions"
+            label={t("auctionsSection.tabPast")}
             icon=""
             active={activeTab === "past"}
             onClick={() => switchTab("past")}
@@ -1398,7 +1408,6 @@ export default function AuctionsSection() {
       >
         {activeTab === "upcoming" ? (
           <>
-            {/* Count label */}
             <div
               style={{
                 display: "flex",
@@ -1424,7 +1433,9 @@ export default function AuctionsSection() {
                   textTransform: "uppercase",
                 }}
               >
-                {upcomingAuctions.length} Upcoming Sessions
+                {t("auctionsSection.upcomingCount", {
+                  count: upcomingAuctions.length,
+                })}
               </span>
             </div>
             {upcomingAuctions.map((item, i) => (
@@ -1458,7 +1469,9 @@ export default function AuctionsSection() {
                   textTransform: "uppercase",
                 }}
               >
-                {pastAuctions.length} Completed Auctions
+                {t("auctionsSection.pastCount", {
+                  count: pastAuctions.length,
+                })}
               </span>
             </div>
             {pastAuctions.map((item, i) => (
@@ -1468,7 +1481,6 @@ export default function AuctionsSection() {
         )}
       </div>
 
-      {/* Bottom separator */}
       <div
         style={{
           position: "absolute",
