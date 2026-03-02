@@ -1,7 +1,9 @@
 import React, { useRef, useState, useEffect } from "react";
 import { useInView } from "motion/react";
 import CountUp from "@/components/CountUp";
+import { useTranslation } from "react-i18next";
 import SplitText from "@/components/SplitText";
+
 
 // ── Design tokens ──────────────────────────────────────────────
 const NAVY = "#2A4863";
@@ -14,26 +16,26 @@ const stats = [
   {
     value: 24800,
     suffix: "+",
-    label: "Registered Users",
-    description: "Trusted bidders across Egypt",
+    label: "stats.users.label",
+    description: "stats.users.description",
   },
   {
     value: 3200,
     suffix: "+",
-    label: "Auctions Completed",
-    description: "Successfully closed deals",
+    label: "stats.auctions.label",
+    description: "stats.auctions.description",
   },
   {
     value: 98,
     suffix: "%",
-    label: "Satisfaction Rate",
-    description: "From verified buyer reviews",
+    label: "stats.satisfaction.label",
+    description: "stats.satisfaction.description",
   },
   {
     value: 180,
     suffix: "M+",
-    label: "EGP in Bids Placed",
-    description: "Total value transacted",
+    label: "stats.bids.label",
+    description: "stats.bids.description",
   },
 ];
 
@@ -48,6 +50,8 @@ function StatCard({
   startCount: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
+    const { t, i18n } = useTranslation();
+
 
   return (
     <div
@@ -117,7 +121,7 @@ function StatCard({
           marginBottom: 6,
         }}
       >
-        {stat.label}
+        {t(stat.label)}
       </div>
 
       {/* Description */}
@@ -131,7 +135,7 @@ function StatCard({
           marginBottom: 20,
         }}
       >
-        {stat.description}
+        {t(stat.description )}
       </div>
 
       {/* Number */}
@@ -179,6 +183,8 @@ export default function StatsSection() {
   const sectionRef = useRef<HTMLDivElement>(null);
   const isInView = useInView(sectionRef, { once: true, margin: "-100px" });
   const [startCount, setStartCount] = useState(false);
+      const { t } = useTranslation();
+
 
   useEffect(() => {
     if (isInView) setStartCount(true);
@@ -296,7 +302,7 @@ export default function StatsSection() {
               textTransform: "uppercase",
             }}
           >
-            By The Numbers
+            {t("statsSection.eyebrow")}
           </span>
           <div
             style={{
@@ -320,7 +326,7 @@ export default function StatsSection() {
             }}
           >
             <SplitText
-              text="Trusted by Thousands"
+              text={t("statsSection.titleLine1")}
               tag="h2"
               className=""
               splitType="chars"
@@ -346,7 +352,7 @@ export default function StatsSection() {
             }}
           >
             <SplitText
-              text="Across Every Auction."
+              text={t("statsSection.titleLine2")}
               tag="h2"
               className=""
               splitType="chars"
@@ -370,8 +376,7 @@ export default function StatsSection() {
             letterSpacing: "0.01em",
           }}
         >
-          Real numbers from a platform built on transparency, trust, and
-          results.
+          {t("statsSection.description")}
         </p>
       </div>
 

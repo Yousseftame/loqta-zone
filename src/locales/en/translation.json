@@ -49,5 +49,76 @@
     "from": "From",
     "bid": "Bid",
     "registerToJoin": "✦ Register To Join ✦"
+  },
+  
+  "statsSection": {
+    "eyebrow": "By The Numbers",
+    "titleLine1": "Trusted by Thousands",
+    "titleLine2": "Across Every Auction.",
+    "description": "Real numbers from a platform built on transparency, trust, and results."
+  },
+
+
+  "stats": {
+    "users": {
+      "label": "Registered Users",
+      "description": "Trusted bidders across Egypt"
+    },
+    "auctions": {
+      "label": "Auctions Completed",
+      "description": "Successfully closed deals"
+    },
+    "satisfaction": {
+      "label": "Satisfaction Rate",
+      "description": "From verified buyer reviews"
+    },
+    "bids": {
+      "label": "EGP in Bids Placed",
+      "description": "Total value transacted"
+    }
+  },
+
+  "howitwork":{
+  "eyebrow": "· Simple Process ·",
+  "title": {
+    "first": "How It",
+    "second": "Works."
+  },
+  "description": "Four simple steps to start winning premium auctions across Egypt.",
+  "steps": [
+    {
+      "subtitle": "Register in Minutes",
+      "title": "Create Your Account",
+      "description": "Sign up with your email or phone number. Verify your identity securely and unlock access to Egypt's most exclusive online auction marketplace.",
+      "tag": "Free · 2 Min Setup"
+    },
+    {
+      "subtitle": "Discover Premium Lots",
+      "title": "Browse Live Auctions",
+      "description": "Explore curated auctions across electronics, beauty, wearables, and more. Filter by category, budget, or time remaining to find your perfect item.",
+      "tag": "Updated Daily"
+    },
+    {
+      "subtitle": "Secure & Transparent",
+      "title": "Place Your Bid",
+      "description": "Register for the auction, apply a promo code if you have one, and place your bid. Real-time updates keep you in the loop every second.",
+      "tag": "Live Countdown"
+    },
+    {
+      "subtitle": "Fast Nationwide Delivery",
+      "title": "Win & Receive",
+      "description": "If your bid wins, we handle the rest. Secure payment processing and verified delivery straight to your door — anywhere in Egypt.",
+      "tag": "Guaranteed Delivery"
+    }
+  ],
+  "cta": {
+    "label": "Ready to start?",
+    "button": "Join Loqta Zone ✦"
   }
+}
+
+
+
+
+
 }

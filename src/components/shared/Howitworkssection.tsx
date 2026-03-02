@@ -1,4 +1,6 @@
 import React, { useRef, useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
+
 
 // ── Design tokens ────────────────────────────────────────────
 const NAVY2 = "#1e3652";
@@ -10,41 +12,37 @@ const steps = [
   {
     number: "01",
     icon: "✦",
-    title: "Create Your Account",
-    subtitle: "Register in Minutes",
-    description:
-      "Sign up with your email or phone number. Verify your identity securely and unlock access to Egypt's most exclusive online auction marketplace.",
-    tag: "Free · 2 Min Setup",
+    title: "howitwork.steps.0.title",
+    subtitle: "howitwork.steps.0.subtitle",
+    description: "howitwork.steps.0.description",
+    tag: "howitwork.steps.0.tag",
     accent: GOLD,
   },
   {
     number: "02",
     icon: "◈",
-    title: "Browse Live Auctions",
-    subtitle: "Discover Premium Lots",
-    description:
-      "Explore curated auctions across electronics, beauty, wearables, and more. Filter by category, budget, or time remaining to find your perfect item.",
-    tag: "Updated Daily",
+    title: "howitwork.steps.1.title",
+    subtitle: "howitwork.steps.1.subtitle",
+    description: "howitwork.steps.1.description",
+    tag: "howitwork.steps.1.tag",
     accent: "#7eb8e0",
   },
   {
     number: "03",
     icon: "⬡",
-    title: "Place Your Bid",
-    subtitle: "Secure & Transparent",
-    description:
-      "Register for the auction, apply a promo code if you have one, and place your bid. Real-time updates keep you in the loop every second.",
-    tag: "Live Countdown",
+    title: "howitwork.steps.2.title",
+    subtitle: "howitwork.steps.2.subtitle",
+    description: "howitwork.steps.2.descrption",
+    tag: "howitwork.steps.2.tag",
     accent: "#a3c9a8",
   },
   {
     number: "04",
     icon: "◇",
-    title: "Win & Receive",
-    subtitle: "Fast Nationwide Delivery",
-    description:
-      "If your bid wins, we handle the rest. Secure payment processing and verified delivery straight to your door — anywhere in Egypt.",
-    tag: "Guaranteed Delivery",
+    title: "howitwork.steps.3.title",
+    subtitle: "howitwork.steps.3.subtitle",
+    description: "howitwork.steps.3.description",
+    tag: "howitwork.steps.3.tag",
     accent: GOLD,
   },
 ];
@@ -58,6 +56,8 @@ function CardInner({
   isActive: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
+      const { t } = useTranslation();
+  
 
   return (
     <div
@@ -181,7 +181,7 @@ function CardInner({
           marginBottom: 6,
         }}
       >
-        {step.subtitle}
+        {t(step.subtitle)}
       </div>
 
       {/* Title */}
@@ -195,7 +195,7 @@ function CardInner({
           lineHeight: 1.2,
         }}
       >
-        {step.title}
+        {t(step.title)}
       </h3>
 
       {/* Description */}
@@ -208,7 +208,7 @@ function CardInner({
           fontWeight: 400,
         }}
       >
-        {step.description}
+        {t(step.description)}
       </p>
 
       {/* Tag */}
@@ -237,7 +237,7 @@ function CardInner({
             display: "inline-block",
           }}
         />
-        {step.tag}
+        {t(step.tag)}
       </div>
     </div>
   );
@@ -478,6 +478,8 @@ export default function HowItWorksSection() {
   const headerRef = useRef<HTMLDivElement>(null);
   const [headerVisible, setHeaderVisible] = useState(false);
   const [progress, setProgress] = useState(0);
+        const { t } = useTranslation();
+
 
   // Header observer — fires once, no flicker
   useEffect(() => {
@@ -659,7 +661,7 @@ export default function HowItWorksSection() {
               textTransform: "uppercase",
             }}
           >
-            · Simple Process ·
+            {t("howitwork.eyebrow")}
           </span>
           <div
             style={{
@@ -684,8 +686,10 @@ export default function HowItWorksSection() {
             transition: "opacity 0.7s ease 0.1s, transform 0.7s ease 0.1s",
           }}
         >
-          <span style={{ color: "#ffffff" }}>How It </span>
-          <span style={{ color: GOLD }}>Works.</span>
+          <span style={{ color: "#ffffff" }}>
+            {t("howitwork.title.first")}{" "}
+          </span>
+          <span style={{ color: GOLD }}>{t("howitwork.title.second")}</span>
         </h2>
 
         <p
@@ -701,7 +705,7 @@ export default function HowItWorksSection() {
             transition: "opacity 0.7s ease 0.22s, transform 0.7s ease 0.22s",
           }}
         >
-          Four simple steps to start winning premium auctions across Egypt.
+          {t("howitwork.description")}
         </p>
       </div>
 
@@ -769,7 +773,7 @@ export default function HowItWorksSection() {
               whiteSpace: "nowrap",
             }}
           >
-            Ready to start?
+            {t("howitwork.cta.label")}
           </span>
           <div
             style={{
@@ -809,7 +813,7 @@ export default function HowItWorksSection() {
             b.style.boxShadow = `0 8px 32px ${GOLD}44`;
           }}
         >
-          ✦ Join Loqta Zone
+          {t("howitwork.cta.button")}
         </button>
       </div>
 
