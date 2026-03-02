@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 
 // ── Design tokens (matching site-wide scheme) ─────────────────
 const GOLD = "#c9a96e";
@@ -7,117 +8,6 @@ const NAVY = "#2A4863";
 const NAVY2 = "#1e3652";
 const CREAM = "rgb(229, 224, 198)";
 const BG_DARK = "#0a0a1a";
-
-// ── Data ──────────────────────────────────────────────────────
-const steps = [
-  {
-    number: "01",
-    icon: "✦",
-    title: "Create Your Account",
-    subtitle: "Register in Minutes",
-    description:
-      "Sign up with your email or phone number — it's completely free. Verify your identity securely and unlock full access to Egypt's most exclusive online auction marketplace.",
-    details: [
-      "Enter your name, email, and phone number",
-      "Verify your account via SMS or email",
-      "Complete your profile to start bidding",
-    ],
-    tag: "Free · 2 Min Setup",
-    accent: GOLD,
-    iconBg: `linear-gradient(135deg, ${NAVY}, ${NAVY2})`,
-  },
-  {
-    number: "02",
-    icon: "◈",
-    title: "Browse Live Auctions",
-    subtitle: "Discover Premium Lots",
-    description:
-      "Explore curated auctions across electronics, beauty, wearables, fragrances, and more. Each lot is handpicked for quality and value. Filter by category, budget, or time remaining.",
-    details: [
-      "View upcoming and live auction sessions",
-      "Filter by category, price range & date",
-      "Save your favorite items to your watchlist",
-    ],
-    tag: "Updated Daily",
-    accent: "#7eb8e0",
-    iconBg: `linear-gradient(135deg, #1a3050, #0d2236)`,
-  },
-  {
-    number: "03",
-    icon: "⬡",
-    title: "Apply a Promo Code",
-    subtitle: "Exclusive Member Deals",
-    description:
-      "Before placing your bid, enter your promo code to unlock discounted entry fees and enhanced bidding power. Our members consistently save more with every session.",
-    details: [
-      "Receive promo codes via email & WhatsApp",
-      "Apply codes at the checkout step",
-      "Stack savings across multiple auctions",
-    ],
-    tag: "Members Only Perks",
-    accent: "#a3c9a8",
-    iconBg: `linear-gradient(135deg, #1a3228, #0d2218)`,
-  },
-  {
-    number: "04",
-    icon: "◇",
-    title: "Register & Place Your Bid",
-    subtitle: "Secure & Transparent",
-    description:
-      "Register for your chosen auction, place your bid, and compete live. Real-time countdown timers and live bid updates keep you in the loop every second of the session.",
-    details: [
-      "Register for the specific auction session",
-      "Place your bid amount confidently",
-      "Get live notifications on bid status",
-    ],
-    tag: "Live Countdown",
-    accent: GOLD,
-    iconBg: `linear-gradient(135deg, ${NAVY}, ${NAVY2})`,
-  },
-  {
-    number: "05",
-    icon: "★",
-    title: "Win & Receive",
-    subtitle: "Fast Nationwide Delivery",
-    description:
-      "If your bid wins, we handle the rest. Secure payment processing and verified delivery straight to your door — anywhere in Egypt. Your prize arrives fast, safely packed.",
-    details: [
-      "Receive a winner notification instantly",
-      "Complete secure payment in-app",
-      "Nationwide delivery — tracked & guaranteed",
-    ],
-    tag: "Guaranteed Delivery",
-    accent: "#e0c07e",
-    iconBg: `linear-gradient(135deg, #2c2010, #1a1408)`,
-  },
-];
-
-const faqs = [
-  {
-    q: "Is it free to create an account?",
-    a: "Yes, creating an account on Loqta Zone is completely free. You only pay when you win an auction.",
-  },
-  {
-    q: "How do promo codes work?",
-    a: "Promo codes are distributed to registered members via email, WhatsApp, and social media. They reduce your entry fee or unlock bidding advantages for specific auction sessions.",
-  },
-  {
-    q: "What payment methods are accepted?",
-    a: "We accept all major Egyptian payment methods including Visa, Mastercard, Vodafone Cash, and bank transfers for secure and seamless transactions.",
-  },
-  {
-    q: "How quickly will I receive my order?",
-    a: "Winning items are typically delivered within 2–5 business days anywhere in Egypt. All deliveries are tracked and fully insured.",
-  },
-  {
-    q: "What happens if I win but can't pay?",
-    a: "We encourage all bidders to bid responsibly. If payment isn't completed within the specified window, the win may be forfeited and your account may be restricted.",
-  },
-  {
-    q: "Can I participate in multiple auctions at once?",
-    a: "Absolutely. You can register and bid in as many simultaneous auctions as you like, giving you more chances to win premium products.",
-  },
-];
 
 // ── Animated counter ──────────────────────────────────────────
 function useCountUp(target: number, duration = 2, started: boolean) {
@@ -143,13 +33,22 @@ function StepCard({
   index,
   isVisible,
 }: {
-  step: (typeof steps)[0];
+  step: {
+    number: string;
+    icon: string;
+    title: string;
+    subtitle: string;
+    description: string;
+    details: string[];
+    tag: string;
+    accent: string;
+    iconBg: string;
+    stepLabel: string;
+  };
   index: number;
   isVisible: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
-  const [expanded, setExpanded] = useState(false);
-  const isLeft = index % 2 === 0;
 
   return (
     <div
@@ -309,7 +208,7 @@ function StepCard({
               flexShrink: 0,
             }}
           >
-            Step {step.number}
+            {step.stepLabel} {step.number}
           </div>
         </div>
 
@@ -567,6 +466,8 @@ function TrustBadge({
 
 // ── Main Page ─────────────────────────────────────────────────
 export default function HowItWork() {
+  const { t } = useTranslation();
+
   const heroRef = useRef<HTMLDivElement>(null);
   const stepsRef = useRef<HTMLDivElement>(null);
   const faqRef = useRef<HTMLDivElement>(null);
@@ -617,6 +518,39 @@ export default function HowItWork() {
     ];
     return () => cleanups.forEach((c) => c?.());
   }, []);
+
+  // ── Build steps data from translations ───────────────────────
+  const STEP_ICONS = ["✦", "◈", "⬡", "◇", "★"];
+  const STEP_ACCENTS = [GOLD, "#7eb8e0", "#a3c9a8", GOLD, "#e0c07e"];
+  const STEP_ICON_BGS = [
+    `linear-gradient(135deg, ${NAVY}, ${NAVY2})`,
+    `linear-gradient(135deg, #1a3050, #0d2236)`,
+    `linear-gradient(135deg, #1a3228, #0d2218)`,
+    `linear-gradient(135deg, ${NAVY}, ${NAVY2})`,
+    `linear-gradient(135deg, #2c2010, #1a1408)`,
+  ];
+  const stepLabel = t("howItWorkPage.steps.stepLabel");
+  const steps = (
+    t("howItWorkPage.steps.items", { returnObjects: true }) as any[]
+  ).map((item: any, i: number) => ({
+    ...item,
+    icon: STEP_ICONS[i],
+    accent: STEP_ACCENTS[i],
+    iconBg: STEP_ICON_BGS[i],
+    stepLabel,
+  }));
+
+  // ── Build trust badges from translations ─────────────────────
+  const TRUST_ICONS = ["🔒", "🚚", "🏆", "💬", "🎟", "📱"];
+  const trustItems = (
+    t("howItWorkPage.trust.items", { returnObjects: true }) as any[]
+  ).map((item: any, i: number) => ({ ...item, icon: TRUST_ICONS[i] }));
+
+  // ── Build FAQ from translations ──────────────────────────────
+  const faqs = t("howItWorkPage.faq.items", { returnObjects: true }) as {
+    q: string;
+    a: string;
+  }[];
 
   return (
     <>
@@ -816,7 +750,7 @@ export default function HowItWork() {
                 textTransform: "uppercase",
               }}
             >
-              · Getting Started ·
+              {t("howItWorkPage.hero.eyebrow")}
             </span>
             <div
               style={{
@@ -850,7 +784,7 @@ export default function HowItWork() {
                   textShadow: "0 2px 60px rgba(0,0,0,0.5)",
                 }}
               >
-                How It
+                {t("howItWorkPage.hero.line1")}
               </span>
             </div>
             <div className="hero-word hiw-word-2">
@@ -867,7 +801,7 @@ export default function HowItWork() {
                   display: "inline-block",
                 }}
               >
-                Works.
+                {t("howItWorkPage.hero.line2")}
               </span>
             </div>
           </div>
@@ -888,8 +822,7 @@ export default function HowItWork() {
               marginBottom: 56,
             }}
           >
-            Five simple steps to start winning premium products from Egypt's
-            most exclusive online auction platform.
+            {t("howItWorkPage.hero.subtitle")}
           </p>
 
           {/* Inline stats */}
@@ -906,9 +839,21 @@ export default function HowItWork() {
             }}
           >
             {[
-              { val: c1, suffix: "+", label: "Registered Users" },
-              { val: c2, suffix: "+", label: "Auctions Done" },
-              { val: c3, suffix: "%", label: "Satisfaction" },
+              {
+                val: c1,
+                suffix: "+",
+                label: t("howItWorkPage.hero.stats.users"),
+              },
+              {
+                val: c2,
+                suffix: "+",
+                label: t("howItWorkPage.hero.stats.auctions"),
+              },
+              {
+                val: c3,
+                suffix: "%",
+                label: t("howItWorkPage.hero.stats.satisfaction"),
+              },
             ].map((s, i) => (
               <React.Fragment key={i}>
                 {i > 0 && (
@@ -997,7 +942,7 @@ export default function HowItWork() {
                 color: "rgba(229,224,198,0.3)",
               }}
             >
-              Scroll
+              {t("howItWorkPage.hero.scroll")}
             </span>
           </div>
         </section>
@@ -1077,7 +1022,7 @@ export default function HowItWork() {
                   textTransform: "uppercase",
                 }}
               >
-                · Step by Step ·
+                {t("howItWorkPage.steps.eyebrow")}
               </span>
               <div
                 style={{
@@ -1096,8 +1041,12 @@ export default function HowItWork() {
                 lineHeight: 1.08,
               }}
             >
-              <span style={{ color: "#ffffff" }}>Your Journey </span>
-              <span style={{ color: GOLD }}>Starts Here.</span>
+              <span style={{ color: "#ffffff" }}>
+                {t("howItWorkPage.steps.titleWhite")}{" "}
+              </span>
+              <span style={{ color: GOLD }}>
+                {t("howItWorkPage.steps.titleGold")}
+              </span>
             </h2>
             <p
               style={{
@@ -1110,8 +1059,7 @@ export default function HowItWork() {
                 lineHeight: 1.75,
               }}
             >
-              Follow these five steps and you'll go from first visit to winning
-              your first auction in no time.
+              {t("howItWorkPage.steps.description")}
             </p>
           </div>
 
@@ -1136,9 +1084,6 @@ export default function HowItWork() {
                 isVisible={stepsVisible}
               />
             ))}
-
-            {/* 5th card centered if odd */}
-            {/* (grid auto-fit handles it) */}
           </div>
 
           {/* Connecting visual thread */}
@@ -1211,7 +1156,7 @@ export default function HowItWork() {
                   textTransform: "uppercase",
                 }}
               >
-                ✦ Why Loqta Zone ✦
+                {t("howItWorkPage.trust.eyebrow")}
               </span>
             </div>
             <div
@@ -1222,39 +1167,13 @@ export default function HowItWork() {
                 gap: 16,
               }}
             >
-              {[
-                {
-                  icon: "🔒",
-                  label: "Secure Payments",
-                  sub: "End-to-end encrypted transactions",
-                },
-                {
-                  icon: "🚚",
-                  label: "Fast Delivery",
-                  sub: "2–5 business days nationwide",
-                },
-                {
-                  icon: "🏆",
-                  label: "Verified Winners",
-                  sub: "Every win is publicly confirmed",
-                },
-                {
-                  icon: "💬",
-                  label: "Live Support",
-                  sub: "Dedicated Arabic & English team",
-                },
-                {
-                  icon: "🎟",
-                  label: "Promo Codes",
-                  sub: "Exclusive deals for members",
-                },
-                {
-                  icon: "📱",
-                  label: "Mobile Ready",
-                  sub: "Bid anywhere, anytime",
-                },
-              ].map((b) => (
-                <TrustBadge key={b.label} {...b} />
+              {trustItems.map((b) => (
+                <TrustBadge
+                  key={b.label}
+                  icon={b.icon}
+                  label={b.label}
+                  sub={b.sub}
+                />
               ))}
             </div>
           </div>
@@ -1336,7 +1255,7 @@ export default function HowItWork() {
                     textTransform: "uppercase",
                   }}
                 >
-                  · FAQ ·
+                  {t("howItWorkPage.faq.eyebrow")}
                 </span>
                 <div
                   style={{
@@ -1354,8 +1273,12 @@ export default function HowItWork() {
                   letterSpacing: "-0.02em",
                 }}
               >
-                <span style={{ color: "#ffffff" }}>Common </span>
-                <span style={{ color: GOLD }}>Questions.</span>
+                <span style={{ color: "#ffffff" }}>
+                  {t("howItWorkPage.faq.titleWhite")}{" "}
+                </span>
+                <span style={{ color: GOLD }}>
+                  {t("howItWorkPage.faq.titleGold")}
+                </span>
               </h2>
               <p
                 style={{
@@ -1367,7 +1290,7 @@ export default function HowItWork() {
                   lineHeight: 1.75,
                 }}
               >
-                Everything you need to know before placing your first bid.
+                {t("howItWorkPage.faq.subtitle")}
               </p>
             </div>
 
@@ -1489,7 +1412,7 @@ export default function HowItWork() {
                   textTransform: "uppercase",
                 }}
               >
-                · Ready to Begin ·
+                {t("howItWorkPage.cta.eyebrow")}
               </span>
               <div
                 style={{
@@ -1511,8 +1434,12 @@ export default function HowItWork() {
                 fontStyle: "italic",
               }}
             >
-              <span style={{ color: CREAM }}>Join </span>
-              <span style={{ color: GOLD }}>Loqta Zone</span>
+              <span style={{ color: CREAM }}>
+                {t("howItWorkPage.cta.titleWhite")}{" "}
+              </span>
+              <span style={{ color: GOLD }}>
+                {t("howItWorkPage.cta.titleGold")}
+              </span>
             </h2>
 
             <p
@@ -1524,8 +1451,7 @@ export default function HowItWork() {
                 fontWeight: 400,
               }}
             >
-              Create your free account today and start bidding on premium
-              products. Your first win could be just one bid away.
+              {t("howItWorkPage.cta.description")}
             </p>
 
             {/* CTA buttons */}
@@ -1565,7 +1491,7 @@ export default function HowItWork() {
                   b.style.boxShadow = `0 8px 32px ${GOLD}44`;
                 }}
               >
-                ✦ Register Free
+                {t("howItWorkPage.cta.primaryBtn")}
               </button>
               <button
                 style={{
@@ -1594,7 +1520,7 @@ export default function HowItWork() {
                   b.style.boxShadow = "none";
                 }}
               >
-                View Auctions
+                {t("howItWorkPage.cta.secondaryBtn")}
               </button>
             </div>
 
@@ -1609,7 +1535,11 @@ export default function HowItWork() {
                 flexWrap: "wrap",
               }}
             >
-              {["🔒 Secure", "🚚 Fast Delivery", "🏆 Verified"].map((b) => (
+              {[
+                t("howItWorkPage.cta.trust.secure"),
+                t("howItWorkPage.cta.trust.delivery"),
+                t("howItWorkPage.cta.trust.verified"),
+              ].map((b) => (
                 <span
                   key={b}
                   style={{

@@ -231,5 +231,163 @@
       "copyright": "© {{year}} Loqta Zone. All rights reserved.",
       "crafted": "Crafted with ✦ in Egypt"
     }
+  },
+
+  "howItWorkPage": {
+    "hero": {
+      "eyebrow": "· Getting Started ·",
+      "line1": "How It",
+      "line2": "Works.",
+      "subtitle": "Five simple steps to start winning premium products from Egypt's most exclusive online auction platform.",
+      "stats": {
+        "users": "Registered Users",
+        "auctions": "Auctions Done",
+        "satisfaction": "Satisfaction"
+      },
+      "scroll": "Scroll"
+    },
+    "steps": {
+      "eyebrow": "· Step by Step ·",
+      "titleWhite": "Your Journey",
+      "titleGold": "Starts Here.",
+      "description": "Follow these five steps and you'll go from first visit to winning your first auction in no time.",
+      "stepLabel": "Step",
+      "items": [
+        {
+          "number": "01",
+          "subtitle": "Register in Minutes",
+          "title": "Create Your Account",
+          "description": "Sign up with your email or phone number — it's completely free. Verify your identity securely and unlock full access to Egypt's most exclusive online auction marketplace.",
+          "details": [
+            "Enter your name, email, and phone number",
+            "Verify your account via SMS or email",
+            "Complete your profile to start bidding"
+          ],
+          "tag": "Free · 2 Min Setup"
+        },
+        {
+          "number": "02",
+          "subtitle": "Discover Premium Lots",
+          "title": "Browse Live Auctions",
+          "description": "Explore curated auctions across electronics, beauty, wearables, fragrances, and more. Each lot is handpicked for quality and value. Filter by category, budget, or time remaining.",
+          "details": [
+            "View upcoming and live auction sessions",
+            "Filter by category, price range & date",
+            "Save your favorite items to your watchlist"
+          ],
+          "tag": "Updated Daily"
+        },
+        {
+          "number": "03",
+          "subtitle": "Exclusive Member Deals",
+          "title": "Apply a Promo Code",
+          "description": "Before placing your bid, enter your promo code to unlock discounted entry fees and enhanced bidding power. Our members consistently save more with every session.",
+          "details": [
+            "Receive promo codes via email & WhatsApp",
+            "Apply codes at the checkout step",
+            "Stack savings across multiple auctions"
+          ],
+          "tag": "Members Only Perks"
+        },
+        {
+          "number": "04",
+          "subtitle": "Secure & Transparent",
+          "title": "Register & Place Your Bid",
+          "description": "Register for your chosen auction, place your bid, and compete live. Real-time countdown timers and live bid updates keep you in the loop every second of the session.",
+          "details": [
+            "Register for the specific auction session",
+            "Place your bid amount confidently",
+            "Get live notifications on bid status"
+          ],
+          "tag": "Live Countdown"
+        },
+        {
+          "number": "05",
+          "subtitle": "Fast Nationwide Delivery",
+          "title": "Win & Receive",
+          "description": "If your bid wins, we handle the rest. Secure payment processing and verified delivery straight to your door — anywhere in Egypt. Your prize arrives fast, safely packed.",
+          "details": [
+            "Receive a winner notification instantly",
+            "Complete secure payment in-app",
+            "Nationwide delivery — tracked & guaranteed"
+          ],
+          "tag": "Guaranteed Delivery"
+        }
+      ]
+    },
+    "trust": {
+      "eyebrow": "✦ Why Loqta Zone ✦",
+      "items": [
+        {
+          "label": "Secure Payments",
+          "sub": "End-to-end encrypted transactions"
+        },
+        {
+          "label": "Fast Delivery",
+          "sub": "2–5 business days nationwide"
+        },
+        {
+          "label": "Verified Winners",
+          "sub": "Every win is publicly confirmed"
+        },
+        {
+          "label": "Live Support",
+          "sub": "Dedicated Arabic & English team"
+        },
+        {
+          "label": "Promo Codes",
+          "sub": "Exclusive deals for members"
+        },
+        {
+          "label": "Mobile Ready",
+          "sub": "Bid anywhere, anytime"
+        }
+      ]
+    },
+    "faq": {
+      "eyebrow": "· FAQ ·",
+      "titleWhite": "Common",
+      "titleGold": "Questions.",
+      "subtitle": "Everything you need to know before placing your first bid.",
+      "items": [
+        {
+          "q": "Is it free to create an account?",
+          "a": "Yes, creating an account on Loqta Zone is completely free. You only pay when you win an auction."
+        },
+        {
+          "q": "How do promo codes work?",
+          "a": "Promo codes are distributed to registered members via email, WhatsApp, and social media. They reduce your entry fee or unlock bidding advantages for specific auction sessions."
+        },
+        {
+          "q": "What payment methods are accepted?",
+          "a": "We accept all major Egyptian payment methods including Visa, Mastercard, Vodafone Cash, and bank transfers for secure and seamless transactions."
+        },
+        {
+          "q": "How quickly will I receive my order?",
+          "a": "Winning items are typically delivered within 2–5 business days anywhere in Egypt. All deliveries are tracked and fully insured."
+        },
+        {
+          "q": "What happens if I win but can't pay?",
+          "a": "We encourage all bidders to bid responsibly. If payment isn't completed within the specified window, the win may be forfeited and your account may be restricted."
+        },
+        {
+          "q": "Can I participate in multiple auctions at once?",
+          "a": "Absolutely. You can register and bid in as many simultaneous auctions as you like, giving you more chances to win premium products."
+        }
+      ]
+    },
+    "cta": {
+      "eyebrow": "· Ready to Begin ·",
+      "titleWhite": "Join",
+      "titleGold": "Loqta Zone",
+      "description": "Create your free account today and start bidding on premium products. Your first win could be just one bid away.",
+      "primaryBtn": "✦ Register Free",
+      "secondaryBtn": "View Auctions",
+      "trust": {
+        "secure": "🔒 Secure",
+        "delivery": "🚚 Fast Delivery",
+        "verified": "🏆 Verified"
+      }
+    }
   }
 }
