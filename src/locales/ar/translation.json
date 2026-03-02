@@ -31,5 +31,23 @@
   },
   "footer": {
     "copyright": "لقطة زون · مزادات مميزة"
+  },
+  "hero": {
+    "loqta": "لقطه",
+    "zone": "زون",
+    "tagline": "مزادات أونلاين مميزة",
+    "editorialDirection": "التوجه التحريري",
+    "season": "٢٠٢٦ — الموسم الأول",
+    "scroll": "تمرير"
+  },
+  "auctionSwiper": {
+    "eyebrow": "· المزادات المباشرة ·",
+    "titleLine1": "المزادات ",
+    "titleLine2": "القادمة.",
+    "subtitle": "سجّل الآن وأمّن مكانك قبل فتح باب المزايدة.",
+    "promoCode": "✦ كود خصم ✦",
+    "from": "يبدأ من",
+    "bid": "المزايدة",
+    "registerToJoin": "✦ سجّل للمشاركة ✦"
   }
 }

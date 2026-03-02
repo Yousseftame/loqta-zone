@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect, memo } from "react";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Autoplay, FreeMode } from "swiper/modules";
 import { useInView } from "motion/react";
+import { useTranslation } from "react-i18next";
 import SplitText from "@/components/SplitText";
 import "swiper/css/free-mode";
 import "swiper/css";
@@ -126,10 +127,10 @@ const auctionItems: AuctionItem[] = [
 // ── Card ──────────────────────────────────────────────────────
 const AuctionCard = memo(function AuctionCard({ item }: { item: AuctionItem }) {
   const [hovered, setHovered] = useState(false);
+  const { t } = useTranslation();
 
   return (
     <>
-      {/* Responsive card styles injected once */}
       <style>{`
         .lz-card-img { height: 180px; }
         .lz-card-title { font-size: 11px; }
@@ -194,7 +195,9 @@ const AuctionCard = memo(function AuctionCard({ item }: { item: AuctionItem }) {
         }
       `}</style>
 
+      {/* dir="ltr": card layout is always LTR regardless of page language */}
       <div
+        dir="ltr"
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         style={{
@@ -230,8 +233,9 @@ const AuctionCard = memo(function AuctionCard({ item }: { item: AuctionItem }) {
             transition: "background 0.4s ease",
           }}
         >
+          {/* ✦ i18n: was "✦ Promo Code ✦" */}
           <span style={{ position: "relative", zIndex: 1 }}>
-            ✦ Promo Code ✦
+            {t("auctionSwiper.promoCode")}
           </span>
           <div
             style={{
@@ -281,7 +285,7 @@ const AuctionCard = memo(function AuctionCard({ item }: { item: AuctionItem }) {
             }}
           />
 
-          {/* LOQTA ZONE stamp */}
+          {/* LOQTA ZONE stamp — brand name, not translated */}
           <div
             className="lz-card-stamp"
             style={{
@@ -411,7 +415,6 @@ const AuctionCard = memo(function AuctionCard({ item }: { item: AuctionItem }) {
                 textTransform: "uppercase",
                 letterSpacing: "0.03em",
                 lineHeight: 1.2,
-                // Clamp to 2 lines max
                 display: "-webkit-box",
                 WebkitLineClamp: 2,
                 WebkitBoxOrient: "vertical",
@@ -489,6 +492,7 @@ const AuctionCard = memo(function AuctionCard({ item }: { item: AuctionItem }) {
               }}
             >
               <div>
+                {/* ✦ i18n: was "From" */}
                 <div
                   className="lz-card-price-label"
                   style={{
@@ -499,7 +503,7 @@ const AuctionCard = memo(function AuctionCard({ item }: { item: AuctionItem }) {
                     marginBottom: 2,
                   }}
                 >
-                  From
+                  {t("auctionSwiper.from")}
                 </div>
                 <div
                   className="lz-card-price-value"
@@ -525,6 +529,7 @@ const AuctionCard = memo(function AuctionCard({ item }: { item: AuctionItem }) {
               </div>
               {item.currentBid && (
                 <div style={{ textAlign: "right" }}>
+                  {/* ✦ i18n: was "Bid" */}
                   <div
                     className="lz-card-bid-label"
                     style={{
@@ -535,7 +540,7 @@ const AuctionCard = memo(function AuctionCard({ item }: { item: AuctionItem }) {
                       marginBottom: 2,
                     }}
                   >
-                    Bid
+                    {t("auctionSwiper.bid")}
                   </div>
                   <div
                     className="lz-card-bid-value"
@@ -560,8 +565,9 @@ const AuctionCard = memo(function AuctionCard({ item }: { item: AuctionItem }) {
             </div>
 
             {/* CTA */}
+            {/* ✦ i18n: was "✦ Register To Join ✦" */}
             <ShinyButton className="lz-shiny-btn w-full !rounded-lg">
-              ✦ Register To Join ✦
+              {t("auctionSwiper.registerToJoin")}
             </ShinyButton>
           </div>
         </div>
@@ -576,6 +582,7 @@ const AuctionHeader = memo(function AuctionHeader() {
   const isInView = useInView(headerRef, { once: false, margin: "-80px" });
   const [animKey, setAnimKey] = useState(0);
   const wasInView = useRef(false);
+  const { t, i18n } = useTranslation();
 
   useEffect(() => {
     if (isInView && !wasInView.current) {
@@ -585,6 +592,11 @@ const AuctionHeader = memo(function AuctionHeader() {
       wasInView.current = false;
     }
   }, [isInView]);
+
+  // Re-animate when language changes so SplitText re-renders with new text
+  useEffect(() => {
+    setAnimKey((k) => k + 1);
+  }, [i18n.language]);
 
   return (
     <div
@@ -617,6 +629,7 @@ const AuctionHeader = memo(function AuctionHeader() {
             background: `linear-gradient(90deg, transparent, ${GOLD})`,
           }}
         />
+        {/* ✦ i18n: was "· Live Auctions ·" */}
         <span
           style={{
             fontSize: 10,
@@ -626,7 +639,7 @@ const AuctionHeader = memo(function AuctionHeader() {
             textTransform: "uppercase",
           }}
         >
-          · Live Auctions ·
+          {t("auctionSwiper.eyebrow")}
         </span>
         <div
           style={{
@@ -648,9 +661,10 @@ const AuctionHeader = memo(function AuctionHeader() {
           marginBottom: 4,
         }}
       >
+        {/* ✦ i18n: was "Upcoming" */}
         <SplitText
           key={`line1-${animKey}`}
-          text="Upcoming"
+          text={t("auctionSwiper.titleLine1")}
           tag="h2"
           className=""
           splitType="chars"
@@ -673,9 +687,10 @@ const AuctionHeader = memo(function AuctionHeader() {
           marginBottom: 20,
         }}
       >
+        {/* ✦ i18n: was "Auctions." */}
         <SplitText
           key={`line2-${animKey}`}
-          text="Auctions."
+          text={t("auctionSwiper.titleLine2")}
           tag="h2"
           className=""
           splitType="chars"
@@ -688,6 +703,7 @@ const AuctionHeader = memo(function AuctionHeader() {
       </div>
 
       {/* Subtext */}
+      {/* ✦ i18n: was "Register now and secure your spot before bidding opens." */}
       <p
         style={{
           margin: "0 auto",
@@ -702,7 +718,7 @@ const AuctionHeader = memo(function AuctionHeader() {
           transition: "opacity 0.7s ease 0.35s, transform 0.7s ease 0.35s",
         }}
       >
-        Register now and secure your spot before bidding opens.
+        {t("auctionSwiper.subtitle")}
       </p>
     </div>
   );
@@ -813,13 +829,9 @@ export default function AuctionSwiper() {
             allowTouchMove={true}
             freeMode={true}
             breakpoints={{
-              // Mobile: exactly 2 cards, tight gap
               0: { slidesPerView: 2, spaceBetween: 10 },
-              // Tablet
               640: { slidesPerView: 3, spaceBetween: 14 },
-              // Small desktop
               900: { slidesPerView: 4, spaceBetween: 18 },
-              // Large desktop
               1200: { slidesPerView: 5, spaceBetween: 20 },
             }}
           >
@@ -865,4 +877,3 @@ export default function AuctionSwiper() {
     </section>
   );
 }
-

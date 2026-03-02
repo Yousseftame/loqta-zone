@@ -31,5 +31,23 @@
   },
   "footer": {
     "copyright": "Loqta Zone · Premium Auctions"
+  },
+  "hero": {
+    "loqta":"LOQTA",
+    "zone":"ZONE",
+    "tagline": "Premium Online Auctions",
+    "editorialDirection": "Editorial Direction",
+    "season": "2026 — Season I",
+    "scroll": "Scroll"
+  },
+  "auctionSwiper": {
+    "eyebrow": "· Live Auctions ·",
+    "titleLine1": "Upcoming",
+    "titleLine2": "Auctions.",
+    "subtitle": "Register now and secure your spot before bidding opens.",
+    "promoCode": "✦ Promo Code ✦",
+    "from": "From",
+    "bid": "Bid",
+    "registerToJoin": "✦ Register To Join ✦"
   }
 }

@@ -20,7 +20,6 @@ const GOLD = "#c9a96e";
 const GOLD2 = "#b8944e";
 const CREAM = "rgb(229, 224, 198)";
 
-// ── Nav links — labels come from i18n now ──────────────────────
 const NAV_LINKS = [
   { labelKey: "nav.auctions", to: "/", icon: "◇" },
   { labelKey: "nav.howItWorks", to: "/how-it-works", icon: "◈" },
@@ -49,7 +48,7 @@ const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, role, logout } = useAuth();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   const mobileItems =
     role === "admin" || role === "superAdmin"
@@ -118,7 +117,9 @@ const Navbar = () => {
       `}</style>
 
       {/* ── TOP BAR ──────────────────────────────────────────── */}
+      {/* dir="ltr" locks layout: logo always left, profile+lang always right, regardless of page direction */}
       <nav
+        dir="ltr"
         className="fixed top-0 left-0 right-0 z-50"
         style={{
           background: scrolled
@@ -146,16 +147,24 @@ const Navbar = () => {
 
           {/* Desktop links + auth */}
           <div className="hidden lg:flex items-center gap-8 ml-auto">
-            {NAV_LINKS.map((l) => (
-              <Link
-                key={l.labelKey}
-                to={l.to}
-                className={`loq-link ${location.pathname === l.to ? "active" : ""}`}
-              >
-                {t(l.labelKey)}
-              </Link>
-            ))}
-            <div className="flex items-center gap-3 ml-2">
+            {/* Nav links — direction follows the active language */}
+            <div
+              dir={i18n.language === "ar" ? "rtl" : "ltr"}
+              className="flex items-center gap-8"
+            >
+              {NAV_LINKS.map((l) => (
+                <Link
+                  key={l.labelKey}
+                  to={l.to}
+                  className={`loq-link ${location.pathname === l.to ? "active" : ""}`}
+                >
+                  {t(l.labelKey)}
+                </Link>
+              ))}
+            </div>
+
+            {/* Controls — always ltr: profile avatar + lang switcher stay in place */}
+            <div dir="ltr" className="flex items-center gap-3 ml-2">
               {user ? (
                 <ProfileDropdown user={user} role={role} onLogout={logout} />
               ) : (
@@ -225,7 +234,9 @@ const Navbar = () => {
       />
 
       {/* ── MOBILE PANEL ─────────────────────────────────────── */}
+      {/* dir="ltr" keeps the panel always sliding from the right with consistent internal layout */}
       <div
+        dir="ltr"
         className="lg:hidden"
         style={{
           position: "fixed",

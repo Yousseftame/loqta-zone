@@ -8,6 +8,7 @@ import {
   Heart,
   Settings,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { User as FirebaseUser } from "firebase/auth";
 import type { UserRole } from "@/store/AuthContext/AuthContext";
 
@@ -17,15 +18,15 @@ const GOLD2 = "#b8944e";
 const CREAM = "rgb(229,224,198)";
 
 const USER_ITEMS = [
-  { label: "My Profile", to: "/profile", Icon: User },
-  { label: "My Bids", to: "/my-bids", Icon: Ticket },
-  { label: "Watchlist", to: "/watchlist", Icon: Heart },
-  { label: "Settings", to: "/settings", Icon: Settings },
+  { labelKey: "auth.myProfile", to: "/profile", Icon: User },
+  { labelKey: "auth.myBids", to: "/my-bids", Icon: Ticket },
+  { labelKey: "auth.watchlist", to: "/watchlist", Icon: Heart },
+  { labelKey: "auth.settings", to: "/settings", Icon: Settings },
 ];
 
 const ADMIN_ITEMS = [
-  { label: "Dashboard", to: "/admin", Icon: LayoutDashboard },
-  { label: "Settings", to: "/settings", Icon: Settings },
+  { labelKey: "auth.dashboard", to: "/admin", Icon: LayoutDashboard },
+  { labelKey: "auth.settings", to: "/settings", Icon: Settings },
 ];
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -45,24 +46,26 @@ const getAvatarColor = (name?: string | null) => {
 
 // ── Role badge ─────────────────────────────────────────────────
 const RoleBadge = ({ role }: { role: UserRole }) => {
+  const { t } = useTranslation();
+
   const cfg = {
     superAdmin: {
       color: GOLD,
       bg: "rgba(201,169,110,0.15)",
       border: "rgba(201,169,110,0.3)",
-      label: "Super Admin",
+      labelKey: "common.superAdmin",
     },
     admin: {
       color: "#64a0ff",
       bg: "rgba(100,160,255,0.10)",
       border: "rgba(100,160,255,0.25)",
-      label: "Admin",
+      labelKey: "common.admin",
     },
     user: {
       color: "rgba(229,224,198,0.45)",
       bg: "rgba(255,255,255,0.05)",
       border: "rgba(255,255,255,0.08)",
-      label: "Member",
+      labelKey: "common.member",
     },
   }[role];
 
@@ -98,7 +101,7 @@ const RoleBadge = ({ role }: { role: UserRole }) => {
           fontFamily: "'Jost', sans-serif",
         }}
       >
-        {cfg.label}
+        {t(cfg.labelKey)}
       </span>
     </span>
   );
@@ -153,7 +156,6 @@ interface ProfileDropdownProps {
   user: FirebaseUser;
   role: UserRole | null;
   onLogout: () => Promise<void>;
-  /** When true the dropdown opens upward (for mobile panel) */
   upward?: boolean;
 }
 
@@ -166,6 +168,7 @@ export const ProfileDropdown = ({
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const initials = getInitials(user.displayName);
   const avatarColor = getAvatarColor(user.displayName);
@@ -235,8 +238,10 @@ export const ProfileDropdown = ({
       </button>
 
       {/* ── Dropdown panel ── */}
+      {/* dir="ltr" keeps icon-left, text-right layout consistent regardless of page direction */}
       {open && (
         <div
+          dir="ltr"
           style={{
             position: "absolute",
             top: upward ? "auto" : "calc(100% + 12px)",
@@ -336,7 +341,7 @@ export const ProfileDropdown = ({
                 key={item.to}
                 to={item.to}
                 Icon={item.Icon}
-                label={item.label}
+                label={t(item.labelKey)}
                 onClick={() => setOpen(false)}
               />
             ))}
@@ -383,7 +388,7 @@ export const ProfileDropdown = ({
             }}
           >
             <LogOut size={14} strokeWidth={2} style={{ flexShrink: 0 }} />
-            Sign Out
+            {t("auth.signOut")}
           </button>
         </div>
       )}

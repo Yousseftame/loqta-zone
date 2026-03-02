@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import SplitText from "../SplitText";
 
 export default function HeroSections() {
   const [loaded, setLoaded] = useState(false);
+  const { t } = useTranslation();
 
   useEffect(() => {
-    const t = setTimeout(() => setLoaded(true), 120);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setLoaded(true), 120);
+    return () => clearTimeout(timer);
   }, []);
 
   return (
@@ -14,7 +16,6 @@ export default function HeroSections() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,700;1,700;1,900&family=Jost:wght@200;300;400&display=swap');
 
-        /* ── Root ── */
         .hc-root {
           position: relative;
           width: 100%;
@@ -24,8 +25,6 @@ export default function HeroSections() {
           display: flex;
           align-items: flex-end;
         }
-
-        /* ── Background ── */
         .hc-bg {
           position: absolute;
           inset: 0;
@@ -36,13 +35,10 @@ export default function HeroSections() {
           animation: hc-zoom 20s ease-out forwards;
           z-index: 0;
         }
-
         @keyframes hc-zoom {
           from { transform: scale(1.06); }
           to   { transform: scale(1.00); }
         }
-
-        /* ── Grain ── */
         .hc-grain {
           position: absolute;
           inset: 0;
@@ -52,8 +48,6 @@ export default function HeroSections() {
           background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
           background-size: 200px 200px;
         }
-
-        /* ── Overlays ── */
         .hc-overlay-left {
           position: absolute;
           inset: 0;
@@ -66,7 +60,6 @@ export default function HeroSections() {
           );
           z-index: 2;
         }
-
         .hc-overlay-bottom {
           position: absolute;
           bottom: 0; left: 0; right: 0;
@@ -74,8 +67,6 @@ export default function HeroSections() {
           background: linear-gradient(to top, rgba(3,1,0,0.72) 0%, transparent 100%);
           z-index: 2;
         }
-
-        /* ── Heading ── */
         .hc-heading {
           position: absolute;
           left: clamp(28px, 5.5vw, 96px);
@@ -85,17 +76,11 @@ export default function HeroSections() {
           flex-direction: column;
           line-height: 1;
         }
-
         .hc-word { display: block; overflow: visible; }
-
         .hc-word-1 { transform: translateX(0); }
-
-        /* Editorial asymmetry — second word indented right */
         .hc-word-2 {
           transform: translateX(clamp(22px, 3.8vw, 68px)) translateY(-6px);
         }
-
-        /* ── Text style ── */
         .hc-text {
           font-family: 'Cormorant Garamond', 'Didot', Georgia, serif;
           font-weight: 700;
@@ -109,15 +94,11 @@ export default function HeroSections() {
             0 2px 50px rgba(0,0,0,0.55),
             0 0 100px rgba(210,80,20,0.10);
         }
-
-        /* Second line outlined — premium contrast trick */
         .hc-text-outline {
           color: transparent;
           -webkit-text-stroke: 1.8px rgba(243, 232, 217, 0.70);
           text-shadow: none;
         }
-
-        /* ── Thin rule ── */
         .hc-rule {
           width: 0;
           height: 1px;
@@ -127,8 +108,6 @@ export default function HeroSections() {
           transition: width 1.3s cubic-bezier(0.22,1,0.36,1) 1.5s;
         }
         .hc-rule--in { width: clamp(90px, 14vw, 200px); }
-
-        /* ── Sub text ── */
         .hc-sub {
           font-family: 'Jost', 'Helvetica Neue', sans-serif;
           font-weight: 200;
@@ -142,8 +121,6 @@ export default function HeroSections() {
           transition: opacity 0.9s ease 1.9s, transform 0.9s ease 1.9s;
         }
         .hc-sub--in { opacity: 1; transform: translateY(0); }
-
-        /* ── Meta (bottom right) ── */
         .hc-meta {
           position: absolute;
           bottom: clamp(44px, 7vh, 80px);
@@ -159,7 +136,6 @@ export default function HeroSections() {
           transition: opacity 1s ease 2.1s, transform 1s ease 2.1s;
         }
         .hc-meta--in { opacity: 1; transform: translateY(0); }
-
         .hc-meta-label {
           font-family: 'Jost', sans-serif;
           font-weight: 300;
@@ -168,7 +144,6 @@ export default function HeroSections() {
           text-transform: uppercase;
           color: rgba(243,232,217,0.58);
         }
-
         .hc-meta-date {
           font-family: 'Jost', sans-serif;
           font-weight: 200;
@@ -176,15 +151,12 @@ export default function HeroSections() {
           letter-spacing: 0.20em;
           color: rgba(243,232,217,0.30);
         }
-
         .hc-meta-accent {
           width: 24px;
           height: 1px;
           background: rgba(210, 100, 40, 0.65);
           margin-top: 4px;
         }
-
-        /* ── Scroll indicator ── */
         .hc-scroll {
           position: absolute;
           bottom: clamp(32px, 5vh, 56px);
@@ -199,7 +171,6 @@ export default function HeroSections() {
           transition: opacity 1s ease 2.6s;
         }
         .hc-scroll--in { opacity: 1; }
-
         .hc-scroll-line {
           display: block;
           width: 1px;
@@ -207,12 +178,10 @@ export default function HeroSections() {
           background: linear-gradient(to bottom, transparent, rgba(243,232,217,0.42));
           animation: hc-line-pulse 2.8s ease-in-out 2.6s infinite;
         }
-
         @keyframes hc-line-pulse {
           0%,100% { opacity: 0.45; transform: scaleY(1); }
           50%      { opacity: 1;    transform: scaleY(1.18); }
         }
-
         .hc-scroll-text {
           font-family: 'Jost', sans-serif;
           font-weight: 200;
@@ -221,8 +190,6 @@ export default function HeroSections() {
           text-transform: uppercase;
           color: rgba(243,232,217,0.30);
         }
-
-        /* ── Mobile ── */
         @media (max-width: 640px) {
           .hc-heading {
             left: 50%;
@@ -246,7 +213,8 @@ export default function HeroSections() {
         }
       `}</style>
 
-      <section className="hc-root">
+      {/* dir="ltr": hero layout never flips. LOQTA / ZONE are brand names, not translated. */}
+      <section className="hc-root" dir="ltr">
         <div className="hc-bg" />
         <div className="hc-grain" />
         <div className="hc-overlay-left" />
@@ -256,7 +224,7 @@ export default function HeroSections() {
         <div className="hc-heading">
           <div className="hc-word hc-word-1">
             <SplitText
-              text="LOQTA"
+              text={t("hero.loqta")}
               className="hc-text"
               delay={55}
               duration={1.6}
@@ -272,7 +240,7 @@ export default function HeroSections() {
           </div>
           <div className="hc-word hc-word-2">
             <SplitText
-              text="ZONE"
+              text={t("hero.zone")}
               className="hc-text hc-text-outline"
               delay={55}
               duration={1.6}
@@ -288,22 +256,26 @@ export default function HeroSections() {
           </div>
 
           <div className={`hc-rule ${loaded ? "hc-rule--in" : ""}`} />
+          {/* ✦ i18n: was "Premium Online Auctions" */}
           <p className={`hc-sub ${loaded ? "hc-sub--in" : ""}`}>
-            Premium Online Auctions
+            {t("hero.tagline")}
           </p>
         </div>
 
         {/* ── Bottom-right meta ── */}
         <div className={`hc-meta ${loaded ? "hc-meta--in" : ""}`}>
-          <div className="hc-meta-label">Editorial Direction</div>
-          <div className="hc-meta-date">2026 — Season I</div>
+          {/* ✦ i18n: was "Editorial Direction" */}
+          <div className="hc-meta-label">{t("hero.editorialDirection")}</div>
+          {/* ✦ i18n: was "2026 — Season I" */}
+          <div className="hc-meta-date">{t("hero.season")}</div>
           <div className="hc-meta-accent" />
         </div>
 
         {/* ── Scroll cue ── */}
         <div className={`hc-scroll ${loaded ? "hc-scroll--in" : ""}`}>
           <span className="hc-scroll-line" />
-          <span className="hc-scroll-text">Scroll</span>
+          {/* ✦ i18n: was "Scroll" */}
+          <span className="hc-scroll-text">{t("hero.scroll")}</span>
         </div>
       </section>
     </>
