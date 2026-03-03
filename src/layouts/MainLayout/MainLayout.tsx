@@ -1,10 +1,10 @@
-import Footer from '@/components/Footer/Footer'
-import Navbar from '@/components/Navbar/Navbar'
-import NavigateTop from '@/components/shared/NavigateTop';
-import NotificationBell from '@/components/shared/Notificationbell';
-import ScrollToTop from '@/components/shared/ScrollToTop';
-import React from 'react'
-import { Outlet } from 'react-router-dom'
+import Footer from "@/components/Footer/Footer";
+import Navbar from "@/components/Navbar/Navbar";
+import NavigateTop from "@/components/shared/NavigateTop";
+import NotificationBell from "@/components/shared/Notificationbell";
+import ScrollToTop from "@/components/shared/ScrollToTop";
+import React from "react";
+import { Outlet } from "react-router-dom";
 
 export default function MainLayout() {
   return (
@@ -17,7 +17,7 @@ export default function MainLayout() {
         </main>
         <Footer />
       </div>
-    <ScrollToTop/>
+      <ScrollToTop />
       <NotificationBell />
     </div>
   );
