@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import {
   submitContactMessage,
   submitFeedbackMessage,
@@ -143,12 +144,15 @@ function Field({
 function StarRating({
   value,
   onChange,
+  labels,
+  label,
 }: {
   value: number;
   onChange: (v: number) => void;
+  labels: string[];
+  label: string;
 }) {
   const [hovered, setHovered] = useState(0);
-  const labels = ["", "Poor", "Fair", "Good", "Great", "Excellent"];
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <label
@@ -163,8 +167,8 @@ function StarRating({
           gap: 6,
         }}
       >
-        <span style={{ opacity: 0.7 }}>⭐</span>Your Rating{" "}
-        <span style={{ color: GOLD, opacity: 0.7 }}>*</span>
+        <span style={{ opacity: 0.7 }}>⭐</span>
+        {label} <span style={{ color: GOLD, opacity: 0.7 }}>*</span>
       </label>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         {[1, 2, 3, 4, 5].map((star) => (
@@ -375,7 +379,7 @@ function SubmitBtn({ label, loading }: { label: string; loading: boolean }) {
               display: "inline-block",
             }}
           />
-          Sending…
+          {label}
         </span>
       ) : (
         <span>{label}</span>
@@ -387,10 +391,14 @@ function SubmitBtn({ label, loading }: { label: string; loading: boolean }) {
 // ── Success state ─────────────────────────────────────────────
 function SuccessState({
   message,
+  sub,
   onReset,
+  resetLabel,
 }: {
   message: string;
+  sub: string;
   onReset: () => void;
+  resetLabel: string;
 }) {
   return (
     <div
@@ -440,7 +448,7 @@ function SuccessState({
             lineHeight: 1.7,
           }}
         >
-          We'll get back to you within 24 hours.
+          {sub}
         </div>
       </div>
       <button
@@ -466,7 +474,7 @@ function SuccessState({
             "transparent";
         }}
       >
-        Send Another
+        {resetLabel}
       </button>
     </div>
   );
@@ -677,6 +685,7 @@ function FormCard({
 
 // ── CONTACT FORM ──────────────────────────────────────────────
 function ContactForm({ visible }: { visible: boolean }) {
+  const { t } = useTranslation();
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -694,7 +703,7 @@ function ContactForm({ visible }: { visible: boolean }) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim() || !form.email.trim() || !form.message.trim()) {
-      setError("Please fill in all required fields.");
+      setError(t("contactPage.contactForm.errorRequired"));
       return;
     }
     setError("");
@@ -703,7 +712,7 @@ function ContactForm({ visible }: { visible: boolean }) {
       await submitContactMessage(form);
       setSent(true);
     } catch (err) {
-      setError("Something went wrong. Please try again.");
+      setError(t("contactPage.contactForm.errorGeneric"));
     } finally {
       setLoading(false);
     }
@@ -715,26 +724,50 @@ function ContactForm({ visible }: { visible: boolean }) {
     setError("");
   };
 
+  const subjectOptions = [
+    { val: "", label: t("contactPage.contactForm.subjectOptions.default") },
+    {
+      val: "general",
+      label: t("contactPage.contactForm.subjectOptions.general"),
+    },
+    {
+      val: "auction",
+      label: t("contactPage.contactForm.subjectOptions.auction"),
+    },
+    {
+      val: "payment",
+      label: t("contactPage.contactForm.subjectOptions.payment"),
+    },
+    {
+      val: "delivery",
+      label: t("contactPage.contactForm.subjectOptions.delivery"),
+    },
+    { val: "promo", label: t("contactPage.contactForm.subjectOptions.promo") },
+    { val: "other", label: t("contactPage.contactForm.subjectOptions.other") },
+  ];
+
   if (sent)
     return (
       <FormCard
-        title="Message Sent"
-        subtitle="Contact Us"
+        title={t("contactPage.contactForm.successTitle")}
+        subtitle={t("contactPage.contactForm.subtitle")}
         icon="✉"
         visible={visible}
         delay={0}
       >
         <SuccessState
-          message="Your message has been received!"
+          message={t("contactPage.contactForm.successMessage")}
+          sub={t("contactPage.contactForm.successSub")}
           onReset={resetForm}
+          resetLabel={t("contactPage.contactForm.sendAnother")}
         />
       </FormCard>
     );
 
   return (
     <FormCard
-      title="Get in Touch"
-      subtitle="Contact Us"
+      title={t("contactPage.contactForm.title")}
+      subtitle={t("contactPage.contactForm.subtitle")}
       icon="✉"
       visible={visible}
       delay={0}
@@ -748,17 +781,17 @@ function ContactForm({ visible }: { visible: boolean }) {
           className="form-row"
         >
           <Field
-            label="Full Name"
-            placeholder="Your name"
+            label={t("contactPage.contactForm.fields.name")}
+            placeholder={t("contactPage.contactForm.fields.namePlaceholder")}
             value={form.name}
             onChange={set("name")}
             required
             icon="👤"
           />
           <Field
-            label="Email Address"
+            label={t("contactPage.contactForm.fields.email")}
             type="email"
-            placeholder="your@email.com"
+            placeholder={t("contactPage.contactForm.fields.emailPlaceholder")}
             value={form.email}
             onChange={set("email")}
             required
@@ -770,32 +803,24 @@ function ContactForm({ visible }: { visible: boolean }) {
           className="form-row"
         >
           <Field
-            label="Phone Number"
+            label={t("contactPage.contactForm.fields.phone")}
             type="tel"
-            placeholder="+20 1xx xxx xxxx"
+            placeholder={t("contactPage.contactForm.fields.phonePlaceholder")}
             value={form.phone}
             onChange={set("phone")}
             icon="📞"
           />
           <SelectField
-            label="Subject"
+            label={t("contactPage.contactForm.fields.subject")}
             icon="◈"
             value={form.subject}
             onChange={set("subject")}
-            options={[
-              { val: "", label: "Select a topic…" },
-              { val: "general", label: "General Inquiry" },
-              { val: "auction", label: "Auction Question" },
-              { val: "payment", label: "Payment Issue" },
-              { val: "delivery", label: "Delivery Support" },
-              { val: "promo", label: "Promo Codes" },
-              { val: "other", label: "Other" },
-            ]}
+            options={subjectOptions}
           />
         </div>
         <Field
-          label="Your Message"
-          placeholder="Write your message here…"
+          label={t("contactPage.contactForm.fields.message")}
+          placeholder={t("contactPage.contactForm.fields.messagePlaceholder")}
           value={form.message}
           onChange={set("message")}
           required
@@ -822,7 +847,14 @@ function ContactForm({ visible }: { visible: boolean }) {
               "linear-gradient(90deg, transparent, rgba(229,224,198,0.08), transparent)",
           }}
         />
-        <SubmitBtn label="✦ Send Message" loading={loading} />
+        <SubmitBtn
+          label={
+            loading
+              ? t("contactPage.contactForm.submitting")
+              : t("contactPage.contactForm.submitBtn")
+          }
+          loading={loading}
+        />
       </form>
     </FormCard>
   );
@@ -830,6 +862,7 @@ function ContactForm({ visible }: { visible: boolean }) {
 
 // ── FEEDBACK FORM ─────────────────────────────────────────────
 function FeedbackForm({ visible }: { visible: boolean }) {
+  const { t } = useTranslation();
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -849,11 +882,11 @@ function FeedbackForm({ visible }: { visible: boolean }) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.rating) {
-      setError("Please select a rating.");
+      setError(t("contactPage.feedbackForm.errorRating"));
       return;
     }
     if (!form.feedback.trim()) {
-      setError("Please provide your feedback.");
+      setError(t("contactPage.feedbackForm.errorFeedback"));
       return;
     }
     setError("");
@@ -870,7 +903,7 @@ function FeedbackForm({ visible }: { visible: boolean }) {
       });
       setSent(true);
     } catch (err) {
-      setError("Something went wrong. Please try again.");
+      setError(t("contactPage.feedbackForm.errorGeneric"));
     } finally {
       setLoading(false);
     }
@@ -890,27 +923,52 @@ function FeedbackForm({ visible }: { visible: boolean }) {
     setError("");
   };
 
+  const categoryOptions = [
+    { val: "", label: t("contactPage.feedbackForm.fields.categoryDefault") },
+    { val: "auction", label: t("contactPage.feedbackForm.categories.auction") },
+    {
+      val: "platform",
+      label: t("contactPage.feedbackForm.categories.platform"),
+    },
+    {
+      val: "delivery",
+      label: t("contactPage.feedbackForm.categories.delivery"),
+    },
+    { val: "support", label: t("contactPage.feedbackForm.categories.support") },
+    { val: "payment", label: t("contactPage.feedbackForm.categories.payment") },
+    { val: "general", label: t("contactPage.feedbackForm.categories.general") },
+  ];
+
+  const starLabels = t("contactPage.feedbackForm.starLabels", {
+    returnObjects: true,
+  }) as string[];
+  const recommendOptions = t("contactPage.feedbackForm.recommend.options", {
+    returnObjects: true,
+  }) as string[];
+
   if (sent)
     return (
       <FormCard
-        title="Feedback Received"
-        subtitle="Share Feedback"
+        title={t("contactPage.feedbackForm.successTitle")}
+        subtitle={t("contactPage.feedbackForm.subtitle")}
         icon="★"
         accentColor="#a3c9a8"
         visible={visible}
         delay={0.15}
       >
         <SuccessState
-          message="Thank you for your feedback!"
+          message={t("contactPage.feedbackForm.successMessage")}
+          sub=""
           onReset={resetForm}
+          resetLabel={t("contactPage.feedbackForm.sendAnother")}
         />
       </FormCard>
     );
 
   return (
     <FormCard
-      title="Share Your Experience"
-      subtitle="Your Feedback"
+      title={t("contactPage.feedbackForm.title")}
+      subtitle={t("contactPage.feedbackForm.subtitle")}
       icon="★"
       accentColor="#a3c9a8"
       visible={visible}
@@ -925,47 +983,44 @@ function FeedbackForm({ visible }: { visible: boolean }) {
           className="form-row"
         >
           <Field
-            label="Your Name"
-            placeholder="Your name"
+            label={t("contactPage.feedbackForm.fields.name")}
+            placeholder={t("contactPage.feedbackForm.fields.namePlaceholder")}
             value={form.name}
             onChange={set("name")}
             icon="👤"
           />
           <Field
-            label="Email"
+            label={t("contactPage.feedbackForm.fields.email")}
             type="email"
-            placeholder="your@email.com"
+            placeholder={t("contactPage.feedbackForm.fields.emailPlaceholder")}
             value={form.email}
             onChange={set("email")}
             icon="✉"
           />
         </div>
         <SelectField
-          label="Feedback Category"
+          label={t("contactPage.feedbackForm.fields.category")}
           icon="◇"
           value={form.category}
           onChange={set("category")}
-          options={[
-            { val: "", label: "What's your feedback about?" },
-            { val: "auction", label: "Auction Experience" },
-            { val: "platform", label: "Platform & App" },
-            { val: "delivery", label: "Delivery & Packaging" },
-            { val: "support", label: "Customer Support" },
-            { val: "payment", label: "Payment Process" },
-            { val: "general", label: "General Experience" },
-          ]}
+          options={categoryOptions}
         />
-        <StarRating value={form.rating} onChange={(v) => set("rating")(v)} />
+        <StarRating
+          value={form.rating}
+          onChange={(v) => set("rating")(v)}
+          labels={starLabels}
+          label={t("contactPage.feedbackForm.fields.ratingLabel")}
+        />
         <Field
-          label="Feedback Title"
-          placeholder="Sum it up in a few words…"
+          label={t("contactPage.feedbackForm.fields.title")}
+          placeholder={t("contactPage.feedbackForm.fields.titlePlaceholder")}
           value={form.title}
           onChange={set("title")}
           icon="✦"
         />
         <Field
-          label="Detailed Feedback"
-          placeholder="Tell us about your experience in detail…"
+          label={t("contactPage.feedbackForm.fields.feedback")}
+          placeholder={t("contactPage.feedbackForm.fields.feedbackPlaceholder")}
           value={form.feedback}
           onChange={set("feedback")}
           required
@@ -986,40 +1041,38 @@ function FeedbackForm({ visible }: { visible: boolean }) {
               gap: 6,
             }}
           >
-            <span style={{ opacity: 0.7 }}>🤝</span> Would you recommend Loqta
-            Zone?
+            <span style={{ opacity: 0.7 }}>🤝</span>{" "}
+            {t("contactPage.feedbackForm.recommend.label")}
           </label>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            {["Definitely!", "Probably", "Not Sure", "Probably Not"].map(
-              (opt) => (
-                <button
-                  key={opt}
-                  type="button"
-                  onClick={() => set("recommend")(opt)}
-                  style={{
-                    padding: "9px 18px",
-                    borderRadius: 999,
-                    background:
-                      form.recommend === opt
-                        ? `rgba(163,201,168,0.18)`
-                        : "rgba(255,255,255,0.03)",
-                    border: `1px solid ${form.recommend === opt ? "#a3c9a888" : "rgba(229,224,198,0.1)"}`,
-                    color:
-                      form.recommend === opt
-                        ? "#a3c9a8"
-                        : "rgba(229,224,198,0.45)",
-                    fontSize: 11.5,
-                    fontWeight: 700,
-                    letterSpacing: "0.04em",
-                    cursor: "pointer",
-                    transition: "all 0.28s ease",
-                    fontFamily: "'Jost', sans-serif",
-                  }}
-                >
-                  {opt}
-                </button>
-              ),
-            )}
+            {recommendOptions.map((opt) => (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => set("recommend")(opt)}
+                style={{
+                  padding: "9px 18px",
+                  borderRadius: 999,
+                  background:
+                    form.recommend === opt
+                      ? `rgba(163,201,168,0.18)`
+                      : "rgba(255,255,255,0.03)",
+                  border: `1px solid ${form.recommend === opt ? "#a3c9a888" : "rgba(229,224,198,0.1)"}`,
+                  color:
+                    form.recommend === opt
+                      ? "#a3c9a8"
+                      : "rgba(229,224,198,0.45)",
+                  fontSize: 11.5,
+                  fontWeight: 700,
+                  letterSpacing: "0.04em",
+                  cursor: "pointer",
+                  transition: "all 0.28s ease",
+                  fontFamily: "'Jost', sans-serif",
+                }}
+              >
+                {opt}
+              </button>
+            ))}
           </div>
         </div>
         {error && (
@@ -1041,7 +1094,14 @@ function FeedbackForm({ visible }: { visible: boolean }) {
               "linear-gradient(90deg, transparent, rgba(229,224,198,0.08), transparent)",
           }}
         />
-        <SubmitBtn label="✦ Submit Feedback" loading={loading} />
+        <SubmitBtn
+          label={
+            loading
+              ? t("contactPage.contactForm.submitting")
+              : t("contactPage.feedbackForm.submitBtn")
+          }
+          loading={loading}
+        />
       </form>
     </FormCard>
   );
@@ -1049,6 +1109,8 @@ function FeedbackForm({ visible }: { visible: boolean }) {
 
 // ── MAIN PAGE ─────────────────────────────────────────────────
 export default function ContactUs() {
+  const { t } = useTranslation();
+
   const heroRef = useRef<HTMLDivElement>(null);
   const formsRef = useRef<HTMLDivElement>(null);
   const infoRef = useRef<HTMLDivElement>(null);
@@ -1061,6 +1123,20 @@ export default function ContactUs() {
     window.addEventListener("scroll", fn, { passive: true });
     return () => window.removeEventListener("scroll", fn);
   }, []);
+
+  const heroMeta = [
+    { icon: "✉", text: t("contactPage.hero.meta.email") },
+    { icon: "📞", text: t("contactPage.hero.meta.phone") },
+    { icon: "📍", text: t("contactPage.hero.meta.location") },
+    { icon: "⏱", text: t("contactPage.hero.meta.response") },
+  ];
+
+  const infoItems = t("contactPage.info.items", { returnObjects: true }) as {
+    icon: string;
+    label: string;
+    value: string;
+    sub: string;
+  }[];
 
   return (
     <>
@@ -1186,7 +1262,7 @@ export default function ContactUs() {
                 textTransform: "uppercase",
               }}
             >
-              · Reach Us ·
+              {t("contactPage.hero.eyebrow")}
             </span>
             <div
               style={{
@@ -1218,7 +1294,7 @@ export default function ContactUs() {
                   textShadow: "0 2px 60px rgba(0,0,0,0.5)",
                 }}
               >
-                Contact
+                {t("contactPage.hero.line1")}
               </span>
             </div>
             <div style={{ overflow: "hidden", lineHeight: 0.92 }}>
@@ -1235,7 +1311,7 @@ export default function ContactUs() {
                   display: "block",
                 }}
               >
-                Us.
+                {t("contactPage.hero.line2")}
               </span>
             </div>
           </div>
@@ -1254,8 +1330,7 @@ export default function ContactUs() {
               marginBottom: 44,
             }}
           >
-            Have a question, need support, or want to share your experience?
-            We're here — always ready to help.
+            {t("contactPage.hero.subtitle")}
           </p>
           <div
             className="hero-meta"
@@ -1268,12 +1343,7 @@ export default function ContactUs() {
               justifyContent: "center",
             }}
           >
-            {[
-              { icon: "✉", text: "hello@loqtazone.com" },
-              { icon: "📞", text: "+20 100 000 0000" },
-              { icon: "📍", text: "Cairo, Egypt" },
-              { icon: "⏱", text: "24h Response Time" },
-            ].map((p) => (
+            {heroMeta.map((p) => (
               <div
                 key={p.text}
                 style={{
@@ -1328,7 +1398,7 @@ export default function ContactUs() {
                 color: "rgba(229,224,198,0.28)",
               }}
             >
-              Scroll
+              {t("contactPage.hero.scroll")}
             </span>
           </div>
         </section>
@@ -1403,7 +1473,7 @@ export default function ContactUs() {
                   textTransform: "uppercase",
                 }}
               >
-                · Two Ways to Reach Us ·
+                {t("contactPage.forms.eyebrow")}
               </span>
               <div
                 style={{
@@ -1421,8 +1491,12 @@ export default function ContactUs() {
                 letterSpacing: "-0.025em",
               }}
             >
-              <span style={{ color: "#fff" }}>Send a Message </span>
-              <span style={{ color: GOLD }}>or Share Feedback.</span>
+              <span style={{ color: "#fff" }}>
+                {t("contactPage.forms.titleWhite")}{" "}
+              </span>
+              <span style={{ color: GOLD }}>
+                {t("contactPage.forms.titleGold")}
+              </span>
             </h2>
           </div>
           <div
@@ -1481,7 +1555,7 @@ export default function ContactUs() {
                   textTransform: "uppercase",
                 }}
               >
-                ✦ Find Us ✦
+                {t("contactPage.info.eyebrow")}
               </span>
               <h2
                 style={{
@@ -1491,8 +1565,12 @@ export default function ContactUs() {
                   letterSpacing: "-0.02em",
                 }}
               >
-                <span style={{ color: "#fff" }}>Other Ways to </span>
-                <span style={{ color: GOLD }}>Connect.</span>
+                <span style={{ color: "#fff" }}>
+                  {t("contactPage.info.titleWhite")}{" "}
+                </span>
+                <span style={{ color: GOLD }}>
+                  {t("contactPage.info.titleGold")}
+                </span>
               </h2>
             </div>
             <div
@@ -1503,44 +1581,7 @@ export default function ContactUs() {
                 gap: 14,
               }}
             >
-              {[
-                {
-                  icon: "✉",
-                  label: "Email",
-                  value: "hello@loqtazone.com",
-                  sub: "We reply within 24 hours",
-                },
-                {
-                  icon: "📞",
-                  label: "Phone",
-                  value: "+20 100 000 0000",
-                  sub: "Sun–Thu, 9AM–9PM",
-                },
-                {
-                  icon: "📱",
-                  label: "WhatsApp",
-                  value: "+20 100 000 0000",
-                  sub: "Fast responses on WhatsApp",
-                },
-                {
-                  icon: "📍",
-                  label: "Location",
-                  value: "Cairo, Egypt",
-                  sub: "Online-first platform",
-                },
-                {
-                  icon: "📘",
-                  label: "Facebook",
-                  value: "@LoqtaZone",
-                  sub: "Follow for auction updates",
-                },
-                {
-                  icon: "📸",
-                  label: "Instagram",
-                  value: "@LoqtaZone",
-                  sub: "Behind the scenes & wins",
-                },
-              ].map((item, i) => (
+              {infoItems.map((item, i) => (
                 <div
                   key={item.label}
                   style={{
@@ -1600,7 +1641,7 @@ export default function ContactUs() {
                   margin: 0,
                 }}
               >
-                Crafted with ✦ in Egypt · Loqta Zone Premium Auctions
+                {t("contactPage.info.footer")}
               </p>
             </div>
           </div>

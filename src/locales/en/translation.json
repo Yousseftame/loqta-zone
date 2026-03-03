@@ -187,6 +187,139 @@
       "submitAnother": "Submit Another"
     }
   },
+  "contactPage": {
+    "hero": {
+      "eyebrow": "· Reach Us ·",
+      "line1": "Contact",
+      "line2": "Us.",
+      "subtitle": "Have a question, need support, or want to share your experience? We're here — always ready to help.",
+      "meta": {
+        "email": "hello@loqtazone.com",
+        "phone": "+20 100 000 0000",
+        "location": "Cairo, Egypt",
+        "response": "24h Response Time"
+      },
+      "scroll": "Scroll"
+    },
+    "forms": {
+      "eyebrow": "· Two Ways to Reach Us ·",
+      "titleWhite": "Send a Message",
+      "titleGold": "or Share Feedback."
+    },
+    "contactForm": {
+      "subtitle": "Contact Us",
+      "title": "Get in Touch",
+      "fields": {
+        "name": "Full Name",
+        "namePlaceholder": "Your name",
+        "email": "Email Address",
+        "emailPlaceholder": "your@email.com",
+        "phone": "Phone Number",
+        "phonePlaceholder": "+20 1xx xxx xxxx",
+        "subject": "Subject",
+        "message": "Your Message",
+        "messagePlaceholder": "Write your message here…"
+      },
+      "subjectOptions": {
+        "default": "Select a topic…",
+        "general": "General Inquiry",
+        "auction": "Auction Question",
+        "payment": "Payment Issue",
+        "delivery": "Delivery Support",
+        "promo": "Promo Codes",
+        "other": "Other"
+      },
+      "submitBtn": "✦ Send Message",
+      "submitting": "Sending…",
+      "errorRequired": "Please fill in all required fields.",
+      "errorGeneric": "Something went wrong. Please try again.",
+      "successMessage": "Your message has been received!",
+      "successSub": "We'll get back to you within 24 hours.",
+      "successTitle": "Message Sent",
+      "sendAnother": "Send Another"
+    },
+    "feedbackForm": {
+      "subtitle": "Your Feedback",
+      "title": "Share Your Experience",
+      "fields": {
+        "name": "Your Name",
+        "namePlaceholder": "Your name",
+        "email": "Email",
+        "emailPlaceholder": "your@email.com",
+        "category": "Feedback Category",
+        "categoryDefault": "What's your feedback about?",
+        "ratingLabel": "Your Rating",
+        "title": "Feedback Title",
+        "titlePlaceholder": "Sum it up in a few words…",
+        "feedback": "Detailed Feedback",
+        "feedbackPlaceholder": "Tell us about your experience in detail…"
+      },
+      "categories": {
+        "auction": "Auction Experience",
+        "platform": "Platform & App",
+        "delivery": "Delivery & Packaging",
+        "support": "Customer Support",
+        "payment": "Payment Process",
+        "general": "General Experience"
+      },
+      "starLabels": ["", "Poor", "Fair", "Good", "Great", "Excellent"],
+      "recommend": {
+        "label": "Would you recommend Loqta Zone?",
+        "options": ["Definitely!", "Probably", "Not Sure", "Probably Not"]
+      },
+      "submitBtn": "✦ Submit Feedback",
+      "errorRating": "Please select a rating.",
+      "errorFeedback": "Please provide your feedback.",
+      "errorGeneric": "Something went wrong. Please try again.",
+      "successMessage": "Thank you for your feedback!",
+      "successTitle": "Feedback Received",
+      "sendAnother": "Send Another"
+    },
+    "info": {
+      "eyebrow": "✦ Find Us ✦",
+      "titleWhite": "Other Ways to",
+      "titleGold": "Connect.",
+      "items": [
+        {
+          "icon": "✉",
+          "label": "Email",
+          "value": "hello@loqtazone.com",
+          "sub": "We reply within 24 hours"
+        },
+        {
+          "icon": "📞",
+          "label": "Phone",
+          "value": "+20 100 000 0000",
+          "sub": "Sun–Thu, 9AM–9PM"
+        },
+        {
+          "icon": "📱",
+          "label": "WhatsApp",
+          "value": "+20 100 000 0000",
+          "sub": "Fast responses on WhatsApp"
+        },
+        {
+          "icon": "📍",
+          "label": "Location",
+          "value": "Cairo, Egypt",
+          "sub": "Online-first platform"
+        },
+        {
+          "icon": "📘",
+          "label": "Facebook",
+          "value": "@LoqtaZone",
+          "sub": "Follow for auction updates"
+        },
+        {
+          "icon": "📸",
+          "label": "Instagram",
+          "value": "@LoqtaZone",
+          "sub": "Behind the scenes & wins"
+        }
+      ],
+      "footer": "Crafted with ✦ in Egypt · Loqta Zone Premium Auctions"
+    }
+  },
   "footer": {
     "subtagline": "Premium Auctions · Egypt",
     "tagline": "Egypt's most exclusive online auction platform — where every bid is a chance to win premium products at unbeatable prices.",
@@ -232,7 +365,6 @@
       "crafted": "Crafted with ✦ in Egypt"
     }
   },
-
   "howItWorkPage": {
     "hero": {
       "eyebrow": "· Getting Started ·",
@@ -322,26 +454,14 @@
           "label": "Secure Payments",
           "sub": "End-to-end encrypted transactions"
         },
-        {
-          "label": "Fast Delivery",
-          "sub": "2–5 business days nationwide"
-        },
+        { "label": "Fast Delivery", "sub": "2–5 business days nationwide" },
         {
           "label": "Verified Winners",
           "sub": "Every win is publicly confirmed"
         },
-        {
-          "label": "Live Support",
-          "sub": "Dedicated Arabic & English team"
-        },
-        {
-          "label": "Promo Codes",
-          "sub": "Exclusive deals for members"
-        },
-        {
-          "label": "Mobile Ready",
-          "sub": "Bid anywhere, anytime"
-        }
+        { "label": "Live Support", "sub": "Dedicated Arabic & English team" },
+        { "label": "Promo Codes", "sub": "Exclusive deals for members" },
+        { "label": "Mobile Ready", "sub": "Bid anywhere, anytime" }
       ]
     },
     "faq": {
