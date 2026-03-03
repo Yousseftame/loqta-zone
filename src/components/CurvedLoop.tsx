@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState, useMemo, useId, type FC, type PointerEvent } from 'react';
 import './CurvedLoop.css';
+import { useTranslation } from 'react-i18next';
 
 interface CurvedLoopProps {
   marqueeText?: string;
@@ -36,6 +37,8 @@ const CurvedLoop: FC<CurvedLoopProps> = ({
   const lastXRef = useRef(0);
   const dirRef = useRef<'left' | 'right'>(direction);
   const velRef = useRef(0);
+  const { t, i18n } = useTranslation();
+    const isArabic = i18n.language === "ar";
 
   const textLength = spacing;
   const totalText = textLength
@@ -46,31 +49,36 @@ const CurvedLoop: FC<CurvedLoopProps> = ({
   const ready = spacing > 0;
 
   useEffect(() => {
-    setSpacing(0); // ← reset first so ready becomes false and remeasures cleanly
+    setSpacing(0);
 
-    const measure = () => {
-      if (!measureRef.current) return;
-      const len = measureRef.current.getComputedTextLength();
-      if (len > 0) {
-        setSpacing(len);
-      } else {
-        setTimeout(() => {
-          if (measureRef.current) {
-            const retried = measureRef.current.getComputedTextLength();
-            setSpacing(retried > 0 ? retried : 800);
+    const isArabic = /[\u0600-\u06FF]/.test(text);
+    const delay = isArabic ? 400 : 50;
+
+    const doMeasure = () => {
+      // Double rAF ensures browser has painted the SVG text element
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (!measureRef.current) return;
+          const len = measureRef.current.getComputedTextLength();
+          if (len > 0) {
+            setSpacing(len);
+          } else {
+            // Last resort: force a known safe width
+            setSpacing(isArabic ? 600 : 800);
           }
-        }, 150);
-      }
+        });
+      });
     };
 
-    // Wait longer for Arabic — glyphs are more complex to shape
-    const delay = /[\u0600-\u06FF]/.test(text) ? 300 : 0;
+    const timer = setTimeout(() => {
+      if (document.fonts?.ready) {
+        document.fonts.ready.then(doMeasure);
+      } else {
+        doMeasure();
+      }
+    }, delay);
 
-    if (document.fonts?.ready) {
-      document.fonts.ready.then(() => setTimeout(measure, delay));
-    } else {
-      setTimeout(measure, delay);
-    }
+    return () => clearTimeout(timer);
   }, [text, className]);
 
   useEffect(() => {
@@ -134,23 +142,39 @@ const CurvedLoop: FC<CurvedLoopProps> = ({
 
   return (
     <div
+      dir= "ltr"
       className="curved-loop-jacket"
-      style={{ visibility: ready ? 'visible' : 'hidden', cursor: cursorStyle }}
+      style={{ visibility: ready ? "visible" : "hidden", cursor: cursorStyle }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={endDrag}
       onPointerLeave={endDrag}
     >
       <svg className="curved-loop-svg" viewBox="0 0 1440 120">
-        <text ref={measureRef} xmlSpace="preserve" style={{ visibility: 'hidden', opacity: 0, pointerEvents: 'none' }}>
+        <text
+          ref={measureRef}
+          xmlSpace="preserve"
+          style={{ visibility: "hidden", opacity: 0, pointerEvents: "none" }}
+        >
           {text}
         </text>
         <defs>
-          <path ref={pathRef} id={pathId} d={pathD} fill="none" stroke="transparent" />
+          <path
+            ref={pathRef}
+            id={pathId}
+            d={pathD}
+            fill="none"
+            stroke="transparent"
+          />
         </defs>
         {ready && (
           <text fontWeight="bold" xmlSpace="preserve" className={className}>
-            <textPath ref={textPathRef} href={`#${pathId}`} startOffset={offset + 'px'} xmlSpace="preserve">
+            <textPath
+              ref={textPathRef}
+              href={`#${pathId}`}
+              startOffset={offset + "px"}
+              xmlSpace="preserve"
+            >
               {totalText}
             </textPath>
           </text>

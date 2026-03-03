@@ -4,9 +4,8 @@ import SplitText from "../SplitText";
 
 export default function HeroSections() {
   const [loaded, setLoaded] = useState(false);
-  const { t , i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const isArabic = i18n.language === "ar";
-
 
   useEffect(() => {
     const timer = setTimeout(() => setLoaded(true), 120);
@@ -71,17 +70,15 @@ export default function HeroSections() {
         }
         .hc-heading {
           position: absolute;
-          left: clamp(28px, 5.5vw, 96px);
           bottom: clamp(56px, 9vh, 112px);
           z-index: 10;
           display: flex;
           flex-direction: column;
           line-height: 1;
         }
-        .hc-word { display: block; overflow: visible; }
-        .hc-word-1 { transform: translateX(0); }
-        .hc-word-2 {
-          transform: translateX(clamp(22px, 3.8vw, 68px)) translateY(-6px);
+        .hc-word {
+          display: block;
+          overflow: visible;
         }
         .hc-text {
           font-family: 'Cormorant Garamond', 'Didot', Georgia, serif;
@@ -92,6 +89,7 @@ export default function HeroSections() {
           letter-spacing: -0.028em;
           color: #F3E8D9;
           display: inline-block;
+          overflow: visible;
           text-shadow:
             0 2px 50px rgba(0,0,0,0.55),
             0 0 100px rgba(210,80,20,0.10);
@@ -192,15 +190,21 @@ export default function HeroSections() {
           text-transform: uppercase;
           color: rgba(243,232,217,0.30);
         }
+
+        /* ── Arabic split-parent fix: allow overflow so glyphs aren't clipped ── */
+        .hc-ar-word .split-parent {
+          overflow: visible !important;
+          padding-right: 12px;
+        }
+
         @media (max-width: 640px) {
           .hc-heading {
-            left: 50%;
+            left: 50% !important;
+            right: unset !important;
             transform: translateX(-50%);
             align-items: center;
             bottom: clamp(100px, 16vh, 150px);
           }
-          .hc-word-1 { transform: none; }
-          .hc-word-2 { transform: translateX(clamp(10px, 5vw, 22px)); }
           .hc-text { font-size: clamp(76px, 23vw, 110px); }
           .hc-rule, .hc-scroll { display: none; }
           .hc-sub { text-align: center; margin-left: 0; }
@@ -215,7 +219,6 @@ export default function HeroSections() {
         }
       `}</style>
 
-      {/* dir="ltr": hero layout never flips. LOQTA / ZONE are brand names, not translated. */}
       <section className="hc-root" dir="ltr">
         <div className="hc-bg" />
         <div className="hc-grain" />
@@ -223,42 +226,71 @@ export default function HeroSections() {
         <div className="hc-overlay-bottom" />
 
         {/* ── Giant editorial heading ── */}
-        <div className="hc-heading">
-          <div className="hc-word hc-word-1">
+        <div
+          className="hc-heading"
+          style={
+            isArabic
+              ? {
+                  right: "clamp(56px, 7vw, 120px)",
+                  left: "unset",
+                  alignItems: "flex-end",
+                }
+              : {
+                  left: "clamp(28px, 5.5vw, 96px)",
+                  alignItems: "flex-start",
+                }
+          }
+        >
+          {/* Line 1 */}
+          <div className={`hc-word ${isArabic ? "hc-ar-word" : ""}`}>
             <SplitText
               text={t("hero.loqta")}
               className="hc-text"
-              delay={isArabic ? 80 : 55} // ← words need a bit more stagger
+              delay={isArabic ? 80 : 55}
               duration={1.6}
               ease="power4.out"
-              splitType={isArabic ? "words" : "chars"} // ← only change
+              splitType={isArabic ? "words" : "chars"}
               from={{ opacity: 0, y: 80, skewY: 3 }}
               to={{ opacity: 1, y: 0, skewY: 0 }}
               threshold={0.05}
               rootMargin="0px"
-              textAlign="left"
+              textAlign={isArabic ? "right" : "left"}
               tag="span"
             />
           </div>
-          <div className="hc-word hc-word-2">
+
+          {/* Line 2 — offset indent, direction-aware */}
+          <div
+            className={`hc-word ${isArabic ? "hc-ar-word" : ""}`}
+            style={
+              isArabic
+                ? {
+                    transform:
+                      "translateX(clamp(-68px, -3.8vw, -22px)) translateY(-6px)",
+                  }
+                : {
+                    transform:
+                      "translateX(clamp(22px, 3.8vw, 68px)) translateY(-6px)",
+                  }
+            }
+          >
             <SplitText
               text={t("hero.zone")}
               className="hc-text hc-text-outline"
-              delay={isArabic ? 80 : 55} // ← words need a bit more stagger
+              delay={isArabic ? 80 : 55}
               duration={1.6}
               ease="power4.out"
-              splitType={isArabic ? "words" : "chars"} // ← only change
+              splitType={isArabic ? "words" : "chars"}
               from={{ opacity: 0, y: 80, skewY: 3 }}
               to={{ opacity: 1, y: 0, skewY: 0 }}
               threshold={0.05}
               rootMargin="0px"
-              textAlign="left"
+              textAlign={isArabic ? "right" : "left"}
               tag="span"
             />
           </div>
 
           <div className={`hc-rule ${loaded ? "hc-rule--in" : ""}`} />
-          {/* ✦ i18n: was "Premium Online Auctions" */}
           <p className={`hc-sub ${loaded ? "hc-sub--in" : ""}`}>
             {t("hero.tagline")}
           </p>
@@ -266,9 +298,7 @@ export default function HeroSections() {
 
         {/* ── Bottom-right meta ── */}
         <div className={`hc-meta ${loaded ? "hc-meta--in" : ""}`}>
-          {/* ✦ i18n: was "Editorial Direction" */}
           <div className="hc-meta-label">{t("hero.editorialDirection")}</div>
-          {/* ✦ i18n: was "2026 — Season I" */}
           <div className="hc-meta-date">{t("hero.season")}</div>
           <div className="hc-meta-accent" />
         </div>
@@ -276,7 +306,6 @@ export default function HeroSections() {
         {/* ── Scroll cue ── */}
         <div className={`hc-scroll ${loaded ? "hc-scroll--in" : ""}`}>
           <span className="hc-scroll-line" />
-          {/* ✦ i18n: was "Scroll" */}
           <span className="hc-scroll-text">{t("hero.scroll")}</span>
         </div>
       </section>
