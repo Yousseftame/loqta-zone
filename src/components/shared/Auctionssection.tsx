@@ -1079,6 +1079,8 @@ export default function AuctionsSection() {
   const [headerVisible, setHeaderVisible] = useState(false);
   const [animKey, setAnimKey] = useState(0);
   const { t, i18n } = useTranslation();
+  const isArabic = i18n.language === "ar";
+
 
   useEffect(() => {
     const el = headerRef.current;
@@ -1303,9 +1305,9 @@ export default function AuctionsSection() {
             text={t("auctionsSection.titleLine1")}
             tag="h2"
             className=""
-            splitType="chars"
+            splitType={isArabic ? "words" : "chars"} // ← only change
             duration={1.0}
-            delay={30}
+            delay={isArabic ? 80 : 30} // ← words need a bit more stagger
             ease="power3.out"
             from={{ opacity: 0, y: 40, rotateX: -20 }}
             to={{ opacity: 1, y: 0, rotateX: 0 }}
@@ -1327,9 +1329,9 @@ export default function AuctionsSection() {
             text={t("auctionsSection.titleLine2")}
             tag="h2"
             className=""
-            splitType="chars"
+            splitType={isArabic ? "words" : "chars"} // ← only change
             duration={1.0}
-            delay={30}
+            delay={isArabic ? 80 : 30} // ← words need a bit more stagger
             ease="power3.out"
             from={{ opacity: 0, y: 40 }}
             to={{ opacity: 1, y: 0 }}

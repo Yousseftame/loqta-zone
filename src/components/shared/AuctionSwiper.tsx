@@ -583,6 +583,8 @@ const AuctionHeader = memo(function AuctionHeader() {
   const [animKey, setAnimKey] = useState(0);
   const wasInView = useRef(false);
   const { t, i18n } = useTranslation();
+  const isArabic = i18n.language === "ar";
+
 
   useEffect(() => {
     if (isInView && !wasInView.current) {
@@ -667,9 +669,9 @@ const AuctionHeader = memo(function AuctionHeader() {
           text={t("auctionSwiper.titleLine1")}
           tag="h2"
           className=""
-          splitType="chars"
+          splitType={isArabic ? "words" : "chars"} // ← only change
           duration={1.0}
-          delay={30}
+          delay={isArabic ? 80 : 30} // ← words need a bit more stagger
           ease="power3.out"
           from={{ opacity: 0, y: 40, rotateX: -20 }}
           to={{ opacity: 1, y: 0, rotateX: 0 }}
@@ -693,9 +695,9 @@ const AuctionHeader = memo(function AuctionHeader() {
           text={t("auctionSwiper.titleLine2")}
           tag="h2"
           className=""
-          splitType="chars"
+          splitType={isArabic ? "words" : "chars"} // ← only change
           duration={1.0}
-          delay={30}
+          delay={isArabic ? 80 : 30} // ← words need a bit more stagger
           ease="power3.out"
           from={{ opacity: 0, y: 40 }}
           to={{ opacity: 1, y: 0 }}

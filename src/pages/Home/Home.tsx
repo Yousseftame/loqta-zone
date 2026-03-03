@@ -18,8 +18,12 @@ import StatsSection from "@/components/shared/Statssection";
 import HowItWorksSection from "@/components/shared/Howitworkssection";
 import AuctionsSection from "@/components/shared/Auctionssection";
 import AuctionRequestSection from "@/components/shared/Auctionrequestsection";
+import { useTranslation } from "react-i18next";
 
 export default function Home() {
+
+   const { i18n } = useTranslation();
+   const isArabic = i18n.language === "ar";
 
 
   return (
@@ -28,12 +32,16 @@ export default function Home() {
       <HeroSections />
 
       <CurvedLoop
-        marqueeText="LOQTA ✦ ZONE ✦ LOQTA ✦ ZONE ✦ LOQTA ✦"
+        marqueeText={
+          isArabic
+            ? "لقطه ✦ زون ✦ لقطه ✦ زون ✦ لقطه ✦"
+            : "LOQTA ✦ ZONE ✦ LOQTA ✦ ZONE ✦ LOQTA ✦"
+        }
         speed={2}
         curveAmount={400}
-        direction="right"
+        direction={isArabic ? "left" : "right"}
         interactive
-        className="custom-text-style "
+        className="custom-text-style"
       />
 
       <AuctionSwiper />

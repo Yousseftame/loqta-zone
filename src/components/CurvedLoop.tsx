@@ -46,7 +46,31 @@ const CurvedLoop: FC<CurvedLoopProps> = ({
   const ready = spacing > 0;
 
   useEffect(() => {
-    if (measureRef.current) setSpacing(measureRef.current.getComputedTextLength());
+    setSpacing(0); // ← reset first so ready becomes false and remeasures cleanly
+
+    const measure = () => {
+      if (!measureRef.current) return;
+      const len = measureRef.current.getComputedTextLength();
+      if (len > 0) {
+        setSpacing(len);
+      } else {
+        setTimeout(() => {
+          if (measureRef.current) {
+            const retried = measureRef.current.getComputedTextLength();
+            setSpacing(retried > 0 ? retried : 800);
+          }
+        }, 150);
+      }
+    };
+
+    // Wait longer for Arabic — glyphs are more complex to shape
+    const delay = /[\u0600-\u06FF]/.test(text) ? 300 : 0;
+
+    if (document.fonts?.ready) {
+      document.fonts.ready.then(() => setTimeout(measure, delay));
+    } else {
+      setTimeout(measure, delay);
+    }
   }, [text, className]);
 
   useEffect(() => {

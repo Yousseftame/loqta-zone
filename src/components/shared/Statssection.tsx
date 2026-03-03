@@ -50,7 +50,8 @@ function StatCard({
   startCount: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
-    const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
+
 
 
   return (
@@ -183,7 +184,9 @@ export default function StatsSection() {
   const sectionRef = useRef<HTMLDivElement>(null);
   const isInView = useInView(sectionRef, { once: true, margin: "-100px" });
   const [startCount, setStartCount] = useState(false);
-      const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isArabic = i18n.language === "ar";
+
 
 
   useEffect(() => {
@@ -329,9 +332,9 @@ export default function StatsSection() {
               text={t("statsSection.titleLine1")}
               tag="h2"
               className=""
-              splitType="chars"
+              splitType={isArabic ? "words" : "chars"} // ← only change
               duration={1.0}
-              delay={30}
+              delay={isArabic ? 80 : 30} // ← words need a bit more stagger
               ease="power3.out"
               from={{ opacity: 0, y: 40, rotateX: -20 }}
               to={{ opacity: 1, y: 0, rotateX: 0 }}
@@ -355,9 +358,9 @@ export default function StatsSection() {
               text={t("statsSection.titleLine2")}
               tag="h2"
               className=""
-              splitType="chars"
+              splitType={isArabic ? "words" : "chars"} // ← only change
               duration={1.0}
-              delay={30}
+              delay={isArabic ? 80 : 30} // ← words need a bit more stagger
               ease="power3.out"
               from={{ opacity: 0, y: 40 }}
               to={{ opacity: 1, y: 0 }}

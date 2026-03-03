@@ -4,7 +4,9 @@ import SplitText from "../SplitText";
 
 export default function HeroSections() {
   const [loaded, setLoaded] = useState(false);
-  const { t } = useTranslation();
+  const { t , i18n } = useTranslation();
+  const isArabic = i18n.language === "ar";
+
 
   useEffect(() => {
     const timer = setTimeout(() => setLoaded(true), 120);
@@ -226,10 +228,10 @@ export default function HeroSections() {
             <SplitText
               text={t("hero.loqta")}
               className="hc-text"
-              delay={55}
+              delay={isArabic ? 80 : 55} // ← words need a bit more stagger
               duration={1.6}
               ease="power4.out"
-              splitType="chars"
+              splitType={isArabic ? "words" : "chars"} // ← only change
               from={{ opacity: 0, y: 80, skewY: 3 }}
               to={{ opacity: 1, y: 0, skewY: 0 }}
               threshold={0.05}
@@ -242,10 +244,10 @@ export default function HeroSections() {
             <SplitText
               text={t("hero.zone")}
               className="hc-text hc-text-outline"
-              delay={55}
+              delay={isArabic ? 80 : 55} // ← words need a bit more stagger
               duration={1.6}
               ease="power4.out"
-              splitType="chars"
+              splitType={isArabic ? "words" : "chars"} // ← only change
               from={{ opacity: 0, y: 80, skewY: 3 }}
               to={{ opacity: 1, y: 0, skewY: 0 }}
               threshold={0.05}
