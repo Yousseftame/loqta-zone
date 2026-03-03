@@ -637,13 +637,48 @@
       "eyebrow": "· Vision & Mission ·",
       "titleWord1": "Vision",
       "titleWord2": "Mission",
-     
+
       "visionLabel": "Our Vision",
       "visionHeading": "To Lead the Digital Auction Space",
       "visionBody": "To become a leading digital auction marketplace where users enjoy the thrill of bidding while accessing genuine products at competitive prices.",
       "missionLabel": "Our Mission",
       "missionHeading": "Delivering Trust at Every Bid",
       "missionBody": "To provide a reliable, engaging, and secure auction environment that empowers users to buy smarter and sell easier — with confidence at every step."
+    },
+    "whyChoose": {
+      "eyebrow": "· Why Choose Us ·",
+      "titleLine1": "Why Choose",
+      "titleLine2": "Loqta Zone?",
+      "description": "Four pillars that set us apart — hover each one to discover what makes every bid on Loqta Zone worth placing.",
+      "hoverHint": "Hover to explore",
+      "stats": {
+        "users": "Registered Users",
+        "satisfaction": "Satisfaction Rate",
+        "founded": "Year Founded",
+        "verified": "Verified Wins"
+      },
+      "items": {
+        "thrill": {
+          "label": "Reason One",
+          "title": "For the Thrill",
+          "body": "Experience the adrenaline of live competition and the electric rush of winning. Every countdown tick is designed to keep you on the edge — because the best moments deserve real tension."
+        },
+        "value": {
+          "label": "Reason Two",
+          "title": "For the Value",
+          "body": "Access unbeatable prices on genuine products. Our curated auction model cuts through inflated retail margins so every session delivers real savings on items truly worth winning."
+        },
+        "trust": {
+          "label": "Reason Three",
+          "title": "For the Trust",
+          "body": "Clear rules, verified sellers, authenticated products and transparent outcomes. We've removed every reason for doubt — so you bid with confidence from the first moment to the last."
+        },
+        "convenience": {
+          "label": "Reason Four",
+          "title": "For the Convenience",
+          "body": "Buy smarter and easier from anywhere in the world. Seamless mobile-first design, secure payments, and fast nationwide delivery put every deal exactly where it belongs — in your hands."
+        }
+      }
     }
   }
 

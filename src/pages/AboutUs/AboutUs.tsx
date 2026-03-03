@@ -3,6 +3,7 @@ import AboutPlatform from "@/components/shared/Aboutplatform";
 import AboutProblem from "@/components/shared/Aboutproblem";
 import AboutSolution from "@/components/shared/Aboutsolution";
 import AboutVisionMission from "@/components/shared/Aboutvisionmission";
+import AboutWhyChoose from "@/components/shared/Aboutwhychoose";
 import React, { useRef, useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -557,6 +558,7 @@ export default function AboutUs() {
         <AboutSolution />
         <AboutFeatures />
         <AboutVisionMission />
+        <AboutWhyChoose/>
       </div>
     </>
   );

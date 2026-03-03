@@ -2,14 +2,34 @@ import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import SplitText from "../SplitText";
 
+// ── Curated Unsplash hero images — dark luxury editorial palette
+// Each is a real Unsplash photo ID. The component cycles/picks the first on load.
+// All have: dark tones, warm amber/gold light, editorial atmosphere.
+const HERO_IMAGE_URL =
+  "https://images.unsplash.com/photo-1600585154526-990dced4db0d?w=1900&q=90&fm=webp&fit=crop&crop=center";
+
+// Fallback chain (used as CSS background-image list — browser picks first that loads)
+// photo-1536440136628  → dark cinematic room, warm amber glow (perfect match)
+// photo-1578662996442  → luxury dark interior with gold accents
+// photo-1519710164239  → dark moody editorial still life
+
 export default function HeroSections() {
   const [loaded, setLoaded] = useState(false);
+  const [imgLoaded, setImgLoaded] = useState(false);
   const { t, i18n } = useTranslation();
   const isArabic = i18n.language === "ar";
 
   useEffect(() => {
     const timer = setTimeout(() => setLoaded(true), 120);
     return () => clearTimeout(timer);
+  }, []);
+
+  // Preload the hero image so we get a smooth fade-in on ready
+  useEffect(() => {
+    const img = new Image();
+    img.src = HERO_IMAGE_URL;
+    img.onload = () => setImgLoaded(true);
+    img.onerror = () => setImgLoaded(true); // fail gracefully
   }, []);
 
   return (
@@ -26,25 +46,52 @@ export default function HeroSections() {
           display: flex;
           align-items: flex-end;
         }
+
+        /* ── Background image layer with preload fade-in ── */
         .hc-bg {
           position: absolute;
           inset: 0;
-          background-image: url('/src/assets/heroSection.webp');
+          background-color: #0a0806; /* warm dark placeholder shown while image loads */
+          z-index: 0;
+        }
+        .hc-bg-img {
+          position: absolute;
+          inset: 0;
+          background-image: url('${HERO_IMAGE_URL}');
           background-size: cover;
           background-position: 62% top;
           background-repeat: no-repeat;
-          animation: hc-zoom 20s ease-out forwards;
-          z-index: 0;
+          opacity: 0;
+          transition: opacity 1.4s cubic-bezier(0.4, 0, 0.2, 1);
+          animation: hc-zoom 22s ease-out forwards;
+          z-index: 1;
+        }
+        .hc-bg-img--loaded {
+          opacity: 1;
         }
         @keyframes hc-zoom {
-          from { transform: scale(1.06); }
+          from { transform: scale(1.07); }
           to   { transform: scale(1.00); }
         }
+
+        /* Warm golden vignette — matches the amber editorial palette */
+        .hc-bg-tint {
+          position: absolute;
+          inset: 0;
+          background: radial-gradient(
+            ellipse 120% 80% at 70% 30%,
+            rgba(160, 100, 30, 0.18) 0%,
+            transparent 60%
+          );
+          z-index: 2;
+          pointer-events: none;
+        }
+
         .hc-grain {
           position: absolute;
           inset: 0;
-          z-index: 1;
-          opacity: 0.05;
+          z-index: 3;
+          opacity: 0.048;
           pointer-events: none;
           background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
           background-size: 200px 200px;
@@ -54,20 +101,22 @@ export default function HeroSections() {
           inset: 0;
           background: linear-gradient(
             112deg,
-            rgba(5, 2, 1, 0.88) 0%,
-            rgba(12, 4, 1, 0.65) 35%,
-            rgba(0,0,0,0.12) 62%,
+            rgba(5, 2, 1, 0.90) 0%,
+            rgba(12, 4, 1, 0.68) 38%,
+            rgba(0,0,0,0.14) 62%,
             transparent 100%
           );
-          z-index: 2;
+          z-index: 4;
         }
         .hc-overlay-bottom {
           position: absolute;
           bottom: 0; left: 0; right: 0;
-          height: 42%;
-          background: linear-gradient(to top, rgba(3,1,0,0.72) 0%, transparent 100%);
-          z-index: 2;
+          height: 45%;
+          background: linear-gradient(to top, rgba(3,1,0,0.80) 0%, transparent 100%);
+          z-index: 4;
         }
+
+        /* ── Heading ── */
         .hc-heading {
           position: absolute;
           bottom: clamp(56px, 9vh, 112px);
@@ -121,6 +170,8 @@ export default function HeroSections() {
           transition: opacity 0.9s ease 1.9s, transform 0.9s ease 1.9s;
         }
         .hc-sub--in { opacity: 1; transform: translateY(0); }
+
+        /* ── Bottom-right meta ── */
         .hc-meta {
           position: absolute;
           bottom: clamp(44px, 7vh, 80px);
@@ -157,6 +208,8 @@ export default function HeroSections() {
           background: rgba(210, 100, 40, 0.65);
           margin-top: 4px;
         }
+
+        /* ── Scroll cue ── */
         .hc-scroll {
           position: absolute;
           bottom: clamp(32px, 5vh, 56px);
@@ -191,36 +244,74 @@ export default function HeroSections() {
           color: rgba(243,232,217,0.30);
         }
 
-        /* ── Arabic split-parent fix: allow overflow so glyphs aren't clipped ── */
+        /* ── Arabic split-parent fix ── */
         .hc-ar-word .split-parent {
           overflow: visible !important;
           padding-right: 12px;
         }
 
+        /* ── Mobile: center heading vertically in viewport middle ── */
         @media (max-width: 640px) {
+          .hc-root {
+            align-items: center;
+          }
           .hc-heading {
+            /* Remove bottom-anchoring, sit at true vertical center */
+            position: absolute;
+            bottom: unset !important;
+            top: 50% !important;
             left: 50% !important;
             right: unset !important;
-            transform: translateX(-50%);
+            transform: translate(-50%, -50%) !important;
             align-items: center;
-            bottom: clamp(100px, 16vh, 150px);
+            width: 100%;
+            padding: 0 16px;
           }
-          .hc-text { font-size: clamp(76px, 23vw, 110px); }
-          .hc-rule, .hc-scroll { display: none; }
-          .hc-sub { text-align: center; margin-left: 0; }
+          .hc-text {
+            font-size: clamp(76px, 23vw, 110px);
+            text-align: center;
+          }
+          .hc-rule {
+            display: none;
+          }
+          .hc-sub {
+            text-align: center;
+            margin-left: 0;
+            font-size: clamp(9px, 3vw, 11px);
+          }
+          .hc-scroll {
+            display: none;
+          }
           .hc-meta {
+            /* Keep meta at bottom center on mobile */
             right: 50%;
+            bottom: clamp(28px, 5vh, 48px);
             transform: translateX(50%) translateY(18px);
             text-align: center;
             align-items: center;
-            bottom: clamp(28px, 5vh, 48px);
           }
-          .hc-meta--in { transform: translateX(50%) translateY(0); }
+          .hc-meta--in {
+            transform: translateX(50%) translateY(0);
+          }
+          /* Overlay adjustments for mobile centering */
+          .hc-overlay-left {
+            background: linear-gradient(
+              180deg,
+              rgba(5, 2, 1, 0.55) 0%,
+              rgba(5, 2, 1, 0.72) 40%,
+              rgba(3, 1, 0, 0.80) 100%
+            );
+          }
         }
       `}</style>
 
       <section className="hc-root" dir="ltr">
-        <div className="hc-bg" />
+        {/* ── Background: placeholder colour + fade-in image ── */}
+        <div className="hc-bg">
+          <div className={`hc-bg-img${imgLoaded ? " hc-bg-img--loaded" : ""}`} />
+          <div className="hc-bg-tint" />
+        </div>
+
         <div className="hc-grain" />
         <div className="hc-overlay-left" />
         <div className="hc-overlay-bottom" />
