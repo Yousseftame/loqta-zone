@@ -509,5 +509,143 @@
         "verified": "🏆 Verified"
       }
     }
+  },
+  "aboutPage": {
+    "hero": {
+      "eyebrow": "· Our Story ·",
+      "line1": "About",
+      "line2": "Loqta Zone.",
+      "subtitle": "We set out to make premium online auctions fair, exciting, and accessible to everyone in Egypt — one bid at a time.",
+      "scroll": "Scroll",
+      "stats": {
+        "users": "Registered Users",
+        "founded": "Year Founded",
+        "satisfaction": "Satisfaction Rate"
+      },
+      "tags": [
+        "🇪🇬 Made in Egypt",
+        "🔒 Secure & Transparent",
+        "🏆 Verified Winners",
+        "🚀 Built for Everyone"
+      ]
+    },
+    "platform": {
+      "eyebrow": "· About The Platform ·",
+      "titleLine1": "Built Around",
+      "titleLine2": "The Bidder.",
+      "description": "A dynamic online auction platform designed to connect buyers with unique products and exciting deals.",
+      "tabs": {
+        "accessible": {
+          "label": "Accessibility",
+          "title": "Accessible",
+          "teaser": "Bid anytime, from anywhere.",
+          "body": "A seamless experience allowing users to bid anytime, from anywhere. Whether you're at home or on the move, every auction is always within reach — designed to remove barriers and put opportunity in your hands."
+        },
+        "fair": {
+          "label": "Transparency",
+          "title": "Fair",
+          "teaser": "Equal opportunity for every participant.",
+          "body": "A transparent environment where every participant has an equal opportunity to win. We believe great deals should be earned, not gamed — so every bid is visible, every rule is clear, and every outcome is verified."
+        },
+        "engaging": {
+          "label": "Experience",
+          "title": "Engaging",
+          "teaser": "Competition that connects and excites.",
+          "body": "Connecting users to valuable items through a competitive, interactive process. We've designed every moment of the auction — the countdown, the bid, the win — to feel electric, rewarding, and worth coming back for."
+        }
+      }
+    },
+    "problem": {
+      "eyebrow": "· The Problem ·",
+      "titleLine1": "What Was",
+      "titleLine2": "Broken.",
+      "description": "Before Loqta Zone, online auctions in Egypt were riddled with friction. We identified three core failures and built our platform to solve each one.",
+      "cards": {
+        "transparency": {
+          "label": "Transparency",
+          "title": "Lack of Transparency",
+          "body": "Users often face opaque processes and hidden fees in traditional auctions. Bids disappear without explanation, costs surface at checkout, and the rules shift without warning — leaving buyers frustrated and distrustful."
+        },
+        "trust": {
+          "label": "Trust",
+          "title": "Trust Issues",
+          "body": "Frequent concerns regarding transaction security, product authenticity, and platform reliability. When a buyer cannot verify what they are winning or whether their payment is safe, confidence collapses entirely."
+        },
+        "static": {
+          "label": "Experience",
+          "title": "Static Experience",
+          "body": "Standard e-commerce lacks the engagement, thrill, and competitive spirit of a live event. Browsing a fixed-price catalogue offers no tension, no reward for patience, and no story worth sharing."
+        }
+      }
+    },
+    "solution": {
+      "eyebrow": "· Our Solution ·",
+      "kicker": "The Loqta Zone Difference",
+      "titleLine1": "Where We",
+      "titleLine2": "Changed Things.",
+      "description": "Every friction point we identified became a design decision. Here is how Loqta Zone answers each challenge with intention.",
+      "items": {
+        "transparency": {
+          "label": "Principle One",
+          "title": "Transparency First",
+          "teaser": "Open rules, zero hidden fees.",
+          "body": "A clear, open bidding environment where rules are defined and fairness is prioritized above all else. Every bid is visible, every fee is stated upfront, and every outcome is verified and publicly confirmed — no surprises, no small print."
+        },
+        "gamified": {
+          "label": "Principle Two",
+          "title": "Gamified Commerce",
+          "teaser": "The thrill of live competition, digitised.",
+          "body": "Bringing the excitement of live auctions to the digital space, allowing users to watch competition unfold instantly. Countdown timers, live bid feeds, and real-time notifications turn every session into an event worth staying awake for."
+        },
+        "smarter": {
+          "label": "Principle Three",
+          "title": "Smarter Buying",
+          "teaser": "Confidence at every step of the bid.",
+          "body": "Empowering users to secure bargains and legitimate deals with total confidence. Verified sellers, authenticated products, and a structured dispute process mean you always know exactly what you are winning and what you are paying."
+        }
+      }
+    },
+    "features": {
+      "eyebrow": "· Key Features ·",
+      "titleLine1": "Built to",
+      "titleLine2": "Perform.",
+      "description": "Four pillars that define how Loqta Zone works — and why it works better than anything that came before it.",
+      "items": {
+        "realtime": {
+          "label": "Feature One",
+          "title": "Real-Time Bidding",
+          "body": "Participate in live auctions where competition happens instantly. Every bid, every counter-bid, every countdown second is rendered in real time — no refresh, no delay, no uncertainty about where you stand."
+        },
+        "secure": {
+          "label": "Feature Two",
+          "title": "Secure Transactions",
+          "body": "Built with modern technology to ensure safety, reliability, and customer satisfaction. End-to-end encrypted payments, verified identities, and an escrow-style settlement process protect every single transaction."
+        },
+        "variety": {
+          "label": "Feature Three",
+          "title": "Wide Variety",
+          "body": "A diverse catalogue of products ranging from tech to fashion, beauty to collectibles. Every lot is curated for quality and demand — so you are always bidding on something genuinely worth winning."
+        },
+        "design": {
+          "label": "Feature Four",
+          "title": "User-Centred Design",
+          "body": "An intuitive interface ensuring easy navigation and a smooth bidding process. Designed from the ground up around the needs of real bidders — not feature checklists — so the platform feels effortless at every step."
+        }
+      }
+    },
+    "vm": {
+      "eyebrow": "· Vision & Mission ·",
+      "titleWord1": "Vision",
+      "titleWord2": "Mission",
+     
+      "visionLabel": "Our Vision",
+      "visionHeading": "To Lead the Digital Auction Space",
+      "visionBody": "To become a leading digital auction marketplace where users enjoy the thrill of bidding while accessing genuine products at competitive prices.",
+      "missionLabel": "Our Mission",
+      "missionHeading": "Delivering Trust at Every Bid",
+      "missionBody": "To provide a reliable, engaging, and secure auction environment that empowers users to buy smarter and sell easier — with confidence at every step."
+    }
   }
+
+
 }

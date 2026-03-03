@@ -23,7 +23,7 @@ const CREAM = "rgb(229, 224, 198)";
 const NAV_LINKS = [
   { labelKey: "nav.auctions", to: "/", icon: "◇" },
   { labelKey: "nav.howItWorks", to: "/how-it-works", icon: "◈" },
-  { labelKey: "nav.about", to: "/about", icon: "✦" },
+  { labelKey: "nav.about", to: "/aboutUs", icon: "✦" },
   { labelKey: "nav.contact", to: "/contact", icon: "◇" },
 ];
 
