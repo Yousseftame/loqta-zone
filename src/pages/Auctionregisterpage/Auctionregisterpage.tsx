@@ -328,7 +328,8 @@ export default function AuctionRegisterPage() {
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        .lz { background: #09111a; font-family: 'Outfit', system-ui, sans-serif; color: rgb(229,224,198); animation: lz-fadein 0.5s ease both; }
+        .lz { background: #09111a; font-family: 'Outfit', system-ui, sans-serif; color: rgb(229,224,198); animation: lz-fadein 0.5s ease both; padding-top: 120px; }
+        @media(max-width:860px){ .lz { padding-top: 105px; } }
         @keyframes lz-fadein { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
         @keyframes lz-spin    { to{transform:rotate(360deg)} }
         @keyframes lz-pulse   { 0%,100%{box-shadow:0 0 0 0 rgba(74,222,128,0.4)} 50%{box-shadow:0 0 0 5px rgba(74,222,128,0)} }
@@ -381,11 +382,13 @@ export default function AuctionRegisterPage() {
            ───────────────────────────────────────────── */
         .lz-wrap {
           max-width: 1160px; margin: 0 auto;
-          padding: 36px 40px 100px;
+          /* top padding is intentionally small — MainLayout already pushes the
+             entire page below the fixed navbar via pt-20 lg:pt-24 on <main> */
+          padding: 24px 40px 100px;
           display: grid; grid-template-columns: 1fr 1fr;
           gap: 24px; align-items: start;
         }
-        @media(max-width:860px){ .lz-wrap { grid-template-columns: 1fr; padding: 24px 20px 80px; } }
+        @media(max-width:860px){ .lz-wrap { grid-template-columns: 1fr; padding: 20px 20px 80px; } }
 
         /* ── PRODUCT CARD ── */
         .lz-pcard {
@@ -556,7 +559,7 @@ export default function AuctionRegisterPage() {
         .lz-chk.on .lz-chkmark { opacity: 1; transform: scale(1) rotate(0); animation: lz-check 0.3s cubic-bezier(0.34,1.56,0.64,1); }
 
         .lz-ttext { font-size: 12.5px; line-height: 1.65; color: rgba(229,224,198,0.38); }
-        /* FIX 3: terms link styled as clickable, navigates to /terms */
+        /* FIX 3: terms link styled as clickable, navigates to /TermsAndConditions */
         .lz-tlink { color: #c9a96e; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; font-weight: 600; background: none; border: none; font-family: inherit; font-size: inherit; padding: 0; display: inline; }
         .lz-tlink:hover { color: #e0c080; }
 
