@@ -13,6 +13,10 @@ import "swiper/css/pagination";
 import { ShinyButton } from "../ui/shiny-button";
 import LoginPromptModal from "./Loginpromptmodal";
 
+// Firebase imports
+import { collection, getDocs, query, orderBy, where } from "firebase/firestore";
+import { db } from "@/firebase/firebase";
+
 // ── Design tokens ─────────────────────────────────────────────
 const NAVY = "#2A4863";
 const NAVY2 = "#1e3652";
@@ -20,123 +24,179 @@ const CREAM = "rgb(229, 224, 198)";
 const CREAM2 = "rgba(229, 224, 198, 0.75)";
 const GOLD = "#c9a96e";
 
-interface AuctionItem {
-  _id: string;
+// ── Types ──────────────────────────────────────────────────────
+interface EnrichedProduct {
+  id: string;
   title: string;
-  subtitle: string;
-  startingPrice: number;
-  currentBid?: number;
-  currency: string;
-  image: string;
-  auctionDate: string;
-  numAuctions: number;
-  isHot?: boolean;
-  timeLeft: string;
+  brand: string;
+  model: string;
   category: string;
-  bidsCount?: number;
+  categoryName: string;
+  description: string;
+  price: number;
+  quantity: number;
+  isActive: boolean;
+  images: string[];
+  thumbnail: string | null;
+  totalAuctions: number;
 }
 
-const auctionItems: AuctionItem[] = [
-  {
-    _id: "1",
-    title: "Mediceube Bundle",
-    subtitle: "Premium Skin Care Set",
-    startingPrice: 500,
-    currency: "EGP",
-    image:
-      "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=700&q=85",
-    auctionDate: "April",
-    numAuctions: 1,
-    category: "Beauty",
-    timeLeft: "2d 14h",
-    bidsCount: 7,
-  },
-  {
-    _id: "2",
-    title: "iPhone 16 Pro Max",
-    subtitle: "Desert Titanium · 256GB",
-    startingPrice: 5000,
-    currentBid: 5800,
-    currency: "EGP",
-    image:
-      "https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=400&q=80",
-    auctionDate: "April",
-    numAuctions: 2,
-    isHot: true,
-    category: "Phones",
-    timeLeft: "1d 6h",
-    bidsCount: 24,
-  },
-  {
-    _id: "3",
-    title: "Apple Watch S11",
-    subtitle: "Midnight · GPS",
-    startingPrice: 1500,
-    currency: "EGP",
-    image:
-      "https://images.unsplash.com/photo-1551816230-ef5deaed4a26?w=700&q=85",
-    auctionDate: "April",
-    numAuctions: 2,
-    category: "Wearables",
-    timeLeft: "3d 2h",
-    bidsCount: 13,
-  },
-  {
-    _id: "4",
-    title: "JBL Tune 520BT",
-    subtitle: "Wireless · Blue",
-    startingPrice: 500,
-    currency: "EGP",
-    image:
-      "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=700&q=85",
-    auctionDate: "April",
-    numAuctions: 1,
-    category: "Audio",
-    timeLeft: "5d 8h",
-    bidsCount: 5,
-  },
-  {
-    _id: "5",
-    title: "Galaxy S25 Ultra",
-    subtitle: "Titanium · 512GB",
-    startingPrice: 5000,
-    currentBid: 6200,
-    currency: "EGP",
-    image:
-      "https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=700&q=85",
-    auctionDate: "April",
-    numAuctions: 2,
-    isHot: true,
-    category: "Phones",
-    timeLeft: "22h 15m",
-    bidsCount: 31,
-  },
-  {
-    _id: "6",
-    title: "Sony WH-1000XM5",
-    subtitle: "Noise Cancel · Platinum",
-    startingPrice: 3200,
-    currency: "EGP",
-    image:
-      "https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?w=700&q=85",
-    auctionDate: "April",
-    numAuctions: 1,
-    category: "Audio",
-    timeLeft: "4d 11h",
-    bidsCount: 9,
-  },
-];
+// ── Custom hook: fetch products + categories ───────────────────
+function usePublicProducts() {
+  const [products, setProducts] = useState<EnrichedProduct[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const [catSnap, prodSnap] = await Promise.all([
+          getDocs(collection(db, "categories")),
+          getDocs(
+            query(
+              collection(db, "products"),
+              where("isActive", "==", true),
+              orderBy("createdAt", "desc"),
+            ),
+          ),
+        ]);
+
+        if (cancelled) return;
+
+        // Build category ID → name.en map
+        const categoryMap: Record<string, string> = {};
+        catSnap.docs.forEach((d) => {
+          const data = d.data();
+          categoryMap[d.id] = data.name?.en ?? d.id;
+        });
+
+        const enriched: EnrichedProduct[] = prodSnap.docs.map((d) => {
+          const data = d.data();
+          return {
+            id: d.id,
+            title: data.title ?? "",
+            brand: data.brand ?? "",
+            model: data.model ?? "",
+            category: data.category ?? "",
+            categoryName: categoryMap[data.category] ?? data.category ?? "—",
+            description: data.description ?? "",
+            price: data.price ?? 0,
+            quantity: data.quantity ?? 0,
+            isActive: data.isActive ?? true,
+            images: Array.isArray(data.images) ? data.images : [],
+            thumbnail:
+              !data.thumbnail || data.thumbnail === "null"
+                ? null
+                : data.thumbnail,
+            totalAuctions: data.totalAuctions ?? 0,
+          };
+        });
+
+        setProducts(enriched);
+      } catch (err: any) {
+        if (!cancelled) {
+          console.error("[AuctionSwiper] Failed to load products:", err);
+          setError("Failed to load products");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return { products, loading, error };
+}
+
+// ── Skeleton Card ──────────────────────────────────────────────
+const SkeletonCard = () => (
+  <div
+    style={{
+      borderRadius: 14,
+      overflow: "hidden",
+      background: "#fff",
+      border: `1px solid rgba(42,72,99,0.10)`,
+      boxShadow: "0 2px 16px rgba(42,72,99,0.07)",
+    }}
+  >
+    <style>{`@keyframes lz-shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }`}</style>
+    <div
+      style={{
+        height: 28,
+        background: `linear-gradient(90deg, ${NAVY}, #3a5a78)`,
+        opacity: 0.6,
+      }}
+    />
+    <div
+      style={{
+        height: 180,
+        background:
+          "linear-gradient(90deg, #eef1f4 25%, #e0e5ea 50%, #eef1f4 75%)",
+        backgroundSize: "200% 100%",
+        animation: "lz-shimmer 1.5s infinite",
+      }}
+    />
+    <div
+      style={{
+        padding: "10px 10px 12px",
+        display: "flex",
+        flexDirection: "column",
+        gap: 8,
+      }}
+    >
+      <div
+        style={{
+          height: 14,
+          borderRadius: 4,
+          background: "#eef1f4",
+          width: "70%",
+        }}
+      />
+      <div
+        style={{
+          height: 10,
+          borderRadius: 4,
+          background: "#eef1f4",
+          width: "50%",
+        }}
+      />
+      <div style={{ height: 1, background: "rgba(42,72,99,0.08)" }} />
+      <div
+        style={{
+          height: 60,
+          borderRadius: 8,
+          background: "#f7f8fa",
+          border: "1px solid rgba(42,72,99,0.08)",
+        }}
+      />
+    </div>
+  </div>
+);
 
 // ── Card ──────────────────────────────────────────────────────
 const AuctionCard = memo(function AuctionCard({
   item,
   onRegisterClick,
 }: {
-  item: AuctionItem;
+  item: EnrichedProduct;
   onRegisterClick: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
   const { t } = useTranslation();
+
+  const displayImage =
+    item.thumbnail && item.thumbnail !== "null"
+      ? item.thumbnail
+      : (item.images?.[0] ?? null);
 
   return (
     <>
@@ -204,7 +264,7 @@ const AuctionCard = memo(function AuctionCard({
         }
       `}</style>
 
-      {/* dir="ltr": card layout is always LTR regardless of page language */}
+      {/* dir="ltr": card layout always LTR regardless of page language */}
       <div
         dir="ltr"
         onMouseEnter={() => setHovered(true)}
@@ -267,23 +327,48 @@ const AuctionCard = memo(function AuctionCard({
             flexShrink: 0,
           }}
         >
-          <img
-            src={item.image}
-            alt={item.title}
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              objectPosition: "center",
-              transform: hovered ? "scale(1.05)" : "scale(1)",
-              transition:
-                "transform 0.65s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
-              display: "block",
-            }}
-            onError={(e) => {
-              (e.target as HTMLImageElement).src = "/fallback.jpg";
-            }}
-          />
+          {displayImage ? (
+            <img
+              src={displayImage}
+              alt={item.title}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                objectPosition: "center",
+                transform: hovered ? "scale(1.05)" : "scale(1)",
+                transition:
+                  "transform 0.65s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
+                display: "block",
+              }}
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = "/fallback.jpg";
+              }}
+            />
+          ) : (
+            <div
+              style={{
+                width: "100%",
+                height: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: `linear-gradient(135deg, ${NAVY}18, ${NAVY}08)`,
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 42,
+                  fontWeight: 900,
+                  color: `${NAVY}30`,
+                  textTransform: "uppercase",
+                }}
+              >
+                {item.title.charAt(0)}
+              </span>
+            </div>
+          )}
+
           <div
             style={{
               position: "absolute",
@@ -332,32 +417,27 @@ const AuctionCard = memo(function AuctionCard({
             </span>
           </div>
 
-          {/* Time / Hot badge */}
+          {/* Auctions count badge (top-right) */}
           <div
             className="lz-card-badge"
             style={{
               position: "absolute",
-              background: item.isHot
-                ? "rgba(160, 40, 40, 0.88)"
-                : "rgba(20, 35, 52, 0.72)",
+              background: "rgba(20, 35, 52, 0.72)",
               backdropFilter: "blur(6px)",
               borderRadius: 999,
               display: "flex",
               alignItems: "center",
               gap: 4,
               fontWeight: 700,
-              color: item.isHot ? "#ffd0d0" : CREAM2,
+              color: CREAM2,
               letterSpacing: "0.04em",
-              border: item.isHot
-                ? "1px solid rgba(255,100,100,0.35)"
-                : `1px solid rgba(229,224,198,0.2)`,
+              border: `1px solid rgba(229,224,198,0.2)`,
             }}
           >
-            {item.isHot && <span>🔥</span>}
-            <span>⏱ {item.timeLeft}</span>
+            <span>🔨 {item.totalAuctions}</span>
           </div>
 
-          {/* Category + bids */}
+          {/* Category + quantity */}
           <div
             className="lz-cat-row"
             style={{
@@ -382,24 +462,9 @@ const AuctionCard = memo(function AuctionCard({
                 whiteSpace: "nowrap",
               }}
             >
-              {item.category}
+              {item.categoryName}
             </div>
-            {item.bidsCount && (
-              <div
-                className="lz-card-bids"
-                style={{
-                  background: "rgba(20,35,52,0.80)",
-                  backdropFilter: "blur(6px)",
-                  border: `1px solid rgba(229,224,198,0.18)`,
-                  borderRadius: 999,
-                  fontWeight: 600,
-                  color: CREAM2,
-                  whiteSpace: "nowrap",
-                }}
-              >
-                🔨 {item.bidsCount}
-              </div>
-            )}
+            
           </div>
         </div>
 
@@ -444,11 +509,11 @@ const AuctionCard = memo(function AuctionCard({
                 overflow: "hidden",
               }}
             >
-              {item.subtitle}
+             · {item.model}
             </p>
           </div>
 
-          {/* Meta row */}
+          {/* Meta row — hidden on mobile */}
           <div
             className="lz-card-meta"
             style={{
@@ -460,11 +525,9 @@ const AuctionCard = memo(function AuctionCard({
             }}
           >
             <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <span style={{ opacity: 0.7 }}>📅</span> {item.auctionDate}
+              <span style={{ opacity: 0.7 }}>🏷️</span> {item.brand}
             </span>
-            <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <span style={{ opacity: 0.7 }}>🔨</span> ×{item.numAuctions}
-            </span>
+            
           </div>
 
           {/* Divider */}
@@ -490,7 +553,7 @@ const AuctionCard = memo(function AuctionCard({
               justifyContent: "space-between",
             }}
           >
-            {/* Starting + current bid */}
+            {/* Price + auctions count row */}
             <div
               style={{
                 display: "flex",
@@ -521,7 +584,7 @@ const AuctionCard = memo(function AuctionCard({
                     lineHeight: 1,
                   }}
                 >
-                  {item.startingPrice.toLocaleString()}
+                  {item.price.toLocaleString()}
                   <span
                     style={{
                       fontSize: "0.55em",
@@ -530,11 +593,13 @@ const AuctionCard = memo(function AuctionCard({
                       marginLeft: 3,
                     }}
                   >
-                    {item.currency}
+                    EGP
                   </span>
                 </div>
               </div>
-              {item.currentBid && (
+
+              {/* Auctions count — occupies the old "current bid" slot */}
+              {item.totalAuctions > 0 && (
                 <div style={{ textAlign: "right" }}>
                   <div
                     className="lz-card-bid-label"
@@ -546,25 +611,16 @@ const AuctionCard = memo(function AuctionCard({
                       marginBottom: 2,
                     }}
                   >
-                    {t("auctionSwiper.bid")}
+                    Auctions
                   </div>
                   <div
                     className="lz-card-bid-value"
                     style={{
                       fontWeight: 800,
-                      color: "#2d7a4f",
+                      color: NAVY,
                     }}
                   >
-                    {item.currentBid.toLocaleString()}
-                    <span
-                      style={{
-                        fontSize: "0.7em",
-                        marginLeft: 2,
-                        fontWeight: 600,
-                      }}
-                    >
-                      {item.currency}
-                    </span>
+                    ×{item.totalAuctions}
                   </div>
                 </div>
               )}
@@ -739,12 +795,14 @@ export default function AuctionSwiper() {
   const navigate = useNavigate();
   const [modalOpen, setModalOpen] = useState(false);
 
+  // ── Dynamic data ────────────────────────────────────────────
+  const { products, loading, error } = usePublicProducts();
+  const loopedProducts = products.length > 0 ? [...products, ...products] : [];
+
   const handleRegisterClick = () => {
     if (user) {
-      // Logged in → go to auctions page
       navigate("/auctionssss");
     } else {
-      // Not logged in → show login prompt
       setModalOpen(true);
     }
   };
@@ -840,73 +898,130 @@ export default function AuctionSwiper() {
           .lz-dot:hover:not(.active) { background: rgba(229,224,198,0.4); }
         `}</style>
 
-        <div className="lz-swiper-wrap">
-          <Swiper
-            className="lz-swiper"
-            modules={[Autoplay, FreeMode]}
-            onSwiper={(s) => {
-              swiperRef.current = s;
-            }}
-            onSlideChange={(s) =>
-              setActiveIdx(s.realIndex % auctionItems.length)
-            }
-            loop={true}
-            speed={4000}
-            autoplay={{
-              delay: 0,
-              disableOnInteraction: false,
-              pauseOnMouseEnter: true,
-            }}
-            allowTouchMove={true}
-            freeMode={true}
-            breakpoints={{
-              0: { slidesPerView: 2, spaceBetween: 10 },
-              640: { slidesPerView: 3, spaceBetween: 14 },
-              900: { slidesPerView: 4, spaceBetween: 18 },
-              1200: { slidesPerView: 5, spaceBetween: 20 },
+        {/* Error state */}
+        {error && !loading && (
+          <div
+            style={{
+              textAlign: "center",
+              padding: "40px 20px",
+              color: "rgba(229,224,198,0.5)",
+              fontSize: 14,
             }}
           >
-            {[...auctionItems, ...auctionItems].map((item, i) => (
-              <SwiperSlide key={`${item._id}-${i}`} style={{ height: "auto" }}>
-                <AuctionCard
-                  item={item}
-                  onRegisterClick={handleRegisterClick}
-                />
-              </SwiperSlide>
-            ))}
-          </Swiper>
-        </div>
+            {error}
+          </div>
+        )}
 
-        {/* Dot navigation */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            gap: 8,
-            marginTop: 24,
-          }}
-        >
-          {auctionItems.map((_, i) => (
-            <button
-              key={i}
-              className={`lz-dot${activeIdx === i ? " active" : ""}`}
-              onClick={() => {
-                const sw = swiperRef.current;
-                if (!sw) return;
-                if (resumeTimer.current) clearTimeout(resumeTimer.current);
-                sw.autoplay.stop();
-                sw.params.speed = 600;
-                sw.slideToLoop(i, 600);
-                setActiveIdx(i);
-                resumeTimer.current = setTimeout(() => {
-                  sw.params.speed = 5000;
-                  sw.autoplay.start();
-                }, 1000);
+        {/* Loading skeletons */}
+        {loading && (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
+              gap: 12,
+              padding: "0 4px",
+            }}
+          >
+            {Array.from({ length: 6 }).map((_, i) => (
+              <SkeletonCard key={i} />
+            ))}
+          </div>
+        )}
+
+        {/* Empty state */}
+        {!loading && !error && products.length === 0 && (
+          <div
+            style={{
+              textAlign: "center",
+              padding: "60px 20px",
+              color: "rgba(229,224,198,0.4)",
+            }}
+          >
+            <div style={{ fontSize: 48, marginBottom: 12 }}>🔨</div>
+            <p style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>
+              No products available yet
+            </p>
+            <p style={{ fontSize: 13, marginTop: 6, opacity: 0.7 }}>
+              Check back soon for upcoming auctions
+            </p>
+          </div>
+        )}
+
+        {/* Swiper with real data */}
+        {!loading && products.length > 0 && (
+          <>
+            <div className="lz-swiper-wrap">
+              <Swiper
+                className="lz-swiper"
+                modules={[Autoplay, FreeMode]}
+                onSwiper={(s) => {
+                  swiperRef.current = s;
+                }}
+                onSlideChange={(s) =>
+                  setActiveIdx(s.realIndex % products.length)
+                }
+                loop={products.length > 2}
+                speed={4000}
+                autoplay={{
+                  delay: 0,
+                  disableOnInteraction: false,
+                  pauseOnMouseEnter: true,
+                }}
+                allowTouchMove={true}
+                freeMode={true}
+                breakpoints={{
+                  0: { slidesPerView: 2, spaceBetween: 10 },
+                  640: { slidesPerView: 3, spaceBetween: 14 },
+                  900: { slidesPerView: 4, spaceBetween: 18 },
+                  1200: { slidesPerView: 5, spaceBetween: 20 },
+                }}
+              >
+                {loopedProducts.map((item, i) => (
+                  <SwiperSlide
+                    key={`${item.id}-${i}`}
+                    style={{ height: "auto" }}
+                  >
+                    <AuctionCard
+                      item={item}
+                      onRegisterClick={handleRegisterClick}
+                    />
+                  </SwiperSlide>
+                ))}
+              </Swiper>
+            </div>
+
+            {/* Dot navigation */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                gap: 8,
+                marginTop: 24,
               }}
-            />
-          ))}
-        </div>
+            >
+              {products.map((_, i) => (
+                <button
+                  key={i}
+                  className={`lz-dot${activeIdx === i ? " active" : ""}`}
+                  onClick={() => {
+                    const sw = swiperRef.current;
+                    if (!sw) return;
+                    if (resumeTimer.current) clearTimeout(resumeTimer.current);
+                    sw.autoplay.stop();
+                    sw.params.speed = 600;
+                    sw.slideToLoop(i, 600);
+                    setActiveIdx(i);
+                    resumeTimer.current = setTimeout(() => {
+                      sw.params.speed = 5000;
+                      sw.autoplay.start();
+                    }, 1000);
+                  }}
+                />
+              ))}
+            </div>
+          </>
+        )}
       </div>
     </section>
   );
