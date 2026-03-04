@@ -905,7 +905,7 @@ export default function AuctionRegisterPage() {
                       className="lz-tlink"
                       onClick={(e) => {
                         e.stopPropagation();
-                        navigate("/TermsAndConditions");
+                        navigate("/terms");
                       }}
                     >
                       Loqta Zone Terms & Conditions

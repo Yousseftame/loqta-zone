@@ -45,11 +45,11 @@
   --color-sidebar-ring: var(--sidebar-ring);
   --animate-shiny-text: shiny-text 8s infinite;
   @keyframes shiny-text {
-  0%, 90%, 100% {
-    background-position: calc(-100% - var(--shiny-width)) 0;
+    0%, 90%, 100% {
+      background-position: calc(-100% - var(--shiny-width)) 0;
     }
-  30%, 60% {
-    background-position: calc(100% + var(--shiny-width)) 0;
+    30%, 60% {
+      background-position: calc(100% + var(--shiny-width)) 0;
     }
   }
 }
@@ -126,27 +126,40 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
-    @apply border-border outline-ring/50;
   }
-  body {
 
-    @apply bg-background text-foreground;
-    @apply bg-background text-foreground;
+  /* ── Dark base to prevent white flash before splash/content mounts.
+     Uses the CSS var so it still responds to light/dark mode properly
+     after the app loads, while defaulting to near-black on first paint. ── */
+  html {
+    background-color: #080603;
+  }
+
+  body {
+    /* #080603 is shown instantly on page load before React hydrates.
+       Once the app is running, bg-background takes over per theme.   */
+    background-color: #080603;
+    @apply text-foreground;
+  }
+
+  #root {
+    background-color: #080603;
+    min-height: 100vh;
   }
 }
 
 ::view-transition-old(root), ::view-transition-new(root) {
-    animation: none;
-    mix-blend-mode: normal;
+  animation: none;
+  mix-blend-mode: normal;
 }
 
-/* Navigation link style - Enhanced */
+/* ── Navigation link ─────────────────────────────────────────── */
 .nav-link {
   font-family: 'Monteya', sans-serif;
   letter-spacing: 1px;
-   font-weight: 600;
+  font-weight: 600;
   text-transform: uppercase;
-  font-size:  .975rem;
+  font-size: 0.975rem;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   padding-bottom: 0.25rem;
@@ -161,17 +174,17 @@
   width: 0;
   height: 5px;
   background-color: currentColor;
-  transition: width 0.3s  cubic-bezier(0.4, 0, 0.2, 1);
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .nav-link:hover::after {
   width: 100%;
 }
 
-/* Nav Reserve button - Enhanced with subtle texture */
+/* ── Nav buttons ─────────────────────────────────────────────── */
 .btn-seaworthy-nav {
   display: inline-block;
-  padding: 0.55rem .75rem;
+  padding: 0.55rem 0.75rem;
   color: var(--color-secondary);
   font-family: var(--font-display);
   font-size: 0.75rem;
@@ -188,9 +201,9 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, 
-    hsl(198 18% 38% / 0.3) 0%, 
-    transparent 50%, 
+  background: linear-gradient(135deg,
+    hsl(198 18% 38% / 0.3) 0%,
+    transparent 50%,
     hsl(198 22% 28% / 0.2) 100%);
   opacity: 0;
   transition: opacity 0.3s ease;
@@ -206,7 +219,6 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
-/* Solid cream button */
 .btn-seaworthy-solid {
   display: inline-block;
   padding: 0.875rem 1.25rem;
@@ -227,8 +239,7 @@
   color: var(--color-secondary);
 }
 
-/* ── Navbar Auth Buttons ───────────────────────────────────── */
-
+/* ── Navbar Auth Buttons ─────────────────────────────────────── */
 .btn-nav-register {
   display: inline-flex;
   align-items: center;
@@ -310,8 +321,7 @@
   color: rgb(229, 224, 198);
 }
 
-/* ── Language Switcher Bubble ──────────────────────────────── */
-
+/* ── Language Switcher ───────────────────────────────────────── */
 .lang-bubble {
   display: inline-flex;
   align-items: center;
@@ -359,7 +369,6 @@
   background: rgb(229 224 198 / 0.18);
 }
 
-/* Dropdown panel */
 .lang-dropdown {
   position: absolute;
   top: calc(100% + 10px);
@@ -376,7 +385,6 @@
   animation: langDropIn 0.18s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
-/* Opens upward on mobile (above the button) */
 .lang-dropdown-up {
   top: auto;
   bottom: calc(100% + 10px);
@@ -384,7 +392,7 @@
 
 @keyframes langDropIn {
   from { opacity: 0; transform: translateY(-6px) scale(0.97); }
-  to   { opacity: 1; transform: translateY(0)   scale(1); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .lang-option {
@@ -399,7 +407,7 @@
   font-weight: 500;
   letter-spacing: 0.05em;
   cursor: pointer;
-  transition: background 0.2s, color 0.2s;
+  transition:  0.2s, color 0.2s;
   text-align: left;
   border: none;
   background: transparent;
