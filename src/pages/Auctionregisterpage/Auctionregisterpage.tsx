@@ -167,7 +167,7 @@ export default function AuctionRegisterPage() {
     };
   }, [productId]);
 
-  // ── Gallery: build image list ──────────────────────────────
+  // ── Gallery helpers ────────────────────────────────────────
   const allImages = product
     ? [
         ...new Set([
@@ -177,11 +177,16 @@ export default function AuctionRegisterPage() {
       ]
     : [];
 
-  // ── Gallery: auto-slide every 4s ──────────────────────────
   const startAutoSlide = useCallback(() => {
     if (autoSlideRef.current) clearInterval(autoSlideRef.current);
     autoSlideRef.current = setInterval(() => {
-      goNext();
+      setImgIndex((prev) => {
+        const next = (prev + 1) % allImages.length;
+        setImgDir("next");
+        setImgAnimating(true);
+        setTimeout(() => setImgAnimating(false), 380);
+        return next;
+      });
     }, 4000);
   }, [allImages.length]);
 
@@ -204,13 +209,10 @@ export default function AuctionRegisterPage() {
   }
 
   function goNext() {
-    const newIdx = (imgIndex + 1) % allImages.length;
-    goTo(newIdx, "next");
+    goTo((imgIndex + 1) % allImages.length, "next");
   }
-
   function goPrev() {
-    const newIdx = (imgIndex - 1 + allImages.length) % allImages.length;
-    goTo(newIdx, "prev");
+    goTo((imgIndex - 1 + allImages.length) % allImages.length, "prev");
   }
 
   const toggleAuction = useCallback((id: string) => {
@@ -326,54 +328,66 @@ export default function AuctionRegisterPage() {
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        .lz { min-height: 100vh; background: #09111a; font-family: 'Outfit', system-ui, sans-serif; color: rgb(229,224,198); animation: lz-fadein 0.5s ease both; }
+        .lz { background: #09111a; font-family: 'Outfit', system-ui, sans-serif; color: rgb(229,224,198); animation: lz-fadein 0.5s ease both; }
         @keyframes lz-fadein { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes lz-spin { to{transform:rotate(360deg)} }
-        @keyframes lz-pulse { 0%,100%{box-shadow:0 0 0 0 rgba(74,222,128,0.4)} 50%{box-shadow:0 0 0 5px rgba(74,222,128,0)} }
-        @keyframes lz-check { from{transform:scale(0) rotate(-20deg)} 80%{transform:scale(1.15) rotate(3deg)} to{transform:scale(1) rotate(0)} }
-        @keyframes lz-radio-in { from{transform:scale(0)} 70%{transform:scale(1.3)} to{transform:scale(1)} }
+        @keyframes lz-spin    { to{transform:rotate(360deg)} }
+        @keyframes lz-pulse   { 0%,100%{box-shadow:0 0 0 0 rgba(74,222,128,0.4)} 50%{box-shadow:0 0 0 5px rgba(74,222,128,0)} }
+        @keyframes lz-check   { from{transform:scale(0) rotate(-20deg)} 80%{transform:scale(1.15) rotate(3deg)} to{transform:scale(1) rotate(0)} }
+        @keyframes lz-radio-in{ from{transform:scale(0)} 70%{transform:scale(1.3)} to{transform:scale(1)} }
 
-        /* ── Image slide animations ── */
-        @keyframes lz-slide-next-in  { from{opacity:0;transform:translateX(60px)}  to{opacity:1;transform:translateX(0)} }
-        @keyframes lz-slide-next-out { from{opacity:1;transform:translateX(0)}  to{opacity:0;transform:translateX(-60px)} }
-        @keyframes lz-slide-prev-in  { from{opacity:0;transform:translateX(-60px)} to{opacity:1;transform:translateX(0)} }
-        @keyframes lz-slide-prev-out { from{opacity:1;transform:translateX(0)}  to{opacity:0;transform:translateX(60px)} }
+        /* image slide */
+        @keyframes lz-next-in  { from{opacity:0;transform:translateX(55px)}  to{opacity:1;transform:translateX(0)} }
+        @keyframes lz-next-out { from{opacity:1;transform:translateX(0)}     to{opacity:0;transform:translateX(-55px)} }
+        @keyframes lz-prev-in  { from{opacity:0;transform:translateX(-55px)} to{opacity:1;transform:translateX(0)} }
+        @keyframes lz-prev-out { from{opacity:1;transform:translateX(0)}     to{opacity:0;transform:translateX(55px)} }
+        .lz-img-enter-next { animation: lz-next-in  0.38s cubic-bezier(0.22,1,0.36,1) forwards; }
+        .lz-img-exit-next  { animation: lz-next-out 0.38s cubic-bezier(0.22,1,0.36,1) forwards; }
+        .lz-img-enter-prev { animation: lz-prev-in  0.38s cubic-bezier(0.22,1,0.36,1) forwards; }
+        .lz-img-exit-prev  { animation: lz-prev-out 0.38s cubic-bezier(0.22,1,0.36,1) forwards; }
 
-        .lz-img-enter-next { animation: lz-slide-next-in 0.38s cubic-bezier(0.22,1,0.36,1) forwards; }
-        .lz-img-exit-next  { animation: lz-slide-next-out 0.38s cubic-bezier(0.22,1,0.36,1) forwards; }
-        .lz-img-enter-prev { animation: lz-slide-prev-in 0.38s cubic-bezier(0.22,1,0.36,1) forwards; }
-        .lz-img-exit-prev  { animation: lz-slide-prev-out 0.38s cubic-bezier(0.22,1,0.36,1) forwards; }
-
-        /* ── BACK BAR — sits below navbar, no overlap ── */
+        /* ─────────────────────────────────────────────
+           BACK BAR
+           • NOT sticky/fixed — lives in normal document flow
+             so it renders below the site's own sticky navbar
+             without any z-index collision or overlap.
+           ───────────────────────────────────────────── */
         .lz-bar {
-          /* NOT sticky — sits naturally in flow below the site navbar */
           width: 100%;
-          height: 52px;
-          background: rgba(9,17,26,0.6);
+          height: 50px;
+          background: rgba(9,17,26,0.55);
           border-bottom: 1px solid rgba(201,169,110,0.1);
           display: flex; align-items: center;
           padding: 0 40px; gap: 14px;
+          /* no position:sticky, no position:fixed */
         }
-        @media(max-width:700px){ .lz-bar{padding:0 20px} }
+        @media(max-width:700px){ .lz-bar { padding: 0 20px; } }
 
-        .lz-back { display:flex; align-items:center; gap:7px; background:none; border:none; cursor:pointer; font-family:'Outfit',system-ui,sans-serif; font-size:13px; font-weight:500; color:rgba(229,224,198,0.4); transition:color 0.2s; padding:0; }
-        .lz-back:hover { color:rgba(229,224,198,0.85); }
-        .lz-back:hover .lz-arr { transform:translateX(-3px); }
-        .lz-arr { display:inline-block; transition:transform 0.2s ease; }
-        .lz-bsep { width:1px; height:16px; background:rgba(229,224,198,0.08); }
-        .lz-blabel { font-size:13px; font-weight:400; color:rgba(229,224,198,0.25); letter-spacing:0.03em; }
+        .lz-back {
+          display: flex; align-items: center; gap: 7px;
+          background: none; border: none; cursor: pointer;
+          font-family: 'Outfit', system-ui, sans-serif;
+          font-size: 13px; font-weight: 500;
+          color: rgba(229,224,198,0.45);
+          transition: color 0.2s; padding: 0;
+        }
+        .lz-back:hover { color: rgba(229,224,198,0.9); }
+        .lz-back:hover .lz-arr { transform: translateX(-3px); }
+        .lz-arr { display: inline-block; transition: transform 0.2s ease; }
+        .lz-bsep { width: 1px; height: 16px; background: rgba(229,224,198,0.08); }
+        .lz-blabel { font-size: 13px; font-weight: 400; color: rgba(229,224,198,0.22); letter-spacing: 0.03em; }
 
-        /* ── LAYOUT ── */
+        /* ─────────────────────────────────────────────
+           MAIN LAYOUT
+           ───────────────────────────────────────────── */
         .lz-wrap {
           max-width: 1160px; margin: 0 auto;
-          /* FIX 1: generous top padding so content breathes below the bar */
-          padding: 40px 40px 100px;
+          padding: 36px 40px 100px;
           display: grid; grid-template-columns: 1fr 1fr;
           gap: 24px; align-items: start;
         }
-        @media(max-width:860px){ .lz-wrap{grid-template-columns:1fr; padding:24px 20px 80px} }
+        @media(max-width:860px){ .lz-wrap { grid-template-columns: 1fr; padding: 24px 20px 80px; } }
 
-        /* ── PRODUCT CARD (single unified card) ── */
+        /* ── PRODUCT CARD ── */
         .lz-pcard {
           background: rgba(255,255,255,0.028);
           border: 1px solid rgba(201,169,110,0.13);
@@ -394,23 +408,19 @@ export default function AuctionRegisterPage() {
           display: flex; align-items: center; justify-content: center;
           font-size: 80px; color: rgba(201,169,110,0.1);
         }
-
-        /* Arrow buttons */
         .lz-arrow {
           position: absolute; top: 50%; transform: translateY(-50%);
           z-index: 10; width: 38px; height: 38px; border-radius: 50%;
           background: rgba(9,17,26,0.65); backdrop-filter: blur(8px);
-          border: 1px solid rgba(201,169,110,0.2);
-          color: rgba(229,224,198,0.8); font-size: 15px;
+          border: 1px solid rgba(201,169,110,0.22);
+          color: rgba(229,224,198,0.8); font-size: 18px; line-height: 1;
           display: flex; align-items: center; justify-content: center;
-          cursor: pointer; transition: all 0.22s ease;
-          user-select: none;
+          cursor: pointer; transition: all 0.22s ease; user-select: none;
         }
-        .lz-arrow:hover { background: rgba(201,169,110,0.18); border-color: rgba(201,169,110,0.5); color: #c9a96e; }
-        .lz-arrow.left { left: 12px; }
+        .lz-arrow:hover { background: rgba(201,169,110,0.2); border-color: rgba(201,169,110,0.55); color: #c9a96e; }
+        .lz-arrow.left  { left: 12px; }
         .lz-arrow.right { right: 12px; }
 
-        /* Dot indicators */
         .lz-dots {
           position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
           display: flex; gap: 5px; z-index: 10;
@@ -423,153 +433,161 @@ export default function AuctionRegisterPage() {
         .lz-dot.on { background: #c9a96e; width: 16px; border-radius: 3px; }
 
         /* Thumbnails */
-        .lz-thumbrow { display:flex; gap:8px; padding:12px 18px; border-bottom:1px solid rgba(201,169,110,0.07); overflow-x:auto; scrollbar-width:none; }
-        .lz-thumbrow::-webkit-scrollbar{display:none}
-        .lz-t { width:44px; height:44px; flex-shrink:0; border-radius:7px; overflow:hidden; cursor:pointer; border:1.5px solid transparent; transition:all 0.22s cubic-bezier(0.22,1,0.36,1); opacity:0.4; }
-        .lz-t:hover { opacity:0.75; transform:translateY(-2px); }
-        .lz-t.on { border-color:#c9a96e; opacity:1; }
-        .lz-t img { width:100%; height:100%; object-fit:cover; display:block; }
+        .lz-thumbrow {
+          display: flex; gap: 8px; padding: 12px 18px;
+          border-bottom: 1px solid rgba(201,169,110,0.07);
+          overflow-x: auto; scrollbar-width: none;
+        }
+        .lz-thumbrow::-webkit-scrollbar { display: none; }
+        .lz-t {
+          width: 44px; height: 44px; flex-shrink: 0;
+          border-radius: 7px; overflow: hidden; cursor: pointer;
+          border: 1.5px solid transparent;
+          transition: all 0.22s cubic-bezier(0.22,1,0.36,1);
+          opacity: 0.4;
+        }
+        .lz-t:hover { opacity: 0.75; transform: translateY(-2px); }
+        .lz-t.on   { border-color: #c9a96e; opacity: 1; }
+        .lz-t img  { width: 100%; height: 100%; object-fit: cover; display: block; }
 
         /* ── PRODUCT INFO ── */
-        .lz-pinfo { padding:22px 26px 28px; }
+        .lz-pinfo { padding: 22px 26px 28px; }
+        .lz-ptitle { font-size: 24px; font-weight: 700; color: rgb(229,224,198); letter-spacing: -0.01em; line-height: 1.2; }
+        .lz-pdesc-top { font-size: 13px; line-height: 1.75; font-weight: 300; color: rgba(229,224,198,0.42); margin-top: 10px; margin-bottom: 20px; }
+        .lz-gold-line { height: 1px; background: linear-gradient(90deg,rgba(201,169,110,0.4),rgba(201,169,110,0.07),transparent); margin-bottom: 20px; }
 
-        /* FIX 2: all numbers use Outfit (normal/bold), NOT Cormorant serif */
-        .lz-ptitle { font-size:24px; font-weight:700; color:rgb(229,224,198); letter-spacing:-0.01em; line-height:1.2; }
+        .lz-pricerow { display: flex; align-items: baseline; gap: 8px; margin-bottom: 22px; }
+        .lz-plabel { font-size: 11px; font-weight: 500; color: rgba(229,224,198,0.3); letter-spacing: 0.12em; text-transform: uppercase; }
+        .lz-pnum  { font-size: 30px; font-weight: 800; color: #c9a96e; letter-spacing: -0.01em; line-height: 1; }
+        .lz-pcur  { font-size: 13px; color: rgba(201,169,110,0.5); font-weight: 500; }
 
-        /* FIX 5: description sits right below the title/subtitle */
-        .lz-pdesc-top {
-          font-size:13px; line-height:1.75; font-weight:300;
-          color:rgba(229,224,198,0.42);
-          margin-top:10px; margin-bottom:20px;
-        }
+        .lz-specs { display: flex; flex-direction: column; gap: 9px; margin-bottom: 20px; }
+        .lz-srow  { display: flex; align-items: center; }
+        .lz-sk    { font-size: 12px; font-weight: 400; color: rgba(229,224,198,0.3); letter-spacing: 0.06em; min-width: 105px; flex-shrink: 0; }
+        .lz-sdot  { width: 3px; height: 3px; border-radius: 50%; background: rgba(201,169,110,0.28); flex-shrink: 0; margin-right: 10px; }
+        .lz-sv    { font-size: 13.5px; font-weight: 500; color: rgba(229,224,198,0.78); }
 
-        .lz-gold-line { height:1px; background:linear-gradient(90deg,rgba(201,169,110,0.4),rgba(201,169,110,0.07),transparent); margin-bottom:20px; }
-
-        /* Price — Outfit bold, not serif */
-        .lz-pricerow { display:flex; align-items:baseline; gap:8px; margin-bottom:22px; }
-        .lz-plabel { font-size:11px; font-weight:500; color:rgba(229,224,198,0.3); letter-spacing:0.12em; text-transform:uppercase; }
-        /* FIX 2: number in Outfit 800, not Cormorant */
-        .lz-pnum { font-size:30px; font-weight:800; color:#c9a96e; letter-spacing:-0.01em; line-height:1; }
-        .lz-pcur { font-size:13px; color:rgba(201,169,110,0.5); font-weight:500; }
-
-        /* Specs — clean inline rows, no boxes */
-        .lz-specs { display:flex; flex-direction:column; gap:9px; margin-bottom:20px; }
-        .lz-srow { display:flex; align-items:center; }
-        .lz-sk { font-size:12px; font-weight:400; color:rgba(229,224,198,0.3); letter-spacing:0.06em; min-width:105px; flex-shrink:0; }
-        .lz-sdot { width:3px; height:3px; border-radius:50%; background:rgba(201,169,110,0.28); flex-shrink:0; margin-right:10px; }
-        .lz-sv { font-size:13.5px; font-weight:500; color:rgba(229,224,198,0.78); }
-
-        /* Features */
-        .lz-feats { display:flex; flex-wrap:wrap; gap:6px; padding-top:16px; border-top:1px solid rgba(201,169,110,0.07); }
-        .lz-ftag { font-size:11px; font-weight:500; color:rgba(201,169,110,0.7); background:rgba(201,169,110,0.07); border:1px solid rgba(201,169,110,0.13); border-radius:99px; padding:3px 12px; letter-spacing:0.03em; }
+        .lz-feats { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 16px; border-top: 1px solid rgba(201,169,110,0.07); }
+        .lz-ftag  { font-size: 11px; font-weight: 500; color: rgba(201,169,110,0.7); background: rgba(201,169,110,0.07); border: 1px solid rgba(201,169,110,0.13); border-radius: 99px; padding: 3px 12px; letter-spacing: 0.03em; }
 
         /* ── RIGHT COLUMN ── */
-        .lz-right { display:flex; flex-direction:column; gap:14px; }
-        .lz-sec-label { font-size:10px; font-weight:600; color:rgba(229,224,198,0.25); letter-spacing:0.22em; text-transform:uppercase; padding:0 2px 2px; }
+        .lz-right { display: flex; flex-direction: column; gap: 14px; }
+        .lz-sec-label { font-size: 10px; font-weight: 600; color: rgba(229,224,198,0.25); letter-spacing: 0.22em; text-transform: uppercase; padding: 0 2px 2px; }
 
         /* ── AUCTION CARD ── */
         .lz-acard {
-          background:rgba(255,255,255,0.028);
-          border:1px solid rgba(201,169,110,0.1);
-          border-radius:16px; padding:20px 22px;
-          cursor:pointer; user-select:none; position:relative; overflow:hidden;
-          transition:all 0.28s cubic-bezier(0.22,1,0.36,1);
+          background: rgba(255,255,255,0.028);
+          border: 1px solid rgba(201,169,110,0.1);
+          border-radius: 16px; padding: 20px 22px;
+          cursor: pointer; user-select: none;
+          position: relative; overflow: hidden;
+          transition: all 0.28s cubic-bezier(0.22,1,0.36,1);
         }
-        .lz-acard::before { content:''; position:absolute; inset:0; background:linear-gradient(135deg,rgba(201,169,110,0.05),transparent 55%); opacity:0; transition:opacity 0.28s ease; pointer-events:none; border-radius:16px; }
-        .lz-acard:hover { border-color:rgba(201,169,110,0.26); transform:translateY(-2px); box-shadow:0 14px 44px rgba(0,0,0,0.32); }
-        .lz-acard:hover::before { opacity:1; }
-        .lz-acard.sel { border-color:rgba(201,169,110,0.55); background:rgba(201,169,110,0.05); box-shadow:0 0 0 1px rgba(201,169,110,0.16),0 14px 44px rgba(0,0,0,0.32); transform:translateY(-2px); }
-        .lz-acard.sel::before { opacity:1; }
+        .lz-acard::before {
+          content: ''; position: absolute; inset: 0;
+          background: linear-gradient(135deg,rgba(201,169,110,0.05),transparent 55%);
+          opacity: 0; transition: opacity 0.28s ease;
+          pointer-events: none; border-radius: 16px;
+        }
+        .lz-acard:hover          { border-color: rgba(201,169,110,0.26); transform: translateY(-2px); box-shadow: 0 14px 44px rgba(0,0,0,0.32); }
+        .lz-acard:hover::before  { opacity: 1; }
+        .lz-acard.sel            { border-color: rgba(201,169,110,0.55); background: rgba(201,169,110,0.05); box-shadow: 0 0 0 1px rgba(201,169,110,0.16), 0 14px 44px rgba(0,0,0,0.32); transform: translateY(-2px); }
+        .lz-acard.sel::before    { opacity: 1; }
 
-        .lz-ahead { display:flex; align-items:center; justify-content:space-between; margin-bottom:13px; }
-        /* FIX 2: auction number in Outfit bold */
-        .lz-anum { font-size:13px; font-weight:500; color:rgba(229,224,198,0.3); }
-        .lz-anum strong { font-size:17px; font-weight:700; color:rgba(229,224,198,0.85); margin-left:3px; }
+        .lz-ahead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 13px; }
+        .lz-anum  { font-size: 13px; font-weight: 500; color: rgba(229,224,198,0.3); }
+        .lz-anum strong { font-size: 17px; font-weight: 700; color: rgba(229,224,198,0.85); margin-left: 3px; }
 
-        .lz-pill { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:99px; font-size:9px; font-weight:700; letter-spacing:0.14em; text-transform:uppercase; }
-        .lz-pdot { width:5px; height:5px; border-radius:50%; flex-shrink:0; }
-        .lz-pill.live { background:rgba(74,222,128,0.1); color:#4ade80; }
-        .lz-pill.live .lz-pdot { background:#4ade80; animation:lz-pulse 1.5s ease-in-out infinite; }
-        .lz-pill.upcoming { background:rgba(147,197,253,0.1); color:#93c5fd; }
-        .lz-pill.upcoming .lz-pdot { background:#93c5fd; }
+        .lz-pill  { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 99px; font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
+        .lz-pdot  { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+        .lz-pill.live     { background: rgba(74,222,128,0.1); color: #4ade80; }
+        .lz-pill.live .lz-pdot     { background: #4ade80; animation: lz-pulse 1.5s ease-in-out infinite; }
+        .lz-pill.upcoming { background: rgba(147,197,253,0.1); color: #93c5fd; }
+        .lz-pill.upcoming .lz-pdot { background: #93c5fd; }
 
-        .lz-atime { display:flex; align-items:center; gap:8px; margin-bottom:15px; flex-wrap:wrap; }
-        .lz-tchip { font-size:12px; font-weight:400; color:rgba(229,224,198,0.42); display:flex; align-items:center; gap:5px; }
-        .lz-tsep { color:rgba(229,224,198,0.15); }
+        .lz-atime { display: flex; align-items: center; gap: 8px; margin-bottom: 15px; flex-wrap: wrap; }
+        .lz-tchip { font-size: 12px; font-weight: 400; color: rgba(229,224,198,0.42); display: flex; align-items: center; gap: 5px; }
+        .lz-tsep  { color: rgba(229,224,198,0.15); }
 
-        /* Money — FIX 2: Outfit bold, not Cormorant */
-        .lz-amoney { display:flex; padding:13px 0; border-top:1px solid rgba(201,169,110,0.08); border-bottom:1px solid rgba(201,169,110,0.08); margin-bottom:15px; }
-        .lz-mblock { flex:1; }
-        .lz-mblock + .lz-mblock { border-left:1px solid rgba(201,169,110,0.08); padding-left:18px; }
-        .lz-mlabel { font-size:9px; font-weight:600; color:rgba(229,224,198,0.25); letter-spacing:0.18em; text-transform:uppercase; margin-bottom:5px; }
-        .lz-mval { font-size:20px; font-weight:800; color:#c9a96e; line-height:1; }
-        .lz-mval.free { font-size:16px; color:#4ade80; font-weight:700; }
-        .lz-mcur { font-size:11px; color:rgba(201,169,110,0.42); margin-left:2px; font-weight:500; }
+        .lz-amoney { display: flex; padding: 13px 0; border-top: 1px solid rgba(201,169,110,0.08); border-bottom: 1px solid rgba(201,169,110,0.08); margin-bottom: 15px; }
+        .lz-mblock { flex: 1; }
+        .lz-mblock + .lz-mblock { border-left: 1px solid rgba(201,169,110,0.08); padding-left: 18px; }
+        .lz-mlabel { font-size: 9px; font-weight: 600; color: rgba(229,224,198,0.25); letter-spacing: 0.18em; text-transform: uppercase; margin-bottom: 5px; }
+        .lz-mval  { font-size: 20px; font-weight: 800; color: #c9a96e; line-height: 1; }
+        .lz-mval.free { font-size: 16px; color: #4ade80; font-weight: 700; }
+        .lz-mcur  { font-size: 11px; color: rgba(201,169,110,0.42); margin-left: 2px; font-weight: 500; }
 
-        .lz-lotag { display:inline-block; font-size:9px; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:rgba(201,169,110,0.55); background:rgba(201,169,110,0.07); border:1px solid rgba(201,169,110,0.13); border-radius:5px; padding:2px 8px; margin-bottom:11px; }
+        .lz-lotag { display: inline-block; font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(201,169,110,0.55); background: rgba(201,169,110,0.07); border: 1px solid rgba(201,169,110,0.13); border-radius: 5px; padding: 2px 8px; margin-bottom: 11px; }
 
-        .lz-afoot { display:flex; align-items:center; justify-content:space-between; }
-        .lz-afoot-t { font-size:12px; font-weight:400; color:rgba(229,224,198,0.22); transition:color 0.22s ease; }
-        .lz-acard.sel .lz-afoot-t { color:rgba(201,169,110,0.65); }
+        .lz-afoot   { display: flex; align-items: center; justify-content: space-between; }
+        .lz-afoot-t { font-size: 12px; font-weight: 400; color: rgba(229,224,198,0.22); transition: color 0.22s ease; }
+        .lz-acard.sel .lz-afoot-t { color: rgba(201,169,110,0.65); }
 
         /* ── RADIO ── */
-        .lz-radio { width:26px; height:26px; border-radius:50%; border:1.5px solid rgba(229,224,198,0.12); background:rgba(255,255,255,0.02); display:flex; align-items:center; justify-content:center; transition:all 0.28s cubic-bezier(0.34,1.56,0.64,1); flex-shrink:0; }
-        .lz-radio.on { border-color:#c9a96e; background:#c9a96e; box-shadow:0 0 0 3px rgba(201,169,110,0.14); }
-        .lz-rdot { width:9px; height:9px; border-radius:50%; background:#09111a; transform:scale(0); transition:transform 0.28s cubic-bezier(0.34,1.56,0.64,1); }
-        .lz-radio.on .lz-rdot { transform:scale(1); animation:lz-radio-in 0.3s cubic-bezier(0.34,1.56,0.64,1); }
-        .lz-acard:active .lz-radio { transform:scale(0.88); }
+        .lz-radio { width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid rgba(229,224,198,0.12); background: rgba(255,255,255,0.02); display: flex; align-items: center; justify-content: center; transition: all 0.28s cubic-bezier(0.34,1.56,0.64,1); flex-shrink: 0; }
+        .lz-radio.on { border-color: #c9a96e; background: #c9a96e; box-shadow: 0 0 0 3px rgba(201,169,110,0.14); }
+        .lz-rdot { width: 9px; height: 9px; border-radius: 50%; background: #09111a; transform: scale(0); transition: transform 0.28s cubic-bezier(0.34,1.56,0.64,1); }
+        .lz-radio.on .lz-rdot { transform: scale(1); animation: lz-radio-in 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+        .lz-acard:active .lz-radio { transform: scale(0.88); }
 
         /* ── EMPTY ── */
-        .lz-empty { text-align:center; padding:44px 20px; background:rgba(255,255,255,0.02); border:1px solid rgba(201,169,110,0.07); border-radius:16px; }
-        .lz-empty-i { font-size:30px; opacity:0.2; margin-bottom:12px; }
-        .lz-empty-t { font-size:14px; font-weight:500; color:rgba(229,224,198,0.4); margin-bottom:4px; }
-        .lz-empty-s { font-size:12px; color:rgba(229,224,198,0.2); }
+        .lz-empty   { text-align: center; padding: 44px 20px; background: rgba(255,255,255,0.02); border: 1px solid rgba(201,169,110,0.07); border-radius: 16px; }
+        .lz-empty-i { font-size: 30px; opacity: 0.2; margin-bottom: 12px; }
+        .lz-empty-t { font-size: 14px; font-weight: 500; color: rgba(229,224,198,0.4); margin-bottom: 4px; }
+        .lz-empty-s { font-size: 12px; color: rgba(229,224,198,0.2); }
 
         /* ── CHECKOUT CARD ── */
-        .lz-cocard { background:rgba(255,255,255,0.028); border:1px solid rgba(201,169,110,0.13); border-radius:20px; overflow:hidden; }
-        .lz-coinner { padding:22px 24px 24px; }
+        .lz-cocard  { background: rgba(255,255,255,0.028); border: 1px solid rgba(201,169,110,0.13); border-radius: 20px; overflow: hidden; }
+        .lz-coinner { padding: 22px 24px 24px; }
 
-        .lz-selinfo { font-size:11px; color:rgba(229,224,198,0.28); margin-bottom:16px; letter-spacing:0.04em; }
-        .lz-selinfo strong { color:rgba(229,224,198,0.5); }
+        .lz-selinfo          { font-size: 11px; color: rgba(229,224,198,0.28); margin-bottom: 16px; letter-spacing: 0.04em; }
+        .lz-selinfo strong   { color: rgba(229,224,198,0.5); }
 
         /* Terms */
-        .lz-terms { display:flex; align-items:flex-start; gap:12px; padding:13px 15px; border-radius:12px; border:1px solid rgba(201,169,110,0.1); cursor:pointer; transition:all 0.22s ease; margin-bottom:18px; user-select:none; }
-        .lz-terms:hover { border-color:rgba(201,169,110,0.22); background:rgba(201,169,110,0.03); }
-        .lz-terms.on { border-color:rgba(201,169,110,0.38); background:rgba(201,169,110,0.05); }
-        .lz-terms:active .lz-chk { transform:scale(0.88); }
+        .lz-terms { display: flex; align-items: flex-start; gap: 12px; padding: 13px 15px; border-radius: 12px; border: 1px solid rgba(201,169,110,0.1); cursor: pointer; transition: all 0.22s ease; margin-bottom: 18px; user-select: none; }
+        .lz-terms:hover { border-color: rgba(201,169,110,0.22); background: rgba(201,169,110,0.03); }
+        .lz-terms.on    { border-color: rgba(201,169,110,0.38); background: rgba(201,169,110,0.05); }
+        .lz-terms:active .lz-chk { transform: scale(0.88); }
 
-        /* ── CHECKBOX ── */
-        .lz-chk { width:22px; height:22px; flex-shrink:0; margin-top:1px; border-radius:6px; border:1.5px solid rgba(229,224,198,0.12); background:rgba(255,255,255,0.02); display:flex; align-items:center; justify-content:center; transition:all 0.25s cubic-bezier(0.34,1.56,0.64,1); }
-        .lz-chk.on { border-color:#c9a96e; background:#c9a96e; box-shadow:0 0 0 3px rgba(201,169,110,0.14); }
-        .lz-chkmark { font-size:11px; font-weight:900; color:#09111a; opacity:0; transform:scale(0) rotate(-20deg); transition:all 0.25s cubic-bezier(0.34,1.56,0.64,1); }
-        .lz-chk.on .lz-chkmark { opacity:1; transform:scale(1) rotate(0); animation:lz-check 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+        /* Checkbox */
+        .lz-chk { width: 22px; height: 22px; flex-shrink: 0; margin-top: 1px; border-radius: 6px; border: 1.5px solid rgba(229,224,198,0.12); background: rgba(255,255,255,0.02); display: flex; align-items: center; justify-content: center; transition: all 0.25s cubic-bezier(0.34,1.56,0.64,1); }
+        .lz-chk.on { border-color: #c9a96e; background: #c9a96e; box-shadow: 0 0 0 3px rgba(201,169,110,0.14); }
+        .lz-chkmark { font-size: 11px; font-weight: 900; color: #09111a; opacity: 0; transform: scale(0) rotate(-20deg); transition: all 0.25s cubic-bezier(0.34,1.56,0.64,1); }
+        .lz-chk.on .lz-chkmark { opacity: 1; transform: scale(1) rotate(0); animation: lz-check 0.3s cubic-bezier(0.34,1.56,0.64,1); }
 
-        .lz-ttext { font-size:12.5px; line-height:1.65; color:rgba(229,224,198,0.38); }
-        .lz-tlink { color:#c9a96e; text-decoration:underline; text-underline-offset:2px; cursor:pointer; font-weight:500; }
+        .lz-ttext { font-size: 12.5px; line-height: 1.65; color: rgba(229,224,198,0.38); }
+        /* FIX 3: terms link styled as clickable, navigates to /terms */
+        .lz-tlink { color: #c9a96e; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; font-weight: 600; background: none; border: none; font-family: inherit; font-size: inherit; padding: 0; display: inline; }
+        .lz-tlink:hover { color: #e0c080; }
 
-        /* Total — FIX 2: Outfit bold */
-        .lz-total { display:flex; align-items:center; justify-content:space-between; padding:16px 0; margin-bottom:18px; border-top:1px solid rgba(201,169,110,0.1); border-bottom:1px solid rgba(201,169,110,0.1); }
-        .lz-tlabel { font-size:10px; font-weight:600; color:rgba(229,224,198,0.25); letter-spacing:0.18em; text-transform:uppercase; }
-        .lz-tnum { font-size:28px; font-weight:800; color:rgb(229,224,198); letter-spacing:-0.01em; line-height:1; }
-        .lz-tcur { font-size:13px; color:rgba(229,224,198,0.35); margin-left:4px; font-weight:500; }
-        .lz-tfree { font-size:16px; font-weight:700; color:#4ade80; }
-        .lz-tempty { font-size:22px; color:rgba(229,224,198,0.15); font-weight:300; }
+        /* Total */
+        .lz-total  { display: flex; align-items: center; justify-content: space-between; padding: 16px 0; margin-bottom: 18px; border-top: 1px solid rgba(201,169,110,0.1); border-bottom: 1px solid rgba(201,169,110,0.1); }
+        .lz-tlabel { font-size: 10px; font-weight: 600; color: rgba(229,224,198,0.25); letter-spacing: 0.18em; text-transform: uppercase; }
+        .lz-tnum   { font-size: 28px; font-weight: 800; color: rgb(229,224,198); letter-spacing: -0.01em; line-height: 1; }
+        .lz-tcur   { font-size: 13px; color: rgba(229,224,198,0.35); margin-left: 4px; font-weight: 500; }
+        .lz-tfree  { font-size: 16px; font-weight: 700; color: #4ade80; }
+        .lz-tempty { font-size: 22px; color: rgba(229,224,198,0.15); font-weight: 300; }
 
-        /* ── CTA BUTTON ── */
-        .lz-cta { width:100%; height:52px; border:none; border-radius:12px; font-family:'Outfit',system-ui,sans-serif; font-size:12px; font-weight:700; letter-spacing:0.14em; text-transform:uppercase; cursor:pointer; position:relative; overflow:hidden; display:flex; align-items:center; justify-content:center; gap:10px; transition:all 0.28s cubic-bezier(0.22,1,0.36,1); }
-        .lz-cta.go { background:linear-gradient(135deg,#c9a96e 0%,#b8934a 100%); color:#09111a; box-shadow:0 4px 22px rgba(201,169,110,0.2); }
-        .lz-cta.go:hover { transform:translateY(-2px); box-shadow:0 10px 34px rgba(201,169,110,0.3); }
-        .lz-cta.go:active { transform:translateY(0); }
-        .lz-cta.off { background:rgba(255,255,255,0.03); color:rgba(229,224,198,0.2); border:1px solid rgba(229,224,198,0.05); cursor:not-allowed; }
-        .lz-shine { position:absolute; inset:0; background:linear-gradient(90deg,transparent,rgba(255,255,255,0.12),transparent); transform:translateX(-200%); transition:transform 0.7s ease; pointer-events:none; }
-        .lz-cta.go:hover .lz-shine { transform:translateX(200%); }
-        .lz-spinner { width:15px; height:15px; border:2px solid rgba(9,17,26,0.2); border-top-color:#09111a; border-radius:50%; animation:lz-spin 0.8s linear infinite; }
+        /* CTA button */
+        .lz-cta { width: 100%; height: 52px; border: none; border-radius: 12px; font-family: 'Outfit', system-ui, sans-serif; font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; cursor: pointer; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; gap: 10px; transition: all 0.28s cubic-bezier(0.22,1,0.36,1); }
+        .lz-cta.go  { background: linear-gradient(135deg,#c9a96e 0%,#b8934a 100%); color: #09111a; box-shadow: 0 4px 22px rgba(201,169,110,0.2); }
+        .lz-cta.go:hover  { transform: translateY(-2px); box-shadow: 0 10px 34px rgba(201,169,110,0.3); }
+        .lz-cta.go:active { transform: translateY(0); }
+        .lz-cta.off { background: rgba(255,255,255,0.03); color: rgba(229,224,198,0.2); border: 1px solid rgba(229,224,198,0.05); cursor: not-allowed; }
+        .lz-shine { position: absolute; inset: 0; background: linear-gradient(90deg,transparent,rgba(255,255,255,0.12),transparent); transform: translateX(-200%); transition: transform 0.7s ease; pointer-events: none; }
+        .lz-cta.go:hover .lz-shine { transform: translateX(200%); }
+        .lz-spinner { width: 15px; height: 15px; border: 2px solid rgba(9,17,26,0.2); border-top-color: #09111a; border-radius: 50%; animation: lz-spin 0.8s linear infinite; }
 
-        .lz-secure { text-align:center; font-size:10px; color:rgba(229,224,198,0.18); margin-top:12px; letter-spacing:0.1em; }
+        .lz-secure { text-align: center; font-size: 10px; color: rgba(229,224,198,0.18); margin-top: 12px; letter-spacing: 0.1em; }
       `}</style>
 
       <div className="lz">
-        {/* ── BACK BAR — not sticky, sits below navbar naturally ── */}
+        {/* ─────────────────────────────────────────────────────
+            BACK BAR
+            Plain block element — renders in normal document flow
+            so it sits naturally below the site's sticky navbar.
+            No position:sticky / position:fixed on this element.
+          ───────────────────────────────────────────────────── */}
         <div className="lz-bar">
           <button className="lz-back" onClick={() => navigate(-1)}>
             <span className="lz-arr">←</span> Back
@@ -578,59 +596,62 @@ export default function AuctionRegisterPage() {
           <span className="lz-blabel">Auction Registration</span>
         </div>
 
+        {/* ── MAIN CONTENT ── */}
         <div className="lz-wrap">
-          {/* ── LEFT: unified product card ── */}
+          {/* LEFT: unified product card */}
           <div className="lz-pcard">
-            {/* ── GALLERY with arrows + auto-slide ── */}
+            {/* GALLERY */}
             <div className="lz-gallery">
               {currentImg ? (
                 <img
                   key={imgIndex}
                   src={currentImg}
                   alt={product.title}
-                  className={`lz-gallery-img ${imgAnimating ? (imgDir === "next" ? "lz-img-exit-next" : "lz-img-exit-prev") : imgDir === "next" ? "lz-img-enter-next" : "lz-img-enter-prev"}`}
+                  className={`lz-gallery-img ${
+                    imgAnimating
+                      ? imgDir === "next"
+                        ? "lz-img-exit-next"
+                        : "lz-img-exit-prev"
+                      : imgDir === "next"
+                        ? "lz-img-enter-next"
+                        : "lz-img-enter-prev"
+                  }`}
                   onError={(e: any) => (e.currentTarget.style.display = "none")}
                 />
               ) : (
                 <div className="lz-gallery-ph">{product.title.charAt(0)}</div>
               )}
 
-              {/* Left arrow */}
               {allImages.length > 1 && (
-                <button
-                  className="lz-arrow left"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    goPrev();
-                  }}
-                >
-                  ‹
-                </button>
-              )}
-              {/* Right arrow */}
-              {allImages.length > 1 && (
-                <button
-                  className="lz-arrow right"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    goNext();
-                  }}
-                >
-                  ›
-                </button>
-              )}
-
-              {/* Dot indicators */}
-              {allImages.length > 1 && (
-                <div className="lz-dots">
-                  {allImages.map((_, i) => (
-                    <div
-                      key={i}
-                      className={`lz-dot ${i === imgIndex ? "on" : ""}`}
-                      onClick={() => goTo(i, i > imgIndex ? "next" : "prev")}
-                    />
-                  ))}
-                </div>
+                <>
+                  <button
+                    className="lz-arrow left"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      goPrev();
+                    }}
+                  >
+                    ‹
+                  </button>
+                  <button
+                    className="lz-arrow right"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      goNext();
+                    }}
+                  >
+                    ›
+                  </button>
+                  <div className="lz-dots">
+                    {allImages.map((_, i) => (
+                      <div
+                        key={i}
+                        className={`lz-dot ${i === imgIndex ? "on" : ""}`}
+                        onClick={() => goTo(i, i > imgIndex ? "next" : "prev")}
+                      />
+                    ))}
+                  </div>
+                </>
               )}
             </div>
 
@@ -655,28 +676,24 @@ export default function AuctionRegisterPage() {
               </div>
             )}
 
-            {/* ── Info ── */}
+            {/* Info */}
             <div className="lz-pinfo">
               <div className="lz-ptitle">{product.title}</div>
 
-              {/* FIX 5: description right under the title */}
               {product.description && (
                 <div className="lz-pdesc-top">{product.description}</div>
               )}
 
               <div className="lz-gold-line" />
 
-              {/* Price */}
               <div className="lz-pricerow">
                 <span className="lz-plabel">Starting price</span>
-                {/* FIX 2: Outfit 800 */}
                 <span className="lz-pnum">
                   {product.price.toLocaleString()}
                 </span>
                 <span className="lz-pcur">EGP</span>
               </div>
 
-              {/* Specs — clean inline, no boxes, brand+model included */}
               <div className="lz-specs">
                 {product.brand && (
                   <div className="lz-srow">
@@ -718,7 +735,6 @@ export default function AuctionRegisterPage() {
                 </div>
               </div>
 
-              {/* Features */}
               {product.features.length > 0 && (
                 <div className="lz-feats">
                   {product.features.map((f, i) => (
@@ -731,7 +747,7 @@ export default function AuctionRegisterPage() {
             </div>
           </div>
 
-          {/* ── RIGHT ── */}
+          {/* RIGHT */}
           <div className="lz-right">
             <div className="lz-sec-label">Choose your session</div>
 
@@ -780,7 +796,6 @@ export default function AuctionRegisterPage() {
                     <div className="lz-amoney">
                       <div className="lz-mblock">
                         <div className="lz-mlabel">Starting price</div>
-                        {/* FIX 2: Outfit 800 */}
                         <span className="lz-mval">
                           {a.startingPrice.toLocaleString()}
                         </span>
@@ -816,7 +831,7 @@ export default function AuctionRegisterPage() {
               })
             )}
 
-            {/* ── CHECKOUT ── */}
+            {/* CHECKOUT */}
             <div className="lz-cocard">
               <div className="lz-coinner">
                 {selectedAuctions.size > 0 && (
@@ -851,12 +866,16 @@ export default function AuctionRegisterPage() {
                   </div>
                   <div className="lz-ttext">
                     I agree to the{" "}
-                    <span
+                    {/* FIX 3: navigates to /TermsAndConditions */}
+                    <button
                       className="lz-tlink"
-                      onClick={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate("/terms");
+                      }}
                     >
                       Loqta Zone Terms & Conditions
-                    </span>{" "}
+                    </button>{" "}
                     and confirm all entries are final and non-refundable.
                   </div>
                 </div>

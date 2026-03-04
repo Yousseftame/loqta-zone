@@ -110,9 +110,11 @@ export const routes = createBrowserRouter([
       { index: true, element: <Home /> },
       { path: "how-it-works", element: <HowItWork /> },
       { path: "aboutUs", element: <AboutUs /> },
-      { path: "contact", element: <Contact /> },
-      { path: "contact", element: <Contact /> },
-      { path:"/auctions/register/:productId", element:< AuctionRegisterPage />},
+      {
+        path: "/auctions/register/:productId",
+        element: <AuctionRegisterPage />,
+      },
+      { path: "terms", element: <TermsAndConditions /> },
     ],
   },
 ]);

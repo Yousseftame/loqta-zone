@@ -4,7 +4,6 @@ import { MoveUp } from "lucide-react";
 export default function ScrollToTop() {
   const [isVisible, setIsVisible] = useState(false);
 
-  // Show button when page is scrolled down
   const toggleVisibility = () => {
     if (window.pageYOffset > 300) {
       setIsVisible(true);
@@ -13,7 +12,6 @@ export default function ScrollToTop() {
     }
   };
 
-  // Scroll to top smoothly
   const scrollToTop = () => {
     window.scrollTo({
       top: 0,
@@ -23,7 +21,6 @@ export default function ScrollToTop() {
 
   useEffect(() => {
     window.addEventListener("scroll", toggleVisibility);
-
     return () => {
       window.removeEventListener("scroll", toggleVisibility);
     };
@@ -39,10 +36,10 @@ export default function ScrollToTop() {
     >
       <button
         onClick={scrollToTop}
-        className="p-5 rounded-full bg-[#c9a96e]/80 text-white shadow-lg hover:bg-[#c9a96e] transition-all duration-300 hover:scale-110 group"
+        className="flex items-center justify-center w-15 h-15 rounded-full bg-[#c9a96e]/80 text-white shadow-lg hover:bg-[#c9a96e] transition-all duration-300 hover:scale-110"
         aria-label="Scroll to top"
       >
-        <MoveUp />
+        <MoveUp size={25} />
       </button>
     </div>
   );
