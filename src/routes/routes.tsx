@@ -36,6 +36,7 @@ import Contact from "@/pages/Contact/Contact";
 import Home from "@/pages/Home/Home";
 import HowItWork from "@/pages/HowItWork/HowItWork";
 import NotFound from "@/pages/NotFound/NotFound";
+import TermsAndConditions from "@/pages/TermsAndConditions/TermsAndConditions";
 import { createBrowserRouter } from "react-router-dom";
 
 export const routes = createBrowserRouter([
@@ -89,7 +90,6 @@ export const routes = createBrowserRouter([
       { path: "contacts", element: <AdminContactList /> },
       { path: "contacts/:id", element: <AdminContactView /> },
 
-
       { path: "feedback", element: <AdminFeedbackList /> },
       { path: "feedback/:id", element: <AdminFeedbackView /> },
 
@@ -110,6 +110,7 @@ export const routes = createBrowserRouter([
       { path: "how-it-works", element: <HowItWork /> },
       { path: "aboutUs", element: <AboutUs /> },
       { path: "contact", element: <Contact /> },
+      { path: "terms", element: <TermsAndConditions /> },
     ],
   },
 ]);

@@ -34,8 +34,8 @@ export default function Home() {
       <CurvedLoop
         marqueeText={
           isArabic
-            ? "لقطه ✦ زون ✦ لقطه ✦ زون ✦ لقطه ✦"
-            : "LOQTA ✦ ZONE ✦ LOQTA ✦ ZONE ✦ LOQTA ✦"
+            ? "لقطه ✦ زون ✦ لقطه ✦ زون ✦ "
+            : "  ZONE ✦ LOQTA ✦ ZONE ✦ LOQTA ✦"
         }
         speed={2}
         curveAmount={400}

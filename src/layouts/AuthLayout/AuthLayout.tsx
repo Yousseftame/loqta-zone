@@ -7,7 +7,7 @@ import { Link, Outlet } from "react-router-dom";
 
 export default function AuthLayout() {
   return (
-    <div className="min-h-screen flex">
+    <div  dir="ltr"  className="min-h-screen flex">
       {/* Theme Toggle - Positioned Absolutely */}
       <div className="fixed top-6 right-6 z-50">
         <AnimatedThemeToggler className="w-10 h-10 flex items-center justify-center rounded-lg bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 text-gray-700 dark:text-gray-300" />

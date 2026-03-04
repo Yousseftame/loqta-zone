@@ -680,7 +680,336 @@
         }
       }
     }
+  },
+  
+  "termsPage": {
+    "brand": "Loqta Zone",
+    "pageTitle": "Terms & Conditions",
+    "lastUpdated": "Last Updated: 2025",
+    "contentsLabel": "Contents",
+    "intro": {
+      "heading": "Please Read Before Joining Any Auction",
+      "subtitle": "By accessing or using Loqta Zone, you agree to comply with and be bound by the following Terms and Conditions. Read them carefully before participating in any auction."
+    },
+    "agreement": {
+      "title": "Acknowledgement",
+      "checkboxLabel": "I have read, understood, and agree to be bound by these Terms and Conditions. I acknowledge that each bid I place is a legally binding commitment to purchase.",
+      "btnAgreed": "I Agree — Continue to Auction",
+      "btnPending": "Please Accept the Terms to Continue",
+      "hint": "You must accept the Terms and Conditions before participating in any auction."
+    },
+    "sections": [
+      {
+        "title": "Definitions",
+        "content": [
+          {
+            "type": "list",
+            "items": [
+              {
+                "term": "Loqta Zone",
+                "def": "The owner and operator of the auction website and services."
+              },
+              {
+                "term": "User / Bidder",
+                "def": "Any person who registers or participates in auctions on the platform."
+              },
+              {
+                "term": "Auction",
+                "def": "A process where users place bids to purchase items listed by Loqta Zone."
+              },
+              {
+                "term": "Winning Bidder",
+                "def": "The user who places the highest valid bid at the end of an auction."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "title": "Platform Role",
+        "content": [
+          {
+            "type": "bullets",
+            "items": [
+              "All items listed on Loqta Zone are listed and managed directly by the website administration.",
+              "Users cannot list items or sell products through the platform.",
+              "Loqta Zone acts as the auctioneer and seller of the listed items."
+            ]
+          }
+        ]
+      },
+      {
+        "title": "Eligibility",
+        "content": [
+          {
+            "type": "text",
+            "text": "To participate in auctions, you must meet the following requirements:"
+          },
+          {
+            "type": "bullets",
+            "items": [
+              "You must be 16 years or older.",
+              "You must register with accurate personal information.",
+              "You must maintain the security of your account credentials.",
+              "Loqta Zone reserves the right to verify identity and suspend accounts if suspicious activity is detected."
+            ]
+          }
+        ]
+      },
+      {
+        "title": "Auction Rules",
+        "content": [
+          {
+            "type": "subheading",
+            "text": "4.1 Item Listings"
+          },
+          {
+            "type": "text",
+            "text": "All auction items are:"
+          },
+          {
+            "type": "bullets",
+            "items": [
+              "Listed by the Loqta Zone administration.",
+              "Described to the best of the platform's knowledge.",
+              "Accompanied by images and specifications where available."
+            ]
+          },
+          {
+            "type": "text",
+            "text": "Loqta Zone reserves the right to modify auction details, remove items, or cancel auctions if necessary."
+          },
+          {
+            "type": "subheading",
+            "text": "4.2 Bidding"
+          },
+          {
+            "type": "bullets",
+            "items": [
+              "Each bid submitted is legally binding.",
+              "Bidders may not retract bids once placed.",
+              "Users must ensure they have the ability to complete payment before placing a bid.",
+              "The platform may use automatic bid increments."
+            ]
+          },
+          {
+            "type": "subheading",
+            "text": "4.3 Auction Completion"
+          },
+          {
+            "type": "text",
+            "text": "At the end of the auction:"
+          },
+          {
+            "type": "bullets",
+            "items": [
+              "The highest bid wins.",
+              "The winning bidder will receive a payment notification.",
+              "Failure to complete payment within the specified timeframe may result in auction cancellation, account suspension, or future bidding restrictions."
+            ]
+          }
+        ]
+      },
+      {
+        "title": "Payments",
+        "content": [
+          {
+            "type": "text",
+            "text": "The winning bidder must complete payment within 24–48 hours of auction completion."
+          },
+          {
+            "type": "text",
+            "text": "Accepted payment methods include:"
+          },
+          {
+            "type": "bullets",
+            "items": [
+              "Credit or debit cards.",
+              "Online payment gateways.",
+              "Digital wallets.",
+              "Other payment options supported by Loqta Zone."
+            ]
+          },
+          {
+            "type": "warning",
+            "text": "Failure to complete payment may lead to account penalties including suspension and bidding restrictions."
+          }
+        ]
+      },
+      {
+        "title": "Delivery & Shipping",
+        "content": [
+          {
+            "type": "text",
+            "text": "After payment confirmation:"
+          },
+          {
+            "type": "bullets",
+            "items": [
+              "Loqta Zone will arrange shipment or delivery of the item.",
+              "Delivery times may vary depending on location and logistics providers.",
+              "Shipping costs may be added unless otherwise stated in the auction listing."
+            ]
+          }
+        ]
+      },
+      {
+        "title": "Item Condition",
+        "content": [
+          {
+            "type": "text",
+            "text": "Items listed on Loqta Zone may be sold in one of the following conditions, which will be clearly stated in each listing:"
+          },
+          {
+            "type": "tags",
+            "items": [
+              "New",
+              "Used",
+              "Refurbished",
+              "Clearance"
+            ]
+          },
+          {
+            "type": "text",
+            "text": "All items are sold as described in the auction listing. Please review all details carefully before bidding."
+          }
+        ]
+      },
+      {
+        "title": "Prohibited Conduct",
+        "content": [
+          {
+            "type": "text",
+            "text": "Users must not engage in any of the following prohibited activities:"
+          },
+          {
+            "type": "bullets",
+            "items": [
+              "Manipulate or interfere with auctions in any way.",
+              "Place fake or fraudulent bids.",
+              "Attempt to interfere with platform operations or infrastructure.",
+              "Use automated tools, scripts, or bots to place bids."
+            ]
+          },
+          {
+            "type": "warning",
+            "text": "Violations may result in immediate account suspension or permanent ban from the platform."
+          }
+        ]
+      },
+      {
+        "title": "Auction Cancellation",
+        "content": [
+          {
+            "type": "text",
+            "text": "Loqta Zone reserves the right to cancel or repeat auctions in cases including:"
+          },
+          {
+            "type": "bullets",
+            "items": [
+              "Technical errors affecting the auction.",
+              "Listing mistakes or incorrect item information.",
+              "Detection of fraudulent activity.",
+              "System malfunctions or unexpected outages."
+            ]
+          }
+        ]
+      },
+      {
+        "title": "Liability",
+        "content": [
+          {
+            "type": "text",
+            "text": "Loqta Zone will make reasonable efforts to ensure accurate listings and fair auctions."
+          },
+          {
+            "type": "text",
+            "text": "However, the platform shall not be liable for indirect or consequential losses resulting from the use of the website."
+          }
+        ]
+      },
+      {
+        "title": "Intellectual Property",
+        "content": [
+          {
+            "type": "text",
+            "text": "All content on the website — including the logo, branding, images, and website design — is the exclusive property of Loqta Zone and may not be reproduced, modified, or used without prior written permission."
+          }
+        ]
+      },
+      {
+        "title": "Changes to Terms",
+        "content": [
+          {
+            "type": "text",
+            "text": "Loqta Zone reserves the right to update or modify these Terms at any time without prior notice."
+          },
+          {
+            "type": "text",
+            "text": "Users are responsible for reviewing updates periodically. Continued use of the platform after changes constitutes acceptance of the new Terms."
+          }
+        ]
+      },
+      {
+        "title": "Governing Law",
+        "content": [
+          {
+            "type": "text",
+            "text": "These Terms shall be governed by and construed in accordance with the laws of Egypt. Any disputes arising from the use of this platform shall be subject to the exclusive jurisdiction of the Egyptian courts."
+          }
+        ]
+      },
+      {
+        "title": "Contact",
+        "content": [
+          {
+            "type": "text",
+            "text": "For any inquiries or concerns regarding these Terms and Conditions, please contact us:"
+          },
+          {
+            "type": "contact",
+            "items": [
+              {
+                "label": "Support Team",
+                "value": "Loqta Zone Support"
+              },
+              {
+                "label": "Email",
+                "value": "support@loqtazone.com"
+              },
+              {
+                "label": "Website",
+                "value": "www.loqtazone.com"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+
+  "loginModal": {
+    "eyebrow": "Access Required",
+    "membersOnly": "Members Only",
+    "subtitle_label": "Auction Platform",
+    "title": "Sign in to Place Your Bid",
+    "subtitle": "You must be a registered member to join auctions and place bids on exclusive items.",
+    "loginBtn": "Go to Login",
+    "cancelBtn": "Maybe Later",
+    "trustNote": "Secure & encrypted · Free to join"
   }
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 }

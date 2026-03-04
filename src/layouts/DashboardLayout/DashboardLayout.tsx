@@ -5,7 +5,7 @@ import { Outlet } from 'react-router-dom'
 
 export default function DashboardLayout() {
   return (
-    <div className="flex h-screen w-screen bg-[#F9FAFB] overflow-hidden">
+    <div dir='ltr' className="flex h-screen w-screen bg-[#F9FAFB] overflow-hidden">
       {/* Sidebar */}
       <Sidebar />
 

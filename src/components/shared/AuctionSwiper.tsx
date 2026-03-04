@@ -3,12 +3,15 @@ import { Swiper, SwiperSlide } from "swiper/react";
 import { Autoplay, FreeMode } from "swiper/modules";
 import { useInView } from "motion/react";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 import SplitText from "@/components/SplitText";
+import { useAuth } from "@/store/AuthContext/AuthContext";
 import "swiper/css/free-mode";
 import "swiper/css";
 import "swiper/css/navigation";
 import "swiper/css/pagination";
 import { ShinyButton } from "../ui/shiny-button";
+import LoginPromptModal from "./Loginpromptmodal";
 
 // ── Design tokens ─────────────────────────────────────────────
 const NAVY = "#2A4863";
@@ -125,7 +128,13 @@ const auctionItems: AuctionItem[] = [
 ];
 
 // ── Card ──────────────────────────────────────────────────────
-const AuctionCard = memo(function AuctionCard({ item }: { item: AuctionItem }) {
+const AuctionCard = memo(function AuctionCard({
+  item,
+  onRegisterClick,
+}: {
+  item: AuctionItem;
+  onRegisterClick: () => void;
+}) {
   const [hovered, setHovered] = useState(false);
   const { t } = useTranslation();
 
@@ -233,7 +242,6 @@ const AuctionCard = memo(function AuctionCard({ item }: { item: AuctionItem }) {
             transition: "background 0.4s ease",
           }}
         >
-          {/* ✦ i18n: was "✦ Promo Code ✦" */}
           <span style={{ position: "relative", zIndex: 1 }}>
             {t("auctionSwiper.promoCode")}
           </span>
@@ -285,7 +293,7 @@ const AuctionCard = memo(function AuctionCard({ item }: { item: AuctionItem }) {
             }}
           />
 
-          {/* LOQTA ZONE stamp — brand name, not translated */}
+          {/* LOQTA ZONE stamp */}
           <div
             className="lz-card-stamp"
             style={{
@@ -440,7 +448,7 @@ const AuctionCard = memo(function AuctionCard({ item }: { item: AuctionItem }) {
             </p>
           </div>
 
-          {/* Meta row — hidden on mobile */}
+          {/* Meta row */}
           <div
             className="lz-card-meta"
             style={{
@@ -492,7 +500,6 @@ const AuctionCard = memo(function AuctionCard({ item }: { item: AuctionItem }) {
               }}
             >
               <div>
-                {/* ✦ i18n: was "From" */}
                 <div
                   className="lz-card-price-label"
                   style={{
@@ -529,7 +536,6 @@ const AuctionCard = memo(function AuctionCard({ item }: { item: AuctionItem }) {
               </div>
               {item.currentBid && (
                 <div style={{ textAlign: "right" }}>
-                  {/* ✦ i18n: was "Bid" */}
                   <div
                     className="lz-card-bid-label"
                     style={{
@@ -564,9 +570,11 @@ const AuctionCard = memo(function AuctionCard({ item }: { item: AuctionItem }) {
               )}
             </div>
 
-            {/* CTA */}
-            {/* ✦ i18n: was "✦ Register To Join ✦" */}
-            <ShinyButton className="lz-shiny-btn w-full !rounded-lg">
+            {/* CTA — calls the passed-in handler */}
+            <ShinyButton
+              className="lz-shiny-btn w-full !rounded-lg"
+              onClick={onRegisterClick}
+            >
               {t("auctionSwiper.registerToJoin")}
             </ShinyButton>
           </div>
@@ -585,7 +593,6 @@ const AuctionHeader = memo(function AuctionHeader() {
   const { t, i18n } = useTranslation();
   const isArabic = i18n.language === "ar";
 
-
   useEffect(() => {
     if (isInView && !wasInView.current) {
       setAnimKey((k) => k + 1);
@@ -595,7 +602,6 @@ const AuctionHeader = memo(function AuctionHeader() {
     }
   }, [isInView]);
 
-  // Re-animate when language changes so SplitText re-renders with new text
   useEffect(() => {
     setAnimKey((k) => k + 1);
   }, [i18n.language]);
@@ -631,7 +637,6 @@ const AuctionHeader = memo(function AuctionHeader() {
             background: `linear-gradient(90deg, transparent, ${GOLD})`,
           }}
         />
-        {/* ✦ i18n: was "· Live Auctions ·" */}
         <span
           style={{
             fontSize: 10,
@@ -663,15 +668,14 @@ const AuctionHeader = memo(function AuctionHeader() {
           marginBottom: 4,
         }}
       >
-        {/* ✦ i18n: was "Upcoming" */}
         <SplitText
           key={`line1-${animKey}`}
           text={t("auctionSwiper.titleLine1")}
           tag="h2"
           className=""
-          splitType={isArabic ? "words" : "chars"} // ← only change
+          splitType={isArabic ? "words" : "chars"}
           duration={1.0}
-          delay={isArabic ? 80 : 30} // ← words need a bit more stagger
+          delay={isArabic ? 80 : 30}
           ease="power3.out"
           from={{ opacity: 0, y: 40, rotateX: -20 }}
           to={{ opacity: 1, y: 0, rotateX: 0 }}
@@ -689,15 +693,14 @@ const AuctionHeader = memo(function AuctionHeader() {
           marginBottom: 20,
         }}
       >
-        {/* ✦ i18n: was "Auctions." */}
         <SplitText
           key={`line2-${animKey}`}
           text={t("auctionSwiper.titleLine2")}
           tag="h2"
           className=""
-          splitType={isArabic ? "words" : "chars"} // ← only change
+          splitType={isArabic ? "words" : "chars"}
           duration={1.0}
-          delay={isArabic ? 80 : 30} // ← words need a bit more stagger
+          delay={isArabic ? 80 : 30}
           ease="power3.out"
           from={{ opacity: 0, y: 40 }}
           to={{ opacity: 1, y: 0 }}
@@ -705,7 +708,6 @@ const AuctionHeader = memo(function AuctionHeader() {
       </div>
 
       {/* Subtext */}
-      {/* ✦ i18n: was "Register now and secure your spot before bidding opens." */}
       <p
         style={{
           margin: "0 auto",
@@ -732,6 +734,26 @@ export default function AuctionSwiper() {
   const [activeIdx, setActiveIdx] = useState(0);
   const resumeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // ── Auth + modal state ──────────────────────────────────────
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [modalOpen, setModalOpen] = useState(false);
+
+  const handleRegisterClick = () => {
+    if (user) {
+      // Logged in → go to auctions page
+      navigate("/auctionssss");
+    } else {
+      // Not logged in → show login prompt
+      setModalOpen(true);
+    }
+  };
+
+  const handleGoToLogin = () => {
+    setModalOpen(false);
+    navigate("/login");
+  };
+
   return (
     <section
       style={{
@@ -741,6 +763,13 @@ export default function AuctionSwiper() {
         overflow: "hidden",
       }}
     >
+      {/* Login prompt modal */}
+      <LoginPromptModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onGoToLogin={handleGoToLogin}
+      />
+
       {/* Top gold border */}
       <div
         style={{
@@ -839,7 +868,10 @@ export default function AuctionSwiper() {
           >
             {[...auctionItems, ...auctionItems].map((item, i) => (
               <SwiperSlide key={`${item._id}-${i}`} style={{ height: "auto" }}>
-                <AuctionCard item={item} />
+                <AuctionCard
+                  item={item}
+                  onRegisterClick={handleRegisterClick}
+                />
               </SwiperSlide>
             ))}
           </Swiper>
