@@ -923,7 +923,7 @@ export default function AuctionSwiper() {
               padding: "0 4px",
             }}
           >
-            {Array.from({ length: 6 }).map((_, i) => (
+          {Array.from({ length: 8 }).map((_, i) => (
               <SkeletonCard key={i} />
             ))}
           </div>

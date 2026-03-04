@@ -1,17 +1,8 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { collection, getDocs, query, where, orderBy } from "firebase/firestore";
 import { db } from "@/firebase/firebase";
 
-// ── Design tokens (matching site palette) ────────────────────────────────────
-const NAVY = "#2A4863";
-const NAVY2 = "#1e3652";
-const GOLD = "#c9a96e";
-const GOLD2 = "#b8996a";
-const CREAM = "rgb(229, 224, 198)";
-const BG = "#f5f7fa";
-
-// ── Types ─────────────────────────────────────────────────────────────────────
 interface Product {
   id: string;
   title: string;
@@ -28,7 +19,6 @@ interface Product {
   thumbnail: string | null;
   totalAuctions: number;
 }
-
 interface Auction {
   id: string;
   productId: string;
@@ -48,52 +38,43 @@ interface Auction {
   lastOfferEnabled: boolean;
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 function fmtDate(d: Date) {
   return d.toLocaleDateString("en-GB", {
     weekday: "short",
     day: "numeric",
     month: "short",
-    year: "numeric",
   });
 }
 function fmtTime(d: Date) {
-  return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-}
-function statusColor(s: string) {
-  if (s === "live") return { bg: "#dcfce7", color: "#16a34a", dot: "#22c55e" };
-  if (s === "upcoming")
-    return { bg: "#eff6ff", color: "#2563eb", dot: "#3b82f6" };
-  return { bg: "#f1f5f9", color: "#64748b", dot: "#94a3b8" };
+  return d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 }
 
-// ── Main component ────────────────────────────────────────────────────────────
 export default function AuctionRegisterPage() {
   const { productId } = useParams<{ productId: string }>();
   const navigate = useNavigate();
-
   const [product, setProduct] = useState<Product | null>(null);
   const [auctions, setAuctions] = useState<Auction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
   const [selectedAuctions, setSelectedAuctions] = useState<Set<string>>(
     new Set(),
   );
-  const [activeImage, setActiveImage] = useState<string | null>(null);
   const [agreed, setAgreed] = useState(false);
   const [checking, setChecking] = useState(false);
 
-  // ── Fetch ──────────────────────────────────────────────────────────────────
+  // ── Gallery state ──────────────────────────────────────────
+  const [imgIndex, setImgIndex] = useState(0);
+  const [imgDir, setImgDir] = useState<"next" | "prev">("next");
+  const [imgAnimating, setImgAnimating] = useState(false);
+  const autoSlideRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   useEffect(() => {
     if (!productId) return;
     let cancelled = false;
-
     async function load() {
       try {
         setLoading(true);
         setError(null);
-
         const [catSnap, prodSnap, auctSnap] = await Promise.all([
           getDocs(collection(db, "categories")),
           getDocs(
@@ -111,26 +92,20 @@ export default function AuctionRegisterPage() {
             ),
           ),
         ]);
-
         if (cancelled) return;
-
-        // category map
         const catMap: Record<string, string> = {};
         catSnap.docs.forEach((d) => {
           catMap[d.id] = d.data().name?.en ?? d.id;
         });
-
         if (prodSnap.empty) {
           setError("Product not found");
           setLoading(false);
           return;
         }
-
         const pDoc = prodSnap.docs[0];
         const pd = pDoc.data();
         const thumb =
           !pd.thumbnail || pd.thumbnail === "null" ? null : pd.thumbnail;
-
         const p: Product = {
           id: pDoc.id,
           title: pd.title ?? "",
@@ -148,13 +123,10 @@ export default function AuctionRegisterPage() {
           totalAuctions: pd.totalAuctions ?? 0,
         };
         setProduct(p);
-        setActiveImage(thumb ?? p.images[0] ?? null);
-
         const { Timestamp } = await import("firebase/firestore");
         const toDate = (v: any) =>
           v instanceof Timestamp ? v.toDate() : new Date(v);
         const now = new Date();
-
         const acs: Auction[] = auctSnap.docs
           .map((d) => {
             const a = d.data();
@@ -182,11 +154,9 @@ export default function AuctionRegisterPage() {
             };
           })
           .filter((a) => a.status !== "ended");
-
         setAuctions(acs);
       } catch (e: any) {
         if (!cancelled) setError("Failed to load. Please try again.");
-        console.error(e);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -197,7 +167,52 @@ export default function AuctionRegisterPage() {
     };
   }, [productId]);
 
-  // ── Selection ──────────────────────────────────────────────────────────────
+  // ── Gallery: build image list ──────────────────────────────
+  const allImages = product
+    ? [
+        ...new Set([
+          ...(product.thumbnail ? [product.thumbnail] : []),
+          ...product.images,
+        ]),
+      ]
+    : [];
+
+  // ── Gallery: auto-slide every 4s ──────────────────────────
+  const startAutoSlide = useCallback(() => {
+    if (autoSlideRef.current) clearInterval(autoSlideRef.current);
+    autoSlideRef.current = setInterval(() => {
+      goNext();
+    }, 4000);
+  }, [allImages.length]);
+
+  useEffect(() => {
+    if (allImages.length > 1) startAutoSlide();
+    return () => {
+      if (autoSlideRef.current) clearInterval(autoSlideRef.current);
+    };
+  }, [allImages.length]);
+
+  function goTo(newIdx: number, dir: "next" | "prev") {
+    if (imgAnimating || allImages.length <= 1) return;
+    setImgDir(dir);
+    setImgAnimating(true);
+    setTimeout(() => {
+      setImgIndex(newIdx);
+      setImgAnimating(false);
+    }, 380);
+    startAutoSlide();
+  }
+
+  function goNext() {
+    const newIdx = (imgIndex + 1) % allImages.length;
+    goTo(newIdx, "next");
+  }
+
+  function goPrev() {
+    const newIdx = (imgIndex - 1 + allImages.length) % allImages.length;
+    goTo(newIdx, "prev");
+  }
+
   const toggleAuction = useCallback((id: string) => {
     setSelectedAuctions((prev) => {
       const next = new Set(prev);
@@ -206,7 +221,6 @@ export default function AuctionRegisterPage() {
     });
   }, []);
 
-  // ── Total ──────────────────────────────────────────────────────────────────
   const selectedList = auctions.filter((a) => selectedAuctions.has(a.id));
   const total = selectedList.reduce(
     (sum, a) => sum + (a.entryType === "paid" ? a.entryFee : 0),
@@ -214,22 +228,19 @@ export default function AuctionRegisterPage() {
   );
   const canCheckout = selectedAuctions.size > 0 && agreed;
 
-  // ── Checkout ───────────────────────────────────────────────────────────────
   const handleCheckout = async () => {
     if (!canCheckout) return;
     setChecking(true);
-    await new Promise((r) => setTimeout(r, 1200)); // replace with real payment call
+    await new Promise((r) => setTimeout(r, 1400));
     setChecking(false);
-    // navigate("/checkout/success");
   };
 
-  // ── Loading / Error states ─────────────────────────────────────────────────
   if (loading)
     return (
       <div
         style={{
           minHeight: "100vh",
-          background: BG,
+          background: "#09111a",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -238,19 +249,27 @@ export default function AuctionRegisterPage() {
         <div style={{ textAlign: "center" }}>
           <div
             style={{
-              width: 48,
-              height: 48,
-              border: `3px solid ${GOLD}`,
-              borderTopColor: "transparent",
+              width: 36,
+              height: 36,
+              border: "2px solid rgba(201,169,110,0.15)",
+              borderTopColor: "#c9a96e",
               borderRadius: "50%",
-              animation: "spin 0.8s linear infinite",
-              margin: "0 auto 16px",
+              animation: "lz-spin 0.9s linear infinite",
+              margin: "0 auto 14px",
             }}
           />
-          <p style={{ color: NAVY, fontWeight: 600, fontSize: 15 }}>
-            Loading auction details…
+          <p
+            style={{
+              color: "rgba(229,224,198,0.35)",
+              fontSize: 11,
+              letterSpacing: "0.18em",
+              textTransform: "uppercase",
+              fontFamily: "system-ui",
+            }}
+          >
+            Loading
           </p>
-          <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+          <style>{`@keyframes lz-spin{to{transform:rotate(360deg)}}`}</style>
         </div>
       </div>
     );
@@ -260,20 +279,20 @@ export default function AuctionRegisterPage() {
       <div
         style={{
           minHeight: "100vh",
-          background: BG,
+          background: "#09111a",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
         }}
       >
         <div style={{ textAlign: "center", padding: 40 }}>
-          <div style={{ fontSize: 48, marginBottom: 12 }}>⚠️</div>
           <p
             style={{
-              color: NAVY,
-              fontWeight: 700,
-              fontSize: 18,
-              marginBottom: 8,
+              color: "rgba(229,224,198,0.7)",
+              fontSize: 16,
+              fontWeight: 600,
+              marginBottom: 20,
+              fontFamily: "system-ui",
             }}
           >
             {error ?? "Product not found"}
@@ -281,676 +300,528 @@ export default function AuctionRegisterPage() {
           <button
             onClick={() => navigate(-1)}
             style={{
-              ...btnBase,
-              background: NAVY,
-              color: "#fff",
-              padding: "10px 28px",
+              background: "#c9a96e",
+              color: "#09111a",
+              border: "none",
+              borderRadius: 10,
+              padding: "12px 32px",
+              cursor: "pointer",
+              fontSize: 13,
+              fontWeight: 700,
+              letterSpacing: "0.06em",
+              fontFamily: "system-ui",
             }}
           >
-            Go Back
+            ← Go Back
           </button>
         </div>
       </div>
     );
 
-  const displayImg = activeImage ?? product.images[0] ?? null;
+  const currentImg = allImages[imgIndex] ?? null;
 
   return (
     <>
       <style>{`
-        * { box-sizing: border-box; }
-        body { margin: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        @keyframes spin    { to { transform: rotate(360deg); } }
-        @keyframes fadeUp  { from { opacity:0; transform:translateY(18px); } to { opacity:1; transform:translateY(0); } }
-        @keyframes pulse   { 0%,100% { box-shadow: 0 0 0 0 rgba(201,169,110,0.4); } 50% { box-shadow: 0 0 0 8px rgba(201,169,110,0); } }
-        @keyframes ripple  { from { transform: scale(0); opacity:0.6; } to { transform: scale(2.5); opacity:0; } }
-        @keyframes checkPop { 0% { transform:scale(0) rotate(-20deg); } 70% { transform:scale(1.2) rotate(3deg); } 100% { transform:scale(1) rotate(0); } }
+        .lz { min-height: 100vh; background: #09111a; font-family: 'Outfit', system-ui, sans-serif; color: rgb(229,224,198); animation: lz-fadein 0.5s ease both; }
+        @keyframes lz-fadein { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes lz-spin { to{transform:rotate(360deg)} }
+        @keyframes lz-pulse { 0%,100%{box-shadow:0 0 0 0 rgba(74,222,128,0.4)} 50%{box-shadow:0 0 0 5px rgba(74,222,128,0)} }
+        @keyframes lz-check { from{transform:scale(0) rotate(-20deg)} 80%{transform:scale(1.15) rotate(3deg)} to{transform:scale(1) rotate(0)} }
+        @keyframes lz-radio-in { from{transform:scale(0)} 70%{transform:scale(1.3)} to{transform:scale(1)} }
 
-        .page-wrap { min-height:100vh; background:${BG}; padding:0 0 80px; }
+        /* ── Image slide animations ── */
+        @keyframes lz-slide-next-in  { from{opacity:0;transform:translateX(60px)}  to{opacity:1;transform:translateX(0)} }
+        @keyframes lz-slide-next-out { from{opacity:1;transform:translateX(0)}  to{opacity:0;transform:translateX(-60px)} }
+        @keyframes lz-slide-prev-in  { from{opacity:0;transform:translateX(-60px)} to{opacity:1;transform:translateX(0)} }
+        @keyframes lz-slide-prev-out { from{opacity:1;transform:translateX(0)}  to{opacity:0;transform:translateX(60px)} }
 
-        /* top bar */
-        .top-bar { background: linear-gradient(135deg,${NAVY2},${NAVY}); padding:18px 40px; display:flex; align-items:center; gap:16px; position:sticky; top:0; z-index:100; box-shadow:0 4px 24px rgba(30,54,82,0.18); }
-        .back-btn { background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); color:#fff; padding:8px 18px; border-radius:99px; cursor:pointer; font-size:13px; font-weight:600; display:flex; align-items:center; gap:6px; transition:all 0.2s ease; }
-        .back-btn:hover { background:rgba(255,255,255,0.2); transform:translateX(-2px); }
-        .top-bar-title { color:#fff; font-size:15px; font-weight:700; letter-spacing:0.04em; opacity:0.85; }
-        .top-bar-badge { margin-left:auto; background:rgba(201,169,110,0.2); border:1px solid rgba(201,169,110,0.4); color:${GOLD}; padding:4px 14px; border-radius:99px; font-size:11px; font-weight:800; letter-spacing:0.14em; text-transform:uppercase; }
+        .lz-img-enter-next { animation: lz-slide-next-in 0.38s cubic-bezier(0.22,1,0.36,1) forwards; }
+        .lz-img-exit-next  { animation: lz-slide-next-out 0.38s cubic-bezier(0.22,1,0.36,1) forwards; }
+        .lz-img-enter-prev { animation: lz-slide-prev-in 0.38s cubic-bezier(0.22,1,0.36,1) forwards; }
+        .lz-img-exit-prev  { animation: lz-slide-prev-out 0.38s cubic-bezier(0.22,1,0.36,1) forwards; }
 
-        /* hero */
-        .hero { background:linear-gradient(135deg,${NAVY2} 0%,${NAVY} 60%,#3D6A8A 100%); padding:40px 40px 0; position:relative; overflow:hidden; }
-        .hero::before { content:''; position:absolute; inset:0; background-image:radial-gradient(circle at 70% 50%, rgba(201,169,110,0.07) 0%, transparent 60%); pointer-events:none; }
-        .hero-ring { position:absolute; border-radius:50%; border:1px solid rgba(229,224,198,0.08); pointer-events:none; }
-        .hero-content { position:relative; z-index:1; display:flex; align-items:flex-end; gap:20px; }
-        .hero-img { width:72px; height:72px; border-radius:12px; object-fit:cover; border:2px solid rgba(255,255,255,0.3); flex-shrink:0; }
-        .hero-text h1 { margin:0; color:#fff; font-size:clamp(20px,3vw,26px); font-weight:800; letter-spacing:-0.01em; }
-        .hero-text p  { margin:4px 0 0; color:rgba(229,224,198,0.65); font-size:13px; }
-        .hero-tabs { display:flex; gap:0; margin-top:28px; position:relative; z-index:1; }
-        .hero-tab { padding:10px 24px; font-size:12px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:rgba(255,255,255,0.5); border-bottom:2px solid transparent; cursor:default; }
-        .hero-tab.active { color:#fff; border-bottom-color:${GOLD}; }
+        /* ── BACK BAR — sits below navbar, no overlap ── */
+        .lz-bar {
+          /* NOT sticky — sits naturally in flow below the site navbar */
+          width: 100%;
+          height: 52px;
+          background: rgba(9,17,26,0.6);
+          border-bottom: 1px solid rgba(201,169,110,0.1);
+          display: flex; align-items: center;
+          padding: 0 40px; gap: 14px;
+        }
+        @media(max-width:700px){ .lz-bar{padding:0 20px} }
 
-        /* layout */
-        .content { display:grid; grid-template-columns:1fr 1fr; gap:24px; padding:28px 40px; max-width:1400px; margin:0 auto; animation:fadeUp 0.5s ease; }
-        @media (max-width:900px) { .content { grid-template-columns:1fr; padding:20px; } .top-bar { padding:14px 20px; } .hero { padding:28px 20px 0; } }
+        .lz-back { display:flex; align-items:center; gap:7px; background:none; border:none; cursor:pointer; font-family:'Outfit',system-ui,sans-serif; font-size:13px; font-weight:500; color:rgba(229,224,198,0.4); transition:color 0.2s; padding:0; }
+        .lz-back:hover { color:rgba(229,224,198,0.85); }
+        .lz-back:hover .lz-arr { transform:translateX(-3px); }
+        .lz-arr { display:inline-block; transition:transform 0.2s ease; }
+        .lz-bsep { width:1px; height:16px; background:rgba(229,224,198,0.08); }
+        .lz-blabel { font-size:13px; font-weight:400; color:rgba(229,224,198,0.25); letter-spacing:0.03em; }
 
-        /* panels */
-        .panel { background:#fff; border-radius:16px; border:1px solid #e8edf3; box-shadow:0 2px 20px rgba(42,72,99,0.06); overflow:hidden; }
-        .panel-header { padding:18px 24px; border-bottom:1px solid #f0f4f8; display:flex; align-items:center; gap:10px; }
-        .panel-header-icon { width:34px; height:34px; border-radius:8px; background:${NAVY}10; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; }
-        .panel-header h2 { margin:0; font-size:14px; font-weight:800; color:${NAVY}; letter-spacing:0.03em; text-transform:uppercase; }
-        .panel-body { padding:24px; }
+        /* ── LAYOUT ── */
+        .lz-wrap {
+          max-width: 1160px; margin: 0 auto;
+          /* FIX 1: generous top padding so content breathes below the bar */
+          padding: 40px 40px 100px;
+          display: grid; grid-template-columns: 1fr 1fr;
+          gap: 24px; align-items: start;
+        }
+        @media(max-width:860px){ .lz-wrap{grid-template-columns:1fr; padding:24px 20px 80px} }
 
-        /* product gallery */
-        .gallery-main { width:100%; aspect-ratio:4/3; border-radius:12px; overflow:hidden; border:1px solid #eef1f4; background:#f7f9fb; margin-bottom:12px; position:relative; }
-        .gallery-main img { width:100%; height:100%; object-fit:cover; transition:transform 0.4s ease; }
-        .gallery-main:hover img { transform:scale(1.03); }
-        .gallery-thumbs { display:flex; gap:8px; flex-wrap:wrap; }
-        .thumb-btn { width:52px; height:52px; border-radius:8px; overflow:hidden; cursor:pointer; border:2px solid transparent; transition:border-color 0.2s,transform 0.2s; flex-shrink:0; }
-        .thumb-btn:hover { transform:scale(1.06); }
-        .thumb-btn.active { border-color:${GOLD}; }
-        .thumb-btn img { width:100%; height:100%; object-fit:cover; }
+        /* ── PRODUCT CARD (single unified card) ── */
+        .lz-pcard {
+          background: rgba(255,255,255,0.028);
+          border: 1px solid rgba(201,169,110,0.13);
+          border-radius: 20px; overflow: hidden;
+        }
 
-        /* product meta grid */
-        .meta-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:20px; }
-        .meta-item { background:#f7f9fb; border-radius:10px; padding:12px 14px; }
-        .meta-label { font-size:10px; font-weight:700; color:#9aabbb; letter-spacing:0.14em; text-transform:uppercase; margin-bottom:4px; }
-        .meta-value { font-size:14px; font-weight:700; color:${NAVY}; }
-        .price-value { font-size:20px; font-weight:900; color:${GOLD}; }
+        /* ── GALLERY ── */
+        .lz-gallery {
+          position: relative; width: 100%; aspect-ratio: 16/11;
+          overflow: hidden; background: rgba(255,255,255,0.02);
+        }
+        .lz-gallery-img {
+          position: absolute; inset: 0;
+          width: 100%; height: 100%; object-fit: cover;
+        }
+        .lz-gallery-ph {
+          position: absolute; inset: 0;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 80px; color: rgba(201,169,110,0.1);
+        }
 
-        /* features */
-        .features-list { display:flex; flex-wrap:wrap; gap:6px; margin-top:16px; }
-        .feature-tag { background:${NAVY}08; border:1px solid ${NAVY}15; border-radius:99px; padding:4px 12px; font-size:11px; font-weight:600; color:${NAVY}; }
+        /* Arrow buttons */
+        .lz-arrow {
+          position: absolute; top: 50%; transform: translateY(-50%);
+          z-index: 10; width: 38px; height: 38px; border-radius: 50%;
+          background: rgba(9,17,26,0.65); backdrop-filter: blur(8px);
+          border: 1px solid rgba(201,169,110,0.2);
+          color: rgba(229,224,198,0.8); font-size: 15px;
+          display: flex; align-items: center; justify-content: center;
+          cursor: pointer; transition: all 0.22s ease;
+          user-select: none;
+        }
+        .lz-arrow:hover { background: rgba(201,169,110,0.18); border-color: rgba(201,169,110,0.5); color: #c9a96e; }
+        .lz-arrow.left { left: 12px; }
+        .lz-arrow.right { right: 12px; }
 
-        /* desc */
-        .desc-text { font-size:13.5px; line-height:1.7; color:#64748b; margin-top:14px; background:#f7f9fb; border-radius:10px; padding:14px 16px; border-left:3px solid ${GOLD}; }
+        /* Dot indicators */
+        .lz-dots {
+          position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
+          display: flex; gap: 5px; z-index: 10;
+        }
+        .lz-dot {
+          width: 5px; height: 5px; border-radius: 50%;
+          background: rgba(229,224,198,0.3);
+          transition: all 0.25s ease; cursor: pointer;
+        }
+        .lz-dot.on { background: #c9a96e; width: 16px; border-radius: 3px; }
 
-        /* auctions */
-        .auction-list { display:flex; flex-direction:column; gap:14px; }
-        .auction-card { border:2px solid #e8edf3; border-radius:14px; padding:20px; cursor:pointer; transition:all 0.25s cubic-bezier(0.22,1,0.36,1); position:relative; overflow:hidden; user-select:none; }
-        .auction-card::before { content:''; position:absolute; inset:0; background:linear-gradient(135deg,${NAVY}04,transparent); opacity:0; transition:opacity 0.25s; pointer-events:none; }
-        .auction-card:hover { border-color:${NAVY}40; box-shadow:0 8px 32px rgba(42,72,99,0.10); transform:translateY(-2px); }
-        .auction-card:hover::before { opacity:1; }
-        .auction-card.selected { border-color:${GOLD}; background:linear-gradient(135deg,rgba(201,169,110,0.05),rgba(201,169,110,0.02)); box-shadow:0 8px 32px rgba(201,169,110,0.15); }
-        .auction-card.selected::before { opacity:1; }
-        .auction-card.ended-card { opacity:0.5; cursor:not-allowed; }
+        /* Thumbnails */
+        .lz-thumbrow { display:flex; gap:8px; padding:12px 18px; border-bottom:1px solid rgba(201,169,110,0.07); overflow-x:auto; scrollbar-width:none; }
+        .lz-thumbrow::-webkit-scrollbar{display:none}
+        .lz-t { width:44px; height:44px; flex-shrink:0; border-radius:7px; overflow:hidden; cursor:pointer; border:1.5px solid transparent; transition:all 0.22s cubic-bezier(0.22,1,0.36,1); opacity:0.4; }
+        .lz-t:hover { opacity:0.75; transform:translateY(-2px); }
+        .lz-t.on { border-color:#c9a96e; opacity:1; }
+        .lz-t img { width:100%; height:100%; object-fit:cover; display:block; }
 
-        /* auction card header */
-        .ac-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
-        .ac-num { font-size:18px; font-weight:900; color:${NAVY}; }
-        .ac-status { display:flex; align-items:center; gap:5px; padding:4px 10px; border-radius:99px; font-size:10px; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; }
-        .ac-status-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
-        .live-dot { animation:pulse 1.5s infinite; }
+        /* ── PRODUCT INFO ── */
+        .lz-pinfo { padding:22px 26px 28px; }
 
-        /* auction details grid */
-        .ac-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-        .ac-field { background:#f7f9fb; border-radius:8px; padding:10px 12px; }
-        .ac-field-label { font-size:9px; font-weight:700; color:#9aabbb; letter-spacing:0.12em; text-transform:uppercase; margin-bottom:3px; }
-        .ac-field-value { font-size:13px; font-weight:700; color:${NAVY}; }
-        .ac-field-value.gold { color:${GOLD}; font-size:15px; }
-        .ac-field-value.free { color:#22c55e; }
-        .ac-field-value.paid { color:#e07b39; }
+        /* FIX 2: all numbers use Outfit (normal/bold), NOT Cormorant serif */
+        .lz-ptitle { font-size:24px; font-weight:700; color:rgb(229,224,198); letter-spacing:-0.01em; line-height:1.2; }
 
-        /* date/time row */
-        .ac-datetime { display:flex; align-items:center; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
-        .ac-date-badge { display:flex; align-items:center; gap:5px; background:#f0f4f8; border-radius:8px; padding:6px 10px; font-size:11px; font-weight:600; color:${NAVY}; }
+        /* FIX 5: description sits right below the title/subtitle */
+        .lz-pdesc-top {
+          font-size:13px; line-height:1.75; font-weight:300;
+          color:rgba(229,224,198,0.42);
+          margin-top:10px; margin-bottom:20px;
+        }
 
-        /* radio/checkbox */
-        .ac-selector { display:flex; align-items:center; justify-content:space-between; margin-top:16px; padding-top:14px; border-top:1px solid #f0f4f8; }
-        .ac-selector-label { font-size:12px; font-weight:600; color:#64748b; }
-        .custom-radio { width:22px; height:22px; border-radius:50%; border:2px solid #d1d5db; background:#fff; display:flex; align-items:center; justify-content:center; transition:all 0.2s cubic-bezier(0.34,1.56,0.64,1); flex-shrink:0; position:relative; overflow:hidden; }
-        .custom-radio.checked { border-color:${GOLD}; background:${GOLD}; }
-        .custom-radio .check-inner { width:8px; height:8px; border-radius:50%; background:#fff; transform:scale(0); transition:transform 0.25s cubic-bezier(0.34,1.56,0.64,1); }
-        .custom-radio.checked .check-inner { transform:scale(1); animation:checkPop 0.3s cubic-bezier(0.34,1.56,0.64,1); }
-        .custom-radio .ripple { position:absolute; inset:0; border-radius:50%; background:${GOLD}30; transform:scale(0); }
-        .auction-card:active .custom-radio .ripple { animation:ripple 0.4s ease-out; }
+        .lz-gold-line { height:1px; background:linear-gradient(90deg,rgba(201,169,110,0.4),rgba(201,169,110,0.07),transparent); margin-bottom:20px; }
 
-        /* empty auctions */
-        .no-auctions { text-align:center; padding:40px 20px; }
-        .no-auctions .icon { font-size:44px; margin-bottom:12px; }
+        /* Price — Outfit bold, not serif */
+        .lz-pricerow { display:flex; align-items:baseline; gap:8px; margin-bottom:22px; }
+        .lz-plabel { font-size:11px; font-weight:500; color:rgba(229,224,198,0.3); letter-spacing:0.12em; text-transform:uppercase; }
+        /* FIX 2: number in Outfit 800, not Cormorant */
+        .lz-pnum { font-size:30px; font-weight:800; color:#c9a96e; letter-spacing:-0.01em; line-height:1; }
+        .lz-pcur { font-size:13px; color:rgba(201,169,110,0.5); font-weight:500; }
 
-        /* footer sticky bar */
-        .footer-bar { background:#fff; border-radius:16px; border:1px solid #e8edf3; box-shadow:0 2px 20px rgba(42,72,99,0.06); margin-top:8px; overflow:hidden; }
-        .footer-bar-inner { padding:20px 24px; }
+        /* Specs — clean inline rows, no boxes */
+        .lz-specs { display:flex; flex-direction:column; gap:9px; margin-bottom:20px; }
+        .lz-srow { display:flex; align-items:center; }
+        .lz-sk { font-size:12px; font-weight:400; color:rgba(229,224,198,0.3); letter-spacing:0.06em; min-width:105px; flex-shrink:0; }
+        .lz-sdot { width:3px; height:3px; border-radius:50%; background:rgba(201,169,110,0.28); flex-shrink:0; margin-right:10px; }
+        .lz-sv { font-size:13.5px; font-weight:500; color:rgba(229,224,198,0.78); }
 
-        /* terms */
-        .terms-row { display:flex; align-items:center; gap:12px; margin-bottom:20px; cursor:pointer; padding:14px 16px; border-radius:10px; border:1.5px solid #e8edf3; transition:all 0.2s ease; }
-        .terms-row:hover { border-color:${GOLD}60; background:rgba(201,169,110,0.03); }
-        .terms-row.agreed { border-color:${GOLD}; background:rgba(201,169,110,0.06); }
-        .custom-check { width:22px; height:22px; border-radius:6px; border:2px solid #d1d5db; background:#fff; display:flex; align-items:center; justify-content:center; transition:all 0.2s cubic-bezier(0.34,1.56,0.64,1); flex-shrink:0; position:relative; overflow:hidden; }
-        .custom-check.checked { border-color:${GOLD}; background:${GOLD}; }
-        .check-mark { opacity:0; transform:scale(0) rotate(-10deg); color:#fff; font-size:13px; font-weight:900; transition:all 0.25s cubic-bezier(0.34,1.56,0.64,1); }
-        .custom-check.checked .check-mark { opacity:1; transform:scale(1) rotate(0deg); }
-        .terms-text { font-size:12.5px; color:#64748b; line-height:1.5; }
-        .terms-text strong { color:${NAVY}; }
-        .terms-link { color:${GOLD}; font-weight:700; text-decoration:underline; cursor:pointer; }
+        /* Features */
+        .lz-feats { display:flex; flex-wrap:wrap; gap:6px; padding-top:16px; border-top:1px solid rgba(201,169,110,0.07); }
+        .lz-ftag { font-size:11px; font-weight:500; color:rgba(201,169,110,0.7); background:rgba(201,169,110,0.07); border:1px solid rgba(201,169,110,0.13); border-radius:99px; padding:3px 12px; letter-spacing:0.03em; }
 
-        /* total row */
-        .total-row { display:flex; align-items:center; justify-content:space-between; padding:14px 16px; background:#f7f9fb; border-radius:10px; margin-bottom:16px; }
-        .total-label { font-size:11px; font-weight:700; color:#9aabbb; letter-spacing:0.1em; text-transform:uppercase; }
-        .total-amount { font-size:22px; font-weight:900; color:${NAVY}; letter-spacing:-0.02em; }
-        .total-amount span { font-size:12px; font-weight:600; color:#9aabbb; margin-left:4px; }
-        .total-free { font-size:13px; font-weight:700; color:#22c55e; }
+        /* ── RIGHT COLUMN ── */
+        .lz-right { display:flex; flex-direction:column; gap:14px; }
+        .lz-sec-label { font-size:10px; font-weight:600; color:rgba(229,224,198,0.25); letter-spacing:0.22em; text-transform:uppercase; padding:0 2px 2px; }
 
-        /* selected summary */
-        .sel-summary { font-size:11px; color:#64748b; margin-bottom:14px; padding:8px 12px; background:#f0f4f8; border-radius:8px; }
+        /* ── AUCTION CARD ── */
+        .lz-acard {
+          background:rgba(255,255,255,0.028);
+          border:1px solid rgba(201,169,110,0.1);
+          border-radius:16px; padding:20px 22px;
+          cursor:pointer; user-select:none; position:relative; overflow:hidden;
+          transition:all 0.28s cubic-bezier(0.22,1,0.36,1);
+        }
+        .lz-acard::before { content:''; position:absolute; inset:0; background:linear-gradient(135deg,rgba(201,169,110,0.05),transparent 55%); opacity:0; transition:opacity 0.28s ease; pointer-events:none; border-radius:16px; }
+        .lz-acard:hover { border-color:rgba(201,169,110,0.26); transform:translateY(-2px); box-shadow:0 14px 44px rgba(0,0,0,0.32); }
+        .lz-acard:hover::before { opacity:1; }
+        .lz-acard.sel { border-color:rgba(201,169,110,0.55); background:rgba(201,169,110,0.05); box-shadow:0 0 0 1px rgba(201,169,110,0.16),0 14px 44px rgba(0,0,0,0.32); transform:translateY(-2px); }
+        .lz-acard.sel::before { opacity:1; }
 
-        /* checkout button */
-        .checkout-btn { width:100%; padding:16px; border-radius:12px; border:none; cursor:pointer; font-size:14px; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; display:flex; align-items:center; justify-content:center; gap:10px; position:relative; overflow:hidden; transition:all 0.3s cubic-bezier(0.22,1,0.36,1); }
-        .checkout-btn:not(.disabled) { background:linear-gradient(135deg,${NAVY2},${NAVY}); color:#fff; box-shadow:0 6px 24px rgba(42,72,99,0.25); }
-        .checkout-btn:not(.disabled):hover { transform:translateY(-2px); box-shadow:0 12px 36px rgba(42,72,99,0.30); }
-        .checkout-btn:not(.disabled):hover .btn-shine { transform:translateX(200%); }
-        .checkout-btn:not(.disabled):active { transform:translateY(0); box-shadow:0 4px 16px rgba(42,72,99,0.20); }
-        .checkout-btn.disabled { background:#e8edf3; color:#9aabbb; cursor:not-allowed; }
-        .btn-shine { position:absolute; inset:0; background:linear-gradient(90deg,transparent,rgba(255,255,255,0.1),transparent); transform:translateX(-100%); transition:transform 0.6s ease; pointer-events:none; }
-        .btn-spinner { width:18px; height:18px; border:2px solid rgba(255,255,255,0.3); border-top-color:#fff; border-radius:50%; animation:spin 0.7s linear infinite; }
-        .btn-gold-bar { position:absolute; bottom:0; left:0; right:0; height:2px; background:linear-gradient(90deg,${GOLD},${GOLD2},${GOLD}); opacity:0; transition:opacity 0.3s; }
-        .checkout-btn:not(.disabled):hover .btn-gold-bar { opacity:1; }
+        .lz-ahead { display:flex; align-items:center; justify-content:space-between; margin-bottom:13px; }
+        /* FIX 2: auction number in Outfit bold */
+        .lz-anum { font-size:13px; font-weight:500; color:rgba(229,224,198,0.3); }
+        .lz-anum strong { font-size:17px; font-weight:700; color:rgba(229,224,198,0.85); margin-left:3px; }
 
-        /* disclaimer */
-        .disclaimer { text-align:center; font-size:10px; color:#9aabbb; margin-top:10px; }
-        .disclaimer span { color:${GOLD}; }
+        .lz-pill { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:99px; font-size:9px; font-weight:700; letter-spacing:0.14em; text-transform:uppercase; }
+        .lz-pdot { width:5px; height:5px; border-radius:50%; flex-shrink:0; }
+        .lz-pill.live { background:rgba(74,222,128,0.1); color:#4ade80; }
+        .lz-pill.live .lz-pdot { background:#4ade80; animation:lz-pulse 1.5s ease-in-out infinite; }
+        .lz-pill.upcoming { background:rgba(147,197,253,0.1); color:#93c5fd; }
+        .lz-pill.upcoming .lz-pdot { background:#93c5fd; }
 
-        /* badge */
-        .lz-badge { display:inline-flex; align-items:center; gap:4px; background:${NAVY}; border-radius:99px; padding:3px 10px; }
-        .lz-badge span { font-size:9px; font-weight:800; letter-spacing:0.14em; color:${CREAM}; text-transform:uppercase; }
-        .lz-badge .star { color:${GOLD}; font-size:8px; }
+        .lz-atime { display:flex; align-items:center; gap:8px; margin-bottom:15px; flex-wrap:wrap; }
+        .lz-tchip { font-size:12px; font-weight:400; color:rgba(229,224,198,0.42); display:flex; align-items:center; gap:5px; }
+        .lz-tsep { color:rgba(229,224,198,0.15); }
+
+        /* Money — FIX 2: Outfit bold, not Cormorant */
+        .lz-amoney { display:flex; padding:13px 0; border-top:1px solid rgba(201,169,110,0.08); border-bottom:1px solid rgba(201,169,110,0.08); margin-bottom:15px; }
+        .lz-mblock { flex:1; }
+        .lz-mblock + .lz-mblock { border-left:1px solid rgba(201,169,110,0.08); padding-left:18px; }
+        .lz-mlabel { font-size:9px; font-weight:600; color:rgba(229,224,198,0.25); letter-spacing:0.18em; text-transform:uppercase; margin-bottom:5px; }
+        .lz-mval { font-size:20px; font-weight:800; color:#c9a96e; line-height:1; }
+        .lz-mval.free { font-size:16px; color:#4ade80; font-weight:700; }
+        .lz-mcur { font-size:11px; color:rgba(201,169,110,0.42); margin-left:2px; font-weight:500; }
+
+        .lz-lotag { display:inline-block; font-size:9px; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:rgba(201,169,110,0.55); background:rgba(201,169,110,0.07); border:1px solid rgba(201,169,110,0.13); border-radius:5px; padding:2px 8px; margin-bottom:11px; }
+
+        .lz-afoot { display:flex; align-items:center; justify-content:space-between; }
+        .lz-afoot-t { font-size:12px; font-weight:400; color:rgba(229,224,198,0.22); transition:color 0.22s ease; }
+        .lz-acard.sel .lz-afoot-t { color:rgba(201,169,110,0.65); }
+
+        /* ── RADIO ── */
+        .lz-radio { width:26px; height:26px; border-radius:50%; border:1.5px solid rgba(229,224,198,0.12); background:rgba(255,255,255,0.02); display:flex; align-items:center; justify-content:center; transition:all 0.28s cubic-bezier(0.34,1.56,0.64,1); flex-shrink:0; }
+        .lz-radio.on { border-color:#c9a96e; background:#c9a96e; box-shadow:0 0 0 3px rgba(201,169,110,0.14); }
+        .lz-rdot { width:9px; height:9px; border-radius:50%; background:#09111a; transform:scale(0); transition:transform 0.28s cubic-bezier(0.34,1.56,0.64,1); }
+        .lz-radio.on .lz-rdot { transform:scale(1); animation:lz-radio-in 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+        .lz-acard:active .lz-radio { transform:scale(0.88); }
+
+        /* ── EMPTY ── */
+        .lz-empty { text-align:center; padding:44px 20px; background:rgba(255,255,255,0.02); border:1px solid rgba(201,169,110,0.07); border-radius:16px; }
+        .lz-empty-i { font-size:30px; opacity:0.2; margin-bottom:12px; }
+        .lz-empty-t { font-size:14px; font-weight:500; color:rgba(229,224,198,0.4); margin-bottom:4px; }
+        .lz-empty-s { font-size:12px; color:rgba(229,224,198,0.2); }
+
+        /* ── CHECKOUT CARD ── */
+        .lz-cocard { background:rgba(255,255,255,0.028); border:1px solid rgba(201,169,110,0.13); border-radius:20px; overflow:hidden; }
+        .lz-coinner { padding:22px 24px 24px; }
+
+        .lz-selinfo { font-size:11px; color:rgba(229,224,198,0.28); margin-bottom:16px; letter-spacing:0.04em; }
+        .lz-selinfo strong { color:rgba(229,224,198,0.5); }
+
+        /* Terms */
+        .lz-terms { display:flex; align-items:flex-start; gap:12px; padding:13px 15px; border-radius:12px; border:1px solid rgba(201,169,110,0.1); cursor:pointer; transition:all 0.22s ease; margin-bottom:18px; user-select:none; }
+        .lz-terms:hover { border-color:rgba(201,169,110,0.22); background:rgba(201,169,110,0.03); }
+        .lz-terms.on { border-color:rgba(201,169,110,0.38); background:rgba(201,169,110,0.05); }
+        .lz-terms:active .lz-chk { transform:scale(0.88); }
+
+        /* ── CHECKBOX ── */
+        .lz-chk { width:22px; height:22px; flex-shrink:0; margin-top:1px; border-radius:6px; border:1.5px solid rgba(229,224,198,0.12); background:rgba(255,255,255,0.02); display:flex; align-items:center; justify-content:center; transition:all 0.25s cubic-bezier(0.34,1.56,0.64,1); }
+        .lz-chk.on { border-color:#c9a96e; background:#c9a96e; box-shadow:0 0 0 3px rgba(201,169,110,0.14); }
+        .lz-chkmark { font-size:11px; font-weight:900; color:#09111a; opacity:0; transform:scale(0) rotate(-20deg); transition:all 0.25s cubic-bezier(0.34,1.56,0.64,1); }
+        .lz-chk.on .lz-chkmark { opacity:1; transform:scale(1) rotate(0); animation:lz-check 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+
+        .lz-ttext { font-size:12.5px; line-height:1.65; color:rgba(229,224,198,0.38); }
+        .lz-tlink { color:#c9a96e; text-decoration:underline; text-underline-offset:2px; cursor:pointer; font-weight:500; }
+
+        /* Total — FIX 2: Outfit bold */
+        .lz-total { display:flex; align-items:center; justify-content:space-between; padding:16px 0; margin-bottom:18px; border-top:1px solid rgba(201,169,110,0.1); border-bottom:1px solid rgba(201,169,110,0.1); }
+        .lz-tlabel { font-size:10px; font-weight:600; color:rgba(229,224,198,0.25); letter-spacing:0.18em; text-transform:uppercase; }
+        .lz-tnum { font-size:28px; font-weight:800; color:rgb(229,224,198); letter-spacing:-0.01em; line-height:1; }
+        .lz-tcur { font-size:13px; color:rgba(229,224,198,0.35); margin-left:4px; font-weight:500; }
+        .lz-tfree { font-size:16px; font-weight:700; color:#4ade80; }
+        .lz-tempty { font-size:22px; color:rgba(229,224,198,0.15); font-weight:300; }
+
+        /* ── CTA BUTTON ── */
+        .lz-cta { width:100%; height:52px; border:none; border-radius:12px; font-family:'Outfit',system-ui,sans-serif; font-size:12px; font-weight:700; letter-spacing:0.14em; text-transform:uppercase; cursor:pointer; position:relative; overflow:hidden; display:flex; align-items:center; justify-content:center; gap:10px; transition:all 0.28s cubic-bezier(0.22,1,0.36,1); }
+        .lz-cta.go { background:linear-gradient(135deg,#c9a96e 0%,#b8934a 100%); color:#09111a; box-shadow:0 4px 22px rgba(201,169,110,0.2); }
+        .lz-cta.go:hover { transform:translateY(-2px); box-shadow:0 10px 34px rgba(201,169,110,0.3); }
+        .lz-cta.go:active { transform:translateY(0); }
+        .lz-cta.off { background:rgba(255,255,255,0.03); color:rgba(229,224,198,0.2); border:1px solid rgba(229,224,198,0.05); cursor:not-allowed; }
+        .lz-shine { position:absolute; inset:0; background:linear-gradient(90deg,transparent,rgba(255,255,255,0.12),transparent); transform:translateX(-200%); transition:transform 0.7s ease; pointer-events:none; }
+        .lz-cta.go:hover .lz-shine { transform:translateX(200%); }
+        .lz-spinner { width:15px; height:15px; border:2px solid rgba(9,17,26,0.2); border-top-color:#09111a; border-radius:50%; animation:lz-spin 0.8s linear infinite; }
+
+        .lz-secure { text-align:center; font-size:10px; color:rgba(229,224,198,0.18); margin-top:12px; letter-spacing:0.1em; }
       `}</style>
 
-      <div className="page-wrap">
-        {/* ── Top bar ── */}
-        <div className="top-bar">
-          <button className="back-btn" onClick={() => navigate(-1)}>
-            ← Back
+      <div className="lz">
+        {/* ── BACK BAR — not sticky, sits below navbar naturally ── */}
+        <div className="lz-bar">
+          <button className="lz-back" onClick={() => navigate(-1)}>
+            <span className="lz-arr">←</span> Back
           </button>
-          <span className="top-bar-title">Register for Auction</span>
-          <div className="lz-badge">
-            <span className="star">★</span>
-            <span>Loqta Zone</span>
-            <span className="star">★</span>
-          </div>
+          <div className="lz-bsep" />
+          <span className="lz-blabel">Auction Registration</span>
         </div>
 
-        {/* ── Hero ── */}
-        <div className="hero">
-          <div
-            className="hero-ring"
-            style={{ width: 400, height: 400, top: -200, right: -100 }}
-          />
-          <div
-            className="hero-ring"
-            style={{ width: 250, height: 250, top: -100, right: 50 }}
-          />
-          <div className="hero-content">
-            {displayImg ? (
-              <img
-                className="hero-img"
-                src={displayImg}
-                alt={product.title}
-                onError={(e: any) => (e.currentTarget.style.display = "none")}
-              />
-            ) : (
-              <div
-                style={{
-                  width: 72,
-                  height: 72,
-                  borderRadius: 12,
-                  background: "rgba(255,255,255,0.15)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 28,
-                  fontWeight: 900,
-                  color: "rgba(255,255,255,0.6)",
-                  border: "2px solid rgba(255,255,255,0.2)",
-                }}
-              >
-                {product.title.charAt(0)}
-              </div>
-            )}
-            <div className="hero-text">
-              <h1>{product.title}</h1>
-              <p>
-                {product.brand} · {product.model} · {product.categoryName}
-              </p>
-            </div>
-          </div>
-          <div className="hero-tabs">
-            <div className="hero-tab active">Product Details</div>
-            <div className="hero-tab active" style={{ marginLeft: 4 }}>
-              Select Auction
-            </div>
-          </div>
-        </div>
+        <div className="lz-wrap">
+          {/* ── LEFT: unified product card ── */}
+          <div className="lz-pcard">
+            {/* ── GALLERY with arrows + auto-slide ── */}
+            <div className="lz-gallery">
+              {currentImg ? (
+                <img
+                  key={imgIndex}
+                  src={currentImg}
+                  alt={product.title}
+                  className={`lz-gallery-img ${imgAnimating ? (imgDir === "next" ? "lz-img-exit-next" : "lz-img-exit-prev") : imgDir === "next" ? "lz-img-enter-next" : "lz-img-enter-prev"}`}
+                  onError={(e: any) => (e.currentTarget.style.display = "none")}
+                />
+              ) : (
+                <div className="lz-gallery-ph">{product.title.charAt(0)}</div>
+              )}
 
-        {/* ── Main content ── */}
-        <div className="content">
-          {/* ─── LEFT: Product ───────────────────────────────────────── */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-            {/* Gallery */}
-            <div className="panel">
-              <div className="panel-header">
-                <div className="panel-header-icon">🖼️</div>
-                <h2>Product Gallery</h2>
-              </div>
-              <div className="panel-body">
-                <div className="gallery-main">
-                  {displayImg ? (
+              {/* Left arrow */}
+              {allImages.length > 1 && (
+                <button
+                  className="lz-arrow left"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    goPrev();
+                  }}
+                >
+                  ‹
+                </button>
+              )}
+              {/* Right arrow */}
+              {allImages.length > 1 && (
+                <button
+                  className="lz-arrow right"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    goNext();
+                  }}
+                >
+                  ›
+                </button>
+              )}
+
+              {/* Dot indicators */}
+              {allImages.length > 1 && (
+                <div className="lz-dots">
+                  {allImages.map((_, i) => (
+                    <div
+                      key={i}
+                      className={`lz-dot ${i === imgIndex ? "on" : ""}`}
+                      onClick={() => goTo(i, i > imgIndex ? "next" : "prev")}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Thumbnails */}
+            {allImages.length > 1 && (
+              <div className="lz-thumbrow">
+                {allImages.map((url, i) => (
+                  <div
+                    key={i}
+                    className={`lz-t ${i === imgIndex ? "on" : ""}`}
+                    onClick={() => goTo(i, i > imgIndex ? "next" : "prev")}
+                  >
                     <img
-                      src={displayImg}
-                      alt={product.title}
+                      src={url}
+                      alt=""
                       onError={(e: any) =>
-                        (e.currentTarget.style.display = "none")
+                        (e.currentTarget.src = "/fallback.jpg")
                       }
                     />
-                  ) : (
-                    <div
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: 56,
-                        fontWeight: 900,
-                        color: `${NAVY}20`,
-                      }}
-                    >
-                      {product.title.charAt(0)}
-                    </div>
-                  )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* ── Info ── */}
+            <div className="lz-pinfo">
+              <div className="lz-ptitle">{product.title}</div>
+
+              {/* FIX 5: description right under the title */}
+              {product.description && (
+                <div className="lz-pdesc-top">{product.description}</div>
+              )}
+
+              <div className="lz-gold-line" />
+
+              {/* Price */}
+              <div className="lz-pricerow">
+                <span className="lz-plabel">Starting price</span>
+                {/* FIX 2: Outfit 800 */}
+                <span className="lz-pnum">
+                  {product.price.toLocaleString()}
+                </span>
+                <span className="lz-pcur">EGP</span>
+              </div>
+
+              {/* Specs — clean inline, no boxes, brand+model included */}
+              <div className="lz-specs">
+                {product.brand && (
+                  <div className="lz-srow">
+                    <span className="lz-sk">Brand</span>
+                    <span className="lz-sdot" />
+                    <span className="lz-sv">{product.brand}</span>
+                  </div>
+                )}
+                {product.model && (
+                  <div className="lz-srow">
+                    <span className="lz-sk">Model</span>
+                    <span className="lz-sdot" />
+                    <span className="lz-sv">{product.model}</span>
+                  </div>
+                )}
+                <div className="lz-srow">
+                  <span className="lz-sk">Category</span>
+                  <span className="lz-sdot" />
+                  <span className="lz-sv">{product.categoryName}</span>
                 </div>
-                {product.images.length > 1 && (
-                  <div className="gallery-thumbs">
-                    {product.images.map((url, i) => (
-                      <button
-                        key={i}
-                        className={`thumb-btn ${activeImage === url ? "active" : ""}`}
-                        onClick={() => setActiveImage(url)}
-                      >
-                        <img
-                          src={url}
-                          alt={`img-${i}`}
-                          onError={(e: any) =>
-                            (e.currentTarget.src = "/fallback.jpg")
-                          }
-                        />
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Details */}
-            <div className="panel">
-              <div className="panel-header">
-                <div className="panel-header-icon">📦</div>
-                <h2>Product Details</h2>
-              </div>
-              <div className="panel-body">
-                <div className="meta-grid">
-                  <div className="meta-item" style={{ gridColumn: "1 / -1" }}>
-                    <div className="meta-label">Starting Price</div>
-                    <div className="price-value">
-                      {product.price.toLocaleString()}{" "}
-                      <span
-                        style={{ fontSize: 13, fontWeight: 600, color: GOLD2 }}
-                      >
-                        EGP
-                      </span>
-                    </div>
-                  </div>
-                  <div className="meta-item">
-                    <div className="meta-label">Brand</div>
-                    <div className="meta-value">{product.brand}</div>
-                  </div>
-                  <div className="meta-item">
-                    <div className="meta-label">Model</div>
-                    <div className="meta-value">{product.model}</div>
-                  </div>
-                  <div className="meta-item">
-                    <div className="meta-label">Category</div>
-                    <div className="meta-value">{product.categoryName}</div>
-                  </div>
-                  <div className="meta-item">
-                    <div className="meta-label">Stock</div>
-                    <div
-                      className="meta-value"
-                      style={{
-                        color: product.quantity > 0 ? "#22c55e" : "#ef4444",
-                      }}
-                    >
-                      {product.quantity > 0
-                        ? `${product.quantity} units`
-                        : "Out of stock"}
-                    </div>
-                  </div>
-                  <div className="meta-item">
-                    <div className="meta-label">Total Auctions</div>
-                    <div className="meta-value">🔨 {product.totalAuctions}</div>
-                  </div>
-                  <div className="meta-item">
-                    <div className="meta-label">Status</div>
-                    <div
-                      className="meta-value"
-                      style={{
-                        color: product.isActive ? "#22c55e" : "#ef4444",
-                      }}
-                    >
-                      {product.isActive ? "✓ Active" : "✗ Inactive"}
-                    </div>
-                  </div>
+                <div className="lz-srow">
+                  <span className="lz-sk">Availability</span>
+                  <span className="lz-sdot" />
+                  <span
+                    className="lz-sv"
+                    style={{
+                      color: product.quantity > 0 ? "#4ade80" : "#f87171",
+                    }}
+                  >
+                    {product.quantity > 0
+                      ? `${product.quantity} units`
+                      : "Out of stock"}
+                  </span>
                 </div>
-
-                {product.description && (
-                  <div className="desc-text">{product.description}</div>
-                )}
-
-                {product.features.length > 0 && (
-                  <>
-                    <div
-                      style={{
-                        fontSize: 10,
-                        fontWeight: 700,
-                        color: "#9aabbb",
-                        letterSpacing: "0.14em",
-                        textTransform: "uppercase",
-                        marginTop: 20,
-                        marginBottom: 8,
-                      }}
-                    >
-                      Features
-                    </div>
-                    <div className="features-list">
-                      {product.features.map((f, i) => (
-                        <span key={i} className="feature-tag">
-                          ✓ {f}
-                        </span>
-                      ))}
-                    </div>
-                  </>
-                )}
+                <div className="lz-srow">
+                  <span className="lz-sk">Sessions</span>
+                  <span className="lz-sdot" />
+                  <span className="lz-sv">{product.totalAuctions} total</span>
+                </div>
               </div>
+
+              {/* Features */}
+              {product.features.length > 0 && (
+                <div className="lz-feats">
+                  {product.features.map((f, i) => (
+                    <span key={i} className="lz-ftag">
+                      {f}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
-          {/* ─── RIGHT: Auctions + Checkout ──────────────────────────── */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-            {/* Auctions list */}
-            <div className="panel">
-              <div className="panel-header">
-                <div className="panel-header-icon">🔨</div>
-                <h2>Available Auctions</h2>
-                {auctions.length > 0 && (
-                  <span
-                    style={{
-                      marginLeft: "auto",
-                      fontSize: 11,
-                      fontWeight: 700,
-                      background: `${NAVY}10`,
-                      color: NAVY,
-                      padding: "3px 10px",
-                      borderRadius: 99,
-                    }}
+          {/* ── RIGHT ── */}
+          <div className="lz-right">
+            <div className="lz-sec-label">Choose your session</div>
+
+            {auctions.length === 0 ? (
+              <div className="lz-empty">
+                <div className="lz-empty-i">🔍</div>
+                <div className="lz-empty-t">No active auctions</div>
+                <div className="lz-empty-s">
+                  Check back soon for upcoming sessions
+                </div>
+              </div>
+            ) : (
+              auctions.map((a) => {
+                const sel = selectedAuctions.has(a.id);
+                return (
+                  <div
+                    key={a.id}
+                    className={`lz-acard ${sel ? "sel" : ""}`}
+                    onClick={() => toggleAuction(a.id)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => e.key === "Enter" && toggleAuction(a.id)}
                   >
-                    {auctions.length} available
-                  </span>
-                )}
-              </div>
-              <div className="panel-body">
-                {auctions.length === 0 ? (
-                  <div className="no-auctions">
-                    <div className="icon">🔍</div>
-                    <p
-                      style={{
-                        fontWeight: 700,
-                        color: NAVY,
-                        fontSize: 15,
-                        margin: "0 0 6px",
-                      }}
-                    >
-                      No Active Auctions
-                    </p>
-                    <p style={{ color: "#94a3b8", fontSize: 13 }}>
-                      There are no upcoming or live auctions for this product
-                      right now.
-                    </p>
+                    <div className="lz-ahead">
+                      <div className="lz-anum">
+                        Auction <strong>#{a.auctionNumber}</strong>
+                      </div>
+                      <div className={`lz-pill ${a.status}`}>
+                        <div className="lz-pdot" />
+                        {a.status}
+                      </div>
+                    </div>
+
+                    {a.lastOfferEnabled && (
+                      <div className="lz-lotag">⚡ Last offer enabled</div>
+                    )}
+
+                    <div className="lz-atime">
+                      <div className="lz-tchip">📅 {fmtDate(a.startTime)}</div>
+                      <span className="lz-tsep">·</span>
+                      <div className="lz-tchip">
+                        {fmtTime(a.startTime)} — {fmtTime(a.endTime)}
+                      </div>
+                    </div>
+
+                    <div className="lz-amoney">
+                      <div className="lz-mblock">
+                        <div className="lz-mlabel">Starting price</div>
+                        {/* FIX 2: Outfit 800 */}
+                        <span className="lz-mval">
+                          {a.startingPrice.toLocaleString()}
+                        </span>
+                        <span className="lz-mcur">EGP</span>
+                      </div>
+                      <div className="lz-mblock">
+                        <div className="lz-mlabel">Entry fee</div>
+                        {a.entryType === "free" ? (
+                          <div className="lz-mval free">Free</div>
+                        ) : (
+                          <>
+                            <span className="lz-mval">
+                              {a.entryFee.toLocaleString()}
+                            </span>
+                            <span className="lz-mcur">EGP</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="lz-afoot">
+                      <span className="lz-afoot-t">
+                        {sel
+                          ? "Selected — tap to remove"
+                          : "Tap to select this session"}
+                      </span>
+                      <div className={`lz-radio ${sel ? "on" : ""}`}>
+                        <div className="lz-rdot" />
+                      </div>
+                    </div>
                   </div>
-                ) : (
-                  <div className="auction-list">
-                    {auctions.map((a) => {
-                      const sel = selectedAuctions.has(a.id);
-                      const sc = statusColor(a.status);
-                      const isLive = a.status === "live";
-                      return (
-                        <div
-                          key={a.id}
-                          className={`auction-card ${sel ? "selected" : ""}`}
-                          onClick={() => toggleAuction(a.id)}
-                          role="button"
-                          tabIndex={0}
-                          onKeyDown={(e) =>
-                            e.key === "Enter" && toggleAuction(a.id)
-                          }
-                        >
-                          {/* Header */}
-                          <div className="ac-header">
-                            <div>
-                              <div
-                                style={{
-                                  fontSize: 10,
-                                  fontWeight: 700,
-                                  color: "#9aabbb",
-                                  letterSpacing: "0.1em",
-                                  textTransform: "uppercase",
-                                  marginBottom: 2,
-                                }}
-                              >
-                                Auction
-                              </div>
-                              <div className="ac-num">#{a.auctionNumber}</div>
-                            </div>
-                            <div
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 8,
-                              }}
-                            >
-                              <div
-                                className="ac-status"
-                                style={{ background: sc.bg, color: sc.color }}
-                              >
-                                <div
-                                  className={`ac-status-dot ${isLive ? "live-dot" : ""}`}
-                                  style={{ background: sc.dot }}
-                                />
-                                {a.status}
-                              </div>
-                              <div
-                                className="custom-radio"
-                                style={{ cursor: "pointer" }}
-                              >
-                                <div
-                                  className={`check-inner ${sel ? "checked" : ""}`}
-                                  style={{
-                                    background: sel ? "#fff" : "transparent",
-                                    transform: sel ? "scale(1)" : "scale(0)",
-                                  }}
-                                />
-                                <div className="ripple" />
-                              </div>
-                            </div>
-                          </div>
+                );
+              })
+            )}
 
-                          {/* Date / time */}
-                          <div className="ac-datetime">
-                            <div className="ac-date-badge">
-                              📅 {fmtDate(a.startTime)}
-                            </div>
-                            <div style={{ color: "#94a3b8", fontSize: 11 }}>
-                              →
-                            </div>
-                            <div className="ac-date-badge">
-                              🏁 {fmtDate(a.endTime)}
-                            </div>
-                          </div>
-                          <div
-                            style={{
-                              display: "flex",
-                              gap: 12,
-                              marginBottom: 14,
-                            }}
-                          >
-                            <div
-                              style={{
-                                fontSize: 11,
-                                color: "#64748b",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 4,
-                              }}
-                            >
-                              <span>🕐</span> Start:{" "}
-                              <strong style={{ color: NAVY }}>
-                                {fmtTime(a.startTime)}
-                              </strong>
-                            </div>
-                            <div
-                              style={{
-                                fontSize: 11,
-                                color: "#64748b",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 4,
-                              }}
-                            >
-                              <span>🕐</span> End:{" "}
-                              <strong style={{ color: NAVY }}>
-                                {fmtTime(a.endTime)}
-                              </strong>
-                            </div>
-                          </div>
-
-                          {/* Details grid */}
-                          <div className="ac-grid">
-                            <div className="ac-field">
-                              <div className="ac-field-label">
-                                Starting Price
-                              </div>
-                              <div className="ac-field-value gold">
-                                {a.startingPrice.toLocaleString()}{" "}
-                                <span style={{ fontSize: 10, color: GOLD2 }}>
-                                  EGP
-                                </span>
-                              </div>
-                            </div>
-                            <div className="ac-field">
-                              <div className="ac-field-label">Entry Fee</div>
-                              <div
-                                className={`ac-field-value ${a.entryType === "free" ? "free" : "paid"}`}
-                              >
-                                {a.entryType === "free"
-                                  ? "🎟 Free"
-                                  : `💳 ${a.entryFee.toLocaleString()} EGP`}
-                              </div>
-                            </div>
-                            <div className="ac-field">
-                              <div className="ac-field-label">Bid Type</div>
-                              <div className="ac-field-value">
-                                {a.bidType === "fixed" ? (
-                                  <>
-                                    🔒 Fixed —{" "}
-                                    <span style={{ color: GOLD }}>
-                                      {a.fixedBidValue?.toLocaleString()} EGP
-                                    </span>
-                                  </>
-                                ) : (
-                                  "🔓 Free Bidding"
-                                )}
-                              </div>
-                            </div>
-                            <div className="ac-field">
-                              <div className="ac-field-label">
-                                Min. Increment
-                              </div>
-                              <div className="ac-field-value">
-                                +{a.minimumIncrement.toLocaleString()} EGP
-                              </div>
-                            </div>
-                            <div className="ac-field">
-                              <div className="ac-field-label">Participants</div>
-                              <div className="ac-field-value">
-                                👥 {a.totalParticipants}
-                              </div>
-                            </div>
-                            <div className="ac-field">
-                              <div className="ac-field-label">Total Bids</div>
-                              <div className="ac-field-value">
-                                🔨 {a.totalBids}
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Last offer badge */}
-                          {a.lastOfferEnabled && (
-                            <div
-                              style={{
-                                marginTop: 12,
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: 5,
-                                background: "rgba(201,169,110,0.1)",
-                                border: `1px solid rgba(201,169,110,0.3)`,
-                                borderRadius: 6,
-                                padding: "4px 10px",
-                                fontSize: 10,
-                                fontWeight: 700,
-                                color: GOLD,
-                                letterSpacing: "0.08em",
-                              }}
-                            >
-                              ⚡ LAST OFFER ENABLED
-                            </div>
-                          )}
-
-                          {/* Selector */}
-                          <div className="ac-selector">
-                            <div className="ac-selector-label">
-                              {sel
-                                ? "✓ Selected for registration"
-                                : "Click to select this auction"}
-                            </div>
-                            <div
-                              className="custom-radio"
-                              style={{
-                                borderColor: sel ? GOLD : "#d1d5db",
-                                background: sel ? GOLD : "#fff",
-                              }}
-                            >
-                              <div
-                                className="check-inner"
-                                style={{
-                                  background: "#fff",
-                                  transform: sel ? "scale(1)" : "scale(0)",
-                                }}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* ── Checkout footer ── */}
-            <div className="footer-bar">
-              <div className="footer-bar-inner">
-                {/* Selected summary */}
+            {/* ── CHECKOUT ── */}
+            <div className="lz-cocard">
+              <div className="lz-coinner">
                 {selectedAuctions.size > 0 && (
-                  <div className="sel-summary">
-                    🎯 <strong>{selectedAuctions.size}</strong> auction
+                  <div className="lz-selinfo">
+                    <strong>{selectedAuctions.size}</strong> session
                     {selectedAuctions.size > 1 ? "s" : ""} selected
                     {selectedList.some((a) => a.entryType === "paid") && (
                       <>
@@ -971,79 +842,65 @@ export default function AuctionRegisterPage() {
                   </div>
                 )}
 
-                {/* Terms */}
                 <div
-                  className={`terms-row ${agreed ? "agreed" : ""}`}
+                  className={`lz-terms ${agreed ? "on" : ""}`}
                   onClick={() => setAgreed((v) => !v)}
                 >
-                  <div className={`custom-check ${agreed ? "checked" : ""}`}>
-                    <span className="check-mark">✓</span>
+                  <div className={`lz-chk ${agreed ? "on" : ""}`}>
+                    <span className="lz-chkmark">✓</span>
                   </div>
-                  <div className="terms-text">
-                    I agree to the <strong>LOQTA ZONE</strong>{" "}
+                  <div className="lz-ttext">
+                    I agree to the{" "}
                     <span
-                      className="terms-link"
-                      onClick={(e) => {
-                        e.stopPropagation(); /* open terms */
-                      }}
+                      className="lz-tlink"
+                      onClick={(e) => e.stopPropagation()}
                     >
-                      Terms & Conditions
+                      Loqta Zone Terms & Conditions
                     </span>{" "}
-                    and confirm that all selected auction entries are final and
-                    non-refundable.
+                    and confirm all entries are final and non-refundable.
                   </div>
                 </div>
 
-                {/* Total */}
-                <div className="total-row">
-                  <div>
-                    <div className="total-label">Total Payment</div>
-                    {selectedAuctions.size === 0 && (
-                      <div
-                        style={{ fontSize: 11, color: "#9aabbb", marginTop: 2 }}
-                      >
-                        No auctions selected
-                      </div>
-                    )}
-                  </div>
-                  {total === 0 && selectedAuctions.size > 0 ? (
-                    <div className="total-free">🎟 FREE ENTRY</div>
+                <div className="lz-total">
+                  <span className="lz-tlabel">Total payment</span>
+                  {selectedAuctions.size === 0 ? (
+                    <span className="lz-tempty">—</span>
+                  ) : total === 0 ? (
+                    <span className="lz-tfree">Free Entry</span>
                   ) : (
-                    <div className="total-amount">
-                      {total.toLocaleString()}
-                      <span>EGP</span>
-                    </div>
+                    <span>
+                      <span className="lz-tnum">{total.toLocaleString()}</span>
+                      <span className="lz-tcur">EGP</span>
+                    </span>
                   )}
                 </div>
 
-                {/* Checkout button */}
                 <button
-                  className={`checkout-btn ${!canCheckout ? "disabled" : ""}`}
+                  className={`lz-cta ${canCheckout ? "go" : "off"}`}
                   onClick={handleCheckout}
                   disabled={!canCheckout || checking}
                 >
-                  <div className="btn-shine" />
+                  <div className="lz-shine" />
                   {checking ? (
                     <>
-                      <div className="btn-spinner" /> Processing…
+                      <div className="lz-spinner" /> Processing…
                     </>
                   ) : canCheckout ? (
-                    <>
-                      {total === 0
-                        ? "🎟 Register for Free"
-                        : `💳 Checkout — ${total.toLocaleString()} EGP`}
-                    </>
+                    total === 0 ? (
+                      "Register for Free"
+                    ) : (
+                      `Checkout · ${total.toLocaleString()} EGP`
+                    )
                   ) : selectedAuctions.size === 0 ? (
-                    "Select an Auction to Continue"
+                    "Select a session to continue"
                   ) : (
-                    "Please Agree to Terms"
+                    "Please agree to terms"
                   )}
-                  <div className="btn-gold-bar" />
                 </button>
 
-                <p className="disclaimer">
-                  🔒 Secured by <span>LOQTA ZONE</span> · All entries are final
-                </p>
+                <div className="lz-secure">
+                  🔒 Secured by Loqta Zone · All entries are final
+                </div>
               </div>
             </div>
           </div>
@@ -1052,13 +909,3 @@ export default function AuctionRegisterPage() {
     </>
   );
 }
-
-// ── Tiny inline helper for button base styles ─────────────────────────────────
-const btnBase: React.CSSProperties = {
-  border: "none",
-  borderRadius: 10,
-  fontWeight: 700,
-  cursor: "pointer",
-  fontSize: 14,
-  transition: "all 0.2s ease",
-};
