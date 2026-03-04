@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import { collection, getDocs, query, where, orderBy } from "firebase/firestore";
 import { db } from "@/firebase/firebase";
@@ -64,9 +65,11 @@ export default function AuctionRegisterPage() {
 
   // ── Gallery state ──────────────────────────────────────────
   const [imgIndex, setImgIndex] = useState(0);
+  const [prevIndex, setPrevIndex] = useState<number | null>(null);
   const [imgDir, setImgDir] = useState<"next" | "prev">("next");
   const [imgAnimating, setImgAnimating] = useState(false);
   const autoSlideRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const animTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!productId) return;
@@ -177,42 +180,60 @@ export default function AuctionRegisterPage() {
       ]
     : [];
 
+  const SLIDE_MS = 550;
+
+  function triggerSlide(newIdx: number, dir: "next" | "prev") {
+    if (imgAnimating || allImages.length <= 1) return;
+    if (animTimerRef.current) clearTimeout(animTimerRef.current);
+    setPrevIndex(imgIndex);
+    setImgDir(dir);
+    setImgIndex(newIdx);
+    setImgAnimating(true);
+    animTimerRef.current = setTimeout(() => {
+      setImgAnimating(false);
+      setPrevIndex(null);
+    }, SLIDE_MS);
+  }
+
   const startAutoSlide = useCallback(() => {
     if (autoSlideRef.current) clearInterval(autoSlideRef.current);
     autoSlideRef.current = setInterval(() => {
       setImgIndex((prev) => {
         const next = (prev + 1) % allImages.length;
+        setPrevIndex(prev);
         setImgDir("next");
         setImgAnimating(true);
-        setTimeout(() => setImgAnimating(false), 380);
+        if (animTimerRef.current) clearTimeout(animTimerRef.current);
+        animTimerRef.current = setTimeout(() => {
+          setImgAnimating(false);
+          setPrevIndex(null);
+        }, SLIDE_MS);
         return next;
       });
-    }, 4000);
+    }, 7000);
   }, [allImages.length]);
 
   useEffect(() => {
     if (allImages.length > 1) startAutoSlide();
     return () => {
       if (autoSlideRef.current) clearInterval(autoSlideRef.current);
+      if (animTimerRef.current) clearTimeout(animTimerRef.current);
     };
   }, [allImages.length]);
 
-  function goTo(newIdx: number, dir: "next" | "prev") {
-    if (imgAnimating || allImages.length <= 1) return;
-    setImgDir(dir);
-    setImgAnimating(true);
-    setTimeout(() => {
-      setImgIndex(newIdx);
-      setImgAnimating(false);
-    }, 380);
+  function goNext() {
+    const newIdx = (imgIndex + 1) % allImages.length;
+    triggerSlide(newIdx, "next");
     startAutoSlide();
   }
-
-  function goNext() {
-    goTo((imgIndex + 1) % allImages.length, "next");
-  }
   function goPrev() {
-    goTo((imgIndex - 1 + allImages.length) % allImages.length, "prev");
+    const newIdx = (imgIndex - 1 + allImages.length) % allImages.length;
+    triggerSlide(newIdx, "prev");
+    startAutoSlide();
+  }
+  function goTo(newIdx: number, dir: "next" | "prev") {
+    triggerSlide(newIdx, dir);
+    startAutoSlide();
   }
 
   const toggleAuction = useCallback((id: string) => {
@@ -320,8 +341,6 @@ export default function AuctionRegisterPage() {
       </div>
     );
 
-  const currentImg = allImages[imgIndex] ?? null;
-
   return (
     <>
       <style>{`
@@ -329,22 +348,23 @@ export default function AuctionRegisterPage() {
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         .lz { background: #09111a; font-family: 'Outfit', system-ui, sans-serif; color: rgb(229,224,198); animation: lz-fadein 0.5s ease both; padding-top: 120px; }
-        @media(max-width:860px){ .lz { padding-top: 105px; } }
+        @media(max-width:860px){ .lz { padding-top: 100px; } }
         @keyframes lz-fadein { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
         @keyframes lz-spin    { to{transform:rotate(360deg)} }
         @keyframes lz-pulse   { 0%,100%{box-shadow:0 0 0 0 rgba(74,222,128,0.4)} 50%{box-shadow:0 0 0 5px rgba(74,222,128,0)} }
         @keyframes lz-check   { from{transform:scale(0) rotate(-20deg)} 80%{transform:scale(1.15) rotate(3deg)} to{transform:scale(1) rotate(0)} }
         @keyframes lz-radio-in{ from{transform:scale(0)} 70%{transform:scale(1.3)} to{transform:scale(1)} }
 
-        /* image slide */
-        @keyframes lz-next-in  { from{opacity:0;transform:translateX(55px)}  to{opacity:1;transform:translateX(0)} }
-        @keyframes lz-next-out { from{opacity:1;transform:translateX(0)}     to{opacity:0;transform:translateX(-55px)} }
-        @keyframes lz-prev-in  { from{opacity:0;transform:translateX(-55px)} to{opacity:1;transform:translateX(0)} }
-        @keyframes lz-prev-out { from{opacity:1;transform:translateX(0)}     to{opacity:0;transform:translateX(55px)} }
-        .lz-img-enter-next { animation: lz-next-in  0.38s cubic-bezier(0.22,1,0.36,1) forwards; }
-        .lz-img-exit-next  { animation: lz-next-out 0.38s cubic-bezier(0.22,1,0.36,1) forwards; }
-        .lz-img-enter-prev { animation: lz-prev-in  0.38s cubic-bezier(0.22,1,0.36,1) forwards; }
-        .lz-img-exit-prev  { animation: lz-prev-out 0.38s cubic-bezier(0.22,1,0.36,1) forwards; }
+        /* ── Gallery slide — both images move together, zero black gap ── */
+        @keyframes lz-cur-next  { from{transform:translateX(0)}    to{transform:translateX(-100%)} }
+        @keyframes lz-inc-next  { from{transform:translateX(100%)} to{transform:translateX(0)} }
+        @keyframes lz-cur-prev  { from{transform:translateX(0)}    to{transform:translateX(100%)} }
+        @keyframes lz-inc-prev  { from{transform:translateX(-100%)}to{transform:translateX(0)} }
+
+        .lz-slide-cur-next { animation: lz-cur-next 0.55s cubic-bezier(0.4,0,0.2,1) forwards; }
+        .lz-slide-inc-next { animation: lz-inc-next 0.55s cubic-bezier(0.4,0,0.2,1) forwards; }
+        .lz-slide-cur-prev { animation: lz-cur-prev 0.55s cubic-bezier(0.4,0,0.2,1) forwards; }
+        .lz-slide-inc-prev { animation: lz-inc-prev 0.55s cubic-bezier(0.4,0,0.2,1) forwards; }
 
         /* ─────────────────────────────────────────────
            BACK BAR
@@ -413,16 +433,22 @@ export default function AuctionRegisterPage() {
         }
         .lz-arrow {
           position: absolute; top: 50%; transform: translateY(-50%);
-          z-index: 10; width: 38px; height: 38px; border-radius: 50%;
-          background: rgba(9,17,26,0.65); backdrop-filter: blur(8px);
-          border: 1px solid rgba(201,169,110,0.22);
-          color: rgba(229,224,198,0.8); font-size: 18px; line-height: 1;
+          z-index: 10; width: 28px; height: 28px; border-radius: 50%;
+          background: rgba(0,0,0,0.45);
+          border: 1px solid rgba(255,255,255,0.18);
+          color: rgba(255,255,255,0.75);
           display: flex; align-items: center; justify-content: center;
-          cursor: pointer; transition: all 0.22s ease; user-select: none;
+          cursor: pointer; user-select: none;
+          transition: background 0.2s ease, color 0.2s ease, opacity 0.2s ease;
         }
-        .lz-arrow:hover { background: rgba(201,169,110,0.2); border-color: rgba(201,169,110,0.55); color: #c9a96e; }
-        .lz-arrow.left  { left: 12px; }
-        .lz-arrow.right { right: 12px; }
+        .lz-arrow:hover {
+          background: rgba(0,0,0,0.65);
+          border-color: rgba(255,255,255,0.32);
+          color: #fff;
+        }
+        .lz-arrow.left  { left: 10px; }
+        .lz-arrow.right { right: 10px; }
+        .lz-arrow:active { opacity: 0.6; }
 
         .lz-dots {
           position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
@@ -605,20 +631,25 @@ export default function AuctionRegisterPage() {
           <div className="lz-pcard">
             {/* GALLERY */}
             <div className="lz-gallery">
-              {currentImg ? (
+              {/* Outgoing image (previous) — stays mounted during transition */}
+              {imgAnimating && prevIndex !== null && allImages[prevIndex] && (
+                <img
+                  src={allImages[prevIndex]}
+                  alt=""
+                  className={`lz-gallery-img ${imgDir === "next" ? "lz-slide-cur-next" : "lz-slide-cur-prev"}`}
+                  style={{ zIndex: 1 }}
+                  onError={(e: any) => (e.currentTarget.style.display = "none")}
+                />
+              )}
+
+              {/* Incoming image (current) — always on top */}
+              {allImages[imgIndex] ? (
                 <img
                   key={imgIndex}
-                  src={currentImg}
+                  src={allImages[imgIndex]}
                   alt={product.title}
-                  className={`lz-gallery-img ${
-                    imgAnimating
-                      ? imgDir === "next"
-                        ? "lz-img-exit-next"
-                        : "lz-img-exit-prev"
-                      : imgDir === "next"
-                        ? "lz-img-enter-next"
-                        : "lz-img-enter-prev"
-                  }`}
+                  className={`lz-gallery-img ${imgAnimating ? (imgDir === "next" ? "lz-slide-inc-next" : "lz-slide-inc-prev") : ""}`}
+                  style={{ zIndex: 2 }}
                   onError={(e: any) => (e.currentTarget.style.display = "none")}
                 />
               ) : (
@@ -627,14 +658,14 @@ export default function AuctionRegisterPage() {
 
               {allImages.length > 1 && (
                 <>
-                  <button
+                  {/* <button
                     className="lz-arrow left"
                     onClick={(e) => {
                       e.stopPropagation();
                       goPrev();
                     }}
                   >
-                    ‹
+                    <ChevronLeft size={18} strokeWidth={2.5} />
                   </button>
                   <button
                     className="lz-arrow right"
@@ -643,8 +674,8 @@ export default function AuctionRegisterPage() {
                       goNext();
                     }}
                   >
-                    ›
-                  </button>
+                    <ChevronRight size={18} strokeWidth={2.5} />
+                  </button> */}
                   <div className="lz-dots">
                     {allImages.map((_, i) => (
                       <div
@@ -874,7 +905,7 @@ export default function AuctionRegisterPage() {
                       className="lz-tlink"
                       onClick={(e) => {
                         e.stopPropagation();
-                        navigate("/terms");
+                        navigate("/TermsAndConditions");
                       }}
                     >
                       Loqta Zone Terms & Conditions

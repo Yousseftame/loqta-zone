@@ -68,7 +68,6 @@ function usePublicProducts() {
 
         if (cancelled) return;
 
-        // Build category ID → name.en map
         const categoryMap: Record<string, string> = {};
         catSnap.docs.forEach((d) => {
           const data = d.data();
@@ -117,7 +116,87 @@ function usePublicProducts() {
   return { products, loading, error };
 }
 
-// ── Skeleton Card ──────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// SHARED RESPONSIVE CSS — used by BOTH the real card and the
+// skeleton so they are always the exact same dimensions.
+// ─────────────────────────────────────────────────────────────
+const CARD_CSS = `
+  @keyframes lz-shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+  .lz-card-img          { height: 180px; }
+  .lz-card-title        { font-size: 11px; }
+  .lz-card-subtitle     { font-size: 10px; }
+  .lz-card-meta         { display: none !important; }
+  .lz-card-price-label  { font-size: 8px; }
+  .lz-card-price-value  { font-size: 16px; }
+  .lz-card-bid-label    { font-size: 8px; }
+  .lz-card-bid-value    { font-size: 11px; }
+  .lz-card-body         { padding: 10px 10px 12px; gap: 8px; }
+  .lz-card-price-block  { padding: 10px 10px; gap: 8px; }
+  .lz-card-banner       { font-size: 8px; padding: 5px 0; letter-spacing: 0.14em; }
+  .lz-card-stamp        { width: 38px; height: 38px; top: 8px; left: 8px; }
+  .lz-card-stamp span   { font-size: 5px !important; }
+  .lz-card-stamp .lz-stamp-stars { font-size: 6px !important; }
+  .lz-card-badge        { font-size: 9px; padding: 3px 8px; top: 8px; right: 8px; }
+  .lz-card-cat          { font-size: 8px; padding: 3px 7px; }
+  .lz-card-bids         { font-size: 8px; padding: 3px 7px; }
+  .lz-cat-row           { bottom: 8px; left: 8px; right: 8px; }
+  .lz-shiny-btn         { font-size: 9px !important; padding: 7px 4px !important; }
+
+  /* skeleton shimmer blocks */
+  .lz-skel {
+    background: linear-gradient(90deg, #eef1f4 25%, #e4e9ee 50%, #eef1f4 75%);
+    background-size: 200% 100%;
+    animation: lz-shimmer 1.5s infinite;
+    border-radius: 4px;
+  }
+
+  @media (min-width: 640px) {
+    .lz-card-img          { height: 220px; }
+    .lz-card-title        { font-size: 13px; }
+    .lz-card-subtitle     { font-size: 11px; }
+    .lz-card-meta         { display: flex !important; }
+    .lz-card-price-label  { font-size: 9px; }
+    .lz-card-price-value  { font-size: 19px; }
+    .lz-card-bid-label    { font-size: 9px; }
+    .lz-card-bid-value    { font-size: 13px; }
+    .lz-card-body         { padding: 14px 14px 16px; gap: 11px; }
+    .lz-card-price-block  { padding: 12px 12px; gap: 10px; }
+    .lz-card-banner       { font-size: 9px; padding: 7px 0; letter-spacing: 0.18em; }
+    .lz-card-stamp        { width: 48px; height: 48px; top: 10px; left: 10px; }
+    .lz-card-stamp span   { font-size: 6px !important; }
+    .lz-card-stamp .lz-stamp-stars { font-size: 7px !important; }
+    .lz-card-badge        { font-size: 10px; padding: 4px 10px; top: 10px; right: 10px; }
+    .lz-card-cat          { font-size: 9px; padding: 3px 9px; }
+    .lz-card-bids         { font-size: 9px; padding: 3px 9px; }
+    .lz-cat-row           { bottom: 10px; left: 10px; right: 10px; }
+    .lz-shiny-btn         { font-size: 10px !important; padding: 9px 6px !important; }
+  }
+
+  @media (min-width: 900px) {
+    .lz-card-img          { height: 240px; }
+    .lz-card-title        { font-size: 15px; }
+    .lz-card-subtitle     { font-size: 12px; }
+    .lz-card-price-label  { font-size: 9px; }
+    .lz-card-price-value  { font-size: 21px; }
+    .lz-card-bid-value    { font-size: 14px; }
+    .lz-card-body         { padding: 18px 20px 20px; gap: 14px; }
+    .lz-card-price-block  { padding: 14px 16px; gap: 12px; }
+    .lz-card-banner       { font-size: 10px; padding: 8px 0; letter-spacing: 0.22em; }
+    .lz-card-stamp        { width: 56px; height: 56px; top: 12px; left: 12px; }
+    .lz-card-stamp span   { font-size: 6.5px !important; }
+    .lz-card-stamp .lz-stamp-stars { font-size: 8px !important; }
+    .lz-card-badge        { font-size: 11px; padding: 5px 12px; top: 12px; right: 12px; }
+    .lz-card-cat          { font-size: 10px; padding: 4px 10px; }
+    .lz-card-bids         { font-size: 10px; padding: 4px 10px; }
+    .lz-cat-row           { bottom: 12px; left: 12px; right: 12px; }
+    .lz-shiny-btn         { font-size: 11px !important; padding: 10px 8px !important; }
+  }
+`;
+
+// ── Skeleton Card ─────────────────────────────────────────────
+// Mirrors AuctionCard's DOM structure exactly so every measurement
+// (banner, image, body padding, price block) is pixel-identical.
 const SkeletonCard = () => (
   <div
     style={{
@@ -126,58 +205,112 @@ const SkeletonCard = () => (
       background: "#fff",
       border: `1px solid rgba(42,72,99,0.10)`,
       boxShadow: "0 2px 16px rgba(42,72,99,0.07)",
+      display: "flex",
+      flexDirection: "column",
+      width: "100%",
+      height: "100%",
     }}
   >
-    <style>{`@keyframes lz-shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }`}</style>
+    {/* Promo banner — same class → same height as real card */}
     <div
+      className="lz-card-banner"
       style={{
-        height: 28,
         background: `linear-gradient(90deg, ${NAVY}, #3a5a78)`,
-        opacity: 0.6,
+        opacity: 0.45,
       }}
     />
+
+    {/* Image — same class → same height at every breakpoint */}
     <div
-      style={{
-        height: 180,
-        background:
-          "linear-gradient(90deg, #eef1f4 25%, #e0e5ea 50%, #eef1f4 75%)",
-        backgroundSize: "200% 100%",
-        animation: "lz-shimmer 1.5s infinite",
-      }}
+      className="lz-card-img lz-skel"
+      style={{ flexShrink: 0, borderRadius: 0 }}
     />
+
+    {/* Body — same padding class */}
     <div
-      style={{
-        padding: "10px 10px 12px",
-        display: "flex",
-        flexDirection: "column",
-        gap: 8,
-      }}
+      className="lz-card-body"
+      style={{ display: "flex", flexDirection: "column", flex: 1 }}
     >
+      {/* Title block — minHeight: 52 matches real card */}
       <div
         style={{
-          height: 14,
-          borderRadius: 4,
-          background: "#eef1f4",
-          width: "70%",
+          minHeight: 52,
+          flexShrink: 0,
+          display: "flex",
+          flexDirection: "column",
+          gap: 7,
+        }}
+      >
+        <div className="lz-skel" style={{ height: 14, width: "72%" }} />
+        <div className="lz-skel" style={{ height: 10, width: "44%" }} />
+      </div>
+
+      {/* Meta row — hidden mobile, visible sm+, minHeight: 18 */}
+      <div
+        className="lz-card-meta"
+        style={{ minHeight: 18, flexShrink: 0, alignItems: "center" }}
+      >
+        <div className="lz-skel" style={{ height: 10, width: "38%" }} />
+      </div>
+
+      {/* Divider */}
+      <div
+        style={{
+          height: 1,
+          background: `linear-gradient(90deg, rgba(42,72,99,0.18), transparent)`,
+          flexShrink: 0,
         }}
       />
+
+      {/* Price block — same class → same padding, flex:1 → same height */}
       <div
+        className="lz-card-price-block"
         style={{
-          height: 10,
-          borderRadius: 4,
-          background: "#eef1f4",
-          width: "50%",
-        }}
-      />
-      <div style={{ height: 1, background: "rgba(42,72,99,0.08)" }} />
-      <div
-        style={{
-          height: 60,
-          borderRadius: 8,
+          borderRadius: 10,
           background: "#f7f8fa",
-          border: "1px solid rgba(42,72,99,0.08)",
+          border: "1px solid rgba(42,72,99,0.10)",
+          display: "flex",
+          flexDirection: "column",
+          flex: 1,
+          justifyContent: "space-between",
         }}
-      />
+      >
+        {/* Price row */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-end",
+            marginBottom: 8,
+          }}
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+            {/* "FROM" label */}
+            <div className="lz-skel" style={{ height: 8, width: 40 }} />
+            {/* Price number */}
+            <div className="lz-skel" style={{ height: 20, width: 72 }} />
+          </div>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 5,
+              alignItems: "flex-end",
+            }}
+          >
+            {/* "AUCTIONS" label */}
+            <div className="lz-skel" style={{ height: 8, width: 44 }} />
+            {/* Count */}
+            <div className="lz-skel" style={{ height: 13, width: 24 }} />
+          </div>
+        </div>
+
+        {/* CTA button — ShinyButton is ~34–38px tall */}
+        <div
+          className="lz-skel"
+          style={{ height: 34, borderRadius: 8, width: "100%" }}
+        />
+      </div>
     </div>
   </div>
 );
@@ -200,70 +333,6 @@ const AuctionCard = memo(function AuctionCard({
 
   return (
     <>
-      <style>{`
-        .lz-card-img { height: 180px; }
-        .lz-card-title { font-size: 11px; }
-        .lz-card-subtitle { font-size: 10px; }
-        .lz-card-meta { display: none !important; }
-        .lz-card-price-label { font-size: 8px; }
-        .lz-card-price-value { font-size: 16px; }
-        .lz-card-bid-label { font-size: 8px; }
-        .lz-card-bid-value { font-size: 11px; }
-        .lz-card-body { padding: 10px 10px 12px; gap: 8px; }
-        .lz-card-price-block { padding: 10px 10px; gap: 8px; }
-        .lz-card-banner { font-size: 8px; padding: 5px 0; letter-spacing: 0.14em; }
-        .lz-card-stamp { width: 38px; height: 38px; top: 8px; left: 8px; }
-        .lz-card-stamp span { font-size: 5px !important; }
-        .lz-card-stamp .lz-stamp-stars { font-size: 6px !important; }
-        .lz-card-badge { font-size: 9px; padding: 3px 8px; top: 8px; right: 8px; }
-        .lz-card-cat { font-size: 8px; padding: 3px 7px; }
-        .lz-card-bids { font-size: 8px; padding: 3px 7px; }
-        .lz-cat-row { bottom: 8px; left: 8px; right: 8px; }
-        .lz-shiny-btn { font-size: 9px !important; padding: 7px 4px !important; }
-
-        @media (min-width: 640px) {
-          .lz-card-img { height: 220px; }
-          .lz-card-title { font-size: 13px; }
-          .lz-card-subtitle { font-size: 11px; }
-          .lz-card-meta { display: flex !important; }
-          .lz-card-price-label { font-size: 9px; }
-          .lz-card-price-value { font-size: 19px; }
-          .lz-card-bid-label { font-size: 9px; }
-          .lz-card-bid-value { font-size: 13px; }
-          .lz-card-body { padding: 14px 14px 16px; gap: 11px; }
-          .lz-card-price-block { padding: 12px 12px; gap: 10px; }
-          .lz-card-banner { font-size: 9px; padding: 7px 0; letter-spacing: 0.18em; }
-          .lz-card-stamp { width: 48px; height: 48px; top: 10px; left: 10px; }
-          .lz-card-stamp span { font-size: 6px !important; }
-          .lz-card-stamp .lz-stamp-stars { font-size: 7px !important; }
-          .lz-card-badge { font-size: 10px; padding: 4px 10px; top: 10px; right: 10px; }
-          .lz-card-cat { font-size: 9px; padding: 3px 9px; }
-          .lz-card-bids { font-size: 9px; padding: 3px 9px; }
-          .lz-cat-row { bottom: 10px; left: 10px; right: 10px; }
-          .lz-shiny-btn { font-size: 10px !important; padding: 9px 6px !important; }
-        }
-
-        @media (min-width: 900px) {
-          .lz-card-img { height: 240px; }
-          .lz-card-title { font-size: 15px; }
-          .lz-card-subtitle { font-size: 12px; }
-          .lz-card-price-label { font-size: 9px; }
-          .lz-card-price-value { font-size: 21px; }
-          .lz-card-bid-value { font-size: 14px; }
-          .lz-card-body { padding: 18px 20px 20px; gap: 14px; }
-          .lz-card-price-block { padding: 14px 16px; gap: 12px; }
-          .lz-card-banner { font-size: 10px; padding: 8px 0; letter-spacing: 0.22em; }
-          .lz-card-stamp { width: 56px; height: 56px; top: 12px; left: 12px; }
-          .lz-card-stamp span { font-size: 6.5px !important; }
-          .lz-card-stamp .lz-stamp-stars { font-size: 8px !important; }
-          .lz-card-badge { font-size: 11px; padding: 5px 12px; top: 12px; right: 12px; }
-          .lz-card-cat { font-size: 10px; padding: 4px 10px; }
-          .lz-card-bids { font-size: 10px; padding: 4px 10px; }
-          .lz-cat-row { bottom: 12px; left: 12px; right: 12px; }
-          .lz-shiny-btn { font-size: 11px !important; padding: 10px 8px !important; }
-        }
-      `}</style>
-
       {/* dir="ltr": card layout always LTR regardless of page language */}
       <div
         dir="ltr"
@@ -284,7 +353,7 @@ const AuctionCard = memo(function AuctionCard({
           flexDirection: "column",
           userSelect: "none",
           width: "100%",
-          height: "100%", // ← fill the SwiperSlide so all cards match
+          height: "100%",
         }}
       >
         {/* Promo banner */}
@@ -418,7 +487,7 @@ const AuctionCard = memo(function AuctionCard({
             </span>
           </div>
 
-          {/* Auctions count badge (top-right) */}
+          {/* Auctions count badge */}
           <div
             className="lz-card-badge"
             style={{
@@ -438,7 +507,7 @@ const AuctionCard = memo(function AuctionCard({
             <span>🔨 {item.totalAuctions}</span>
           </div>
 
-          {/* Category + quantity */}
+          {/* Category */}
           <div
             className="lz-cat-row"
             style={{
@@ -477,7 +546,7 @@ const AuctionCard = memo(function AuctionCard({
             flex: 1,
           }}
         >
-          {/* Title + subtitle — fixed height so all cards align below */}
+          {/* Title + subtitle */}
           <div style={{ minHeight: 52, flexShrink: 0 }}>
             <h3
               className="lz-card-title"
@@ -513,7 +582,7 @@ const AuctionCard = memo(function AuctionCard({
             </p>
           </div>
 
-          {/* Meta row — hidden on mobile, fixed height so it never collapses */}
+          {/* Meta row */}
           <div
             className="lz-card-meta"
             style={{
@@ -554,7 +623,6 @@ const AuctionCard = memo(function AuctionCard({
               justifyContent: "space-between",
             }}
           >
-            {/* Price + auctions count row */}
             <div
               style={{
                 display: "flex",
@@ -599,7 +667,6 @@ const AuctionCard = memo(function AuctionCard({
                 </div>
               </div>
 
-              {/* Auctions count — occupies the old "current bid" slot */}
               {item.totalAuctions > 0 && (
                 <div style={{ textAlign: "right" }}>
                   <div
@@ -616,10 +683,7 @@ const AuctionCard = memo(function AuctionCard({
                   </div>
                   <div
                     className="lz-card-bid-value"
-                    style={{
-                      fontWeight: 800,
-                      color: NAVY,
-                    }}
+                    style={{ fontWeight: 800, color: NAVY }}
                   >
                     ×{item.totalAuctions}
                   </div>
@@ -627,7 +691,6 @@ const AuctionCard = memo(function AuctionCard({
               )}
             </div>
 
-            {/* CTA — calls the passed-in handler */}
             <ShinyButton
               className="lz-shiny-btn w-full !rounded-lg"
               onClick={onRegisterClick}
@@ -675,7 +738,6 @@ const AuctionHeader = memo(function AuctionHeader() {
         minHeight: 170,
       }}
     >
-      {/* Eyebrow */}
       <div
         style={{
           display: "inline-flex",
@@ -714,7 +776,6 @@ const AuctionHeader = memo(function AuctionHeader() {
         />
       </div>
 
-      {/* Line 1 */}
       <div
         style={{
           fontSize: "clamp(26px, 4.5vw, 44px)",
@@ -739,7 +800,6 @@ const AuctionHeader = memo(function AuctionHeader() {
         />
       </div>
 
-      {/* Line 2 */}
       <div
         style={{
           fontSize: "clamp(26px, 4.5vw, 44px)",
@@ -764,7 +824,6 @@ const AuctionHeader = memo(function AuctionHeader() {
         />
       </div>
 
-      {/* Subtext */}
       <p
         style={{
           margin: "0 auto",
@@ -791,12 +850,10 @@ export default function AuctionSwiper() {
   const [activeIdx, setActiveIdx] = useState(0);
   const resumeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ── Auth + modal state ──────────────────────────────────────
   const { user } = useAuth();
   const navigate = useNavigate();
   const [modalOpen, setModalOpen] = useState(false);
 
-  // ── Dynamic data ────────────────────────────────────────────
   const { products, loading, error } = usePublicProducts();
   const loopedProducts = products.length > 0 ? [...products, ...products] : [];
 
@@ -822,7 +879,9 @@ export default function AuctionSwiper() {
         overflow: "hidden",
       }}
     >
-      {/* Login prompt modal */}
+      {/* Shared CSS for both real cards and skeletons */}
+      <style>{CARD_CSS}</style>
+
       <LoginPromptModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
@@ -882,7 +941,6 @@ export default function AuctionSwiper() {
 
       <AuctionHeader />
 
-      {/* Swiper */}
       <div style={{ padding: "0 12px" }}>
         <style>{`
           .lz-swiper { overflow: visible !important; }
@@ -899,7 +957,7 @@ export default function AuctionSwiper() {
           .lz-dot:hover:not(.active) { background: rgba(229,224,198,0.4); }
         `}</style>
 
-        {/* Error state */}
+        {/* Error */}
         {error && !loading && (
           <div
             style={{
@@ -913,23 +971,39 @@ export default function AuctionSwiper() {
           </div>
         )}
 
-        {/* Loading skeletons */}
+        {/* Loading skeletons — rendered inside an identical Swiper layout */}
         {loading && (
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
-              gap: 12,
-              padding: "0 4px",
-            }}
-          >
-          {Array.from({ length: 8 }).map((_, i) => (
-              <SkeletonCard key={i} />
-            ))}
+          <div className="lz-swiper-wrap">
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(2, 1fr)",
+                gap: 10,
+              }}
+            >
+              <style>{`
+                @media(min-width:640px){ .lz-skel-grid { grid-template-columns: repeat(3,1fr) !important; gap: 14px !important; } }
+                @media(min-width:900px){ .lz-skel-grid { grid-template-columns: repeat(4,1fr) !important; gap: 18px !important; } }
+                @media(min-width:1200px){ .lz-skel-grid { grid-template-columns: repeat(5,1fr) !important; gap: 20px !important; } }
+              `}</style>
+              <div
+                className="lz-skel-grid"
+                style={{
+                  gridColumn: "1 / -1",
+                  display: "grid",
+                  gridTemplateColumns: "repeat(2, 1fr)",
+                  gap: 10,
+                }}
+              >
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <SkeletonCard key={i} />
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
-        {/* Empty state */}
+        {/* Empty */}
         {!loading && !error && products.length === 0 && (
           <div
             style={{
