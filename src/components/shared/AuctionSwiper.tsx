@@ -284,6 +284,7 @@ const AuctionCard = memo(function AuctionCard({
           flexDirection: "column",
           userSelect: "none",
           width: "100%",
+          height: "100%", // ← fill the SwiperSlide so all cards match
         }}
       >
         {/* Promo banner */}
@@ -464,7 +465,6 @@ const AuctionCard = memo(function AuctionCard({
             >
               {item.categoryName}
             </div>
-            
           </div>
         </div>
 
@@ -477,8 +477,8 @@ const AuctionCard = memo(function AuctionCard({
             flex: 1,
           }}
         >
-          {/* Title + subtitle */}
-          <div>
+          {/* Title + subtitle — fixed height so all cards align below */}
+          <div style={{ minHeight: 52, flexShrink: 0 }}>
             <h3
               className="lz-card-title"
               style={{
@@ -509,11 +509,11 @@ const AuctionCard = memo(function AuctionCard({
                 overflow: "hidden",
               }}
             >
-             · {item.model}
+              · {item.model}
             </p>
           </div>
 
-          {/* Meta row — hidden on mobile */}
+          {/* Meta row — hidden on mobile, fixed height so it never collapses */}
           <div
             className="lz-card-meta"
             style={{
@@ -522,12 +522,13 @@ const AuctionCard = memo(function AuctionCard({
               fontWeight: 600,
               alignItems: "center",
               fontSize: 10,
+              minHeight: 18,
+              flexShrink: 0,
             }}
           >
             <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <span style={{ opacity: 0.7 }}>🏷️</span> {item.brand}
             </span>
-            
           </div>
 
           {/* Divider */}
@@ -799,9 +800,9 @@ export default function AuctionSwiper() {
   const { products, loading, error } = usePublicProducts();
   const loopedProducts = products.length > 0 ? [...products, ...products] : [];
 
-  const handleRegisterClick = () => {
+  const handleRegisterClick = (productId: string) => {
     if (user) {
-      navigate("/auctionssss");
+      navigate(`/auctions/register/${productId}`);
     } else {
       setModalOpen(true);
     }
@@ -979,11 +980,11 @@ export default function AuctionSwiper() {
                 {loopedProducts.map((item, i) => (
                   <SwiperSlide
                     key={`${item.id}-${i}`}
-                    style={{ height: "auto" }}
+                    style={{ height: "auto", display: "flex" }}
                   >
                     <AuctionCard
                       item={item}
-                      onRegisterClick={handleRegisterClick}
+                      onRegisterClick={() => handleRegisterClick(item.id)}
                     />
                   </SwiperSlide>
                 ))}
