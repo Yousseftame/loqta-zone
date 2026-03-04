@@ -666,7 +666,7 @@ export default function AuctionRegisterPage() {
                     }}
                   >
                     <ChevronLeft size={18} strokeWidth={2.5} />
-                  </button>
+                  </button>     
                   <button
                     className="lz-arrow right"
                     onClick={(e) => {
