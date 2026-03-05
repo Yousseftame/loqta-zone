@@ -569,7 +569,7 @@ export default function AuctionRegisterPage() {
         .lz-cocard  { background: rgba(255,255,255,0.028); border: 1px solid rgba(201,169,110,0.13); border-radius: 20px; overflow: hidden; }
         .lz-coinner { padding: 22px 24px 24px; }
 
-        .lz-selinfo          { font-size: 11px; color: rgba(229,224,198,0.28); margin-bottom: 16px; letter-spacing: 0.04em; }
+        .lz-selinfo          { font-size: 14px; color: rgba(229,224,198,0.28); margin-bottom: 16px; letter-spacing: 0.04em; }
         .lz-selinfo strong   { color: rgba(229,224,198,0.5); }
 
         /* Terms */
@@ -591,7 +591,7 @@ export default function AuctionRegisterPage() {
 
         /* Total */
         .lz-total  { display: flex; align-items: center; justify-content: space-between; padding: 16px 0; margin-bottom: 18px; border-top: 1px solid rgba(201,169,110,0.1); border-bottom: 1px solid rgba(201,169,110,0.1); }
-        .lz-tlabel { font-size: 10px; font-weight: 600; color: rgba(229,224,198,0.25); letter-spacing: 0.18em; text-transform: uppercase; }
+        .lz-tlabel { font-size: 13px; font-weight: 600; color: rgba(229,224,198,0.25); letter-spacing: 0.18em; text-transform: uppercase; }
         .lz-tnum   { font-size: 28px; font-weight: 800; color: rgb(229,224,198); letter-spacing: -0.01em; line-height: 1; }
         .lz-tcur   { font-size: 13px; color: rgba(229,224,198,0.35); margin-left: 4px; font-weight: 500; }
         .lz-tfree  { font-size: 16px; font-weight: 700; color: #4ade80; }
@@ -869,7 +869,7 @@ export default function AuctionRegisterPage() {
             <div className="lz-cocard">
               <div className="lz-coinner">
                 {selectedAuctions.size > 0 && (
-                  <div className="lz-selinfo">
+                  <div className="lz-selinfo ">
                     <strong>{selectedAuctions.size}</strong> session
                     {selectedAuctions.size > 1 ? "s" : ""} selected
                     {selectedList.some((a) => a.entryType === "paid") && (
