@@ -279,15 +279,35 @@ export default function AuctionView() {
             <Button
               startIcon={<Edit size={16} />}
               onClick={() => navigate(`/admin/auctions/${auction.id}/edit`)}
+              disabled={auction.status === "ended"}
               variant="contained"
+              title={
+                auction.status === "ended"
+                  ? "Cannot edit an ended auction"
+                  : undefined
+              }
               sx={{
-                bgcolor: "rgba(255,255,255,0.2)",
-                color: "#fff",
+                bgcolor:
+                  auction.status === "ended"
+                    ? "rgba(255,255,255,0.08)"
+                    : "rgba(255,255,255,0.2)",
+                color:
+                  auction.status === "ended" ? "rgba(255,255,255,0.4)" : "#fff",
                 textTransform: "none",
                 borderRadius: 2,
                 fontWeight: 600,
-                border: "1px solid rgba(255,255,255,0.35)",
-                "&:hover": { bgcolor: "rgba(255,255,255,0.3)" },
+                border: "1px solid rgba(255,255,255,0.2)",
+                "&:hover": {
+                  bgcolor:
+                    auction.status === "ended"
+                      ? "rgba(255,255,255,0.08)"
+                      : "rgba(255,255,255,0.3)",
+                },
+                "&.Mui-disabled": {
+                  color: "rgba(255,255,255,0.38)",
+                  bgcolor: "rgba(255,255,255,0.08)",
+                },
+                cursor: auction.status === "ended" ? "not-allowed" : "pointer",
               }}
             >
               Edit

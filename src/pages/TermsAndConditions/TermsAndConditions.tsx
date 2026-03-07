@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 
 // ── Design tokens ─────────────────────────────────────────────
 const GOLD = "#c9a96e";
@@ -391,6 +392,8 @@ function SectionBlock({
 export default function Terms() {
   const { t, i18n } = useTranslation();
   const isRtl = i18n.language === "ar";
+    const navigate = useNavigate();
+
 
   const [activeSection, setActiveSection] = useState("1");
   const [agreed, setAgreed] = useState(false);
@@ -681,6 +684,7 @@ export default function Terms() {
 
               <button
                 disabled={!agreed}
+                onClick={() => navigate(-1)}
                 style={{
                   width: "100%",
                   height: 52,

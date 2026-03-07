@@ -812,12 +812,30 @@ export default function AuctionsList() {
                             onClick={() =>
                               navigate(`/admin/auctions/${auction.id}/edit`)
                             }
+                            disabled={auction.status === "ended"}
                             sx={{
-                              color: "#7C3AED",
-                              "&:hover": { bgcolor: "#F3E8FF" },
+                              color:
+                                auction.status === "ended"
+                                  ? colors.textMuted
+                                  : "#7C3AED",
+                              "&:hover": {
+                                bgcolor:
+                                  auction.status === "ended"
+                                    ? "transparent"
+                                    : "#F3E8FF",
+                              },
+                              "&.Mui-disabled": {
+                                opacity: 0.38,
+                                pointerEvents: "all",
+                                cursor: "not-allowed",
+                              },
                               borderRadius: 1.5,
                             }}
-                            title="Edit"
+                            title={
+                              auction.status === "ended"
+                                ? "Cannot edit an ended auction"
+                                : "Edit"
+                            }
                           >
                             <Edit size={16} />
                           </IconButton>

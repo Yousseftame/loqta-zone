@@ -63,13 +63,10 @@ function docToAuction(id: string, data: Record<string, any>): Auction {
   };
 }
 
+// AFTER — clean version
 function formToPayload(formData: AuctionFormData, createdBy = "") {
   const startTime = Timestamp.fromDate(new Date(formData.startTime));
   const endTime = Timestamp.fromDate(new Date(formData.endTime));
-  const computedStatus = computeAuctionStatus(
-    new Date(formData.startTime),
-    new Date(formData.endTime),
-  );
 
   return {
     productId: formData.productId,
@@ -86,7 +83,6 @@ function formToPayload(formData: AuctionFormData, createdBy = "") {
     endTime,
     entryType: formData.entryType,
     entryFee: formData.entryType === "paid" ? Number(formData.entryFee) : 0,
-    status: computedStatus,
     isActive: formData.isActive,
     lastOfferEnabled: formData.lastOfferEnabled,
     ...(createdBy && { createdBy }),

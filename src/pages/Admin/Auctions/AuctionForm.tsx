@@ -71,6 +71,17 @@ export default function AuctionForm() {
   const [saving, setSaving] = useState(false);
   const [loadingAuction, setLoadingAuction] = useState(isEdit);
 
+  useEffect(() => {
+    if (!isEdit || !id) return;
+    (async () => {
+      const a = await getAuction(id);
+      if (a && a.status === "ended") {
+        // Redirect back — ended auctions cannot be edited
+        navigate(`/admin/auctions/${id}`, { replace: true });
+      }
+    })();
+  }, [id, isEdit]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Pre-fill on edit
   useEffect(() => {
     if (!isEdit || !id) return;
