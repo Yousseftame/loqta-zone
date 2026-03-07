@@ -28,6 +28,7 @@ import User from "@/pages/Admin/User/User";
 import VoucherForm from "@/pages/Admin/Voucher/VoucherForm";
 import VouchersList from "@/pages/Admin/Voucher/VoucherList";
 import VoucherView from "@/pages/Admin/Voucher/VoucherView";
+import AuctionLivePage from "@/pages/AuctionLivePage/AuctionLivePage";
 import AuctionRegisterPage from "@/pages/Auctionregisterpage/Auctionregisterpage";
 import ForgetPassword from "@/pages/Auth/ForgetPassword/ForgetPassword";
 import Login from "@/pages/Auth/Login/Login";
@@ -113,6 +114,10 @@ export const routes = createBrowserRouter([
       {
         path: "/auctions/register/:productId",
         element: <AuctionRegisterPage />,
+      },
+      {
+        path: "/auction/:auctionId",
+        element: <AuctionLivePage/>,
       },
       { path: "terms", element: <TermsAndConditions /> },
     ],

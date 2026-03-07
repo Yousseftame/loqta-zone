@@ -3,6 +3,9 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import { collection, getDocs, query, where, orderBy } from "firebase/firestore";
 import { db } from "@/firebase/firebase";
+import { joinAuctions } from "@/service/auctions/joinAuctionService";
+import { useAuth } from "@/store/AuthContext/AuthContext";
+import toast from "react-hot-toast";
 
 interface Product {
   id: string;
@@ -53,6 +56,8 @@ function fmtTime(d: Date) {
 export default function AuctionRegisterPage() {
   const { productId } = useParams<{ productId: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
+
   const [product, setProduct] = useState<Product | null>(null);
   const [auctions, setAuctions] = useState<Auction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -251,11 +256,56 @@ export default function AuctionRegisterPage() {
   );
   const canCheckout = selectedAuctions.size > 0 && agreed;
 
+  // ── Checkout ───────────────────────────────────────────────
   const handleCheckout = async () => {
     if (!canCheckout) return;
+
+    // Guard: user must be logged in
+    if (!user) {
+      toast.error("You must be logged in to join an auction.");
+      return;
+    }
+
     setChecking(true);
-    await new Promise((r) => setTimeout(r, 1400));
-    setChecking(false);
+
+    try {
+      const auctionsToJoin = selectedList.map((a) => ({
+        id: a.id,
+        entryType: a.entryType,
+        entryFee: a.entryFee,
+      }));
+
+      const result = await joinAuctions(user.uid, auctionsToJoin);
+
+      // Warn about skipped auctions (already joined or no longer available)
+      if (result.skipped.length > 0) {
+        toast.error(
+          `${result.skipped.length} auction(s) skipped — you may have already joined them or they are no longer available.`,
+        );
+      }
+
+      // Warn about unexpected errors
+      if (result.errors.length > 0) {
+        toast.error(
+          `${result.errors.length} auction(s) could not be processed. Please try again.`,
+        );
+      }
+
+      // Only navigate if at least one auction was successfully joined
+      if (result.joined.length > 0) {
+        toast.success(
+          `Successfully registered for ${result.joined.length} auction(s)!`,
+        );
+
+        // Navigate to the first successfully joined auction's live page.
+        // When you build /auction/:auctionId it will just work automatically.
+        navigate(`/auction/${result.joined[0]}`);
+      }
+    } catch (err: any) {
+      toast.error(err?.message ?? "Registration failed. Please try again.");
+    } finally {
+      setChecking(false);
+    }
   };
 
   if (loading)
@@ -366,12 +416,6 @@ export default function AuctionRegisterPage() {
         .lz-slide-cur-prev { animation: lz-cur-prev 0.55s cubic-bezier(0.4,0,0.2,1) forwards; }
         .lz-slide-inc-prev { animation: lz-inc-prev 0.55s cubic-bezier(0.4,0,0.2,1) forwards; }
 
-        /* ─────────────────────────────────────────────
-           BACK BAR
-           • NOT sticky/fixed — lives in normal document flow
-             so it renders below the site's own sticky navbar
-             without any z-index collision or overlap.
-           ───────────────────────────────────────────── */
         .lz-bar {
           width: 100%;
           height: 50px;
@@ -379,7 +423,6 @@ export default function AuctionRegisterPage() {
           border-bottom: 1px solid rgba(201,169,110,0.1);
           display: flex; align-items: center;
           padding: 0 40px; gap: 14px;
-          /* no position:sticky, no position:fixed */
         }
         @media(max-width:700px){ .lz-bar { padding: 0 20px; } }
 
@@ -397,27 +440,20 @@ export default function AuctionRegisterPage() {
         .lz-bsep { width: 1px; height: 16px; background: rgba(229,224,198,0.08); }
         .lz-blabel { font-size: 13px; font-weight: 400; color: rgba(229,224,198,0.22); letter-spacing: 0.03em; }
 
-        /* ─────────────────────────────────────────────
-           MAIN LAYOUT
-           ───────────────────────────────────────────── */
         .lz-wrap {
           max-width: 1160px; margin: 0 auto;
-          /* top padding is intentionally small — MainLayout already pushes the
-             entire page below the fixed navbar via pt-20 lg:pt-24 on <main> */
           padding: 24px 40px 100px;
           display: grid; grid-template-columns: 1fr 1fr;
           gap: 24px; align-items: start;
         }
         @media(max-width:860px){ .lz-wrap { grid-template-columns: 1fr; padding: 20px 20px 80px; } }
 
-        /* ── PRODUCT CARD ── */
         .lz-pcard {
           background: rgba(255,255,255,0.028);
           border: 1px solid rgba(201,169,110,0.13);
           border-radius: 20px; overflow: hidden;
         }
 
-        /* ── GALLERY ── */
         .lz-gallery {
           position: relative; width: 100%; aspect-ratio: 16/11;
           overflow: hidden; background: rgba(255,255,255,0.02);
@@ -461,7 +497,6 @@ export default function AuctionRegisterPage() {
         }
         .lz-dot.on { background: #c9a96e; width: 16px; border-radius: 3px; }
 
-        /* Thumbnails */
         .lz-thumbrow {
           display: flex; gap: 8px; padding: 12px 18px;
           border-bottom: 1px solid rgba(201,169,110,0.07);
@@ -479,7 +514,6 @@ export default function AuctionRegisterPage() {
         .lz-t.on   { border-color: #c9a96e; opacity: 1; }
         .lz-t img  { width: 100%; height: 100%; object-fit: cover; display: block; }
 
-        /* ── PRODUCT INFO ── */
         .lz-pinfo { padding: 22px 26px 28px; }
         .lz-ptitle { font-size: 24px; font-weight: 700; color: rgb(229,224,198); letter-spacing: -0.01em; line-height: 1.2; }
         .lz-pdesc-top { font-size: 13px; line-height: 1.75; font-weight: 300; color: rgba(229,224,198,0.42); margin-top: 10px; margin-bottom: 20px; }
@@ -499,11 +533,9 @@ export default function AuctionRegisterPage() {
         .lz-feats { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 16px; border-top: 1px solid rgba(201,169,110,0.07); }
         .lz-ftag  { font-size: 11px; font-weight: 500; color: rgba(201,169,110,0.7); background: rgba(201,169,110,0.07); border: 1px solid rgba(201,169,110,0.13); border-radius: 99px; padding: 3px 12px; letter-spacing: 0.03em; }
 
-        /* ── RIGHT COLUMN ── */
         .lz-right { display: flex; flex-direction: column; gap: 14px; }
         .lz-sec-label { font-size: 10px; font-weight: 600; color: rgba(229,224,198,0.25); letter-spacing: 0.22em; text-transform: uppercase; padding: 0 2px 2px; }
 
-        /* ── AUCTION CARD ── */
         .lz-acard {
           background: rgba(255,255,255,0.028);
           border: 1px solid rgba(201,169,110,0.1);
@@ -552,44 +584,37 @@ export default function AuctionRegisterPage() {
         .lz-afoot-t { font-size: 12px; font-weight: 400; color: rgba(229,224,198,0.22); transition: color 0.22s ease; }
         .lz-acard.sel .lz-afoot-t { color: rgba(201,169,110,0.65); }
 
-        /* ── RADIO ── */
         .lz-radio { width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid rgba(229,224,198,0.12); background: rgba(255,255,255,0.02); display: flex; align-items: center; justify-content: center; transition: all 0.28s cubic-bezier(0.34,1.56,0.64,1); flex-shrink: 0; }
         .lz-radio.on { border-color: #c9a96e; background: #c9a96e; box-shadow: 0 0 0 3px rgba(201,169,110,0.14); }
         .lz-rdot { width: 9px; height: 9px; border-radius: 50%; background: #09111a; transform: scale(0); transition: transform 0.28s cubic-bezier(0.34,1.56,0.64,1); }
         .lz-radio.on .lz-rdot { transform: scale(1); animation: lz-radio-in 0.3s cubic-bezier(0.34,1.56,0.64,1); }
         .lz-acard:active .lz-radio { transform: scale(0.88); }
 
-        /* ── EMPTY ── */
         .lz-empty   { text-align: center; padding: 44px 20px; background: rgba(255,255,255,0.02); border: 1px solid rgba(201,169,110,0.07); border-radius: 16px; }
         .lz-empty-i { font-size: 30px; opacity: 0.2; margin-bottom: 12px; }
         .lz-empty-t { font-size: 14px; font-weight: 500; color: rgba(229,224,198,0.4); margin-bottom: 4px; }
         .lz-empty-s { font-size: 12px; color: rgba(229,224,198,0.2); }
 
-        /* ── CHECKOUT CARD ── */
         .lz-cocard  { background: rgba(255,255,255,0.028); border: 1px solid rgba(201,169,110,0.13); border-radius: 20px; overflow: hidden; }
         .lz-coinner { padding: 22px 24px 24px; }
 
         .lz-selinfo          { font-size: 14px; color: rgba(229,224,198,0.28); margin-bottom: 16px; letter-spacing: 0.04em; }
         .lz-selinfo strong   { color: rgba(229,224,198,0.5); }
 
-        /* Terms */
         .lz-terms { display: flex; align-items: flex-start; gap: 12px; padding: 13px 15px; border-radius: 12px; border: 1px solid rgba(201,169,110,0.1); cursor: pointer; transition: all 0.22s ease; margin-bottom: 18px; user-select: none; }
         .lz-terms:hover { border-color: rgba(201,169,110,0.22); background: rgba(201,169,110,0.03); }
         .lz-terms.on    { border-color: rgba(201,169,110,0.38); background: rgba(201,169,110,0.05); }
         .lz-terms:active .lz-chk { transform: scale(0.88); }
 
-        /* Checkbox */
         .lz-chk { width: 22px; height: 22px; flex-shrink: 0; margin-top: 1px; border-radius: 6px; border: 1.5px solid rgba(229,224,198,0.12); background: rgba(255,255,255,0.02); display: flex; align-items: center; justify-content: center; transition: all 0.25s cubic-bezier(0.34,1.56,0.64,1); }
         .lz-chk.on { border-color: #c9a96e; background: #c9a96e; box-shadow: 0 0 0 3px rgba(201,169,110,0.14); }
         .lz-chkmark { font-size: 11px; font-weight: 900; color: #09111a; opacity: 0; transform: scale(0) rotate(-20deg); transition: all 0.25s cubic-bezier(0.34,1.56,0.64,1); }
         .lz-chk.on .lz-chkmark { opacity: 1; transform: scale(1) rotate(0); animation: lz-check 0.3s cubic-bezier(0.34,1.56,0.64,1); }
 
         .lz-ttext { font-size: 12.5px; line-height: 1.65; color: rgba(229,224,198,0.38); }
-        /* FIX 3: terms link styled as clickable, navigates to /TermsAndConditions */
         .lz-tlink { color: #c9a96e; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; font-weight: 600; background: none; border: none; font-family: inherit; font-size: inherit; padding: 0; display: inline; }
         .lz-tlink:hover { color: #e0c080; }
 
-        /* Total */
         .lz-total  { display: flex; align-items: center; justify-content: space-between; padding: 16px 0; margin-bottom: 18px; border-top: 1px solid rgba(201,169,110,0.1); border-bottom: 1px solid rgba(201,169,110,0.1); }
         .lz-tlabel { font-size: 13px; font-weight: 600; color: rgba(229,224,198,0.25); letter-spacing: 0.18em; text-transform: uppercase; }
         .lz-tnum   { font-size: 28px; font-weight: 800; color: rgb(229,224,198); letter-spacing: -0.01em; line-height: 1; }
@@ -597,7 +622,6 @@ export default function AuctionRegisterPage() {
         .lz-tfree  { font-size: 16px; font-weight: 700; color: #4ade80; }
         .lz-tempty { font-size: 22px; color: rgba(229,224,198,0.15); font-weight: 300; }
 
-        /* CTA button */
         .lz-cta { width: 100%; height: 52px; border: none; border-radius: 12px; font-family: 'Outfit', system-ui, sans-serif; font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; cursor: pointer; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; gap: 10px; transition: all 0.28s cubic-bezier(0.22,1,0.36,1); }
         .lz-cta.go  { background: linear-gradient(135deg,#c9a96e 0%,#b8934a 100%); color: #09111a; box-shadow: 0 4px 22px rgba(201,169,110,0.2); }
         .lz-cta.go:hover  { transform: translateY(-2px); box-shadow: 0 10px 34px rgba(201,169,110,0.3); }
@@ -611,12 +635,6 @@ export default function AuctionRegisterPage() {
       `}</style>
 
       <div className="lz">
-        {/* ─────────────────────────────────────────────────────
-            BACK BAR
-            Plain block element — renders in normal document flow
-            so it sits naturally below the site's sticky navbar.
-            No position:sticky / position:fixed on this element.
-          ───────────────────────────────────────────────────── */}
         <div className="lz-bar">
           <button className="lz-back" onClick={() => navigate(-1)}>
             <span className="lz-arr">←</span> Back
@@ -625,13 +643,11 @@ export default function AuctionRegisterPage() {
           <span className="lz-blabel">Auction Registration</span>
         </div>
 
-        {/* ── MAIN CONTENT ── */}
         <div className="lz-wrap">
           {/* LEFT: unified product card */}
           <div className="lz-pcard">
             {/* GALLERY */}
             <div className="lz-gallery">
-              {/* Outgoing image (previous) — stays mounted during transition */}
               {imgAnimating && prevIndex !== null && allImages[prevIndex] && (
                 <img
                   src={allImages[prevIndex]}
@@ -642,7 +658,6 @@ export default function AuctionRegisterPage() {
                 />
               )}
 
-              {/* Incoming image (current) — always on top */}
               {allImages[imgIndex] ? (
                 <img
                   key={imgIndex}
@@ -658,24 +673,6 @@ export default function AuctionRegisterPage() {
 
               {allImages.length > 1 && (
                 <>
-                  {/* <button
-                    className="lz-arrow left"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      goPrev();
-                    }}
-                  >
-                    <ChevronLeft size={18} strokeWidth={2.5} />
-                  </button>     
-                  <button
-                    className="lz-arrow right"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      goNext();
-                    }}
-                  >
-                    <ChevronRight size={18} strokeWidth={2.5} />
-                  </button> */}
                   <div className="lz-dots">
                     {allImages.map((_, i) => (
                       <div
@@ -869,7 +866,7 @@ export default function AuctionRegisterPage() {
             <div className="lz-cocard">
               <div className="lz-coinner">
                 {selectedAuctions.size > 0 && (
-                  <div className="lz-selinfo ">
+                  <div className="lz-selinfo">
                     <strong>{selectedAuctions.size}</strong> session
                     {selectedAuctions.size > 1 ? "s" : ""} selected
                     {selectedList.some((a) => a.entryType === "paid") && (
@@ -900,7 +897,6 @@ export default function AuctionRegisterPage() {
                   </div>
                   <div className="lz-ttext">
                     I agree to the{" "}
-                    {/* FIX 3: navigates to /TermsAndConditions */}
                     <button
                       className="lz-tlink"
                       onClick={(e) => {
