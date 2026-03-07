@@ -7,6 +7,7 @@ import AuctionForm from "@/pages/Admin/Auctions/AuctionForm";
 import AuctionsList from "@/pages/Admin/Auctions/AuctionsList";
 import AuctionView from "@/pages/Admin/Auctions/AuctionView";
 import Biding from "@/pages/Admin/Biding/Biding";
+import BidsList from "@/pages/Admin/Biding/BidsList";
 import CategoryForm from "@/pages/Admin/Categories/Categoryform";
 import CategoriesList from "@/pages/Admin/Categories/CategoryList";
 import CategoryView from "@/pages/Admin/Categories/Categoryview";
@@ -16,6 +17,7 @@ import Dashboard from "@/pages/Admin/Dashboard/Dashboard";
 import AdminFeedbackList from "@/pages/Admin/Feedback/AdminFeedbackList";
 import AdminFeedbackView from "@/pages/Admin/Feedback/AdminFeedbackView";
 import LastOffer from "@/pages/Admin/LastOffer/LastOffer";
+import ParticipantsList from "@/pages/Admin/Participants/ParticipantsList";
 import Payment from "@/pages/Admin/Payment/Payment";
 import ProductForm from "@/pages/Admin/Products/ProductForm";
 import ProductsList from "@/pages/Admin/Products/ProductsList";
@@ -95,7 +97,9 @@ export const routes = createBrowserRouter([
       { path: "feedback", element: <AdminFeedbackList /> },
       { path: "feedback/:id", element: <AdminFeedbackView /> },
 
-      { path: "biding", element: <Biding /> },
+      { path: "/admin/bids", element: <BidsList /> },
+      { path: "/admin/participants", element: <ParticipantsList /> },
+
       { path: "lasroffer", element: <LastOffer /> },
       { path: "scheduling", element: <Scheduling /> },
       { path: "users", element: <User /> },
@@ -117,7 +121,7 @@ export const routes = createBrowserRouter([
       },
       {
         path: "/auction/:auctionId",
-        element: <AuctionLivePage/>,
+        element: <AuctionLivePage />,
       },
       { path: "terms", element: <TermsAndConditions /> },
     ],

@@ -98,7 +98,13 @@ const Sidebar = () => {
       id: "Bids",
       label: "Bids",
       icon: AddCardIcon,
-      path: "/admin/#",
+      path: "/admin/bids",
+    },
+    {
+      id: "Auction Participants",
+      label: "Auction Participants",
+      icon: FolderSharedIcon,
+      path: "/admin/participants",
     },
     {
       id: "last offer System",
@@ -106,12 +112,7 @@ const Sidebar = () => {
       icon: LocalOfferIcon,
       path: "/admin/#",
     },
-    {
-      id: "Auction Participants",
-      label: "Auction Participants",
-      icon: FolderSharedIcon,
-      path: "/admin/#",
-    },
+
     {
       id: "Users",
       label: "Users",
