@@ -1,6 +1,23 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, memo } from "react";
 import SplitText from "@/components/SplitText";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/store/AuthContext/AuthContext";
+import LoginPromptModal from "@/components/shared/Loginpromptmodal";
+
+// Firebase imports
+import {
+  collection,
+  getDocs,
+  getDoc,
+  doc,
+  query,
+  orderBy,
+  where,
+  limit,
+  Timestamp,
+} from "firebase/firestore";
+import { db } from "@/firebase/firebase";
 
 // ── Design tokens ─────────────────────────────────────────────
 const GOLD = "#c9a96e";
@@ -8,121 +25,250 @@ const GOLD2 = "#b8944e";
 const NAVY = "#2A4863";
 const NAVY2 = "#1e3652";
 const CREAM = "rgb(229, 224, 198)";
-const BG = "#0a0a1a";
 
-// ── Mock data ─────────────────────────────────────────────────
-const upcomingAuctions = [
-  {
-    id: "u1",
-    title: "GoPro Hero12 Camera",
-    subtitle: "Black Edition · Action Camera",
-    image:
-      "https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?w=400&q=80",
-    startingPrice: 1500,
-    currency: "EGP",
-    pieces: 1,
-    endsAt: new Date(
-      Date.now() + 1 * 60 * 60 * 1000 + 24 * 60 * 1000,
-    ).toISOString(),
-    sessionDate: "Feb 21, 2026 · 8:00 PM – 10:01 PM",
-    category: "Electronics",
-    isHot: true,
-  },
-  {
-    id: "u2",
-    title: "Jaguar Perfume",
-    subtitle: "Eau de Toilette · 100ml",
-    image:
-      "https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?w=400&q=80",
-    startingPrice: 500,
-    currency: "EGP",
-    pieces: 1,
-    endsAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
-    sessionDate: "Feb 23, 2026 · 6:00 PM – 10:00 PM",
-    category: "Fragrance",
-    isHot: false,
-  },
-  {
-    id: "u3",
-    title: "iPhone 17 Pro Max",
-    subtitle: "Silver · 256GB",
-    image:
-      "https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?w=400&q=80",
-    startingPrice: 8000,
-    currency: "EGP",
-    pieces: 2,
-    endsAt: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString(),
-    sessionDate: "Feb 27, 2026 · 7:00 PM – 10:01 PM",
-    category: "Phones",
-    isHot: true,
-  },
-  {
-    id: "u4",
-    title: "Sony WH-1000XM5",
-    subtitle: "Noise Cancelling · Black",
-    image:
-      "https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?w=400&q=80",
-    startingPrice: 3200,
-    currency: "EGP",
-    pieces: 1,
-    endsAt: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString(),
-    sessionDate: "Mar 3, 2026 · 8:00 PM – 11:00 PM",
-    category: "Audio",
-    isHot: false,
-  },
-];
+// ── Types ──────────────────────────────────────────────────────
+interface UpcomingAuction {
+  id: string;
+  productId: string;
+  title: string;
+  subtitle: string;
+  image: string;
+  startingPrice: number;
+  currency: string;
+  pieces: number;
+  endsAt: string;
+  sessionDate: string;
+  category: string;
+  isHot: boolean;
+}
 
-const pastAuctions = [
-  {
-    id: "p1",
-    title: "iPhone 16",
-    subtitle: "Pink · 128GB",
-    image:
-      "https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=400&q=80",
-    winningPrice: 50000,
-    currency: "EGP",
-    sessionDate: "Friday, February 20, 2026",
-    winner: {
-      name: "Hazem Mohamed",
-      avatar: "",
-      country: "🇪🇬",
-      countryName: "Egypt",
-    },
-  },
-  {
-    id: "p2",
-    title: "JBL Tune 520BT",
-    subtitle: "Wireless On-Ear · White",
-    image:
-      "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&q=80",
-    winningPrice: 1800,
-    currency: "EGP",
-    sessionDate: "Monday, February 16, 2026",
-    winner: {
-      name: "Youssef Shaaban",
-      avatar: "",
-      country: "🇪🇬",
-      countryName: "Egypt",
-    },
-  },
-  {
-    id: "p3",
-    title: "Xiaomi Electric Scooter 4 Lite",
-    subtitle: "Black · 25km Range",
-    image:
-      "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80",
-    winningPrice: 14200,
-    currency: "EGP",
-    sessionDate: "Saturday, February 14, 2026",
-    winner: {
-      name: "علاء عز",
-      avatar:
-        "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&q=80",
-      country: "🇪🇬",
-      countryName: "Egypt",
-    },
-  },
-];
+interface PastAuction {
+  id: string;
+  title: string;
+  subtitle: string;
+  image: string;
+  winningPrice: number;
+  currency: string;
+  sessionDate: string;
+  winner: {
+    name: string;
+    avatar: string;
+    country: string;
+    countryName: string;
+  };
+}
+
+// ── Firebase data fetcher ──────────────────────────────────────
+function useAuctionsData() {
+  const [upcoming, setUpcoming] = useState<UpcomingAuction[]>([]);
+  const [past, setPast] = useState<PastAuction[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const now = Timestamp.now();
+
+        // ── Two focused queries instead of fetching everything ──
+        const [upcomingSnap, pastSnap] = await Promise.all([
+          getDocs(
+            query(
+              collection(db, "auctions"),
+              where("endTime", ">", now),
+              where("isActive", "==", true),
+              orderBy("endTime", "asc"),
+            ),
+          ),
+          getDocs(
+            query(
+              collection(db, "auctions"),
+              where("endTime", "<=", now),
+              orderBy("endTime", "desc"),
+              limit(5),
+            ),
+          ),
+        ]);
+
+        if (cancelled) return;
+
+        // Collect unique product IDs from both result sets
+        const productIds = new Set<string>();
+        [...upcomingSnap.docs, ...pastSnap.docs].forEach((d) => {
+          if (d.data().productId) productIds.add(d.data().productId);
+        });
+
+        // Collect winner IDs only from the 5 past auctions
+        const winnerIds = new Set<string>();
+        pastSnap.docs.forEach((d) => {
+          const wid = d.data().winnerId;
+          if (wid && wid !== "NO_WINNER") winnerIds.add(wid);
+        });
+
+        // Parallel-fetch products + winner users
+        const [productEntries, userEntries] = await Promise.all([
+          Promise.all(
+            Array.from(productIds).map(async (pid) => {
+              try {
+                const snap = await getDoc(doc(db, "products", pid));
+                return snap.exists() ? ([pid, snap.data()] as const) : null;
+              } catch {
+                return null;
+              }
+            }),
+          ),
+          Promise.all(
+            Array.from(winnerIds).map(async (uid) => {
+              try {
+                const snap = await getDoc(doc(db, "users", uid));
+                return snap.exists() ? ([uid, snap.data()] as const) : null;
+              } catch {
+                return null;
+              }
+            }),
+          ),
+        ]);
+
+        if (cancelled) return;
+
+        const productMap: Record<string, any> = Object.fromEntries(
+          productEntries.filter(Boolean) as [string, any][],
+        );
+        const userMap: Record<string, any> = Object.fromEntries(
+          userEntries.filter(Boolean) as [string, any][],
+        );
+
+        // ── Build upcoming list ────────────────────────────────
+        const upcomingList: UpcomingAuction[] = upcomingSnap.docs.map((d) => {
+          const data = d.data();
+          const startTime: Date =
+            data.startTime instanceof Timestamp
+              ? data.startTime.toDate()
+              : new Date(data.startTime);
+          const endTime: Date =
+            data.endTime instanceof Timestamp
+              ? data.endTime.toDate()
+              : new Date(data.endTime);
+
+          const product = productMap[data.productId] ?? {};
+          const image =
+            product.thumbnail && product.thumbnail !== "null"
+              ? product.thumbnail
+              : (product.images?.[0] ?? "");
+
+          const dateStr = startTime.toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          });
+          const startTimeStr = startTime.toLocaleTimeString("en-US", {
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+          });
+          const endTimeStr = endTime.toLocaleTimeString("en-US", {
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+          });
+
+          return {
+            id: d.id,
+            productId: data.productId ?? "",
+            title: product.title ?? "Auction",
+            subtitle: [product.brand, product.model]
+              .filter(Boolean)
+              .join(" · "),
+            image,
+            startingPrice: data.startingPrice ?? 0,
+            currency: "EGP",
+            pieces: product.quantity ?? 1,
+            endsAt: endTime.toISOString(),
+            sessionDate: `${dateStr} · ${startTimeStr} – ${endTimeStr}`,
+            category: product.category ?? "",
+            isHot: (data.totalBids ?? 0) > 5,
+          };
+        });
+
+        // ── Build past list (max 5, already limited by query) ─
+        const pastList: PastAuction[] = pastSnap.docs
+          .filter((d) => {
+            const wid = d.data().winnerId;
+            return wid !== null && wid !== undefined;
+          })
+          .map((d) => {
+            const data = d.data();
+            const endTime: Date =
+              data.endTime instanceof Timestamp
+                ? data.endTime.toDate()
+                : new Date(data.endTime);
+
+            const product = productMap[data.productId] ?? {};
+            const image =
+              product.thumbnail && product.thumbnail !== "null"
+                ? product.thumbnail
+                : (product.images?.[0] ?? "");
+
+            const winnerId = data.winnerId as string;
+            const userData = userMap[winnerId] ?? {};
+            const winnerName =
+              winnerId === "NO_WINNER"
+                ? "No Winner"
+                : (userData.fullName ??
+                    userData.displayName ??
+                    `${userData.firstName ?? ""} ${userData.lastName ?? ""}`.trim()) ||
+                  "Unknown";
+
+            return {
+              id: d.id,
+              title: product.title ?? "Auction",
+              subtitle: [product.brand, product.model]
+                .filter(Boolean)
+                .join(" · "),
+              image,
+              winningPrice: data.winningBid ?? 0,
+              currency: "EGP",
+              sessionDate: endTime.toLocaleDateString("en-US", {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+                year: "numeric",
+              }),
+              winner: {
+                name: winnerName,
+                avatar:
+                  winnerId === "NO_WINNER" ? "" : (userData.profileImage ?? ""),
+                country: "🇪🇬",
+                countryName: "Egypt",
+              },
+            };
+          });
+
+        setUpcoming(upcomingList);
+        setPast(pastList);
+      } catch (err: any) {
+        if (!cancelled) {
+          console.error("[AuctionsSection] Failed to load auctions:", err);
+          setError("Failed to load auctions");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return { upcoming, past, loading, error };
+}
 
 // ── Countdown hook ─────────────────────────────────────────────
 function useCountdown(endsAt: string) {
@@ -422,13 +568,58 @@ function CountdownBar({ endsAt }: { endsAt: string }) {
   );
 }
 
+// ── Skeleton card ──────────────────────────────────────────────
+function SkeletonCard() {
+  return (
+    <div
+      className="auction-card"
+      style={{
+        borderRadius: 20,
+        background: "rgba(255,255,255,0.028)",
+        border: "1px solid rgba(229,224,198,0.08)",
+        overflow: "hidden",
+      }}
+    >
+      <style>{`
+        @keyframes as-shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+        .as-skel {
+          background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
+          background-size: 200% 100%;
+          animation: as-shimmer 1.5s infinite;
+          border-radius: 4px;
+        }
+      `}</style>
+      {/* Image column */}
+      <div className="as-skel auction-card-img" style={{ minHeight: 220 }} />
+      {/* Content column */}
+      <div className="auction-card-content">
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div className="as-skel" style={{ height: 20, width: "60%" }} />
+          <div className="as-skel" style={{ height: 12, width: "40%" }} />
+        </div>
+        <div style={{ display: "flex", gap: 16 }}>
+          <div className="as-skel" style={{ height: 10, width: 120 }} />
+        </div>
+        <div className="as-skel" style={{ height: 24, width: "50%" }} />
+        <div className="as-skel" style={{ height: 1, width: "100%" }} />
+        <div
+          className="as-skel"
+          style={{ height: 80, width: "100%", borderRadius: 14 }}
+        />
+      </div>
+    </div>
+  );
+}
+
 // ── Upcoming auction card ──────────────────────────────────────
-function UpcomingCard({
+const UpcomingCard = memo(function UpcomingCard({
   item,
   index,
+  onRegisterClick,
 }: {
-  item: (typeof upcomingAuctions)[0];
+  item: UpcomingAuction;
   index: number;
+  onRegisterClick: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
@@ -482,23 +673,41 @@ function UpcomingCard({
           minHeight: 220,
         }}
       >
-        <img
-          src={item.image}
-          alt={item.title}
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            objectPosition: "center",
-            transform: hovered ? "scale(1.08)" : "scale(1)",
-            transition: "transform 0.65s cubic-bezier(0.25,0.46,0.45,0.94)",
-            display: "block",
-            minHeight: 180,
-          }}
-          onError={(e) => {
-            (e.target as HTMLImageElement).style.display = "none";
-          }}
-        />
+        {item.image ? (
+          <img
+            src={item.image}
+            alt={item.title}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              objectPosition: "center",
+              transform: hovered ? "scale(1.08)" : "scale(1)",
+              transition: "transform 0.65s cubic-bezier(0.25,0.46,0.45,0.94)",
+              display: "block",
+              minHeight: 180,
+            }}
+            onError={(e) => {
+              (e.target as HTMLImageElement).style.display = "none";
+            }}
+          />
+        ) : (
+          <div
+            style={{
+              width: "100%",
+              height: "100%",
+              minHeight: 180,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: `linear-gradient(135deg, ${NAVY}18, ${NAVY}08)`,
+            }}
+          >
+            <span style={{ fontSize: 42, fontWeight: 900, color: `${NAVY}30` }}>
+              {item.title.charAt(0).toUpperCase()}
+            </span>
+          </div>
+        )}
         <div
           style={{
             position: "absolute",
@@ -507,25 +716,27 @@ function UpcomingCard({
               "linear-gradient(to right, transparent 50%, rgba(10,10,26,0.6))",
           }}
         />
-        <div
-          style={{
-            position: "absolute",
-            top: 10,
-            left: 10,
-            background: "rgba(10,10,26,0.8)",
-            backdropFilter: "blur(6px)",
-            border: `1px solid rgba(201,169,110,0.3)`,
-            borderRadius: 6,
-            padding: "3px 8px",
-            fontSize: 9,
-            fontWeight: 800,
-            color: GOLD,
-            letterSpacing: "0.14em",
-            textTransform: "uppercase",
-          }}
-        >
-          {item.category}
-        </div>
+        {item.category && (
+          <div
+            style={{
+              position: "absolute",
+              top: 10,
+              left: 10,
+              background: "rgba(10,10,26,0.8)",
+              backdropFilter: "blur(6px)",
+              border: `1px solid rgba(201,169,110,0.3)`,
+              borderRadius: 6,
+              padding: "3px 8px",
+              fontSize: 9,
+              fontWeight: 800,
+              color: GOLD,
+              letterSpacing: "0.14em",
+              textTransform: "uppercase",
+            }}
+          >
+            {item.category}
+          </div>
+        )}
         {item.isHot && (
           <div
             style={{
@@ -617,6 +828,7 @@ function UpcomingCard({
               (e.currentTarget as HTMLButtonElement).style.boxShadow =
                 `0 4px 20px ${GOLD}44`;
             }}
+            onClick={onRegisterClick}
           >
             {t("auctionsSection.registerToJoin")}
           </button>
@@ -706,14 +918,14 @@ function UpcomingCard({
       </div>
     </div>
   );
-}
+});
 
 // ── Past auction card ──────────────────────────────────────────
-function PastCard({
+const PastCard = memo(function PastCard({
   item,
   index,
 }: {
-  item: (typeof pastAuctions)[0];
+  item: PastAuction;
   index: number;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -767,25 +979,44 @@ function PastCard({
           minHeight: 220,
         }}
       >
-        <img
-          src={item.image}
-          alt={item.title}
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            objectPosition: "center",
-            minHeight: 200,
-            display: "block",
-            filter: "grayscale(30%) brightness(0.75)",
-            transform: hovered ? "scale(1.06)" : "scale(1)",
-            transition:
-              "transform 0.65s cubic-bezier(0.25,0.46,0.45,0.94), filter 0.4s ease",
-          }}
-          onError={(e) => {
-            (e.target as HTMLImageElement).style.display = "none";
-          }}
-        />
+        {item.image ? (
+          <img
+            src={item.image}
+            alt={item.title}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              objectPosition: "center",
+              minHeight: 200,
+              display: "block",
+              filter: "grayscale(30%) brightness(0.75)",
+              transform: hovered ? "scale(1.06)" : "scale(1)",
+              transition:
+                "transform 0.65s cubic-bezier(0.25,0.46,0.45,0.94), filter 0.4s ease",
+            }}
+            onError={(e) => {
+              (e.target as HTMLImageElement).style.display = "none";
+            }}
+          />
+        ) : (
+          <div
+            style={{
+              width: "100%",
+              height: "100%",
+              minHeight: 200,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: `linear-gradient(135deg, ${NAVY}18, ${NAVY}08)`,
+              filter: "grayscale(30%) brightness(0.75)",
+            }}
+          >
+            <span style={{ fontSize: 42, fontWeight: 900, color: `${NAVY}30` }}>
+              {item.title.charAt(0).toUpperCase()}
+            </span>
+          </div>
+        )}
         <div
           style={{
             position: "absolute",
@@ -965,6 +1196,9 @@ function PastCard({
                   src={item.winner.avatar}
                   alt={item.winner.name}
                   style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = "none";
+                  }}
                 />
               ) : (
                 <span style={{ fontSize: 16, color: "rgba(229,224,198,0.4)" }}>
@@ -986,7 +1220,7 @@ function PastCard({
       </div>
     </div>
   );
-}
+});
 
 // ── Tab button ─────────────────────────────────────────────────
 function TabButton({
@@ -1072,7 +1306,6 @@ function TabButton({
 // ── Main Section ───────────────────────────────────────────────
 export default function AuctionsSection() {
   const [activeTab, setActiveTab] = useState<"upcoming" | "past">("upcoming");
-  const [prevTab, setPrevTab] = useState<"upcoming" | "past">("upcoming");
   const [animating, setAnimating] = useState(false);
   const sectionRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
@@ -1081,6 +1314,26 @@ export default function AuctionsSection() {
   const { t, i18n } = useTranslation();
   const isArabic = i18n.language === "ar";
 
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [modalOpen, setModalOpen] = useState(false);
+  const { upcoming, past, loading, error } = useAuctionsData();
+
+  const handleRegisterClick = useCallback(
+    (productId: string) => {
+      if (user) {
+        navigate(`/auctions/register/${productId}`);
+      } else {
+        setModalOpen(true);
+      }
+    },
+    [user, navigate],
+  );
+
+  const handleGoToLogin = () => {
+    setModalOpen(false);
+    navigate("/login");
+  };
 
   useEffect(() => {
     const el = headerRef.current;
@@ -1099,7 +1352,6 @@ export default function AuctionsSection() {
     return () => obs.disconnect();
   }, []);
 
-  // Re-animate SplitText on language change
   useEffect(() => {
     setAnimKey((k) => k + 1);
   }, [i18n.language]);
@@ -1107,7 +1359,6 @@ export default function AuctionsSection() {
   const switchTab = (tab: "upcoming" | "past") => {
     if (tab === activeTab || animating) return;
     setAnimating(true);
-    setPrevTab(activeTab);
     setTimeout(() => {
       setActiveTab(tab);
       setAnimating(false);
@@ -1187,6 +1438,12 @@ export default function AuctionsSection() {
           }
         }
       `}</style>
+
+      <LoginPromptModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onGoToLogin={handleGoToLogin}
+      />
 
       {/* Background atmosphere */}
       <div
@@ -1305,9 +1562,9 @@ export default function AuctionsSection() {
             text={t("auctionsSection.titleLine1")}
             tag="h2"
             className=""
-            splitType={isArabic ? "words" : "chars"} // ← only change
+            splitType={isArabic ? "words" : "chars"}
             duration={1.0}
-            delay={isArabic ? 80 : 30} // ← words need a bit more stagger
+            delay={isArabic ? 80 : 30}
             ease="power3.out"
             from={{ opacity: 0, y: 40, rotateX: -20 }}
             to={{ opacity: 1, y: 0, rotateX: 0 }}
@@ -1329,9 +1586,9 @@ export default function AuctionsSection() {
             text={t("auctionsSection.titleLine2")}
             tag="h2"
             className=""
-            splitType={isArabic ? "words" : "chars"} // ← only change
+            splitType={isArabic ? "words" : "chars"}
             duration={1.0}
-            delay={isArabic ? 80 : 30} // ← words need a bit more stagger
+            delay={isArabic ? 80 : 30}
             ease="power3.out"
             from={{ opacity: 0, y: 40 }}
             to={{ opacity: 1, y: 0 }}
@@ -1408,77 +1665,151 @@ export default function AuctionsSection() {
         }}
         key={activeTab}
       >
-        {activeTab === "upcoming" ? (
+        {/* Loading state */}
+        {loading && (
           <>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                marginBottom: 4,
-              }}
-            >
-              <div
-                style={{
-                  width: 3,
-                  height: 18,
-                  background: GOLD,
-                  borderRadius: 2,
-                }}
-              />
-              <span
-                style={{
-                  fontSize: 11,
-                  fontWeight: 800,
-                  color: "rgba(229,224,198,0.4)",
-                  letterSpacing: "0.18em",
-                  textTransform: "uppercase",
-                }}
-              >
-                {t("auctionsSection.upcomingCount", {
-                  count: upcomingAuctions.length,
-                })}
-              </span>
-            </div>
-            {upcomingAuctions.map((item, i) => (
-              <UpcomingCard key={item.id} item={item} index={i} />
-            ))}
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
           </>
-        ) : (
+        )}
+
+        {/* Error state */}
+        {!loading && error && (
+          <div
+            style={{
+              textAlign: "center",
+              padding: "60px 20px",
+              color: "rgba(229,224,198,0.4)",
+            }}
+          >
+            <div style={{ fontSize: 48, marginBottom: 12 }}>⚠️</div>
+            <p style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>{error}</p>
+          </div>
+        )}
+
+        {/* Upcoming tab */}
+        {!loading && !error && activeTab === "upcoming" && (
           <>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                marginBottom: 4,
-              }}
-            >
+            {upcoming.length > 0 && (
               <div
                 style={{
-                  width: 3,
-                  height: 18,
-                  background: "rgba(126,207,154,0.7)",
-                  borderRadius: 2,
-                }}
-              />
-              <span
-                style={{
-                  fontSize: 11,
-                  fontWeight: 800,
-                  color: "rgba(229,224,198,0.4)",
-                  letterSpacing: "0.18em",
-                  textTransform: "uppercase",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  marginBottom: 4,
                 }}
               >
-                {t("auctionsSection.pastCount", {
-                  count: pastAuctions.length,
-                })}
-              </span>
-            </div>
-            {pastAuctions.map((item, i) => (
-              <PastCard key={item.id} item={item} index={i} />
-            ))}
+                <div
+                  style={{
+                    width: 3,
+                    height: 18,
+                    background: GOLD,
+                    borderRadius: 2,
+                  }}
+                />
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 800,
+                    color: "rgba(229,224,198,0.4)",
+                    letterSpacing: "0.18em",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {t("auctionsSection.upcomingCount", {
+                    count: upcoming.length,
+                  })}
+                </span>
+              </div>
+            )}
+
+            {upcoming.length === 0 ? (
+              <div
+                style={{
+                  textAlign: "center",
+                  padding: "60px 20px",
+                  color: "rgba(229,224,198,0.4)",
+                }}
+              >
+                <div style={{ fontSize: 48, marginBottom: 12 }}>🔨</div>
+                <p style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>
+                  No upcoming auctions right now
+                </p>
+                <p style={{ fontSize: 13, marginTop: 6, opacity: 0.7 }}>
+                  Check back soon for new sessions
+                </p>
+              </div>
+            ) : (
+              upcoming.map((item, i) => (
+                <UpcomingCard
+                  key={item.id}
+                  item={item}
+                  index={i}
+                  onRegisterClick={() => handleRegisterClick(item.productId)}
+                />
+              ))
+            )}
+          </>
+        )}
+
+        {/* Past tab */}
+        {!loading && !error && activeTab === "past" && (
+          <>
+            {past.length > 0 && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  marginBottom: 4,
+                }}
+              >
+                <div
+                  style={{
+                    width: 3,
+                    height: 18,
+                    background: "rgba(126,207,154,0.7)",
+                    borderRadius: 2,
+                  }}
+                />
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 800,
+                    color: "rgba(229,224,198,0.4)",
+                    letterSpacing: "0.18em",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {t("auctionsSection.pastCount", {
+                    count: past.length,
+                  })}
+                </span>
+              </div>
+            )}
+
+            {past.length === 0 ? (
+              <div
+                style={{
+                  textAlign: "center",
+                  padding: "60px 20px",
+                  color: "rgba(229,224,198,0.4)",
+                }}
+              >
+                <div style={{ fontSize: 48, marginBottom: 12 }}>🏆</div>
+                <p style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>
+                  No completed auctions yet
+                </p>
+                <p style={{ fontSize: 13, marginTop: 6, opacity: 0.7 }}>
+                  Winners will appear here after auctions close
+                </p>
+              </div>
+            ) : (
+              past.map((item, i) => (
+                <PastCard key={item.id} item={item} index={i} />
+              ))
+            )}
           </>
         )}
       </div>
