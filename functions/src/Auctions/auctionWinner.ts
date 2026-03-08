@@ -1,80 +1,82 @@
 /**
  * functions/src/Auctions/auctionWinner.ts
  *
- * ─── Architecture ────────────────────────────────────────────────────────────
+ * ─── Architecture: 3 functions, zero wasted polling ──────────────────────────
  *
- * TWO functions — zero wasted polling:
+ * 1. triggerResolveAuction  (HTTP callable)
+ *    Called by the FRONTEND countdown timer the instant it hits zero.
+ *    Resolves one specific auction by ID. Returns immediately.
+ *    Cost: 1 read + 1 transaction. Fires exactly once per auction end.
+ *    This is the PRIMARY path — winner appears within ~1-2 seconds of endTime.
  *
- * 1. onBidWritten  (Firestore trigger)
- *    Fires the instant ANY document is written inside
- *    auctions/{auctionId}/bids/{bidId}.
- *    Checks: has endTime passed on this auction?
- *      YES → resolve winner immediately.
- *      NO  → do nothing (bid was placed during live auction, normal flow).
+ * 2. onBidWritten  (Firestore trigger)
+ *    Fires when any bid doc is written. If endTime has passed → resolve.
+ *    Handles edge case: bid placed in the final milliseconds, races with endTime.
+ *    Cost: 1 read per bid (exits early if endTime not passed yet).
  *
- *    Cost: 1 read + 1 transaction per bid — exactly what you'd already pay
- *    to update the auction doc in bidService.ts. No extra overhead.
- *    The winner is determined within ~1 second of the auction ending.
+ * 3. resolveAuctionWinners  (Scheduled — every 10 minutes, safety net only)
+ *    Catches auctions that ended with ZERO bids (no bid = no trigger) and
+ *    any auction where the frontend was closed before calling #1.
+ *    When everything is healthy: 1 query read → empty → exits. Negligible cost.
  *
- * 2. resolveAuctionWinners  (Scheduled — every 10 minutes, safety net only)
- *    Catches any auction that onBidWritten missed:
- *      - Auctions that ended with ZERO bids (no bid write = no trigger)
- *      - Cold-start failures or transient errors in onBidWritten
- *    Reads only auctions where endTime <= now AND winnerId == null.
- *    If none exist: 1 lightweight query read, nothing else.
- *    Typical cost per run: ~1 read. Negligible.
- *
- * ─── Why not ONLY the trigger? ───────────────────────────────────────────────
- *    If an auction ends with no bids, no bid is ever written, so onBidWritten
- *    never fires. The safety net closes those auctions. Without it they'd sit
- *    open forever with isActive=true.
+ * ─── Why this approach is zero-polling ───────────────────────────────────────
+ *    #1 fires from the client's own countdown — not a server interval.
+ *    #2 fires from an actual DB write — not a timer.
+ *    #3 is a once-per-10-min fallback, costs 1 read when nothing needs resolving.
  *
  * ─── Idempotency ─────────────────────────────────────────────────────────────
- *    Both functions use a Firestore transaction that re-reads winnerId inside
- *    the transaction. If it's already set, the function exits immediately.
- *    Safe to run concurrently or multiple times.
+ *    All three share resolveWinnerForAuction(). The transaction re-reads
+ *    winnerId inside the transaction body. If already set → exits immediately.
+ *    Safe to call from all 3 paths concurrently.
  */
 
-import { onDocumentWritten } from "firebase-functions/v2/firestore";
-import { onSchedule }        from "firebase-functions/v2/scheduler";
+import { onCall, HttpsError }    from "firebase-functions/v2/https";
+import { onDocumentWritten }     from "firebase-functions/v2/firestore";
+import { onSchedule }            from "firebase-functions/v2/scheduler";
 import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
 
 const db = getFirestore();
 
-// ─── Shared helper ────────────────────────────────────────────────────────────
+// ─── Core shared logic ────────────────────────────────────────────────────────
 
 /**
  * resolveWinnerForAuction
  *
- * Core logic used by both functions.
- * Reads the highest bid, then runs a transaction to set winnerId + winningBid.
- * Fully idempotent — exits early if winnerId is already set.
+ * Shared by all 3 functions. Fully idempotent.
+ * - Pre-checks winnerId and endTime before opening a transaction.
+ * - Fetches the top bid outside the transaction (read-only, no contention).
+ * - Transaction re-reads winnerId to guard against concurrent resolution.
  */
 async function resolveWinnerForAuction(auctionId: string): Promise<void> {
   const auctionRef = db.collection("auctions").doc(auctionId);
 
-  // Quick pre-check before opening a transaction (saves a transaction attempt
-  // if this auction has already been resolved by a concurrent invocation)
+  // ── Pre-check: bail early if already resolved or endTime not passed ────────
   const preCheck = await auctionRef.get();
-  if (!preCheck.exists) return;
+  if (!preCheck.exists) {
+    console.log(`[winner] Auction ${auctionId} does not exist.`);
+    return;
+  }
 
   const preData = preCheck.data()!;
+
+  // Already resolved — nothing to do
   if (preData.winnerId !== null && preData.winnerId !== undefined) {
     console.log(`[winner] Auction ${auctionId} already resolved — skipping.`);
     return;
   }
 
-  // Check endTime BEFORE opening a transaction
-  const endTime: Date = preData.endTime instanceof Timestamp
-    ? preData.endTime.toDate()
-    : new Date(preData.endTime);
+  // Hasn't ended yet — called too early (shouldn't happen with countdown guard)
+  const endTime: Date =
+    preData.endTime instanceof Timestamp
+      ? preData.endTime.toDate()
+      : new Date(preData.endTime);
 
   if (new Date() < endTime) {
-    // Auction hasn't ended yet — bid was placed during live window, normal flow
+    console.log(`[winner] Auction ${auctionId} hasn't ended yet — skipping.`);
     return;
   }
 
-  // Fetch the highest bid (outside transaction — read-only, no contention risk)
+  // ── Fetch highest bid outside transaction ──────────────────────────────────
   const bidsSnap = await db
     .collection("auctions")
     .doc(auctionId)
@@ -83,37 +85,34 @@ async function resolveWinnerForAuction(auctionId: string): Promise<void> {
     .limit(1)
     .get();
 
-  // Transaction: re-read auction to guard against concurrent resolution
+  // ── Transaction: re-read + write atomically ────────────────────────────────
   await db.runTransaction(async (transaction) => {
     const freshSnap = await transaction.get(auctionRef);
     if (!freshSnap.exists) return;
 
     const fresh = freshSnap.data()!;
 
-    // Idempotency guard inside transaction
+    // Idempotency guard inside transaction (concurrent call may have beaten us)
     if (fresh.winnerId !== null && fresh.winnerId !== undefined) {
       console.log(`[winner] Auction ${auctionId} resolved by concurrent run — skipping.`);
       return;
     }
 
     if (bidsSnap.empty) {
-      // ── No bids — close with no winner ──────────────────────────────────
       transaction.update(auctionRef, {
-        winnerId:  "NO_WINNER",
+        winnerId:   "NO_WINNER",
         winningBid: 0,
-        isActive:  false,
-        updatedAt: FieldValue.serverTimestamp(),
+        isActive:   false,
+        updatedAt:  FieldValue.serverTimestamp(),
       });
       console.log(`[winner] Auction ${auctionId} → NO_WINNER (no bids).`);
       return;
     }
 
-    // ── Winner found ─────────────────────────────────────────────────────
     const topBid     = bidsSnap.docs[0].data();
     const winnerId   = topBid.userId   as string;
     const winningBid = topBid.amount   as number;
 
-    // Update auction
     transaction.update(auctionRef, {
       winnerId,
       winningBid,
@@ -121,9 +120,7 @@ async function resolveWinnerForAuction(auctionId: string): Promise<void> {
       updatedAt: FieldValue.serverTimestamp(),
     });
 
-    // Increment winner's totalWins stat
-    const winnerRef = db.collection("users").doc(winnerId);
-    transaction.update(winnerRef, {
+    transaction.update(db.collection("users").doc(winnerId), {
       totalWins: FieldValue.increment(1),
     });
 
@@ -131,22 +128,51 @@ async function resolveWinnerForAuction(auctionId: string): Promise<void> {
   });
 }
 
-// ─── Function 1: Firestore trigger ───────────────────────────────────────────
+// ─── Function 1: HTTP callable — PRIMARY path ─────────────────────────────────
 //
-// Fires on every bid write (create/update/delete).
-// Checks if the auction's endTime has passed — if so, resolves the winner.
-// This covers the most common case: someone places the last bid right before or
-// after time expires, or a bid write happens just as the clock hits zero.
+// Called by the frontend the instant the countdown hits zero.
+// Resolves the specific auction immediately — winner appears in ~1-2 seconds.
+// Requires the caller to be authenticated (prevents abuse).
+
+export const triggerResolveAuction = onCall(
+  {
+    timeoutSeconds: 30,
+    memory: "256MiB",
+  },
+  async (request) => {
+    // Must be authenticated — prevents random callers from hammering this
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Must be signed in.");
+    }
+
+    const auctionId = request.data?.auctionId as string | undefined;
+    if (!auctionId || typeof auctionId !== "string") {
+      throw new HttpsError("invalid-argument", "auctionId is required.");
+    }
+
+    try {
+      await resolveWinnerForAuction(auctionId);
+      return { success: true };
+    } catch (err) {
+      console.error(`[triggerResolveAuction] Error for ${auctionId}:`, err);
+      throw new HttpsError("internal", "Failed to resolve auction.");
+    }
+  },
+);
+
+// ─── Function 2: Firestore trigger — edge case handler ────────────────────────
+//
+// Fires on every bid write. Handles the race condition where a bid lands
+// in the final milliseconds and the endTime passes before Function 1 is called.
 
 export const onBidWritten = onDocumentWritten(
   {
-    document:      "auctions/{auctionId}/bids/{bidId}",
+    document:       "auctions/{auctionId}/bids/{bidId}",
     timeoutSeconds: 60,
-    memory:        "256MiB",
+    memory:         "256MiB",
   },
   async (event) => {
     const auctionId = event.params.auctionId;
-
     try {
       await resolveWinnerForAuction(auctionId);
     } catch (err) {
@@ -155,15 +181,11 @@ export const onBidWritten = onDocumentWritten(
   },
 );
 
-// ─── Function 2: Scheduled safety net ────────────────────────────────────────
+// ─── Function 3: Scheduled — safety net only ──────────────────────────────────
 //
-// Runs every 10 minutes. Catches:
-//   - Auctions that ended with ZERO bids (trigger never fires)
-//   - Any auction the trigger missed due to transient errors
-//
-// Typical execution when everything is healthy:
-//   1 Firestore list query → empty result → function exits.
-//   Cost: ~1 document read per 10 minutes. Negligible.
+// Catches auctions that ended with zero bids (no trigger) or where the
+// frontend was closed before the countdown fired Function 1.
+// Healthy-state cost: 1 Firestore query read per 10 minutes. Negligible.
 
 export const resolveAuctionWinners = onSchedule(
   {
@@ -189,9 +211,9 @@ export const resolveAuctionWinners = onSchedule(
     console.log(`[resolveAuctionWinners] Resolving ${auctionsSnap.size} missed auction(s).`);
 
     await Promise.allSettled(
-      auctionsSnap.docs.map((doc) =>
-        resolveWinnerForAuction(doc.id).catch((err) =>
-          console.error(`[resolveAuctionWinners] Error for ${doc.id}:`, err),
+      auctionsSnap.docs.map((d) =>
+        resolveWinnerForAuction(d.id).catch((err) =>
+          console.error(`[resolveAuctionWinners] Error for ${d.id}:`, err),
         ),
       ),
     );

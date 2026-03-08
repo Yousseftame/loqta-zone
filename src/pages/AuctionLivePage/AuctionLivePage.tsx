@@ -17,9 +17,10 @@ import {
   orderBy,
   Timestamp,
 } from "firebase/firestore";
-import { db } from "@/firebase/firebase";
+import { db, functions } from "@/firebase/firebase";
 import { useAuth } from "@/store/AuthContext/AuthContext";
 import { placeBid } from "@/service/auctions/bidService";
+import { httpsCallable } from "firebase/functions";
 import WinnerCelebration from "@/components/WinnerCelebration/Winnercelebration";
 import PostAuctionModal from "@/components/PostAuctionModal/PostAuctionModal";
 import toast from "react-hot-toast";
@@ -142,6 +143,7 @@ export default function AuctionLivePage() {
     bid: number;
   } | null>(null);
   const winnerResolvedRef = useRef(false); // guard — only resolve once per session
+  const triggerFiredRef = useRef(false); // guard — only call Cloud Function once
 
   // ── Participant check ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -205,6 +207,19 @@ export default function AuctionLivePage() {
       const ms = target.getTime() - now.getTime();
       setCountdownMs(ms);
       setCountdown(fmtCountdown(ms));
+
+      // ── Fire Cloud Function the instant the auction ends ──────────────────
+      // Runs exactly once (triggerFiredRef guard). The Cloud Function resolves
+      // the winner and writes winnerId to Firestore. Our onSnapshot listener
+      // then picks up the change and shows the celebration screen.
+      if (status === "ended" && !triggerFiredRef.current && auctionId && user) {
+        triggerFiredRef.current = true;
+        const resolve = httpsCallable(functions, "triggerResolveAuction");
+        resolve({ auctionId }).catch((err) => {
+          // Non-fatal — onBidWritten trigger or 10-min scheduler will catch it
+          console.warn("[AuctionLivePage] triggerResolveAuction failed:", err);
+        });
+      }
     };
 
     tick();
@@ -327,7 +342,7 @@ export default function AuctionLivePage() {
           setTimeout(() => {
             setShowCelebration(false);
             setShowModal(true);
-          }, 7000);
+          }, 10000);
         })
         .catch(() => {
           // Fallback if user doc fetch fails — still show the screens
@@ -337,7 +352,7 @@ export default function AuctionLivePage() {
           setTimeout(() => {
             setShowCelebration(false);
             setShowModal(true);
-          }, 7000);
+          }, 10000);
         });
     } else if (noWinner) {
       winnerResolvedRef.current = true;

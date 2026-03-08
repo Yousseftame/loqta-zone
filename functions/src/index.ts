@@ -21,6 +21,7 @@ export { onUserCreated, setUserRole, blockUser } from "./Auth/auth";
 export { onAuctionRequestUpdated } from "./Notifications/notifications";
 
 // ── Auction winner resolution ─────────────────────────────────────────────────
-// onBidWritten          — Firestore trigger, fires on every bid write (~1s latency)
-// resolveAuctionWinners — Scheduled safety net every 10 min (catches zero-bid auctions)
-export { onBidWritten, resolveAuctionWinners } from "./Auctions/auctionWinner";
+// triggerResolveAuction — HTTP callable, fired by frontend countdown (PRIMARY path)
+// onBidWritten          — Firestore trigger, handles last-second bid edge case
+// resolveAuctionWinners — Scheduled safety net every 10 min (fallback only)
+export { triggerResolveAuction, onBidWritten, resolveAuctionWinners } from "./Auctions/auctionWinner";

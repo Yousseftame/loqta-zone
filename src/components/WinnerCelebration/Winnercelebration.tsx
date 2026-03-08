@@ -11,7 +11,7 @@
  *  - productTitle  : optional — shown as subtitle ("Won: iPhone 15 Pro")
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 interface WinnerCelebrationProps {
   winnerName: string;
@@ -153,11 +153,6 @@ export default function WinnerCelebration({
               <span className="wc-bid-cur">EGP</span>
             </div>
           </div>
-
-          {/* Subtle "results loading" hint */}
-          <div className={`wc-hint ${bidVisible ? "wc-in" : ""}`}>
-            Final results loading…
-          </div>
         </div>
       </div>
     </>
@@ -186,9 +181,11 @@ const WC_CSS = `
   overflow: hidden;
   background: radial-gradient(ellipse at 50% 40%,
     rgba(201,169,110,0.18) 0%,
-    rgba(9,17,26,0.96) 60%,
+    rgba(9,17,26,1) 60%,
     rgba(9,17,26,1) 100%
   );
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
   animation: wc-fadein 0.5s ease both;
 }
 
@@ -279,11 +276,4 @@ const WC_CSS = `
 .wc-bid-num    { font-size: clamp(44px, 8vw, 64px); font-weight: 800; color: #c9a96e; letter-spacing: -0.03em; line-height: 1; }
 .wc-bid-cur    { font-size: 18px; font-weight: 600; color: rgba(201,169,110,0.45); }
 
-/* Hint */
-.wc-hint {
-  font-size: 11px; color: rgba(229,224,198,0.2);
-  letter-spacing: 0.12em;
-  opacity: 0; transition: opacity 0.5s ease 0.3s;
-}
-.wc-hint.wc-in { opacity: 1; }
 `;
