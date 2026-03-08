@@ -110,7 +110,7 @@ const Sidebar = () => {
       id: "last offer System",
       label: "Last Offer System",
       icon: LocalOfferIcon,
-      path: "/admin/#",
+      path: "/admin/lastoffers",
     },
 
     {

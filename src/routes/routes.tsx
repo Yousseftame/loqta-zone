@@ -16,7 +16,8 @@ import AdminContactView from "@/pages/Admin/ContactUs/AdminContactView";
 import Dashboard from "@/pages/Admin/Dashboard/Dashboard";
 import AdminFeedbackList from "@/pages/Admin/Feedback/AdminFeedbackList";
 import AdminFeedbackView from "@/pages/Admin/Feedback/AdminFeedbackView";
-import LastOffer from "@/pages/Admin/LastOffer/LastOffer";
+import LastOfferList from "@/pages/Admin/LastOffer/LastOfferList";
+import LastOffer from "@/pages/Admin/LastOffer/LastOfferList";
 import ParticipantsList from "@/pages/Admin/Participants/ParticipantsList";
 import Payment from "@/pages/Admin/Payment/Payment";
 import ProductForm from "@/pages/Admin/Products/ProductForm";
@@ -100,7 +101,8 @@ export const routes = createBrowserRouter([
       { path: "/admin/bids", element: <BidsList /> },
       { path: "/admin/participants", element: <ParticipantsList /> },
 
-      { path: "lasroffer", element: <LastOffer /> },
+      { path: "lastoffers", element: <LastOfferList/> },
+
       { path: "scheduling", element: <Scheduling /> },
       { path: "users", element: <User /> },
       { path: "payment", element: <Payment /> },

@@ -16,6 +16,7 @@ import { AuctionRequestProvider } from './store/AdminContext/AuctionRequestConte
 import { ContactFeedbackProvider } from './store/AdminContext/ContactFeedbackContext/ContactFeedbackContext.tsx';
 import { BidProvider } from './store/AdminContext/Bidcontext/Bidcontext.tsx';
 import { ParticipantProvider } from './store/AdminContext/Participantcontext/Participantcontext.tsx';
+import { LastOfferProvider } from './store/AdminContext/LastOfferContext/LastOfferContext.tsx';
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -36,7 +37,9 @@ createRoot(document.getElementById("root")!).render(
                   <ContactFeedbackProvider>
                     <BidProvider>
                       <ParticipantProvider>
-                        <App />
+                        <LastOfferProvider>
+                          <App />
+                        </LastOfferProvider>
                       </ParticipantProvider>
                     </BidProvider>
                   </ContactFeedbackProvider>

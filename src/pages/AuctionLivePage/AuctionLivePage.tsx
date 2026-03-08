@@ -149,6 +149,12 @@ export default function AuctionLivePage() {
   const winnerResolvedRef = useRef(false); // guard — only resolve once per session
   const triggerFiredRef = useRef(false); // guard — only call Cloud Function once
   const auctionRef = useRef<AuctionData | null>(null); // always holds latest auction
+  const userRef = useRef(user); // always holds latest user
+
+  // ── Keep userRef in sync so setTimeout callbacks never read stale user ────
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
 
   // ── Participant check ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -190,7 +196,7 @@ export default function AuctionLivePage() {
           entryFee: d.entryFee ?? 0,
           winnerId: d.winnerId ?? null,
           winningBid: d.winningBid ?? null,
-          lastOfferEnabled: d.lastOfferEnabled ?? false,
+          lastOfferEnabled: d.lastOfferEnabled ?? true,
         };
         auctionRef.current = auctionData;
         setAuction(auctionData);
@@ -346,15 +352,28 @@ export default function AuctionLivePage() {
           setResolvedWinner({ name, bid });
           setShowCelebration(true);
 
-          // Use auctionRef.current inside setTimeout to avoid stale closure.
-          // The ref is always updated by the onSnapshot listener.
+          // Use auctionRef.current + userRef.current inside setTimeout — both
+          // refs are always up-to-date, unlike the closed-over state variables.
           setTimeout(() => {
             const fresh = auctionRef.current;
-            const currentIsWinner = fresh?.winnerId === user?.uid;
+            const currentIsWinner = fresh?.winnerId === userRef.current?.uid;
+            console.log("[LastOffer debug]", {
+              winnerId: fresh?.winnerId,
+              myUid: userRef.current?.uid,
+              currentIsWinner,
+              lastOfferEnabled: fresh?.lastOfferEnabled,
+            });
             setShowCelebration(false);
             if (!currentIsWinner && fresh?.lastOfferEnabled) {
+              console.log("[LastOffer] → setShowLastOffer(true)");
               setShowLastOffer(true);
             } else {
+              console.log(
+                "[LastOffer] → setShowModal(true), reason: isWinner=",
+                currentIsWinner,
+                "lastOfferEnabled=",
+                fresh?.lastOfferEnabled,
+              );
               setShowModal(true);
             }
           }, 10000);
@@ -365,7 +384,7 @@ export default function AuctionLivePage() {
           setShowCelebration(true);
           setTimeout(() => {
             const fresh = auctionRef.current;
-            const currentIsWinner = fresh?.winnerId === user?.uid;
+            const currentIsWinner = fresh?.winnerId === userRef.current?.uid;
             setShowCelebration(false);
             if (!currentIsWinner && fresh?.lastOfferEnabled) {
               setShowLastOffer(true);
@@ -732,7 +751,7 @@ export default function AuctionLivePage() {
       )}
 
       {/* ── LAST OFFER MODAL — non-winners only, shown between celebration and PostAuctionModal ── */}
-      {showLastOffer && auction && user && !isWinner && (
+      {showLastOffer && auction && user && (
         <LastOfferModal
           auctionId={auction.id}
           userId={user.uid}
