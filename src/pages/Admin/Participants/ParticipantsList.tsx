@@ -50,12 +50,14 @@ import type { Auction } from "../Auctions/auctions-data";
 
 interface AuctionParticipantRowProps {
   auction: Auction;
-  searchTerm: string;
+  // subSearchTerm is always "" from the parent — it only filters participants
+  // inside the expanded panel, never used to filter which auction rows show.
+  subSearchTerm: string;
 }
 
 function AuctionParticipantRow({
   auction,
-  searchTerm,
+  subSearchTerm,
 }: AuctionParticipantRowProps) {
   const [open, setOpen] = useState(false);
   const [participants, setParticipants] = useState<Participant[]>([]);
@@ -67,19 +69,16 @@ function AuctionParticipantRow({
   const [page, setPage] = useState(0);
   const rowsPerPage = 5;
 
-  // Fetch product name once on mount
   useEffect(() => {
-    if (auction.productId) {
+    if (auction.productId)
       fetchProductName(auction.productId).then(setProductName);
-    }
   }, [auction.productId]);
 
   const handleExpand = async () => {
     if (!open && participants.length === 0) {
       setLoadingPart(true);
       try {
-        const data = await fetchParticipantsForAuction(auction.id);
-        setParticipants(data);
+        setParticipants(await fetchParticipantsForAuction(auction.id));
       } finally {
         setLoadingPart(false);
       }
@@ -90,8 +89,7 @@ function AuctionParticipantRow({
   const handleRefresh = async () => {
     setLoadingPart(true);
     try {
-      const data = await fetchParticipantsForAuction(auction.id);
-      setParticipants(data);
+      setParticipants(await fetchParticipantsForAuction(auction.id));
     } finally {
       setLoadingPart(false);
     }
@@ -110,28 +108,27 @@ function AuctionParticipantRow({
     }
   };
 
+  // subSearchTerm only filters within the expanded panel
   const filteredParticipants = useMemo(() => {
-    if (!searchTerm) return participants;
-    const s = searchTerm.toLowerCase();
+    if (!subSearchTerm) return participants;
+    const s = subSearchTerm.toLowerCase();
     return participants.filter(
       (p) =>
         p.userId.toLowerCase().includes(s) ||
         p.fullName.toLowerCase().includes(s) ||
         p.paymentId.toLowerCase().includes(s),
     );
-  }, [participants, searchTerm]);
+  }, [participants, subSearchTerm]);
 
   const paginated = filteredParticipants.slice(
     page * rowsPerPage,
-    page * rowsPerPage + rowsPerPage,
+    (page + 1) * rowsPerPage,
   );
-
   const paidCount = participants.filter((p) => p.hasPaid).length;
   const voucherCount = participants.filter((p) => p.voucherUsed).length;
 
   return (
     <>
-      {/* Auction Summary Row */}
       <TableRow
         sx={{
           "&:hover": { bgcolor: colors.muted },
@@ -157,8 +154,6 @@ function AuctionParticipantRow({
             #{auction.auctionNumber}
           </span>
         </TableCell>
-
-        {/* Product ID + Name */}
         <TableCell>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 0.3 }}>
             <span
@@ -186,7 +181,6 @@ function AuctionParticipantRow({
             )}
           </Box>
         </TableCell>
-
         <TableCell>
           <Chip
             label={auction.status}
@@ -240,7 +234,6 @@ function AuctionParticipantRow({
         </TableCell>
       </TableRow>
 
-      {/* Expanded Participants Sub-table */}
       <TableRow>
         <TableCell colSpan={7} sx={{ p: 0, border: 0 }}>
           <Collapse in={open} timeout="auto" unmountOnExit>
@@ -254,7 +247,6 @@ function AuctionParticipantRow({
                 bgcolor: "#fff",
               }}
             >
-              {/* Sub-header */}
               <Box
                 sx={{
                   px: 2.5,
@@ -357,7 +349,7 @@ function AuctionParticipantRow({
                 <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
                   <CircularProgress size={24} sx={{ color: colors.primary }} />
                 </Box>
-              ) : filteredParticipants.length === 0 ? (
+              ) : participants.length === 0 ? (
                 <Box sx={{ py: 4, textAlign: "center" }}>
                   <Users
                     size={32}
@@ -426,8 +418,6 @@ function AuctionParticipantRow({
                                 {rank}
                               </span>
                             </TableCell>
-
-                            {/* User — avatar + full name + truncated ID */}
                             <TableCell sx={{ py: 1 }}>
                               <Box
                                 sx={{
@@ -488,8 +478,6 @@ function AuctionParticipantRow({
                                 </Box>
                               </Box>
                             </TableCell>
-
-                            {/* Payment ID */}
                             <TableCell sx={{ py: 1 }}>
                               <Box
                                 sx={{
@@ -513,8 +501,6 @@ function AuctionParticipantRow({
                                 </span>
                               </Box>
                             </TableCell>
-
-                            {/* Has Paid */}
                             <TableCell sx={{ py: 1 }}>
                               {participant.hasPaid ? (
                                 <Box
@@ -562,8 +548,6 @@ function AuctionParticipantRow({
                                 </Box>
                               )}
                             </TableCell>
-
-                            {/* Voucher Used */}
                             <TableCell sx={{ py: 1 }}>
                               {participant.voucherUsed ? (
                                 <Box
@@ -595,8 +579,6 @@ function AuctionParticipantRow({
                                 </span>
                               )}
                             </TableCell>
-
-                            {/* Joined At */}
                             <TableCell sx={{ py: 1 }}>
                               <Box
                                 sx={{
@@ -619,11 +601,9 @@ function AuctionParticipantRow({
                                 </span>
                               </Box>
                             </TableCell>
-
-                            {/* Actions */}
                             <TableCell align="center" sx={{ py: 1 }}>
-                                    <IconButton
-                                        disabled
+                              <IconButton
+                                disabled
                                 size="small"
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -661,7 +641,6 @@ function AuctionParticipantRow({
         </TableCell>
       </TableRow>
 
-      {/* Delete Dialog */}
       <Dialog
         open={deleteDialog}
         onClose={() => !deleting && setDeleteDialog(false)}
@@ -744,14 +723,14 @@ function AuctionParticipantRow({
 
 export default function ParticipantsList() {
   const { auctions, loading: auctionsLoading, refreshAuctions } = useAuctions();
-  const [searchTerm, setSearchTerm] = useState("");
+  const [auctionSearch, setAuctionSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
   const filtered = useMemo(() => {
     let f = auctions;
     if (statusFilter !== "all") f = f.filter((a) => a.status === statusFilter);
-    if (searchTerm) {
-      const s = searchTerm.toLowerCase();
+    if (auctionSearch) {
+      const s = auctionSearch.toLowerCase();
       f = f.filter(
         (a) =>
           String(a.auctionNumber).includes(s) ||
@@ -764,7 +743,7 @@ export default function ParticipantsList() {
         return order[a.status] - order[b.status];
       return b.totalParticipants - a.totalParticipants;
     });
-  }, [auctions, searchTerm, statusFilter]);
+  }, [auctions, auctionSearch, statusFilter]);
 
   const totalParticipants = auctions.reduce(
     (acc, a) => acc + a.totalParticipants,
@@ -797,7 +776,6 @@ export default function ParticipantsList() {
         minHeight: "100vh",
       }}
     >
-      {/* Header */}
       <Box
         sx={{
           mb: 4,
@@ -850,7 +828,6 @@ export default function ParticipantsList() {
         </IconButton>
       </Box>
 
-      {/* Stats */}
       <Box
         sx={{
           display: "grid",
@@ -934,7 +911,6 @@ export default function ParticipantsList() {
         ))}
       </Box>
 
-      {/* Filters */}
       <Paper
         elevation={0}
         sx={{
@@ -954,9 +930,9 @@ export default function ParticipantsList() {
           }}
         >
           <TextField
-            placeholder="Search by auction number, product ID or user name…"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search by auction number or product ID…"
+            value={auctionSearch}
+            onChange={(e) => setAuctionSearch(e.target.value)}
             variant="outlined"
             size="small"
             sx={{
@@ -974,9 +950,9 @@ export default function ParticipantsList() {
                   <Search size={16} style={{ color: colors.textMuted }} />
                 </InputAdornment>
               ),
-              endAdornment: searchTerm && (
+              endAdornment: auctionSearch && (
                 <InputAdornment position="end">
-                  <IconButton size="small" onClick={() => setSearchTerm("")}>
+                  <IconButton size="small" onClick={() => setAuctionSearch("")}>
                     <X size={14} />
                   </IconButton>
                 </InputAdornment>
@@ -1014,7 +990,6 @@ export default function ParticipantsList() {
         </Box>
       </Paper>
 
-      {/* Table */}
       <Paper
         elevation={0}
         sx={{
@@ -1075,10 +1050,11 @@ export default function ParticipantsList() {
                 </TableRow>
               ) : (
                 filtered.map((auction) => (
+                  // subSearchTerm="" so expanding always shows all participants regardless of auction search
                   <AuctionParticipantRow
                     key={auction.id}
                     auction={auction}
-                    searchTerm={searchTerm}
+                    subSearchTerm=""
                   />
                 ))
               )}

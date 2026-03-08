@@ -48,10 +48,14 @@ import type { Auction } from "../Auctions/auctions-data";
 
 interface AuctionBidRowProps {
   auction: Auction;
-  searchTerm: string;
+  // NOTE: subSearchTerm is intentionally separate from the parent auction search.
+  // The parent searchTerm filters which auction ROWS are visible; subSearchTerm
+  // filters bids INSIDE the expanded panel. We always pass "" so that expanding
+  // an auction always shows all its bids regardless of the parent search query.
+  subSearchTerm: string;
 }
 
-function AuctionBidRow({ auction, searchTerm }: AuctionBidRowProps) {
+function AuctionBidRow({ auction, subSearchTerm }: AuctionBidRowProps) {
   const [open, setOpen] = useState(false);
   const [bids, setBids] = useState<Bid[]>([]);
   const [loadingBids, setLoadingBids] = useState(false);
@@ -62,7 +66,6 @@ function AuctionBidRow({ auction, searchTerm }: AuctionBidRowProps) {
   const [page, setPage] = useState(0);
   const rowsPerPage = 5;
 
-  // Fetch product name once on mount
   useEffect(() => {
     if (auction.productId) {
       fetchProductName(auction.productId).then(setProductName);
@@ -105,16 +108,17 @@ function AuctionBidRow({ auction, searchTerm }: AuctionBidRowProps) {
     }
   };
 
+  // subSearchTerm filters bids inside the panel only — never the parent auction search
   const filteredBids = useMemo(() => {
-    if (!searchTerm) return bids;
-    const s = searchTerm.toLowerCase();
+    if (!subSearchTerm) return bids;
+    const s = subSearchTerm.toLowerCase();
     return bids.filter(
       (b) =>
         b.bidderName.toLowerCase().includes(s) ||
         b.userId.toLowerCase().includes(s) ||
         String(b.amount).includes(s),
     );
-  }, [bids, searchTerm]);
+  }, [bids, subSearchTerm]);
 
   const paginated = filteredBids.slice(
     page * rowsPerPage,
@@ -125,7 +129,6 @@ function AuctionBidRow({ auction, searchTerm }: AuctionBidRowProps) {
 
   return (
     <>
-      {/* Auction Summary Row */}
       <TableRow
         sx={{
           "&:hover": { bgcolor: colors.muted },
@@ -151,8 +154,6 @@ function AuctionBidRow({ auction, searchTerm }: AuctionBidRowProps) {
             #{auction.auctionNumber}
           </span>
         </TableCell>
-
-        {/* Product ID + Name */}
         <TableCell>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 0.3 }}>
             <span
@@ -180,7 +181,6 @@ function AuctionBidRow({ auction, searchTerm }: AuctionBidRowProps) {
             )}
           </Box>
         </TableCell>
-
         <TableCell>
           <Chip
             label={auction.status}
@@ -225,7 +225,6 @@ function AuctionBidRow({ auction, searchTerm }: AuctionBidRowProps) {
         </TableCell>
       </TableRow>
 
-      {/* Expanded Bids Sub-table */}
       <TableRow>
         <TableCell colSpan={7} sx={{ p: 0, border: 0 }}>
           <Collapse in={open} timeout="auto" unmountOnExit>
@@ -239,7 +238,6 @@ function AuctionBidRow({ auction, searchTerm }: AuctionBidRowProps) {
                 bgcolor: "#fff",
               }}
             >
-              {/* Sub-header */}
               <Box
                 sx={{
                   px: 2.5,
@@ -328,7 +326,7 @@ function AuctionBidRow({ auction, searchTerm }: AuctionBidRowProps) {
                 <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
                   <CircularProgress size={24} sx={{ color: colors.primary }} />
                 </Box>
-              ) : filteredBids.length === 0 ? (
+              ) : bids.length === 0 ? (
                 <Box sx={{ py: 4, textAlign: "center" }}>
                   <Gavel
                     size={32}
@@ -421,8 +419,6 @@ function AuctionBidRow({ auction, searchTerm }: AuctionBidRowProps) {
                                 )}
                               </Box>
                             </TableCell>
-
-                            {/* Bidder Name */}
                             <TableCell sx={{ py: 1 }}>
                               <Box
                                 sx={{
@@ -461,8 +457,6 @@ function AuctionBidRow({ auction, searchTerm }: AuctionBidRowProps) {
                                 </span>
                               </Box>
                             </TableCell>
-
-                            {/* User ID */}
                             <TableCell sx={{ py: 1 }}>
                               <span
                                 style={{
@@ -477,8 +471,6 @@ function AuctionBidRow({ auction, searchTerm }: AuctionBidRowProps) {
                                 {bid.userId.slice(0, 12)}…
                               </span>
                             </TableCell>
-
-                            {/* Amount */}
                             <TableCell sx={{ py: 1 }}>
                               <Box
                                 sx={{
@@ -504,8 +496,6 @@ function AuctionBidRow({ auction, searchTerm }: AuctionBidRowProps) {
                                 </span>
                               </Box>
                             </TableCell>
-
-                            {/* Time */}
                             <TableCell sx={{ py: 1 }}>
                               <Box
                                 sx={{
@@ -528,11 +518,9 @@ function AuctionBidRow({ auction, searchTerm }: AuctionBidRowProps) {
                                 </span>
                               </Box>
                             </TableCell>
-
-                            {/* Actions */}
                             <TableCell align="center" sx={{ py: 1 }}>
-                                    <IconButton
-                                        disabled
+                              <IconButton
+                                disabled
                                 size="small"
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -570,7 +558,6 @@ function AuctionBidRow({ auction, searchTerm }: AuctionBidRowProps) {
         </TableCell>
       </TableRow>
 
-      {/* Delete Dialog */}
       <Dialog
         open={deleteDialog}
         onClose={() => !deleting && setDeleteDialog(false)}
@@ -653,14 +640,15 @@ function AuctionBidRow({ auction, searchTerm }: AuctionBidRowProps) {
 
 export default function BidsList() {
   const { auctions, loading: auctionsLoading, refreshAuctions } = useAuctions();
-  const [searchTerm, setSearchTerm] = useState("");
+  // auctionSearch filters which auction rows are visible in the table
+  const [auctionSearch, setAuctionSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
   const filtered = useMemo(() => {
     let f = auctions;
     if (statusFilter !== "all") f = f.filter((a) => a.status === statusFilter);
-    if (searchTerm) {
-      const s = searchTerm.toLowerCase();
+    if (auctionSearch) {
+      const s = auctionSearch.toLowerCase();
       f = f.filter(
         (a) =>
           String(a.auctionNumber).includes(s) ||
@@ -673,7 +661,7 @@ export default function BidsList() {
         return order[a.status] - order[b.status];
       return b.totalBids - a.totalBids;
     });
-  }, [auctions, searchTerm, statusFilter]);
+  }, [auctions, auctionSearch, statusFilter]);
 
   const totalBids = auctions.reduce((acc, a) => acc + a.totalBids, 0);
   const liveAuctions = auctions.filter((a) => a.status === "live").length;
@@ -857,8 +845,8 @@ export default function BidsList() {
         >
           <TextField
             placeholder="Search by auction number or product ID…"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            value={auctionSearch}
+            onChange={(e) => setAuctionSearch(e.target.value)}
             variant="outlined"
             size="small"
             sx={{
@@ -876,9 +864,9 @@ export default function BidsList() {
                   <Search size={16} style={{ color: colors.textMuted }} />
                 </InputAdornment>
               ),
-              endAdornment: searchTerm && (
+              endAdornment: auctionSearch && (
                 <InputAdornment position="end">
-                  <IconButton size="small" onClick={() => setSearchTerm("")}>
+                  <IconButton size="small" onClick={() => setAuctionSearch("")}>
                     <X size={14} />
                   </IconButton>
                 </InputAdornment>
@@ -977,10 +965,11 @@ export default function BidsList() {
                 </TableRow>
               ) : (
                 filtered.map((auction) => (
+                  // subSearchTerm="" means the expanded bids panel is never filtered by the auction search
                   <AuctionBidRow
                     key={auction.id}
                     auction={auction}
-                    searchTerm={searchTerm}
+                    subSearchTerm=""
                   />
                 ))
               )}

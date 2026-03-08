@@ -95,6 +95,12 @@ const Sidebar = () => {
       badge: feedbackNewCount,
     },
     {
+      id: "last offer System",
+      label: "Last Offer System",
+      icon: LocalOfferIcon,
+      path: "/admin/lastoffers",
+    },
+    {
       id: "Bids",
       label: "Bids",
       icon: AddCardIcon,
@@ -105,12 +111,6 @@ const Sidebar = () => {
       label: "Auction Participants",
       icon: FolderSharedIcon,
       path: "/admin/participants",
-    },
-    {
-      id: "last offer System",
-      label: "Last Offer System",
-      icon: LocalOfferIcon,
-      path: "/admin/lastoffers",
     },
 
     {

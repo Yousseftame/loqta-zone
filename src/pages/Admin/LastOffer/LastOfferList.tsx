@@ -41,7 +41,6 @@ import {
   Edit2,
   CheckCircle,
   XCircle,
-  
 } from "lucide-react";
 import { LocalOffer as LocalOfferIcon } from "@mui/icons-material";
 import { colors } from "../Products/products-data";
@@ -294,13 +293,13 @@ function EditDialog({ offer, open, onClose, onSave }: EditDialogProps) {
 
 interface AuctionOfferRowProps {
   auction: Auction;
-  searchTerm: string;
+  subSearchTerm: string;
   statusFilter: string;
 }
 
 function AuctionOfferRow({
   auction,
-  searchTerm,
+  subSearchTerm,
   statusFilter,
 }: AuctionOfferRowProps) {
   const [open, setOpen] = useState(false);
@@ -363,8 +362,8 @@ function AuctionOfferRow({
   const filteredOffers = useMemo(() => {
     let f = offers;
     if (statusFilter !== "all") f = f.filter((o) => o.status === statusFilter);
-    if (searchTerm) {
-      const s = searchTerm.toLowerCase();
+    if (subSearchTerm) {
+      const s = subSearchTerm.toLowerCase();
       f = f.filter(
         (o) =>
           o.userName.toLowerCase().includes(s) ||
@@ -373,7 +372,7 @@ function AuctionOfferRow({
       );
     }
     return f;
-  }, [offers, searchTerm, statusFilter]);
+  }, [offers, subSearchTerm, statusFilter]);
 
   const paginated = filteredOffers.slice(
     page * rowsPerPage,
@@ -1392,7 +1391,7 @@ export default function LastOfferList() {
                   <AuctionOfferRow
                     key={auction.id}
                     auction={auction}
-                    searchTerm={searchTerm}
+                    subSearchTerm=""
                     statusFilter={offerStatusFilter}
                   />
                 ))
