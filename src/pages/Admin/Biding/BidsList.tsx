@@ -32,12 +32,14 @@ import {
   Gavel,
   User,
   Clock,
+  Package,
 } from "lucide-react";
 import { colors } from "../Products/products-data";
 import { useAuctions } from "@/store/AdminContext/AuctionContext/AuctionContext";
 import {
   fetchBidsForAuction,
   deleteBid,
+  fetchProductName,
 } from "@/service/Bidadminservice/Bidadminservice";
 import type { Bid } from "./Bids-data";
 import type { Auction } from "../Auctions/auctions-data";
@@ -53,11 +55,19 @@ function AuctionBidRow({ auction, searchTerm }: AuctionBidRowProps) {
   const [open, setOpen] = useState(false);
   const [bids, setBids] = useState<Bid[]>([]);
   const [loadingBids, setLoadingBids] = useState(false);
+  const [productName, setProductName] = useState<string>("");
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [bidToDelete, setBidToDelete] = useState<Bid | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [page, setPage] = useState(0);
   const rowsPerPage = 5;
+
+  // Fetch product name once on mount
+  useEffect(() => {
+    if (auction.productId) {
+      fetchProductName(auction.productId).then(setProductName);
+    }
+  }, [auction.productId]);
 
   const handleExpand = async () => {
     if (!open && bids.length === 0) {
@@ -141,17 +151,36 @@ function AuctionBidRow({ auction, searchTerm }: AuctionBidRowProps) {
             #{auction.auctionNumber}
           </span>
         </TableCell>
+
+        {/* Product ID + Name */}
         <TableCell>
-          <span
-            style={{
-              fontSize: "0.82rem",
-              color: colors.textSecondary,
-              fontFamily: "monospace",
-            }}
-          >
-            {auction.productId.slice(0, 16)}…
-          </span>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 0.3 }}>
+            <span
+              style={{
+                fontSize: "0.82rem",
+                color: colors.textSecondary,
+                fontFamily: "monospace",
+              }}
+            >
+              {auction.productId.slice(0, 16)}…
+            </span>
+            {productName && (
+              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                <Package size={11} style={{ color: colors.primary }} />
+                <span
+                  style={{
+                    fontSize: "0.75rem",
+                    color: colors.primary,
+                    fontWeight: 600,
+                  }}
+                >
+                  {productName}
+                </span>
+              </Box>
+            )}
+          </Box>
         </TableCell>
+
         <TableCell>
           <Chip
             label={auction.status}
@@ -222,7 +251,14 @@ function AuctionBidRow({ auction, searchTerm }: AuctionBidRowProps) {
                   justifyContent: "space-between",
                 }}
               >
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1.5,
+                    flexWrap: "wrap",
+                  }}
+                >
                   <Gavel size={15} style={{ color: colors.primary }} />
                   <span
                     style={{
@@ -233,6 +269,25 @@ function AuctionBidRow({ auction, searchTerm }: AuctionBidRowProps) {
                   >
                     Bids for Auction #{auction.auctionNumber}
                   </span>
+                  {productName && (
+                    <Box
+                      sx={{ display: "flex", alignItems: "center", gap: 0.5 }}
+                    >
+                      <Package
+                        size={12}
+                        style={{ color: colors.textSecondary }}
+                      />
+                      <span
+                        style={{
+                          fontSize: "0.78rem",
+                          color: colors.textSecondary,
+                          fontWeight: 600,
+                        }}
+                      >
+                        {productName}
+                      </span>
+                    </Box>
+                  )}
                   <Chip
                     label={`${bids.length} total`}
                     size="small"
@@ -366,6 +421,8 @@ function AuctionBidRow({ auction, searchTerm }: AuctionBidRowProps) {
                                 )}
                               </Box>
                             </TableCell>
+
+                            {/* Bidder Name */}
                             <TableCell sx={{ py: 1 }}>
                               <Box
                                 sx={{
@@ -400,10 +457,12 @@ function AuctionBidRow({ auction, searchTerm }: AuctionBidRowProps) {
                                     color: colors.textPrimary,
                                   }}
                                 >
-                                  {bid.bidderName || "Anonymous"}
+                                  {bid.bidderName || "Unknown"}
                                 </span>
                               </Box>
                             </TableCell>
+
+                            {/* User ID */}
                             <TableCell sx={{ py: 1 }}>
                               <span
                                 style={{
@@ -418,6 +477,8 @@ function AuctionBidRow({ auction, searchTerm }: AuctionBidRowProps) {
                                 {bid.userId.slice(0, 12)}…
                               </span>
                             </TableCell>
+
+                            {/* Amount */}
                             <TableCell sx={{ py: 1 }}>
                               <Box
                                 sx={{
@@ -443,6 +504,8 @@ function AuctionBidRow({ auction, searchTerm }: AuctionBidRowProps) {
                                 </span>
                               </Box>
                             </TableCell>
+
+                            {/* Time */}
                             <TableCell sx={{ py: 1 }}>
                               <Box
                                 sx={{
@@ -465,8 +528,11 @@ function AuctionBidRow({ auction, searchTerm }: AuctionBidRowProps) {
                                 </span>
                               </Box>
                             </TableCell>
+
+                            {/* Actions */}
                             <TableCell align="center" sx={{ py: 1 }}>
-                              <IconButton
+                                    <IconButton
+                                        disabled
                                 size="small"
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -601,7 +667,6 @@ export default function BidsList() {
           a.productId.toLowerCase().includes(s),
       );
     }
-    // Sort: live first, then by totalBids desc
     return [...f].sort((a, b) => {
       const order = { live: 0, upcoming: 1, ended: 2 };
       if (order[a.status] !== order[b.status])

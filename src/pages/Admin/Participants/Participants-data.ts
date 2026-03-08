@@ -1,9 +1,10 @@
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface Participant {
-  id: string; // document ID (same as userId)
+  id: string;
   auctionId: string;
   userId: string;
+  fullName: string;       // resolved from /users/{uid}.fullName
   hasPaid: boolean;
   joinedAt: Date;
   paymentId: string;

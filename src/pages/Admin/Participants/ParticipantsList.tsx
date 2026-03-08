@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Table,
   TableBody,
@@ -34,12 +34,14 @@ import {
   XCircle,
   CreditCard,
   Tag,
+  Package,
 } from "lucide-react";
 import { colors } from "../Products/products-data";
 import { useAuctions } from "@/store/AdminContext/AuctionContext/AuctionContext";
 import {
   fetchParticipantsForAuction,
   deleteParticipant,
+  fetchProductName,
 } from "@/service/Participantservice/Participantservice";
 import type { Participant } from "./Participants-data";
 import type { Auction } from "../Auctions/auctions-data";
@@ -58,11 +60,19 @@ function AuctionParticipantRow({
   const [open, setOpen] = useState(false);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [loadingPart, setLoadingPart] = useState(false);
+  const [productName, setProductName] = useState<string>("");
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [partToDelete, setPartToDelete] = useState<Participant | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [page, setPage] = useState(0);
   const rowsPerPage = 5;
+
+  // Fetch product name once on mount
+  useEffect(() => {
+    if (auction.productId) {
+      fetchProductName(auction.productId).then(setProductName);
+    }
+  }, [auction.productId]);
 
   const handleExpand = async () => {
     if (!open && participants.length === 0) {
@@ -106,6 +116,7 @@ function AuctionParticipantRow({
     return participants.filter(
       (p) =>
         p.userId.toLowerCase().includes(s) ||
+        p.fullName.toLowerCase().includes(s) ||
         p.paymentId.toLowerCase().includes(s),
     );
   }, [participants, searchTerm]);
@@ -146,17 +157,36 @@ function AuctionParticipantRow({
             #{auction.auctionNumber}
           </span>
         </TableCell>
+
+        {/* Product ID + Name */}
         <TableCell>
-          <span
-            style={{
-              fontSize: "0.82rem",
-              color: colors.textSecondary,
-              fontFamily: "monospace",
-            }}
-          >
-            {auction.productId.slice(0, 16)}…
-          </span>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 0.3 }}>
+            <span
+              style={{
+                fontSize: "0.82rem",
+                color: colors.textSecondary,
+                fontFamily: "monospace",
+              }}
+            >
+              {auction.productId.slice(0, 16)}…
+            </span>
+            {productName && (
+              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                <Package size={11} style={{ color: colors.primary }} />
+                <span
+                  style={{
+                    fontSize: "0.75rem",
+                    color: colors.primary,
+                    fontWeight: 600,
+                  }}
+                >
+                  {productName}
+                </span>
+              </Box>
+            )}
+          </Box>
         </TableCell>
+
         <TableCell>
           <Chip
             label={auction.status}
@@ -256,6 +286,25 @@ function AuctionParticipantRow({
                   >
                     Participants for Auction #{auction.auctionNumber}
                   </span>
+                  {productName && (
+                    <Box
+                      sx={{ display: "flex", alignItems: "center", gap: 0.5 }}
+                    >
+                      <Package
+                        size={12}
+                        style={{ color: colors.textSecondary }}
+                      />
+                      <span
+                        style={{
+                          fontSize: "0.78rem",
+                          color: colors.textSecondary,
+                          fontWeight: 600,
+                        }}
+                      >
+                        {productName}
+                      </span>
+                    </Box>
+                  )}
                   <Chip
                     label={`${participants.length} total`}
                     size="small"
@@ -335,7 +384,7 @@ function AuctionParticipantRow({
                       <TableRow sx={{ bgcolor: "#F8FAFC" }}>
                         {[
                           "#",
-                          "User ID",
+                          "User",
                           "Payment ID",
                           "Has Paid",
                           "Voucher Used",
@@ -378,7 +427,7 @@ function AuctionParticipantRow({
                               </span>
                             </TableCell>
 
-                            {/* User ID */}
+                            {/* User — avatar + full name + truncated ID */}
                             <TableCell sx={{ py: 1 }}>
                               <Box
                                 sx={{
@@ -389,33 +438,54 @@ function AuctionParticipantRow({
                               >
                                 <Box
                                   sx={{
-                                    width: 28,
-                                    height: 28,
+                                    width: 30,
+                                    height: 30,
                                     borderRadius: "50%",
-                                    bgcolor: "#EFF6FF",
+                                    bgcolor: colors.primaryBg,
                                     display: "flex",
                                     alignItems: "center",
                                     justifyContent: "center",
+                                    fontWeight: 700,
+                                    color: colors.primary,
+                                    fontSize: "0.72rem",
                                     flexShrink: 0,
                                   }}
                                 >
-                                  <Users
-                                    size={12}
-                                    style={{ color: colors.primary }}
-                                  />
+                                  {participant.fullName
+                                    ? participant.fullName
+                                        .charAt(0)
+                                        .toUpperCase()
+                                    : "?"}
                                 </Box>
-                                <span
-                                  style={{
-                                    fontSize: "0.72rem",
-                                    fontFamily: "monospace",
-                                    color: colors.textSecondary,
-                                    background: colors.muted,
-                                    padding: "2px 6px",
-                                    borderRadius: 4,
+                                <Box
+                                  sx={{
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    gap: 0.2,
                                   }}
                                 >
-                                  {participant.userId.slice(0, 14)}…
-                                </span>
+                                  <span
+                                    style={{
+                                      fontWeight: 600,
+                                      fontSize: "0.82rem",
+                                      color: colors.textPrimary,
+                                    }}
+                                  >
+                                    {participant.fullName || "Unknown"}
+                                  </span>
+                                  <span
+                                    style={{
+                                      fontSize: "0.68rem",
+                                      fontFamily: "monospace",
+                                      color: colors.textMuted,
+                                      background: colors.muted,
+                                      padding: "1px 5px",
+                                      borderRadius: 3,
+                                    }}
+                                  >
+                                    {participant.userId.slice(0, 14)}…
+                                  </span>
+                                </Box>
                               </Box>
                             </TableCell>
 
@@ -552,7 +622,8 @@ function AuctionParticipantRow({
 
                             {/* Actions */}
                             <TableCell align="center" sx={{ py: 1 }}>
-                              <IconButton
+                                    <IconButton
+                                        disabled
                                 size="small"
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -610,18 +681,8 @@ function AuctionParticipantRow({
         </DialogTitle>
         <DialogContent>
           <p style={{ color: colors.textPrimary, margin: "0 0 12px" }}>
-            Are you sure you want to remove participant{" "}
-            <strong
-              style={{
-                fontFamily: "monospace",
-                fontSize: "0.85rem",
-                background: colors.muted,
-                padding: "2px 6px",
-                borderRadius: 4,
-              }}
-            >
-              {partToDelete?.userId}
-            </strong>{" "}
+            Are you sure you want to remove{" "}
+            <strong>{partToDelete?.fullName || partToDelete?.userId}</strong>{" "}
             from this auction? This cannot be undone.
           </p>
           <Box
@@ -893,7 +954,7 @@ export default function ParticipantsList() {
           }}
         >
           <TextField
-            placeholder="Search by auction number or product ID…"
+            placeholder="Search by auction number, product ID or user name…"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             variant="outlined"

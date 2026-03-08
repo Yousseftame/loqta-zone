@@ -18,6 +18,7 @@ function docToParticipant(auctionId: string, id: string, data: Record<string, an
     id,
     auctionId: data.auctionId ?? auctionId,
     userId: data.userId ?? id,
+    fullName: "",           // resolved after fetch
     hasPaid: data.hasPaid ?? false,
     joinedAt:
       data.joinedAt instanceof Timestamp
@@ -28,7 +29,31 @@ function docToParticipant(auctionId: string, id: string, data: Record<string, an
   };
 }
 
-// ─── FETCH ALL participants for an auction ────────────────────────────────────
+// ─── Fetch user full name from /users/{uid} ───────────────────────────────────
+
+export async function fetchUserName(uid: string): Promise<string> {
+  try {
+    const snap = await getDoc(doc(db, "users", uid));
+    if (!snap.exists()) return "Unknown";
+    return snap.data().fullName || "Unknown";
+  } catch {
+    return "Unknown";
+  }
+}
+
+// ─── Fetch product title from /products/{productId} ──────────────────────────
+
+export async function fetchProductName(productId: string): Promise<string> {
+  try {
+    const snap = await getDoc(doc(db, "products", productId));
+    if (!snap.exists()) return "";
+    return snap.data().title || "";
+  } catch {
+    return "";
+  }
+}
+
+// ─── FETCH ALL participants for an auction (with resolved names) ──────────────
 
 export async function fetchParticipantsForAuction(auctionId: string): Promise<Participant[]> {
   const q = query(
@@ -36,7 +61,21 @@ export async function fetchParticipantsForAuction(auctionId: string): Promise<Pa
     orderBy("joinedAt", "desc"),
   );
   const snap = await getDocs(q);
-  return snap.docs.map((d) => docToParticipant(auctionId, d.id, d.data()));
+  const participants = snap.docs.map((d) => docToParticipant(auctionId, d.id, d.data()));
+
+  // Resolve full names for all participants
+  const uniqueUserIds = [...new Set(participants.map((p) => p.userId))];
+  const nameMap: Record<string, string> = {};
+  await Promise.all(
+    uniqueUserIds.map(async (uid) => {
+      nameMap[uid] = await fetchUserName(uid);
+    }),
+  );
+
+  return participants.map((p) => ({
+    ...p,
+    fullName: nameMap[p.userId] || "Unknown",
+  }));
 }
 
 // ─── FETCH ONE participant ────────────────────────────────────────────────────
