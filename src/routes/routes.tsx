@@ -6,7 +6,6 @@ import AboutUs from "@/pages/AboutUs/AboutUs";
 import AuctionForm from "@/pages/Admin/Auctions/AuctionForm";
 import AuctionsList from "@/pages/Admin/Auctions/AuctionsList";
 import AuctionView from "@/pages/Admin/Auctions/AuctionView";
-import Biding from "@/pages/Admin/Biding/Biding";
 import BidsList from "@/pages/Admin/Biding/BidsList";
 import CategoryForm from "@/pages/Admin/Categories/Categoryform";
 import CategoriesList from "@/pages/Admin/Categories/CategoryList";
@@ -17,12 +16,10 @@ import Dashboard from "@/pages/Admin/Dashboard/Dashboard";
 import AdminFeedbackList from "@/pages/Admin/Feedback/AdminFeedbackList";
 import AdminFeedbackView from "@/pages/Admin/Feedback/AdminFeedbackView";
 import LastOfferList from "@/pages/Admin/LastOffer/LastOfferList";
-import LastOffer from "@/pages/Admin/LastOffer/LastOfferList";
 import ParticipantsList from "@/pages/Admin/Participants/ParticipantsList";
 import Payment from "@/pages/Admin/Payment/Payment";
 import ProductForm from "@/pages/Admin/Products/ProductForm";
 import ProductsList from "@/pages/Admin/Products/ProductsList";
-import Products from "@/pages/Admin/Products/ProductsList";
 import ProductView from "@/pages/Admin/Products/ProductView";
 import AuctionRequestsList from "@/pages/Admin/RequestSystem/AuctionRequestsList";
 import AuctionRequestView from "@/pages/Admin/RequestSystem/AuctionRequestView";
@@ -36,7 +33,6 @@ import AuctionRegisterPage from "@/pages/Auctionregisterpage/Auctionregisterpage
 import ForgetPassword from "@/pages/Auth/ForgetPassword/ForgetPassword";
 import Login from "@/pages/Auth/Login/Login";
 import Register from "@/pages/Auth/Register/Register";
-import ResetPassword from "@/pages/Auth/ResetPassword/ResetPassword";
 import Contact from "@/pages/Contact/Contact";
 import Home from "@/pages/Home/Home";
 import HowItWork from "@/pages/HowItWork/HowItWork";
@@ -53,18 +49,16 @@ export const routes = createBrowserRouter([
       { path: "login", element: <Login /> },
       { path: "register", element: <Register /> },
       { path: "forget-password", element: <ForgetPassword /> },
-      // { path: "reset-password", element: <ResetPassword /> },
     ],
   },
 
   {
     path: "/admin",
-    element: [
+    element: (
       <ProtectedRoute allowedRoles={["admin", "superAdmin"]}>
-        {" "}
-        <DashboardLayout />{" "}
-      </ProtectedRoute>,
-    ],
+        <DashboardLayout />
+      </ProtectedRoute>
+    ),
     errorElement: <NotFound />,
     children: [
       { index: true, element: <Dashboard /> },
@@ -98,10 +92,9 @@ export const routes = createBrowserRouter([
       { path: "feedback", element: <AdminFeedbackList /> },
       { path: "feedback/:id", element: <AdminFeedbackView /> },
 
-      { path: "/admin/bids", element: <BidsList /> },
-      { path: "/admin/participants", element: <ParticipantsList /> },
-
-      { path: "lastoffers", element: <LastOfferList/> },
+      { path: "bids", element: <BidsList /> },
+      { path: "participants", element: <ParticipantsList /> },
+      { path: "lastoffers", element: <LastOfferList /> },
 
       { path: "scheduling", element: <Scheduling /> },
       { path: "users", element: <User /> },
@@ -117,15 +110,34 @@ export const routes = createBrowserRouter([
       { index: true, element: <Home /> },
       { path: "how-it-works", element: <HowItWork /> },
       { path: "aboutUs", element: <AboutUs /> },
+      { path: "terms", element: <TermsAndConditions /> },
+      { path: "contact", element: <Contact /> },
+
+      // ── Auth-protected auction routes ────────────────────────────────────
+      // Unauthenticated users are redirected to /login with ?redirect= so they
+      // land back here after signing in.
       {
         path: "/auctions/register/:productId",
-        element: <AuctionRegisterPage />,
+        element: (
+          <ProtectedRoute
+            allowedRoles={["user", "admin", "superAdmin"]}
+            unauthRedirect="/login"
+          >
+            <AuctionRegisterPage />
+          </ProtectedRoute>
+        ),
       },
       {
         path: "/auctions/:auctionId",
-        element: <AuctionLivePage />,
+        element: (
+          <ProtectedRoute
+            allowedRoles={["user", "admin", "superAdmin"]}
+            unauthRedirect="/login"
+          >
+            <AuctionLivePage />
+          </ProtectedRoute>
+        ),
       },
-      { path: "terms", element: <TermsAndConditions /> },
     ],
   },
 ]);

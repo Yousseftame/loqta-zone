@@ -1,31 +1,41 @@
 import React from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuth, type UserRole } from "@/store/AuthContext/AuthContext";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
   /** Roles allowed to access this route. If omitted, any authenticated user can access. */
   allowedRoles?: UserRole[];
+  /**
+   * Where to redirect unauthenticated users.
+   * Defaults to "/login". Use "/" to send them to the home page.
+   * The current path is passed as `?redirect=…` so the login modal or page
+   * can send them back after sign-in.
+   */
+  unauthRedirect?: string;
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children,
   allowedRoles,
+  unauthRedirect = "/login",
 }) => {
   const { user, role, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return <LoadingScreen />;
   }
 
-  // Not authenticated → go to login
+  // Not authenticated
   if (!user) {
-    return <Navigate to="/login" replace />;
+    // Preserve the attempted URL so login can redirect back
+    const returnTo = encodeURIComponent(location.pathname + location.search);
+    return <Navigate to={`${unauthRedirect}?redirect=${returnTo}`} replace />;
   }
 
   // Authenticated but wrong role → show unauthorized
   if (allowedRoles && role && !allowedRoles.includes(role)) {
-    // Redirect users to website, admins to admin panel
     if (role === "user") return <Navigate to="/" replace />;
     return <Navigate to="/admin" replace />;
   }
@@ -96,7 +106,7 @@ const LoadingScreen = () => (
               "spin 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite reverse",
           }}
         />
-        <div className="absolute inset-0 flex items-center justify-center">
+        <div className="absolute inset-0 flex items-center justify-content-center">
           <div
             className="h-2 w-2 rounded-full"
             style={{

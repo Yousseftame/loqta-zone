@@ -324,13 +324,14 @@ export default function AuctionLivePage() {
   }, [auction?.productId]);
 
   // ── Winner detection ───────────────────────────────────────────────────────
-  // Triggers when: the Cloud Function sets winnerId on the auction doc via
-  // onSnapshot. Also handles "NO_WINNER" (ended with no bids) by going
-  // straight to the modal.
-  // The ref guard ensures this runs exactly once per page session.
+  // Only fires once winnerId is set on the auction doc AND the user is a
+  // confirmed participant. Non-participants/unauthenticated users are blocked
+  // at the route level and also here — they only ever see the locked overlay.
   useEffect(() => {
     if (!auction) return;
     if (winnerResolvedRef.current) return;
+    // ⛔ Hard gate: winner screens are only for registered participants
+    if (isParticipant !== true) return;
 
     const hasWinner = auction.winnerId && auction.winnerId !== "NO_WINNER";
     const noWinner = auction.winnerId === "NO_WINNER";
@@ -338,7 +339,6 @@ export default function AuctionLivePage() {
     if (hasWinner) {
       winnerResolvedRef.current = true;
 
-      // Fetch winner's display name
       getDoc(doc(db, "users", auction.winnerId!))
         .then((snap) => {
           const name = snap.exists()
@@ -352,28 +352,14 @@ export default function AuctionLivePage() {
           setResolvedWinner({ name, bid });
           setShowCelebration(true);
 
-          // Use auctionRef.current + userRef.current inside setTimeout — both
-          // refs are always up-to-date, unlike the closed-over state variables.
+          // Use refs inside setTimeout so we never read stale closure values
           setTimeout(() => {
             const fresh = auctionRef.current;
             const currentIsWinner = fresh?.winnerId === userRef.current?.uid;
-            console.log("[LastOffer debug]", {
-              winnerId: fresh?.winnerId,
-              myUid: userRef.current?.uid,
-              currentIsWinner,
-              lastOfferEnabled: fresh?.lastOfferEnabled,
-            });
             setShowCelebration(false);
             if (!currentIsWinner && fresh?.lastOfferEnabled) {
-              console.log("[LastOffer] → setShowLastOffer(true)");
               setShowLastOffer(true);
             } else {
-              console.log(
-                "[LastOffer] → setShowModal(true), reason: isWinner=",
-                currentIsWinner,
-                "lastOfferEnabled=",
-                fresh?.lastOfferEnabled,
-              );
               setShowModal(true);
             }
           }, 10000);
@@ -398,7 +384,8 @@ export default function AuctionLivePage() {
       setResolvedWinner({ name: "—", bid: 0 });
       setShowModal(true);
     }
-  }, [auction?.winnerId]); // eslint-disable-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auction?.winnerId, isParticipant]);
 
   // ── Bid helpers ────────────────────────────────────────────────────────────
   const computeFixedBid = useCallback(
@@ -697,39 +684,37 @@ export default function AuctionLivePage() {
         </div>
 
         {/* ── NON-PARTICIPANT OVERLAY ── */}
-        {/* Only shown if user hasn't joined AND winner screens are NOT active */}
-        {isParticipant === false &&
-          !showCelebration &&
-          !showModal &&
-          !showLastOffer && (
-            <div className="al-overlay">
-              <div className="al-overlaybox">
-                <div className="al-overlayicon">🔒</div>
-                <div className="al-overlaytitle">This auction is locked</div>
-                <div className="al-overlaydesc">
-                  You need to join this auction before you can view or place
-                  bids.
-                </div>
-                <button
-                  className="al-overlaybtn"
-                  onClick={() =>
-                    auction?.productId
-                      ? navigate(`/auction/register/${auction.productId}`)
-                      : navigate(-1)
-                  }
-                >
-                  Join this Auction
-                </button>
-                <button className="al-overlayback" onClick={() => navigate(-1)}>
-                  ← Go Back
-                </button>
+        {/* Shown immediately when isParticipant is confirmed false.
+            Winner modals are gated behind isParticipant===true so they
+            can never appear for non-participants or unauthenticated users. */}
+        {isParticipant === false && (
+          <div className="al-overlay">
+            <div className="al-overlaybox">
+              <div className="al-overlayicon">🔒</div>
+              <div className="al-overlaytitle">This auction is locked</div>
+              <div className="al-overlaydesc">
+                You need to join this auction before you can view or place bids.
               </div>
+              <button
+                className="al-overlaybtn"
+                onClick={() =>
+                  auction?.productId
+                    ? navigate(`/auctions/register/${auction.productId}`)
+                    : navigate(-1)
+                }
+              >
+                Join this Auction
+              </button>
+              <button className="al-overlayback" onClick={() => navigate(-1)}>
+                ← Go Back
+              </button>
             </div>
-          )}
+          </div>
+        )}
       </div>
 
-      {/* ── WINNER CELEBRATION — rendered outside .al so it's never clipped ── */}
-      {showCelebration && resolvedWinner && (
+      {/* ── WINNER CELEBRATION ── only for confirmed participants ── */}
+      {isParticipant === true && showCelebration && resolvedWinner && (
         <WinnerCelebration
           winnerName={resolvedWinner.name}
           winningBid={resolvedWinner.bid}
@@ -738,8 +723,8 @@ export default function AuctionLivePage() {
         />
       )}
 
-      {/* ── POST-AUCTION MODAL — shown after celebration (winner) or after last offer (non-winner) ── */}
-      {showModal && resolvedWinner && (
+      {/* ── POST-AUCTION MODAL ── only for confirmed participants ── */}
+      {isParticipant === true && showModal && resolvedWinner && (
         <PostAuctionModal
           winnerName={resolvedWinner.name}
           winningBid={resolvedWinner.bid}
@@ -750,8 +735,8 @@ export default function AuctionLivePage() {
         />
       )}
 
-      {/* ── LAST OFFER MODAL — non-winners only, shown between celebration and PostAuctionModal ── */}
-      {showLastOffer && auction && user && (
+      {/* ── LAST OFFER MODAL ── only for confirmed participants ── */}
+      {isParticipant === true && showLastOffer && auction && user && (
         <LastOfferModal
           auctionId={auction.id}
           userId={user.uid}
