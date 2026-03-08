@@ -23,6 +23,7 @@ import { placeBid } from "@/service/auctions/bidService";
 import { httpsCallable } from "firebase/functions";
 import WinnerCelebration from "@/components/WinnerCelebration/Winnercelebration";
 import PostAuctionModal from "@/components/PostAuctionModal/PostAuctionModal";
+import LastOfferModal from "@/components/LastOfferModal/LastOfferModal";
 import toast from "react-hot-toast";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -45,6 +46,7 @@ interface AuctionData {
   entryFee: number;
   winnerId: string | null;
   winningBid: number | null;
+  lastOfferEnabled: boolean;
 }
 
 interface BidEntry {
@@ -135,15 +137,18 @@ export default function AuctionLivePage() {
   // ── Winner / end-of-auction screens ────────────────────────────────────────
   // showCelebration : full-screen animated winner reveal
   // showModal       : "what's next" modal (replaces celebration after delay)
+  // showLastOffer   : last offer modal for non-winners (shown after PostAuctionModal closes)
   // resolvedWinner  : {name, bid} — set once when winner is confirmed
   const [showCelebration, setShowCelebration] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [showLastOffer, setShowLastOffer] = useState(false);
   const [resolvedWinner, setResolvedWinner] = useState<{
     name: string;
     bid: number;
   } | null>(null);
   const winnerResolvedRef = useRef(false); // guard — only resolve once per session
   const triggerFiredRef = useRef(false); // guard — only call Cloud Function once
+  const auctionRef = useRef<AuctionData | null>(null); // always holds latest auction
 
   // ── Participant check ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -167,7 +172,7 @@ export default function AuctionLivePage() {
           return;
         }
         const d = snap.data();
-        setAuction({
+        const auctionData: AuctionData = {
           id: snap.id,
           productId: d.productId ?? "",
           auctionNumber: d.auctionNumber ?? 0,
@@ -185,7 +190,10 @@ export default function AuctionLivePage() {
           entryFee: d.entryFee ?? 0,
           winnerId: d.winnerId ?? null,
           winningBid: d.winningBid ?? null,
-        });
+          lastOfferEnabled: d.lastOfferEnabled ?? false,
+        };
+        auctionRef.current = auctionData;
+        setAuction(auctionData);
         setPageLoading(false);
       },
       () => setPageLoading(false),
@@ -338,20 +346,32 @@ export default function AuctionLivePage() {
           setResolvedWinner({ name, bid });
           setShowCelebration(true);
 
-          // After 7 seconds, swap celebration for the modal
+          // Use auctionRef.current inside setTimeout to avoid stale closure.
+          // The ref is always updated by the onSnapshot listener.
           setTimeout(() => {
+            const fresh = auctionRef.current;
+            const currentIsWinner = fresh?.winnerId === user?.uid;
             setShowCelebration(false);
-            setShowModal(true);
+            if (!currentIsWinner && fresh?.lastOfferEnabled) {
+              setShowLastOffer(true);
+            } else {
+              setShowModal(true);
+            }
           }, 10000);
         })
         .catch(() => {
-          // Fallback if user doc fetch fails — still show the screens
           const bid = auction.winningBid ?? auction.currentBid;
           setResolvedWinner({ name: "The Winner", bid });
           setShowCelebration(true);
           setTimeout(() => {
+            const fresh = auctionRef.current;
+            const currentIsWinner = fresh?.winnerId === user?.uid;
             setShowCelebration(false);
-            setShowModal(true);
+            if (!currentIsWinner && fresh?.lastOfferEnabled) {
+              setShowLastOffer(true);
+            } else {
+              setShowModal(true);
+            }
           }, 10000);
         });
     } else if (noWinner) {
@@ -659,30 +679,34 @@ export default function AuctionLivePage() {
 
         {/* ── NON-PARTICIPANT OVERLAY ── */}
         {/* Only shown if user hasn't joined AND winner screens are NOT active */}
-        {isParticipant === false && !showCelebration && !showModal && (
-          <div className="al-overlay">
-            <div className="al-overlaybox">
-              <div className="al-overlayicon">🔒</div>
-              <div className="al-overlaytitle">This auction is locked</div>
-              <div className="al-overlaydesc">
-                You need to join this auction before you can view or place bids.
+        {isParticipant === false &&
+          !showCelebration &&
+          !showModal &&
+          !showLastOffer && (
+            <div className="al-overlay">
+              <div className="al-overlaybox">
+                <div className="al-overlayicon">🔒</div>
+                <div className="al-overlaytitle">This auction is locked</div>
+                <div className="al-overlaydesc">
+                  You need to join this auction before you can view or place
+                  bids.
+                </div>
+                <button
+                  className="al-overlaybtn"
+                  onClick={() =>
+                    auction?.productId
+                      ? navigate(`/auction-register/${auction.productId}`)
+                      : navigate(-1)
+                  }
+                >
+                  Join this Auction
+                </button>
+                <button className="al-overlayback" onClick={() => navigate(-1)}>
+                  ← Go Back
+                </button>
               </div>
-              <button
-                className="al-overlaybtn"
-                onClick={() =>
-                  auction?.productId
-                    ? navigate(`/auction-register/${auction.productId}`)
-                    : navigate(-1)
-                }
-              >
-                Join this Auction
-              </button>
-              <button className="al-overlayback" onClick={() => navigate(-1)}>
-                ← Go Back
-              </button>
             </div>
-          </div>
-        )}
+          )}
       </div>
 
       {/* ── WINNER CELEBRATION — rendered outside .al so it's never clipped ── */}
@@ -695,7 +719,7 @@ export default function AuctionLivePage() {
         />
       )}
 
-      {/* ── POST-AUCTION MODAL — replaces celebration after 7s ── */}
+      {/* ── POST-AUCTION MODAL — shown after celebration (winner) or after last offer (non-winner) ── */}
       {showModal && resolvedWinner && (
         <PostAuctionModal
           winnerName={resolvedWinner.name}
@@ -704,6 +728,22 @@ export default function AuctionLivePage() {
           productTitle={product?.title}
           onBrowse={() => navigate("/")}
           onBack={() => navigate(-1)}
+        />
+      )}
+
+      {/* ── LAST OFFER MODAL — non-winners only, shown between celebration and PostAuctionModal ── */}
+      {showLastOffer && auction && user && !isWinner && (
+        <LastOfferModal
+          auctionId={auction.id}
+          userId={user.uid}
+          startingPrice={auction.startingPrice}
+          winningBid={auction.winningBid ?? auction.currentBid}
+          winnerName={resolvedWinner?.name ?? "The Winner"}
+          productTitle={product?.title}
+          onClose={() => {
+            setShowLastOffer(false);
+            setShowModal(true);
+          }}
         />
       )}
     </>
