@@ -122,7 +122,7 @@ export const routes = createBrowserRouter([
         element: <AuctionRegisterPage />,
       },
       {
-        path: "/auction/:auctionId",
+        path: "/auctions/:auctionId",
         element: <AuctionLivePage />,
       },
       { path: "terms", element: <TermsAndConditions /> },

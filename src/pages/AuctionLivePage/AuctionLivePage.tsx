@@ -714,7 +714,7 @@ export default function AuctionLivePage() {
                   className="al-overlaybtn"
                   onClick={() =>
                     auction?.productId
-                      ? navigate(`/auction-register/${auction.productId}`)
+                      ? navigate(`/auction/register/${auction.productId}`)
                       : navigate(-1)
                   }
                 >

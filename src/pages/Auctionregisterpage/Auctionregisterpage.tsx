@@ -299,7 +299,7 @@ export default function AuctionRegisterPage() {
 
         // Navigate to the first successfully joined auction's live page.
         // When you build /auction/:auctionId it will just work automatically.
-        navigate(`/auction/${result.joined[0]}`);
+        navigate(`/auctions/${result.joined[0]}`);
       }
     } catch (err: any) {
       toast.error(err?.message ?? "Registration failed. Please try again.");
