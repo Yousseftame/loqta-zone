@@ -19,6 +19,7 @@ import HowItWorksSection from "@/components/shared/Howitworkssection";
 import AuctionsSection from "@/components/shared/Auctionssection";
 import AuctionRequestSection from "@/components/shared/Auctionrequestsection";
 import { useTranslation } from "react-i18next";
+import LiveAuctionsSection from "@/components/shared/LiveAuctionssection";
 
 export default function Home() {
 
@@ -44,6 +45,7 @@ export default function Home() {
         className="custom-text-style"
       />
 
+      <LiveAuctionsSection/>
       <AuctionSwiper />
       <StatsSection />
       <HowItWorksSection />
