@@ -1167,7 +1167,7 @@ export default function LiveAuctionsSection() {
             transition: "opacity 0.7s ease 0.15s, transform 0.7s ease 0.15s",
           }}
         >
-          These sessions are live. Every bid raises the stakes — place yours
+          These sessions are live. Every bid raises the stakes, place yours
           before the clock runs out.
         </p>
       </div>

@@ -4,8 +4,6 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/store/AuthContext/AuthContext";
 import LoginPromptModal from "@/components/shared/Loginpromptmodal";
-
-// Firebase imports
 import {
   collection,
   getDocs,
@@ -19,14 +17,13 @@ import {
 } from "firebase/firestore";
 import { db } from "@/firebase/firebase";
 
-// ── Design tokens ─────────────────────────────────────────────
-const GOLD = "#c9a96e";
-const GOLD2 = "#b8944e";
-const NAVY = "#2A4863";
-const NAVY2 = "#1e3652";
-const CREAM = "rgb(229, 224, 198)";
+const GOLD = "#c9a96e",
+  GOLD2 = "#b8944e",
+  NAVY = "#2A4863",
+  NAVY2 = "#1e3652",
+  CREAM = "rgb(229,224,198)";
 
-// ── Types ──────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────
 interface UpcomingAuction {
   id: string;
   productId: string;
@@ -36,12 +33,10 @@ interface UpcomingAuction {
   startingPrice: number;
   currency: string;
   pieces: number;
-  endsAt: string;
+  startsAt: string;
   sessionDate: string;
-  category: string;
   isHot: boolean;
 }
-
 interface PastAuction {
   id: string;
   title: string;
@@ -58,7 +53,7 @@ interface PastAuction {
   };
 }
 
-// ── Firebase data fetcher ──────────────────────────────────────
+// ── Data hook ─────────────────────────────────────────────────
 function useAuctionsData() {
   const [upcoming, setUpcoming] = useState<UpcomingAuction[]>([]);
   const [past, setPast] = useState<PastAuction[]>([]);
@@ -67,22 +62,21 @@ function useAuctionsData() {
 
   useEffect(() => {
     let cancelled = false;
-
     async function load() {
       try {
         setLoading(true);
         setError(null);
-
         const now = Timestamp.now();
 
-        // ── Two focused queries instead of fetching everything ──
-        const [upcomingSnap, pastSnap] = await Promise.all([
+        // upcoming = startTime > now (not yet started, excludes live)
+        // past     = endTime <= now  (already ended)
+        const [upSnap, pastSnap] = await Promise.all([
           getDocs(
             query(
               collection(db, "auctions"),
-              where("endTime", ">", now),
+              where("startTime", ">", now),
               where("isActive", "==", true),
-              orderBy("endTime", "asc"),
+              orderBy("startTime", "asc"),
             ),
           ),
           getDocs(
@@ -94,29 +88,25 @@ function useAuctionsData() {
             ),
           ),
         ]);
-
         if (cancelled) return;
 
-        // Collect unique product IDs from both result sets
         const productIds = new Set<string>();
-        [...upcomingSnap.docs, ...pastSnap.docs].forEach((d) => {
+        [...upSnap.docs, ...pastSnap.docs].forEach((d) => {
           if (d.data().productId) productIds.add(d.data().productId);
         });
 
-        // Collect winner IDs only from the 5 past auctions
         const winnerIds = new Set<string>();
         pastSnap.docs.forEach((d) => {
-          const wid = d.data().winnerId;
-          if (wid && wid !== "NO_WINNER") winnerIds.add(wid);
+          const w = d.data().winnerId;
+          if (w && w !== "NO_WINNER") winnerIds.add(w);
         });
 
-        // Parallel-fetch products + winner users
         const [productEntries, userEntries] = await Promise.all([
           Promise.all(
             Array.from(productIds).map(async (pid) => {
               try {
-                const snap = await getDoc(doc(db, "products", pid));
-                return snap.exists() ? ([pid, snap.data()] as const) : null;
+                const s = await getDoc(doc(db, "products", pid));
+                return s.exists() ? ([pid, s.data()] as const) : null;
               } catch {
                 return null;
               }
@@ -125,115 +115,88 @@ function useAuctionsData() {
           Promise.all(
             Array.from(winnerIds).map(async (uid) => {
               try {
-                const snap = await getDoc(doc(db, "users", uid));
-                return snap.exists() ? ([uid, snap.data()] as const) : null;
+                const s = await getDoc(doc(db, "users", uid));
+                return s.exists() ? ([uid, s.data()] as const) : null;
               } catch {
                 return null;
               }
             }),
           ),
         ]);
-
         if (cancelled) return;
 
-        const productMap: Record<string, any> = Object.fromEntries(
-          productEntries.filter(Boolean) as [string, any][],
+        const pMap: Record<string, any> = Object.fromEntries(
+          productEntries.filter(Boolean) as any,
         );
-        const userMap: Record<string, any> = Object.fromEntries(
-          userEntries.filter(Boolean) as [string, any][],
+        const uMap: Record<string, any> = Object.fromEntries(
+          userEntries.filter(Boolean) as any,
         );
 
-        // ── Build upcoming list ────────────────────────────────
-        const upcomingList: UpcomingAuction[] = upcomingSnap.docs.map((d) => {
-          const data = d.data();
-          const startTime: Date =
-            data.startTime instanceof Timestamp
-              ? data.startTime.toDate()
-              : new Date(data.startTime);
-          const endTime: Date =
-            data.endTime instanceof Timestamp
-              ? data.endTime.toDate()
-              : new Date(data.endTime);
+        const toDate = (v: any): Date =>
+          v instanceof Timestamp ? v.toDate() : new Date(v);
+        const fmt = (d: Date, o: Intl.DateTimeFormatOptions) =>
+          d.toLocaleDateString("en-US", o);
+        const fmtT = (d: Date) =>
+          d.toLocaleTimeString("en-US", {
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+          });
 
-          const product = productMap[data.productId] ?? {};
+        const upcomingList: UpcomingAuction[] = upSnap.docs.map((d) => {
+          const data = d.data(),
+            p = pMap[data.productId] ?? {};
+          const start = toDate(data.startTime),
+            end = toDate(data.endTime);
           const image =
-            product.thumbnail && product.thumbnail !== "null"
-              ? product.thumbnail
-              : (product.images?.[0] ?? "");
-
-          const dateStr = startTime.toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-          });
-          const startTimeStr = startTime.toLocaleTimeString("en-US", {
-            hour: "numeric",
-            minute: "2-digit",
-            hour12: true,
-          });
-          const endTimeStr = endTime.toLocaleTimeString("en-US", {
-            hour: "numeric",
-            minute: "2-digit",
-            hour12: true,
-          });
-
+            p.thumbnail && p.thumbnail !== "null"
+              ? p.thumbnail
+              : (p.images?.[0] ?? "");
           return {
             id: d.id,
             productId: data.productId ?? "",
-            title: product.title ?? "Auction",
-            subtitle: [product.brand, product.model]
-              .filter(Boolean)
-              .join(" · "),
+            title: p.title ?? "Auction",
+            subtitle: [p.brand, p.model].filter(Boolean).join(" · "),
             image,
             startingPrice: data.startingPrice ?? 0,
             currency: "EGP",
-            pieces: product.quantity ?? 1,
-            endsAt: endTime.toISOString(),
-            sessionDate: `${dateStr} · ${startTimeStr} – ${endTimeStr}`,
-            category: product.category ?? "",
+            pieces: p.quantity ?? 1,
+            startsAt: start.toISOString(), // countdown to START — not end
+            sessionDate: `${fmt(start, { month: "short", day: "numeric", year: "numeric" })} · ${fmtT(start)} – ${fmtT(end)}`,
             isHot: (data.totalBids ?? 0) > 5,
           };
         });
 
-        // ── Build past list (max 5, already limited by query) ─
         const pastList: PastAuction[] = pastSnap.docs
           .filter((d) => {
-            const wid = d.data().winnerId;
-            return wid !== null && wid !== undefined;
+            const w = d.data().winnerId;
+            return w !== null && w !== undefined;
           })
           .map((d) => {
-            const data = d.data();
-            const endTime: Date =
-              data.endTime instanceof Timestamp
-                ? data.endTime.toDate()
-                : new Date(data.endTime);
-
-            const product = productMap[data.productId] ?? {};
+            const data = d.data(),
+              p = pMap[data.productId] ?? {};
+            const end = toDate(data.endTime);
             const image =
-              product.thumbnail && product.thumbnail !== "null"
-                ? product.thumbnail
-                : (product.images?.[0] ?? "");
-
-            const winnerId = data.winnerId as string;
-            const userData = userMap[winnerId] ?? {};
+              p.thumbnail && p.thumbnail !== "null"
+                ? p.thumbnail
+                : (p.images?.[0] ?? "");
+            const wid = data.winnerId as string,
+              u = uMap[wid] ?? {};
             const winnerName =
-              winnerId === "NO_WINNER"
+              wid === "NO_WINNER"
                 ? "No Winner"
-                : (userData.fullName ??
-                    userData.displayName ??
-                    `${userData.firstName ?? ""} ${userData.lastName ?? ""}`.trim()) ||
+                : (u.fullName ??
+                    u.displayName ??
+                    `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim()) ||
                   "Unknown";
-
             return {
               id: d.id,
-              title: product.title ?? "Auction",
-              subtitle: [product.brand, product.model]
-                .filter(Boolean)
-                .join(" · "),
+              title: p.title ?? "Auction",
+              subtitle: [p.brand, p.model].filter(Boolean).join(" · "),
               image,
               winningPrice: data.winningBid ?? 0,
               currency: "EGP",
-              sessionDate: endTime.toLocaleDateString("en-US", {
+              sessionDate: fmt(end, {
                 weekday: "long",
                 month: "long",
                 day: "numeric",
@@ -241,8 +204,7 @@ function useAuctionsData() {
               }),
               winner: {
                 name: winnerName,
-                avatar:
-                  winnerId === "NO_WINNER" ? "" : (userData.profileImage ?? ""),
+                avatar: wid === "NO_WINNER" ? "" : (u.profileImage ?? ""),
                 country: "🇪🇬",
                 countryName: "Egypt",
               },
@@ -253,14 +215,13 @@ function useAuctionsData() {
         setPast(pastList);
       } catch (err: any) {
         if (!cancelled) {
-          console.error("[AuctionsSection] Failed to load auctions:", err);
+          console.error("[AuctionsSection]", err);
           setError("Failed to load auctions");
         }
       } finally {
         if (!cancelled) setLoading(false);
       }
     }
-
     load();
     return () => {
       cancelled = true;
@@ -270,10 +231,10 @@ function useAuctionsData() {
   return { upcoming, past, loading, error };
 }
 
-// ── Countdown hook ─────────────────────────────────────────────
-function useCountdown(endsAt: string) {
+// ── Countdown hook ────────────────────────────────────────────
+function useCountdown(target: string) {
   const calc = useCallback(() => {
-    const diff = new Date(endsAt).getTime() - Date.now();
+    const diff = new Date(target).getTime() - Date.now();
     if (diff <= 0) return { d: 0, h: 0, m: 0, s: 0, done: true };
     const s = Math.floor(diff / 1000);
     return {
@@ -283,90 +244,85 @@ function useCountdown(endsAt: string) {
       s: s % 60,
       done: false,
     };
-  }, [endsAt]);
-
+  }, [target]);
   const [time, setTime] = useState(calc);
-
   useEffect(() => {
     const t = setInterval(() => setTime(calc()), 1000);
     return () => clearInterval(t);
   }, [calc]);
-
   return time;
 }
 
-// ── Mobile detection hook ─────────────────────────────────────
-function useIsMobile(breakpoint = 640) {
-  const [isMobile, setIsMobile] = useState(
-    typeof window !== "undefined" ? window.innerWidth <= breakpoint : false,
+// ── Mobile hook ───────────────────────────────────────────────
+function useIsMobile(bp = 640) {
+  const [m, setM] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth <= bp : false,
   );
   useEffect(() => {
-    const fn = () => setIsMobile(window.innerWidth <= breakpoint);
+    const fn = () => setM(window.innerWidth <= bp);
     window.addEventListener("resize", fn, { passive: true });
     fn();
     return () => window.removeEventListener("resize", fn);
-  }, [breakpoint]);
-  return isMobile;
+  }, [bp]);
+  return m;
 }
 
-// ── Single flip tile ──────────────────────────────────────────
+// ── FlipTile ──────────────────────────────────────────────────
 function FlipTile({
   digit,
   W,
   H,
   R,
-  fontSize,
+  fs,
 }: {
   digit: string;
   W: number;
   H: number;
   R: number;
-  fontSize: number;
+  fs: number;
 }) {
-  const [current, setCurrent] = useState(digit);
-  const [next, setNext] = useState(digit);
-  const [flipping, setFlipping] = useState(false);
-
+  const [cur, setCur] = useState(digit),
+    [nxt, setNxt] = useState(digit),
+    [flip, setFlip] = useState(false);
   useEffect(() => {
-    if (digit === current) return;
-    setNext(digit);
-    setFlipping(true);
-    const done = setTimeout(() => {
-      setCurrent(digit);
-      setFlipping(false);
+    if (digit === cur) return;
+    setNxt(digit);
+    setFlip(true);
+    const t = setTimeout(() => {
+      setCur(digit);
+      setFlip(false);
     }, 300);
-    return () => clearTimeout(done);
+    return () => clearTimeout(t);
   }, [digit]);
-
-  const font: React.CSSProperties = {
-    fontFamily: "'Jost', 'DM Mono', monospace",
-    fontSize,
+  const base: React.CSSProperties = {
+    fontFamily: "'Jost','DM Mono',monospace",
+    fontSize: fs,
     fontWeight: 700,
     color: GOLD,
     position: "absolute",
     left: 0,
     right: 0,
-    textAlign: "center" as const,
+    textAlign: "center",
     lineHeight: `${H}px`,
     top: 0,
-    userSelect: "none" as const,
+    userSelect: "none",
   };
-
   return (
     <div
       style={{
         width: W,
         height: H,
         borderRadius: R,
-        background: `linear-gradient(180deg, #243c55 0%, ${NAVY2} 100%)`,
-        border: `1px solid rgba(201,169,110,0.2)`,
-        boxShadow: `0 4px 14px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.07)`,
+        background: `linear-gradient(180deg,#243c55,${NAVY2})`,
+        border: "1px solid rgba(201,169,110,0.2)",
+        boxShadow:
+          "0 4px 14px rgba(0,0,0,0.55),inset 0 1px 0 rgba(255,255,255,0.07)",
         position: "relative",
         overflow: "hidden",
         flexShrink: 0,
       }}
     >
-      <div style={{ ...font }}>{next}</div>
+      <div style={base}>{nxt}</div>
       <div
         style={{
           position: "absolute",
@@ -376,14 +332,14 @@ function FlipTile({
           height: "50%",
           overflow: "hidden",
           transformOrigin: "bottom center",
-          transform: flipping ? "rotateX(-90deg)" : "rotateX(0deg)",
-          transition: flipping ? "transform 0.15s ease-in" : "none",
+          transform: flip ? "rotateX(-90deg)" : "rotateX(0)",
+          transition: flip ? "transform 0.15s ease-in" : "none",
           borderRadius: `${R}px ${R}px 0 0`,
-          background: `linear-gradient(180deg, #2c4b68 0%, #243c55 100%)`,
+          background: "linear-gradient(180deg,#2c4b68,#243c55)",
           zIndex: 3,
         }}
       >
-        <div style={{ ...font }}>{current}</div>
+        <div style={base}>{cur}</div>
       </div>
       <div
         style={{
@@ -394,14 +350,14 @@ function FlipTile({
           height: "50%",
           overflow: "hidden",
           transformOrigin: "top center",
-          transform: flipping ? "rotateX(90deg)" : "rotateX(0deg)",
-          transition: flipping ? "transform 0.15s ease-out 0.15s" : "none",
+          transform: flip ? "rotateX(90deg)" : "rotateX(0)",
+          transition: flip ? "transform 0.15s ease-out 0.15s" : "none",
           borderRadius: `0 0 ${R}px ${R}px`,
-          background: `linear-gradient(180deg, ${NAVY2} 0%, #162d45 100%)`,
+          background: `linear-gradient(180deg,${NAVY2},#162d45)`,
           zIndex: 3,
         }}
       >
-        <div style={{ ...font, top: `-${H / 2}px` }}>{next}</div>
+        <div style={{ ...base, top: `-${H / 2}px` }}>{nxt}</div>
       </div>
       <div
         style={{
@@ -418,23 +374,22 @@ function FlipTile({
   );
 }
 
-// ── Flip digit unit (2 tiles + label) ─────────────────────────
 function FlipDigit({
   value,
   label,
   W,
   H,
   R,
-  fontSize,
+  fs,
 }: {
   value: number;
   label: string;
   W: number;
   H: number;
   R: number;
-  fontSize: number;
+  fs: number;
 }) {
-  const display = String(value).padStart(2, "0");
+  const d = String(value).padStart(2, "0");
   return (
     <div
       style={{
@@ -445,8 +400,8 @@ function FlipDigit({
       }}
     >
       <div style={{ display: "flex", gap: 3 }}>
-        {display.split("").map((d, i) => (
-          <FlipTile key={i} digit={d} W={W} H={H} R={R} fontSize={fontSize} />
+        {d.split("").map((c, i) => (
+          <FlipTile key={i} digit={c} W={W} H={H} R={R} fs={fs} />
         ))}
       </div>
       <span
@@ -464,21 +419,21 @@ function FlipDigit({
   );
 }
 
-// ── Full countdown bar ─────────────────────────────────────────
-function CountdownBar({ endsAt }: { endsAt: string }) {
-  const { d, h, m, s, done } = useCountdown(endsAt);
-  const isMobile = useIsMobile();
+// ── CountdownBar ──────────────────────────────────────────────
+function CountdownBar({ startsAt }: { startsAt: string }) {
+  const { d, h, m, s, done } = useCountdown(startsAt);
+  const mob = useIsMobile();
   const { t } = useTranslation();
+  const W = mob ? 28 : 40,
+    H = mob ? 38 : 54,
+    R = mob ? 6 : 9,
+    fs = mob ? 20 : 30;
+  const sep = mob ? 18 : 24,
+    lh = `${H}px`,
+    mb = mob ? 14 : 22;
 
-  const W = isMobile ? 28 : 40;
-  const H = isMobile ? 38 : 54;
-  const R = isMobile ? 6 : 9;
-  const FS = isMobile ? 20 : 30;
-  const sepSize = isMobile ? 18 : 24;
-  const sepLH = `${H}px`;
-  const sepMB = isMobile ? 14 : 22;
-
-  if (done) {
+  // Countdown hit zero = auction is now live (will move to live section on reload)
+  if (done)
     return (
       <div
         style={{
@@ -486,44 +441,53 @@ function CountdownBar({ endsAt }: { endsAt: string }) {
           alignItems: "center",
           gap: 8,
           padding: "10px 16px",
-          background: "rgba(160,40,40,0.15)",
-          border: "1px solid rgba(255,80,80,0.25)",
+          background: "rgba(94,232,160,0.08)",
+          border: "1px solid rgba(94,232,160,0.25)",
           borderRadius: 10,
-          color: "#ff8080",
+          color: "#5ee8a0",
           fontSize: 12,
           fontWeight: 700,
           letterSpacing: "0.1em",
         }}
       >
-        {t("auctionsSection.ended")}
+        <span
+          style={{
+            width: 7,
+            height: 7,
+            borderRadius: "50%",
+            background: "#5ee8a0",
+            boxShadow: "0 0 6px #5ee8a0",
+            animation: "liveP 2s ease infinite",
+            flexShrink: 0,
+          }}
+        />
+        Live Now
       </div>
     );
-  }
 
   const Sep = () => (
     <span
       style={{
-        fontSize: sepSize,
+        fontSize: sep,
         fontWeight: 200,
         color: `${GOLD}55`,
-        lineHeight: sepLH,
-        marginBottom: sepMB,
+        lineHeight: lh,
+        marginBottom: mb,
         flexShrink: 0,
       }}
     >
       :
     </span>
   );
-
   return (
     <div
       style={{
         display: "flex",
         alignItems: "flex-start",
-        gap: isMobile ? 4 : 6,
-        padding: isMobile ? "10px 12px" : "14px 16px",
+        gap: mob ? 4 : 6,
+        padding: mob ? "10px 12px" : "14px 16px",
         background: "rgba(10,10,26,0.6)",
-        border: `1px solid rgba(201,169,110,0.15)`,
+        border: "1px solid rgba(201,169,110,0.15)",
         borderRadius: 14,
         backdropFilter: "blur(8px)",
         flexWrap: "nowrap",
@@ -535,7 +499,7 @@ function CountdownBar({ endsAt }: { endsAt: string }) {
         W={W}
         H={H}
         R={R}
-        fontSize={FS}
+        fs={fs}
       />
       <Sep />
       <FlipDigit
@@ -544,7 +508,7 @@ function CountdownBar({ endsAt }: { endsAt: string }) {
         W={W}
         H={H}
         R={R}
-        fontSize={FS}
+        fs={fs}
       />
       <Sep />
       <FlipDigit
@@ -553,7 +517,7 @@ function CountdownBar({ endsAt }: { endsAt: string }) {
         W={W}
         H={H}
         R={R}
-        fontSize={FS}
+        fs={fs}
       />
       <Sep />
       <FlipDigit
@@ -562,17 +526,17 @@ function CountdownBar({ endsAt }: { endsAt: string }) {
         W={W}
         H={H}
         R={R}
-        fontSize={FS}
+        fs={fs}
       />
     </div>
   );
 }
 
-// ── Skeleton card ──────────────────────────────────────────────
+// ── Skeleton ──────────────────────────────────────────────────
 function SkeletonCard() {
   return (
     <div
-      className="auction-card"
+      className="ac"
       style={{
         borderRadius: 20,
         background: "rgba(255,255,255,0.028)",
@@ -580,50 +544,40 @@ function SkeletonCard() {
         overflow: "hidden",
       }}
     >
-      <style>{`
-        @keyframes as-shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
-        .as-skel {
-          background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
-          background-size: 200% 100%;
-          animation: as-shimmer 1.5s infinite;
-          border-radius: 4px;
-        }
-      `}</style>
-      {/* Image column */}
-      <div className="as-skel auction-card-img" style={{ minHeight: 220 }} />
-      {/* Content column */}
-      <div className="auction-card-content">
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <div className="as-skel" style={{ height: 20, width: "60%" }} />
-          <div className="as-skel" style={{ height: 12, width: "40%" }} />
-        </div>
-        <div style={{ display: "flex", gap: 16 }}>
-          <div className="as-skel" style={{ height: 10, width: 120 }} />
-        </div>
-        <div className="as-skel" style={{ height: 24, width: "50%" }} />
-        <div className="as-skel" style={{ height: 1, width: "100%" }} />
-        <div
-          className="as-skel"
-          style={{ height: 80, width: "100%", borderRadius: 14 }}
-        />
+      <style>{`@keyframes sh{0%{background-position:200% 0}100%{background-position:-200% 0}}.sk{background:linear-gradient(90deg,rgba(255,255,255,.04) 25%,rgba(255,255,255,.08) 50%,rgba(255,255,255,.04) 75%);background-size:200% 100%;animation:sh 1.5s infinite;border-radius:4px}`}</style>
+      <div className="sk ac-img" style={{ minHeight: 220 }} />
+      <div
+        style={{
+          padding: "22px 24px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 12,
+        }}
+      >
+        <div className="sk" style={{ height: 20, width: "60%" }} />
+        <div className="sk" style={{ height: 12, width: "40%" }} />
+        <div className="sk" style={{ height: 10, width: 120 }} />
+        <div className="sk" style={{ height: 24, width: "50%" }} />
+        <div className="sk" style={{ height: 1 }} />
+        <div className="sk" style={{ height: 80, borderRadius: 14 }} />
       </div>
     </div>
   );
 }
 
-// ── Upcoming auction card ──────────────────────────────────────
+// ── UpcomingCard ──────────────────────────────────────────────
 const UpcomingCard = memo(function UpcomingCard({
   item,
   index,
-  onRegisterClick,
+  onRegister,
 }: {
   item: UpcomingAuction;
   index: number;
-  onRegisterClick: () => void;
+  onRegister: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
-  const [hovered, setHovered] = useState(false);
+  const [vis, setVis] = useState(false),
+    [hov, setHov] = useState(false);
   const { t } = useTranslation();
 
   useEffect(() => {
@@ -632,7 +586,7 @@ const UpcomingCard = memo(function UpcomingCard({
     const obs = new IntersectionObserver(
       ([e]) => {
         if (e.isIntersecting) {
-          setVisible(true);
+          setVis(true);
           obs.disconnect();
         }
       },
@@ -645,27 +599,24 @@ const UpcomingCard = memo(function UpcomingCard({
   return (
     <div
       ref={ref}
-      className="auction-card"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      className="ac"
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
       style={{
-        opacity: visible ? 1 : 0,
-        transform: visible ? "translateY(0)" : "translateY(40px)",
-        transition: `opacity 0.7s ease ${index * 0.1}s, transform 0.7s cubic-bezier(0.22,1,0.36,1) ${index * 0.1}s`,
+        opacity: vis ? 1 : 0,
+        transform: vis ? "translateY(0)" : "translateY(40px)",
+        transition: `opacity 0.7s ease ${index * 0.1}s,transform 0.7s cubic-bezier(0.22,1,0.36,1) ${index * 0.1}s`,
         borderRadius: 20,
-        background: hovered
-          ? "rgba(255,255,255,0.055)"
-          : "rgba(255,255,255,0.028)",
-        border: `1px solid ${hovered ? "rgba(201,169,110,0.4)" : "rgba(229,224,198,0.08)"}`,
+        background: hov ? "rgba(255,255,255,0.055)" : "rgba(255,255,255,0.028)",
+        border: `1px solid ${hov ? "rgba(201,169,110,0.4)" : "rgba(229,224,198,0.08)"}`,
         backdropFilter: "blur(14px)",
-        boxShadow: hovered
-          ? `0 24px 64px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.07)`
+        boxShadow: hov
+          ? `0 24px 64px rgba(0,0,0,0.5),inset 0 1px 0 rgba(255,255,255,0.07)`
           : "0 4px 24px rgba(0,0,0,0.2)",
       }}
     >
-      {/* Image column */}
       <div
-        className="auction-card-img"
+        className="ac-img"
         style={{
           position: "relative",
           overflow: "hidden",
@@ -682,7 +633,7 @@ const UpcomingCard = memo(function UpcomingCard({
               height: "100%",
               objectFit: "cover",
               objectPosition: "center",
-              transform: hovered ? "scale(1.08)" : "scale(1)",
+              transform: hov ? "scale(1.08)" : "scale(1)",
               transition: "transform 0.65s cubic-bezier(0.25,0.46,0.45,0.94)",
               display: "block",
               minHeight: 180,
@@ -700,11 +651,11 @@ const UpcomingCard = memo(function UpcomingCard({
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              background: `linear-gradient(135deg, ${NAVY}18, ${NAVY}08)`,
+              background: `linear-gradient(135deg,${NAVY}18,${NAVY}08)`,
             }}
           >
             <span style={{ fontSize: 42, fontWeight: 900, color: `${NAVY}30` }}>
-              {item.title.charAt(0).toUpperCase()}
+              {item.title[0].toUpperCase()}
             </span>
           </div>
         )}
@@ -713,30 +664,9 @@ const UpcomingCard = memo(function UpcomingCard({
             position: "absolute",
             inset: 0,
             background:
-              "linear-gradient(to right, transparent 50%, rgba(10,10,26,0.6))",
+              "linear-gradient(to right,transparent 50%,rgba(10,10,26,0.6))",
           }}
         />
-        {item.category && (
-          <div
-            style={{
-              position: "absolute",
-              top: 10,
-              left: 10,
-              background: "rgba(10,10,26,0.8)",
-              backdropFilter: "blur(6px)",
-              border: `1px solid rgba(201,169,110,0.3)`,
-              borderRadius: 6,
-              padding: "3px 8px",
-              fontSize: 9,
-              fontWeight: 800,
-              color: GOLD,
-              letterSpacing: "0.14em",
-              textTransform: "uppercase",
-            }}
-          >
-            {item.category}
-          </div>
-        )}
         {item.isHot && (
           <div
             style={{
@@ -758,9 +688,7 @@ const UpcomingCard = memo(function UpcomingCard({
         )}
       </div>
 
-      {/* Content column */}
       <div
-        className="auction-card-content"
         style={{
           padding: "22px 24px",
           display: "flex",
@@ -768,7 +696,7 @@ const UpcomingCard = memo(function UpcomingCard({
           gap: 12,
         }}
       >
-        <div className="auction-card-top-row">
+        <div className="ac-top">
           <div>
             <h3
               style={{
@@ -793,11 +721,10 @@ const UpcomingCard = memo(function UpcomingCard({
               {item.subtitle}
             </p>
           </div>
-
           <button
-            className="auction-register-btn"
+            className="ac-btn"
             style={{
-              background: `linear-gradient(135deg, ${GOLD}, ${GOLD2})`,
+              background: `linear-gradient(135deg,${GOLD},${GOLD2})`,
               color: "#0a0a1a",
               border: "none",
               borderRadius: 999,
@@ -813,7 +740,6 @@ const UpcomingCard = memo(function UpcomingCard({
               transition: "all 0.3s ease",
               display: "flex",
               alignItems: "center",
-              justifyContent: "center",
               gap: 6,
             }}
             onMouseEnter={(e) => {
@@ -823,12 +749,11 @@ const UpcomingCard = memo(function UpcomingCard({
                 `0 8px 28px ${GOLD}55`;
             }}
             onMouseLeave={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.transform =
-                "translateY(0) scale(1)";
+              (e.currentTarget as HTMLButtonElement).style.transform = "";
               (e.currentTarget as HTMLButtonElement).style.boxShadow =
                 `0 4px 20px ${GOLD}44`;
             }}
-            onClick={onRegisterClick}
+            onClick={onRegister}
           >
             {t("auctionsSection.registerToJoin")}
           </button>
@@ -837,7 +762,7 @@ const UpcomingCard = memo(function UpcomingCard({
         <div
           style={{ display: "flex", flexWrap: "wrap", gap: 16, fontSize: 11 }}
         >
-          <div
+          <span
             style={{
               display: "flex",
               alignItems: "center",
@@ -846,9 +771,9 @@ const UpcomingCard = memo(function UpcomingCard({
             }}
           >
             <span style={{ color: GOLD, fontSize: 13 }}>📅</span>
-            <span>{item.sessionDate}</span>
-          </div>
-          <div
+            {item.sessionDate}
+          </span>
+          <span
             style={{
               display: "flex",
               alignItems: "center",
@@ -857,13 +782,11 @@ const UpcomingCard = memo(function UpcomingCard({
             }}
           >
             <span style={{ color: GOLD, fontSize: 13 }}>📦</span>
-            <span>
-              {item.pieces}{" "}
-              {item.pieces === 1
-                ? t("auctionsSection.piece")
-                : t("auctionsSection.pieces")}
-            </span>
-          </div>
+            {item.pieces}{" "}
+            {item.pieces === 1
+              ? t("auctionsSection.piece")
+              : t("auctionsSection.pieces")}
+          </span>
         </div>
 
         <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
@@ -878,14 +801,7 @@ const UpcomingCard = memo(function UpcomingCard({
           >
             {t("auctionsSection.startingFrom")}
           </span>
-          <span
-            style={{
-              fontSize: 20,
-              fontWeight: 900,
-              color: GOLD,
-              letterSpacing: "-0.01em",
-            }}
-          >
+          <span style={{ fontSize: 20, fontWeight: 900, color: GOLD }}>
             {item.startingPrice.toLocaleString()}
           </span>
           <span style={{ fontSize: 11, fontWeight: 600, color: `${GOLD}99` }}>
@@ -896,7 +812,7 @@ const UpcomingCard = memo(function UpcomingCard({
         <div
           style={{
             height: 1,
-            background: `linear-gradient(90deg, rgba(201,169,110,0.2), transparent)`,
+            background: `linear-gradient(90deg,rgba(201,169,110,0.2),transparent)`,
           }}
         />
 
@@ -913,14 +829,14 @@ const UpcomingCard = memo(function UpcomingCard({
           >
             {t("auctionsSection.sessionStartsIn")}
           </div>
-          <CountdownBar endsAt={item.endsAt} />
+          <CountdownBar startsAt={item.startsAt} />
         </div>
       </div>
     </div>
   );
 });
 
-// ── Past auction card ──────────────────────────────────────────
+// ── PastCard ──────────────────────────────────────────────────
 const PastCard = memo(function PastCard({
   item,
   index,
@@ -929,8 +845,8 @@ const PastCard = memo(function PastCard({
   index: number;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
-  const [hovered, setHovered] = useState(false);
+  const [vis, setVis] = useState(false),
+    [hov, setHov] = useState(false);
   const { t } = useTranslation();
 
   useEffect(() => {
@@ -939,7 +855,7 @@ const PastCard = memo(function PastCard({
     const obs = new IntersectionObserver(
       ([e]) => {
         if (e.isIntersecting) {
-          setVisible(true);
+          setVis(true);
           obs.disconnect();
         }
       },
@@ -952,26 +868,24 @@ const PastCard = memo(function PastCard({
   return (
     <div
       ref={ref}
-      className="auction-card"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      className="ac"
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
       style={{
-        opacity: visible ? 1 : 0,
-        transform: visible ? "translateY(0)" : "translateY(40px)",
-        transition: `opacity 0.7s ease ${index * 0.1}s, transform 0.7s cubic-bezier(0.22,1,0.36,1) ${index * 0.1}s`,
+        opacity: vis ? 1 : 0,
+        transform: vis ? "translateY(0)" : "translateY(40px)",
+        transition: `opacity 0.7s ease ${index * 0.1}s,transform 0.7s cubic-bezier(0.22,1,0.36,1) ${index * 0.1}s`,
         borderRadius: 20,
-        background: hovered
-          ? "rgba(255,255,255,0.045)"
-          : "rgba(255,255,255,0.022)",
-        border: `1px solid ${hovered ? "rgba(229,224,198,0.18)" : "rgba(229,224,198,0.07)"}`,
+        background: hov ? "rgba(255,255,255,0.045)" : "rgba(255,255,255,0.022)",
+        border: `1px solid ${hov ? "rgba(229,224,198,0.18)" : "rgba(229,224,198,0.07)"}`,
         backdropFilter: "blur(14px)",
-        boxShadow: hovered
-          ? "0 20px 56px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06)"
+        boxShadow: hov
+          ? "0 20px 56px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.06)"
           : "0 4px 20px rgba(0,0,0,0.18)",
       }}
     >
       <div
-        className="auction-card-img"
+        className="ac-img"
         style={{
           position: "relative",
           overflow: "hidden",
@@ -991,9 +905,9 @@ const PastCard = memo(function PastCard({
               minHeight: 200,
               display: "block",
               filter: "grayscale(30%) brightness(0.75)",
-              transform: hovered ? "scale(1.06)" : "scale(1)",
+              transform: hov ? "scale(1.06)" : "scale(1)",
               transition:
-                "transform 0.65s cubic-bezier(0.25,0.46,0.45,0.94), filter 0.4s ease",
+                "transform 0.65s cubic-bezier(0.25,0.46,0.45,0.94),filter 0.4s ease",
             }}
             onError={(e) => {
               (e.target as HTMLImageElement).style.display = "none";
@@ -1008,12 +922,12 @@ const PastCard = memo(function PastCard({
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              background: `linear-gradient(135deg, ${NAVY}18, ${NAVY}08)`,
+              background: `linear-gradient(135deg,${NAVY}18,${NAVY}08)`,
               filter: "grayscale(30%) brightness(0.75)",
             }}
           >
             <span style={{ fontSize: 42, fontWeight: 900, color: `${NAVY}30` }}>
-              {item.title.charAt(0).toUpperCase()}
+              {item.title[0].toUpperCase()}
             </span>
           </div>
         )}
@@ -1022,7 +936,7 @@ const PastCard = memo(function PastCard({
             position: "absolute",
             inset: 0,
             background:
-              "linear-gradient(to right, transparent 40%, rgba(10,10,26,0.55))",
+              "linear-gradient(to right,transparent 40%,rgba(10,10,26,0.55))",
           }}
         />
         <div
@@ -1050,7 +964,6 @@ const PastCard = memo(function PastCard({
       </div>
 
       <div
-        className="auction-card-content"
         style={{
           padding: "22px 24px",
           display: "flex",
@@ -1081,25 +994,18 @@ const PastCard = memo(function PastCard({
             {item.subtitle}
           </p>
         </div>
-
-        <div
-          style={{ display: "flex", flexWrap: "wrap", gap: 16, fontSize: 11 }}
+        <span
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            fontSize: 11,
+            color: "rgba(229,224,198,0.45)",
+          }}
         >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              color: "rgba(229,224,198,0.45)",
-            }}
-          >
-            <span style={{ color: GOLD, fontSize: 13 }}>📅</span>
-            <span>
-              {t("auctionsSection.session")}: {item.sessionDate}
-            </span>
-          </div>
-        </div>
-
+          <span style={{ color: GOLD, fontSize: 13 }}>📅</span>
+          {t("auctionsSection.session")}: {item.sessionDate}
+        </span>
         <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
           <span
             style={{
@@ -1112,29 +1018,20 @@ const PastCard = memo(function PastCard({
           >
             {t("auctionsSection.winningPrice")}
           </span>
-          <span
-            style={{
-              fontSize: 20,
-              fontWeight: 900,
-              color: "#7ecf9a",
-              letterSpacing: "-0.01em",
-            }}
-          >
+          <span style={{ fontSize: 20, fontWeight: 900, color: "#7ecf9a" }}>
             {item.winningPrice.toLocaleString()}
           </span>
           <span style={{ fontSize: 11, fontWeight: 600, color: "#5aaa7a" }}>
             {item.currency}
           </span>
         </div>
-
         <div
           style={{
             height: 1,
             background:
-              "linear-gradient(90deg, rgba(229,224,198,0.1), transparent)",
+              "linear-gradient(90deg,rgba(229,224,198,0.1),transparent)",
           }}
         />
-
         <div>
           <div
             style={{
@@ -1202,7 +1099,7 @@ const PastCard = memo(function PastCard({
                 />
               ) : (
                 <span style={{ fontSize: 16, color: "rgba(229,224,198,0.4)" }}>
-                  {item.winner.name.charAt(0).toUpperCase()}
+                  {item.winner.name[0].toUpperCase()}
                 </span>
               )}
             </div>
@@ -1222,7 +1119,7 @@ const PastCard = memo(function PastCard({
   );
 });
 
-// ── Tab button ─────────────────────────────────────────────────
+// ── TabButton ─────────────────────────────────────────────────
 function TabButton({
   label,
   active,
@@ -1234,12 +1131,12 @@ function TabButton({
   onClick: () => void;
   icon: string;
 }) {
-  const [hovered, setHovered] = useState(false);
+  const [hov, setHov] = useState(false);
   return (
     <button
       onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
       style={{
         position: "relative",
         background: "none",
@@ -1255,14 +1152,14 @@ function TabButton({
       <span style={{ fontSize: 16 }}>{icon}</span>
       <span
         style={{
-          fontFamily: "'Jost', sans-serif",
+          fontFamily: "'Jost',sans-serif",
           fontSize: 12,
           fontWeight: 800,
           letterSpacing: "0.22em",
           textTransform: "uppercase",
           color: active
             ? GOLD
-            : hovered
+            : hov
               ? "rgba(229,224,198,0.7)"
               : "rgba(229,224,198,0.35)",
           transition: "color 0.3s ease",
@@ -1277,10 +1174,10 @@ function TabButton({
           left: active ? "8%" : "50%",
           right: active ? "8%" : "50%",
           height: 2,
-          background: `linear-gradient(90deg, transparent, ${GOLD}, transparent)`,
+          background: `linear-gradient(90deg,transparent,${GOLD},transparent)`,
           borderRadius: 999,
           transition:
-            "left 0.45s cubic-bezier(0.22,1,0.36,1), right 0.45s cubic-bezier(0.22,1,0.36,1)",
+            "left 0.45s cubic-bezier(0.22,1,0.36,1),right 0.45s cubic-bezier(0.22,1,0.36,1)",
           opacity: active ? 1 : 0,
           boxShadow: active ? `0 0 10px ${GOLD}88` : "none",
         }}
@@ -1290,12 +1187,12 @@ function TabButton({
           style={{
             position: "absolute",
             bottom: 0,
-            left: hovered ? "20%" : "50%",
-            right: hovered ? "20%" : "50%",
+            left: hov ? "20%" : "50%",
+            right: hov ? "20%" : "50%",
             height: 1,
             background: "rgba(229,224,198,0.2)",
             borderRadius: 999,
-            transition: "left 0.3s ease, right 0.3s ease",
+            transition: "left 0.3s ease,right 0.3s ease",
           }}
         />
       )}
@@ -1303,37 +1200,27 @@ function TabButton({
   );
 }
 
-// ── Main Section ───────────────────────────────────────────────
+// ── Main ──────────────────────────────────────────────────────
 export default function AuctionsSection() {
-  const [activeTab, setActiveTab] = useState<"upcoming" | "past">("upcoming");
-  const [animating, setAnimating] = useState(false);
-  const sectionRef = useRef<HTMLDivElement>(null);
+  const [tab, setTab] = useState<"upcoming" | "past">("upcoming");
+  const [anim, setAnim] = useState(false);
   const headerRef = useRef<HTMLDivElement>(null);
-  const [headerVisible, setHeaderVisible] = useState(false);
+  const [vis, setVis] = useState(false);
   const [animKey, setAnimKey] = useState(0);
   const { t, i18n } = useTranslation();
-  const isArabic = i18n.language === "ar";
-
+  const isAr = i18n.language === "ar";
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [modalOpen, setModalOpen] = useState(false);
+  const [modal, setModal] = useState(false);
   const { upcoming, past, loading, error } = useAuctionsData();
 
-  const handleRegisterClick = useCallback(
+  const onRegister = useCallback(
     (productId: string) => {
-      if (user) {
-        navigate(`/auctions/register/${productId}`);
-      } else {
-        setModalOpen(true);
-      }
+      if (user) navigate(`/auctions/register/${productId}`);
+      else setModal(true);
     },
     [user, navigate],
   );
-
-  const handleGoToLogin = () => {
-    setModalOpen(false);
-    navigate("/login");
-  };
 
   useEffect(() => {
     const el = headerRef.current;
@@ -1341,7 +1228,7 @@ export default function AuctionsSection() {
     const obs = new IntersectionObserver(
       ([e]) => {
         if (e.isIntersecting) {
-          setHeaderVisible(true);
+          setVis(true);
           setAnimKey((k) => k + 1);
           obs.disconnect();
         }
@@ -1356,137 +1243,90 @@ export default function AuctionsSection() {
     setAnimKey((k) => k + 1);
   }, [i18n.language]);
 
-  const switchTab = (tab: "upcoming" | "past") => {
-    if (tab === activeTab || animating) return;
-    setAnimating(true);
+  const switchTab = (next: "upcoming" | "past") => {
+    if (next === tab || anim) return;
+    setAnim(true);
     setTimeout(() => {
-      setActiveTab(tab);
-      setAnimating(false);
+      setTab(next);
+      setAnim(false);
     }, 220);
+  };
+
+  const bg = {
+    position: "absolute" as const,
+    borderRadius: "50%",
+    pointerEvents: "none" as const,
   };
 
   return (
     <section
-      ref={sectionRef}
       style={{
         background:
-          "linear-gradient(180deg, #0a0a1a 0%, #0c1828 50%, #0a0a1a 100%)",
+          "linear-gradient(180deg,#0a0a1a 0%,#0c1828 50%,#0a0a1a 100%)",
         padding: "100px 32px 120px",
         position: "relative",
         overflow: "hidden",
       }}
     >
       <style>{`
-        @keyframes tabFadeIn {
-          from { opacity: 0; transform: translateY(16px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        .tab-content-enter {
-          animation: tabFadeIn 0.38s cubic-bezier(0.22,1,0.36,1) forwards;
-        }
-        .tab-content-exit {
-          opacity: 0;
-          transform: translateY(-8px);
-          transition: opacity 0.2s ease, transform 0.2s ease;
-        }
-        .auction-card {
-          display: grid;
-          grid-template-columns: 220px 1fr;
-          overflow: hidden;
-          border-radius: 20px;
-        }
-        .auction-card-img {
-          position: relative;
-          overflow: hidden;
-          background: #0d1520;
-          min-height: 220px;
-        }
-        .auction-card-content {
-          padding: 22px 24px;
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-          min-width: 0;
-        }
-        .auction-card-top-row {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          gap: 16px;
-        }
-        @media (max-width: 640px) {
-          .auction-card {
-            grid-template-columns: 1fr !important;
-          }
-          .auction-card-img {
-            height: 200px !important;
-            min-height: 200px !important;
-            width: 100% !important;
-          }
-          .auction-card-content {
-            padding: 16px !important;
-          }
-          .auction-card-top-row {
-            flex-direction: column !important;
-            align-items: stretch !important;
-            gap: 10px !important;
-          }
-          .auction-register-btn {
-            width: 100% !important;
-            padding: 13px 0 !important;
-            justify-content: center !important;
-          }
+        @keyframes tabIn { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes liveP  { 0%,100%{opacity:1;box-shadow:0 0 6px #5ee8a0} 50%{opacity:.4;box-shadow:0 0 12px #5ee8a0} }
+        .tab-in  { animation:tabIn 0.38s cubic-bezier(0.22,1,0.36,1) forwards }
+        .tab-out { opacity:0;transform:translateY(-8px);transition:opacity .2s ease,transform .2s ease }
+        .ac      { display:grid;grid-template-columns:220px 1fr;overflow:hidden;border-radius:20px }
+        .ac-img  { position:relative;overflow:hidden;background:#0d1520;min-height:220px }
+        .ac-top  { display:flex;align-items:flex-start;justify-content:space-between;gap:16px }
+        @media(max-width:640px){
+          .ac    { grid-template-columns:1fr !important }
+          .ac-img{ height:200px !important;min-height:200px !important }
+          .ac-top{ flex-direction:column !important;align-items:stretch !important;gap:10px !important }
+          .ac-btn{ width:100% !important;padding:13px 0 !important;justify-content:center !important }
         }
       `}</style>
 
       <LoginPromptModal
-        isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onGoToLogin={handleGoToLogin}
+        isOpen={modal}
+        onClose={() => setModal(false)}
+        onGoToLogin={() => {
+          setModal(false);
+          navigate("/login");
+        }}
       />
 
-      {/* Background atmosphere */}
       <div
         style={{
-          position: "absolute",
+          ...bg,
           top: "40%",
           left: "50%",
           transform: "translate(-50%,-50%)",
           width: 1000,
           height: 700,
-          borderRadius: "50%",
           background:
-            "radial-gradient(ellipse, rgba(42,72,99,0.12) 0%, transparent 65%)",
-          pointerEvents: "none",
+            "radial-gradient(ellipse,rgba(42,72,99,0.12) 0%,transparent 65%)",
         }}
       />
       <div
         style={{
-          position: "absolute",
+          ...bg,
           top: -80,
           right: "3%",
           width: 400,
           height: 400,
-          borderRadius: "50%",
           background:
-            "radial-gradient(circle, rgba(201,169,110,0.05) 0%, transparent 70%)",
-          pointerEvents: "none",
+            "radial-gradient(circle,rgba(201,169,110,0.05) 0%,transparent 70%)",
         }}
       />
       <div
         style={{
-          position: "absolute",
+          ...bg,
           bottom: -100,
           left: "5%",
           width: 360,
           height: 360,
-          borderRadius: "50%",
           background:
-            "radial-gradient(circle, rgba(42,72,99,0.1) 0%, transparent 70%)",
-          pointerEvents: "none",
+            "radial-gradient(circle,rgba(42,72,99,0.1) 0%,transparent 70%)",
         }}
       />
-
       <div
         style={{
           position: "absolute",
@@ -1494,12 +1334,12 @@ export default function AuctionsSection() {
           left: 0,
           right: 0,
           height: 1,
-          background: `linear-gradient(90deg, transparent, ${GOLD}, rgba(229,224,198,0.5), ${GOLD}, transparent)`,
+          background: `linear-gradient(90deg,transparent,${GOLD},rgba(229,224,198,0.5),${GOLD},transparent)`,
           opacity: 0.28,
         }}
       />
 
-      {/* ── Header ── */}
+      {/* Header */}
       <div
         ref={headerRef}
         style={{
@@ -1515,16 +1355,16 @@ export default function AuctionsSection() {
             alignItems: "center",
             gap: 10,
             marginBottom: 20,
-            opacity: headerVisible ? 1 : 0,
-            transform: headerVisible ? "translateY(0)" : "translateY(14px)",
-            transition: "opacity 0.55s ease, transform 0.55s ease",
+            opacity: vis ? 1 : 0,
+            transform: vis ? "translateY(0)" : "translateY(14px)",
+            transition: "opacity 0.55s ease,transform 0.55s ease",
           }}
         >
           <div
             style={{
               width: 32,
               height: 1,
-              background: `linear-gradient(90deg, transparent, ${GOLD})`,
+              background: `linear-gradient(90deg,transparent,${GOLD})`,
             }}
           />
           <span
@@ -1542,38 +1382,36 @@ export default function AuctionsSection() {
             style={{
               width: 32,
               height: 1,
-              background: `linear-gradient(90deg, ${GOLD}, transparent)`,
+              background: `linear-gradient(90deg,${GOLD},transparent)`,
             }}
           />
         </div>
-
         <div
           style={{
-            fontSize: "clamp(32px, 5vw, 56px)",
+            fontSize: "clamp(32px,5vw,56px)",
             fontWeight: 900,
-            color: "#ffffff",
+            color: "#fff",
             letterSpacing: "-0.025em",
             lineHeight: 1.1,
             marginBottom: 4,
           }}
         >
           <SplitText
-            key={`auctions-line1-${animKey}`}
+            key={`l1-${animKey}`}
             text={t("auctionsSection.titleLine1")}
             tag="h2"
             className=""
-            splitType={isArabic ? "words" : "chars"}
+            splitType={isAr ? "words" : "chars"}
             duration={1.0}
-            delay={isArabic ? 80 : 30}
+            delay={isAr ? 80 : 30}
             ease="power3.out"
             from={{ opacity: 0, y: 40, rotateX: -20 }}
             to={{ opacity: 1, y: 0, rotateX: 0 }}
           />
         </div>
-
         <div
           style={{
-            fontSize: "clamp(32px, 5vw, 56px)",
+            fontSize: "clamp(32px,5vw,56px)",
             fontWeight: 900,
             color: GOLD,
             letterSpacing: "-0.025em",
@@ -1582,39 +1420,37 @@ export default function AuctionsSection() {
           }}
         >
           <SplitText
-            key={`auctions-line2-${animKey}`}
+            key={`l2-${animKey}`}
             text={t("auctionsSection.titleLine2")}
             tag="h2"
             className=""
-            splitType={isArabic ? "words" : "chars"}
+            splitType={isAr ? "words" : "chars"}
             duration={1.0}
-            delay={isArabic ? 80 : 30}
+            delay={isAr ? 80 : 30}
             ease="power3.out"
             from={{ opacity: 0, y: 40 }}
             to={{ opacity: 1, y: 0 }}
           />
         </div>
-
         <p
           style={{
             color: "rgba(229,224,198,0.42)",
             fontSize: 14,
-            fontWeight: 400,
             maxWidth: 420,
             margin: "0 auto",
             lineHeight: 1.75,
-            opacity: headerVisible ? 1 : 0,
-            transform: headerVisible ? "translateY(0)" : "translateY(10px)",
-            transition: "opacity 0.7s ease 0.2s, transform 0.7s ease 0.2s",
+            opacity: vis ? 1 : 0,
+            transform: vis ? "translateY(0)" : "translateY(10px)",
+            transition: "opacity 0.7s ease 0.2s,transform 0.7s ease 0.2s",
           }}
         >
-          {activeTab === "upcoming"
+          {tab === "upcoming"
             ? t("auctionsSection.subtitleUpcoming")
             : t("auctionsSection.subtitlePast")}
         </p>
       </div>
 
-      {/* ── Tab bar ── */}
+      {/* Tabs */}
       <div
         style={{
           display: "flex",
@@ -1622,7 +1458,7 @@ export default function AuctionsSection() {
           marginBottom: 48,
           position: "relative",
           zIndex: 1,
-          opacity: headerVisible ? 1 : 0,
+          opacity: vis ? 1 : 0,
           transition: "opacity 0.7s ease 0.3s",
         }}
       >
@@ -1632,28 +1468,29 @@ export default function AuctionsSection() {
             background: "rgba(255,255,255,0.03)",
             border: "1px solid rgba(229,224,198,0.08)",
             borderRadius: 999,
-            padding: "4px",
+            padding: 4,
             gap: 2,
           }}
         >
           <TabButton
             label={t("auctionsSection.tabUpcoming")}
             icon=""
-            active={activeTab === "upcoming"}
+            active={tab === "upcoming"}
             onClick={() => switchTab("upcoming")}
           />
           <TabButton
             label={t("auctionsSection.tabPast")}
             icon=""
-            active={activeTab === "past"}
+            active={tab === "past"}
             onClick={() => switchTab("past")}
           />
         </div>
       </div>
 
-      {/* ── Content ── */}
+      {/* Content */}
       <div
-        className={animating ? "tab-content-exit" : "tab-content-enter"}
+        className={anim ? "tab-out" : "tab-in"}
+        key={tab}
         style={{
           maxWidth: 1100,
           margin: "0 auto",
@@ -1663,9 +1500,7 @@ export default function AuctionsSection() {
           position: "relative",
           zIndex: 1,
         }}
-        key={activeTab}
       >
-        {/* Loading state */}
         {loading && (
           <>
             <SkeletonCard />
@@ -1674,7 +1509,6 @@ export default function AuctionsSection() {
           </>
         )}
 
-        {/* Error state */}
         {!loading && error && (
           <div
             style={{
@@ -1688,8 +1522,7 @@ export default function AuctionsSection() {
           </div>
         )}
 
-        {/* Upcoming tab */}
-        {!loading && !error && activeTab === "upcoming" && (
+        {!loading && !error && tab === "upcoming" && (
           <>
             {upcoming.length > 0 && (
               <div
@@ -1723,7 +1556,6 @@ export default function AuctionsSection() {
                 </span>
               </div>
             )}
-
             {upcoming.length === 0 ? (
               <div
                 style={{
@@ -1746,15 +1578,14 @@ export default function AuctionsSection() {
                   key={item.id}
                   item={item}
                   index={i}
-                  onRegisterClick={() => handleRegisterClick(item.productId)}
+                  onRegister={() => onRegister(item.productId)}
                 />
               ))
             )}
           </>
         )}
 
-        {/* Past tab */}
-        {!loading && !error && activeTab === "past" && (
+        {!loading && !error && tab === "past" && (
           <>
             {past.length > 0 && (
               <div
@@ -1782,13 +1613,10 @@ export default function AuctionsSection() {
                     textTransform: "uppercase",
                   }}
                 >
-                  {t("auctionsSection.pastCount", {
-                    count: past.length,
-                  })}
+                  {t("auctionsSection.pastCount", { count: past.length })}
                 </span>
               </div>
             )}
-
             {past.length === 0 ? (
               <div
                 style={{
@@ -1822,7 +1650,7 @@ export default function AuctionsSection() {
           right: 0,
           height: 1,
           background:
-            "linear-gradient(90deg, transparent, rgba(229,224,198,0.1), transparent)",
+            "linear-gradient(90deg,transparent,rgba(229,224,198,0.1),transparent)",
         }}
       />
     </section>
