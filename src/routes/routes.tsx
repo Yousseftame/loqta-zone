@@ -33,6 +33,7 @@ import AuctionRegisterPage from "@/pages/Auctionregisterpage/Auctionregisterpage
 import ForgetPassword from "@/pages/Auth/ForgetPassword/ForgetPassword";
 import Login from "@/pages/Auth/Login/Login";
 import Register from "@/pages/Auth/Register/Register";
+import VerifyEmail from "@/pages/Auth/Verifyemail/Verifyemail";
 import Contact from "@/pages/Contact/Contact";
 import Home from "@/pages/Home/Home";
 import HowItWork from "@/pages/HowItWork/HowItWork";
@@ -53,6 +54,11 @@ export const routes = createBrowserRouter([
       { path: "register", element: <Register /> },
       { path: "forget-password", element: <ForgetPassword /> },
     ],
+  },
+  {
+    path: "/verify-email",
+    element: <VerifyEmail />,
+    errorElement: <NotFound />,
   },
 
   {

@@ -27,11 +27,10 @@ export const useRegister = () => {
   const handleImageChange = (file: File | null) => {
     setProfileImage(file);
     setPreviewUrl(file ? URL.createObjectURL(file) : null);
-    // re-validate image field immediately
     const { errors: e } = validateRegisterForm({
       firstName, lastName, email, phone, password, confirmPassword, profileImage: file,
     });
-    setErrors((prev :any) => ({ ...prev, profileImage: e.profileImage }));
+    setErrors((prev: any) => ({ ...prev, profileImage: e.profileImage }));
   };
 
   const handleBlur = (field: keyof RegisterFormErrors) => {
@@ -59,7 +58,8 @@ export const useRegister = () => {
     setIsLoading(true);
     try {
       await register(firstName, lastName, email, phone, password, profileImage);
-      navigate("/");
+      // ← Send user to email verification page instead of home
+      navigate("/verify-email");
     } catch {
       // handled in AuthContext
     } finally {
