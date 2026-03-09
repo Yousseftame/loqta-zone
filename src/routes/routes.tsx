@@ -38,7 +38,9 @@ import Home from "@/pages/Home/Home";
 import HowItWork from "@/pages/HowItWork/HowItWork";
 import NotFound from "@/pages/NotFound/NotFound";
 import TermsAndConditions from "@/pages/TermsAndConditions/TermsAndConditions";
+import MyBids from "@/pages/User/Bids/MyBids";
 import MyProfile from "@/pages/User/Profile/MyProfile";
+import ChangePassword from "@/pages/User/Settings/ChangePassword";
 import { createBrowserRouter } from "react-router-dom";
 
 export const routes = createBrowserRouter([
@@ -113,7 +115,11 @@ export const routes = createBrowserRouter([
       { path: "aboutUs", element: <AboutUs /> },
       { path: "terms", element: <TermsAndConditions /> },
       { path: "contact", element: <Contact /> },
+
+      // profile bids
       { path: "my-profile", element: <MyProfile /> },
+      { path: "my-bids", element: <MyBids /> },
+      { path: "change-password", element: <ChangePassword /> },
 
       // ── Auth-protected auction routes ────────────────────────────────────
       // Unauthenticated users are redirected to /login with ?redirect= so they
