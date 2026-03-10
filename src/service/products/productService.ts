@@ -33,6 +33,7 @@ function docToProduct(id: string, data: Record<string, any>): Product {
     category: data.category ?? "",
     description: data.description ?? "",
     price: data.price ?? 0,
+    actualPrice: data.actualPrice ?? 0,   // new field — defaults to 0 for legacy docs
     quantity: data.quantity ?? 0,
     isActive: data.isActive ?? true,
     isArchived: data.isArchived ?? false,
@@ -62,15 +63,23 @@ async function deleteImageByUrl(url: string): Promise<void> {
   }
 }
 
+// ─── Safe numeric parser ──────────────────────────────────────────────────────
+// Trims whitespace and parses the FULL string — avoids partial-value bugs
+// from controlled inputs that fire onChange mid-keystroke.
+function parseNum(val: string): number {
+  const trimmed = String(val).trim();
+  const n = Number(trimmed);
+  return isNaN(n) ? 0 : n;
+}
+
 // ─── FETCH ALL ────────────────────────────────────────────────────────────────
 
 export async function fetchProducts(): Promise<Product[]> {
   try {
-       const q = query(
+    const q = query(
       collection(db, COLLECTION),
       orderBy("createdAt", "desc")
     );
-
     const snap = await getDocs(q);
     return snap.docs.map((d) => docToProduct(d.id, d.data()));
   } catch (err: any) {
@@ -93,15 +102,20 @@ export async function createProduct(
   formData: ProductFormData,
   createdByUid: string,
 ): Promise<Product> {
-  // 1. Create doc first to get the ID
+  // Use parseNum to avoid partial-value / float precision issues
+  const price = parseNum(formData.price);
+  const actualPrice = parseNum(formData.actualPrice);
+  const quantity = parseNum(formData.quantity);
+
   const payload: Record<string, any> = {
     title: formData.title,
     brand: formData.brand,
     model: formData.model,
     category: formData.category,
     description: formData.description,
-    price: Number(formData.price),
-    quantity: Number(formData.quantity),
+    price,
+    actualPrice,
+    quantity,
     isActive: formData.isActive,
     isArchived: false,
     features: formData.features,
@@ -115,7 +129,7 @@ export async function createProduct(
 
   const docRef = await addDoc(collection(db, COLLECTION), payload);
 
-  // 2. Upload images using the new doc ID
+  // Upload images using the new doc ID
   const uploadedUrls: string[] = [];
   for (const file of formData.newImages) {
     try {
@@ -126,7 +140,6 @@ export async function createProduct(
     }
   }
 
-  // 3. Update doc with images if any were uploaded
   if (uploadedUrls.length > 0) {
     await updateDoc(docRef, {
       images: uploadedUrls,
@@ -134,7 +147,6 @@ export async function createProduct(
     });
   }
 
-  // 4. Return locally-built product
   const now = new Date();
   return {
     id: docRef.id,
@@ -143,8 +155,9 @@ export async function createProduct(
     model: formData.model,
     category: formData.category,
     description: formData.description,
-    price: Number(formData.price),
-    quantity: Number(formData.quantity),
+    price,
+    actualPrice,
+    quantity,
     isActive: formData.isActive,
     isArchived: false,
     features: formData.features,
@@ -164,7 +177,11 @@ export async function updateProduct(
   formData: ProductFormData,
   previousImages: string[],
 ): Promise<Product> {
-  // 1. Upload new images
+  const price = parseNum(formData.price);
+  const actualPrice = parseNum(formData.actualPrice);
+  const quantity = parseNum(formData.quantity);
+
+  // Upload new images
   const newUrls: string[] = [];
   for (const file of formData.newImages) {
     try {
@@ -175,10 +192,9 @@ export async function updateProduct(
     }
   }
 
-  // 2. Final image list = kept existing + newly uploaded
   const finalImages = [...formData.existingImages, ...newUrls];
 
-  // 3. Delete removed images from Storage
+  // Delete removed images from Storage
   const removedUrls = previousImages.filter(
     (url) => !formData.existingImages.includes(url),
   );
@@ -186,8 +202,7 @@ export async function updateProduct(
     await deleteImageByUrl(url);
   }
 
-  // 4. Determine thumbnail
-  // If the saved thumbnail was removed or points to a deleted image, fall back to first available
+  // Determine thumbnail
   const thumbnailIsValid =
     formData.thumbnail &&
     formData.thumbnail !== "null" &&
@@ -195,15 +210,15 @@ export async function updateProduct(
 
   const thumbnail = thumbnailIsValid ? formData.thumbnail : (finalImages[0] ?? null);
 
-  // 5. Update Firestore
   await updateDoc(doc(db, COLLECTION, id), {
     title: formData.title,
     brand: formData.brand,
     model: formData.model,
     category: formData.category,
     description: formData.description,
-    price: Number(formData.price),
-    quantity: Number(formData.quantity),
+    price,
+    actualPrice,
+    quantity,
     isActive: formData.isActive,
     features: formData.features,
     images: finalImages,
@@ -211,7 +226,6 @@ export async function updateProduct(
     updatedAt: serverTimestamp(),
   });
 
-  // 6. Return updated product locally
   const now = new Date();
   return {
     id,
@@ -220,14 +234,15 @@ export async function updateProduct(
     model: formData.model,
     category: formData.category,
     description: formData.description,
-    price: Number(formData.price),
-    quantity: Number(formData.quantity),
+    price,
+    actualPrice,
+    quantity,
     isActive: formData.isActive,
     isArchived: false,
     features: formData.features,
     images: finalImages,
     thumbnail,
-    totalAuctions: 0,   // preserved by Firestore — not touched on product update
+    totalAuctions: 0,
     createdAt: new Date(),
     updatedAt: now,
     createdBy: "",

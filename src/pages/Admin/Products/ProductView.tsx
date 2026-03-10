@@ -25,6 +25,8 @@ import {
   Radio,
   Clock,
   CheckCircle2,
+  Lock,
+  TrendingUp,
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { colors, getAvatarColor } from "./products-data";
@@ -60,11 +62,9 @@ export default function ProductView() {
   const [done, setDone] = useState(false);
   const [activeImg, setActiveImg] = useState<string | null>(null);
 
-  // ── Helper: resolve category ID → display name ─────────────────────────────
   const getCategoryName = (categoryId: string): string => {
     if (!categoryId) return "—";
     const found = categories.find((c) => c.id === categoryId);
-    // Falls back to raw value for legacy products that stored the name directly
     return found ? found.name.en : categoryId;
   };
 
@@ -131,6 +131,15 @@ export default function ProductView() {
   }
 
   const inventoryValue = (product.price * product.quantity).toFixed(2);
+
+  // Profit margin (only shown if actualPrice > 0)
+  const margin =
+    product.actualPrice > 0
+      ? (
+          ((product.price - product.actualPrice) / product.actualPrice) *
+          100
+        ).toFixed(1)
+      : null;
 
   return (
     <Box
@@ -260,7 +269,6 @@ export default function ProductView() {
               {[
                 `Brand: ${product.brand}`,
                 `Model: ${product.model}`,
-                // ✅ Resolve category ID → name for display
                 `Category: ${getCategoryName(product.category)}`,
               ].map((tag) => (
                 <span
@@ -315,7 +323,7 @@ export default function ProductView() {
           </Box>
         </Box>
 
-        {/* Stats row */}
+        {/* ── Stats row ── */}
         <Box
           sx={{
             display: "grid",
@@ -325,11 +333,29 @@ export default function ProductView() {
         >
           {[
             {
-              label: "Price",
+              label: "starting Price",
               value: `${product.price.toFixed(2)} EGP`,
               icon: <DollarSign size={16} />,
               color: colors.primary,
+              adminOnly: false,
             },
+            {
+              label: "Cost Price",
+              value:
+                product.actualPrice > 0
+                  ? `${product.actualPrice.toFixed(2)} EGP`
+                  : "—",
+              icon: <Lock size={16} />,
+              color: "#7C3AED",
+              adminOnly: true,
+            },
+            // {
+            //   label: "Margin",
+            //   value: margin !== null ? `${margin}%` : "—",
+            //   icon: <TrendingUp size={16} />,
+            //   color: "#0EA5E9",
+            //   adminOnly: true,
+            // },
             {
               label: "Quantity",
               value:
@@ -338,20 +364,16 @@ export default function ProductView() {
                   : `${product.quantity} units`,
               icon: <Layers size={16} />,
               color: product.quantity === 0 ? colors.error : colors.success,
-            },
-            {
-              label: "Inventory Value",
-              value: `${inventoryValue} EGP`,
-              icon: <DollarSign size={16} />,
-              color: "#7C3AED",
+              adminOnly: false,
             },
             {
               label: "Total Auctions",
               value: product.totalAuctions,
               icon: <Gavel size={16} />,
               color: "#0EA5E9",
+              adminOnly: false,
             },
-          ].map(({ label, value, icon, color }, i) => (
+          ].map(({ label, value, icon, color, adminOnly }, i) => (
             <Box
               key={label}
               sx={{
@@ -361,12 +383,14 @@ export default function ProductView() {
                 gap: 2,
                 borderRight: {
                   xs: i % 2 === 0 ? `1px solid ${colors.border}` : "none",
-                  sm: i < 3 ? `1px solid ${colors.border}` : "none",
+                  sm: i < 4 ? `1px solid ${colors.border}` : "none",
                 },
                 borderBottom: {
-                  xs: i < 2 ? `1px solid ${colors.border}` : "none",
+                  xs: i < 4 ? `1px solid ${colors.border}` : "none",
                   sm: "none",
                 },
+                position: "relative",
+                ...(adminOnly && { bgcolor: "#FFFBEB" }),
               }}
             >
               <Box
@@ -384,18 +408,23 @@ export default function ProductView() {
                 {icon}
               </Box>
               <div>
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: "0.7rem",
-                    color: colors.textMuted,
-                    fontWeight: 600,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.05em",
-                  }}
-                >
-                  {label}
-                </p>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: "0.7rem",
+                      color: colors.textMuted,
+                      fontWeight: 600,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                    }}
+                  >
+                    {label}
+                  </p>
+                  {adminOnly && (
+                    <Lock size={9} style={{ color: colors.textMuted }} />
+                  )}
+                </Box>
                 <p
                   style={{
                     margin: "2px 0 0",
@@ -478,7 +507,7 @@ export default function ProductView() {
                     src={url}
                     alt="thumb"
                     onError={(e: any) => {
-                      e.currentTarget.style.opacity = "0.3";
+                      e.currentTarget.opacity = "0.3";
                     }}
                     sx={{ width: "100%", height: "100%", objectFit: "cover" }}
                   />
@@ -751,89 +780,96 @@ export default function ProductView() {
             gap: 3,
           }}
         >
-          {[
-            {
-              label: "Active",
-              value: (
-                <Chip
-                  label={product.isActive ? "Active" : "Inactive"}
-                  size="small"
-                  sx={{
-                    bgcolor: product.isActive ? "#DCFCE7" : "#FEE2E2",
-                    color: product.isActive ? "#22C55E" : "#EF4444",
-                    fontWeight: 700,
-                  }}
-                />
-              ),
-            },
-            {
-              label: "Category",
-              value: (
-                <span
-                  style={{
-                    fontSize: "0.875rem",
-                    color: colors.textPrimary,
-                    fontWeight: 600,
-                  }}
-                >
-                  {/* ✅ Resolve category ID → name for display */}
-                  {getCategoryName(product.category)}
-                </span>
-              ),
-            },
-            {
-              label: "Date Added",
-              value: (
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <Calendar size={14} style={{ color: colors.textMuted }} />
-                  <span
-                    style={{
-                      fontSize: "0.9rem",
-                      color: colors.textPrimary,
-                      fontWeight: 500,
-                    }}
-                  >
-                    {product.createdAt.toLocaleDateString()}
-                  </span>
-                </Box>
-              ),
-            },
-            {
-              label: "Total Auctions",
-              value: (
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <Gavel size={14} style={{ color: colors.textMuted }} />
-                  <span
-                    style={{
-                      fontSize: "0.9rem",
-                      color: colors.textPrimary,
-                      fontWeight: 700,
-                    }}
-                  >
-                    {linkedAuctions.length}
-                  </span>
-                  {linkedAuctions.length > 0 && (
-                    <span
-                      style={{ fontSize: "0.75rem", color: colors.textMuted }}
-                    >
-                      (
-                      {linkedAuctions.filter((a) => a.status === "live").length}{" "}
-                      live,{" "}
-                      {
-                        linkedAuctions.filter((a) => a.status === "upcoming")
-                          .length
-                      }{" "}
-                      upcoming)
-                    </span>
-                  )}
-                </Box>
-              ),
-            },
-          ].map(({ label, value }) => (
-            <Box key={label}>
+          {/* Active */}
+          <Box>
+            <p
+              style={{
+                margin: "0 0 8px",
+                fontSize: "0.75rem",
+                color: colors.textMuted,
+                fontWeight: 600,
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
+              }}
+            >
+              Active
+            </p>
+            <Chip
+              label={product.isActive ? "Active" : "Inactive"}
+              size="small"
+              sx={{
+                bgcolor: product.isActive ? "#DCFCE7" : "#FEE2E2",
+                color: product.isActive ? "#22C55E" : "#EF4444",
+                fontWeight: 700,
+              }}
+            />
+          </Box>
+
+          {/* Category */}
+          <Box>
+            <p
+              style={{
+                margin: "0 0 8px",
+                fontSize: "0.75rem",
+                color: colors.textMuted,
+                fontWeight: 600,
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
+              }}
+            >
+              Category
+            </p>
+            <span
+              style={{
+                fontSize: "0.875rem",
+                color: colors.textPrimary,
+                fontWeight: 600,
+              }}
+            >
+              {getCategoryName(product.category)}
+            </span>
+          </Box>
+
+          {/* starting Price */}
+          <Box>
+            <p
+              style={{
+                margin: "0 0 8px",
+                fontSize: "0.75rem",
+                color: colors.textMuted,
+                fontWeight: 600,
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
+              }}
+            >
+              starting Price
+            </p>
+            <span
+              style={{
+                fontSize: "0.9rem",
+                color: colors.textPrimary,
+                fontWeight: 700,
+              }}
+            >
+              {product.price.toFixed(2)} EGP
+            </span>
+          </Box>
+
+          {/* Cost / Actual Price — admin only, amber tint */}
+          <Box
+            sx={{
+              bgcolor: "#FFFBEB",
+              borderRadius: 2,
+              p: 1.5,
+              border: "1px solid #FEF3C7",
+            }}
+          >
+            <Box
+              sx={{ display: "flex", alignItems: "center", gap: 0.75, mb: 1 }}
+            >
               <p
                 style={{
-                  margin: "0 0 8px",
+                  margin: 0,
                   fontSize: "0.75rem",
                   color: colors.textMuted,
                   fontWeight: 600,
@@ -841,11 +877,113 @@ export default function ProductView() {
                   letterSpacing: "0.04em",
                 }}
               >
-                {label}
+                Cost Price
               </p>
-              {value}
+              <Lock size={11} style={{ color: colors.textMuted }} />
+              <span
+                style={{
+                  fontSize: "0.6rem",
+                  background: "#F59E0B22",
+                  color: "#B45309",
+                  padding: "1px 6px",
+                  borderRadius: 99,
+                  fontWeight: 700,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                }}
+              >
+                Admin only
+              </span>
             </Box>
-          ))}
+            <span
+              style={{
+                fontSize: "0.9rem",
+                color: colors.textPrimary,
+                fontWeight: 700,
+              }}
+            >
+              {product.actualPrice > 0
+                ? `${product.actualPrice.toFixed(2)} EGP`
+                : "—"}
+            </span>
+            {/* {margin !== null && (
+              <span
+                style={{
+                  marginLeft: 8,
+                  fontSize: "0.78rem",
+                  color: Number(margin) >= 0 ? colors.success : colors.error,
+                  fontWeight: 600,
+                }}
+              >
+                {Number(margin) >= 0 ? "+" : ""}
+                {margin}% margin
+              </span>
+            )} */}
+          </Box>
+
+          {/* Date Added */}
+          <Box>
+            <p
+              style={{
+                margin: "0 0 8px",
+                fontSize: "0.75rem",
+                color: colors.textMuted,
+                fontWeight: 600,
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
+              }}
+            >
+              Date Added
+            </p>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <Calendar size={14} style={{ color: colors.textMuted }} />
+              <span
+                style={{
+                  fontSize: "0.9rem",
+                  color: colors.textPrimary,
+                  fontWeight: 500,
+                }}
+              >
+                {product.createdAt.toLocaleDateString()}
+              </span>
+            </Box>
+          </Box>
+
+          {/* Total Auctions */}
+          <Box>
+            <p
+              style={{
+                margin: "0 0 8px",
+                fontSize: "0.75rem",
+                color: colors.textMuted,
+                fontWeight: 600,
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
+              }}
+            >
+              Total Auctions
+            </p>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <Gavel size={14} style={{ color: colors.textMuted }} />
+              <span
+                style={{
+                  fontSize: "0.9rem",
+                  color: colors.textPrimary,
+                  fontWeight: 700,
+                }}
+              >
+                {linkedAuctions.length}
+              </span>
+              {linkedAuctions.length > 0 && (
+                <span style={{ fontSize: "0.75rem", color: colors.textMuted }}>
+                  ({linkedAuctions.filter((a) => a.status === "live").length}{" "}
+                  live,{" "}
+                  {linkedAuctions.filter((a) => a.status === "upcoming").length}{" "}
+                  upcoming)
+                </span>
+              )}
+            </Box>
+          </Box>
 
           {/* Features */}
           {product.features && product.features.length > 0 && (

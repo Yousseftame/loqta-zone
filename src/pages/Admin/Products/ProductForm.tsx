@@ -12,8 +12,18 @@ import {
   Select,
   MenuItem,
   FormHelperText,
+  InputAdornment,
 } from "@mui/material";
-import { ArrowLeft, Save, Package, Info, Plus, X, Upload } from "lucide-react";
+import {
+  ArrowLeft,
+  Save,
+  Package,
+  Info,
+  Plus,
+  X,
+  Upload,
+  Lock,
+} from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   colors,
@@ -43,6 +53,23 @@ const selectSx = {
   },
 };
 
+// ── Numeric-only input helper ─────────────────────────────────────────────────
+// Accepts digits and a single decimal point only.
+// Using type="text" avoids the browser stepper + mid-keystroke onChange bug
+// that type="number" has (e.g. typing "8000" could fire as "800" then "8000").
+const numericProps = {
+  inputMode: "decimal" as const,
+  pattern: "[0-9]*\\.?[0-9]*",
+};
+
+function sanitizeNumeric(val: string): string {
+  // Allow digits and at most one decimal point
+  const cleaned = val.replace(/[^0-9.]/g, "");
+  const parts = cleaned.split(".");
+  if (parts.length > 2) return parts[0] + "." + parts.slice(1).join("");
+  return cleaned;
+}
+
 export default function ProductForm() {
   const navigate = useNavigate();
   const { id } = useParams<{ id?: string }>();
@@ -59,10 +86,9 @@ export default function ProductForm() {
   const [originalImages, setOriginalImages] = useState<string[]>([]);
   const [newImagePreviews, setNewImagePreviews] = useState<string[]>([]);
 
-  // Active categories only for the dropdown
   const activeCategories = categories.filter((c) => c.isActive);
 
-  // ── Pre-fill on edit ────────────────────────────────────────────────────────
+  // ── Pre-fill on edit ──────────────────────────────────────────────────────
   useEffect(() => {
     if (!isEdit || !id) return;
     (async () => {
@@ -74,9 +100,10 @@ export default function ProductForm() {
           title: p.title,
           brand: p.brand,
           model: p.model,
-          category: p.category, // stored as category ID
+          category: p.category,
           description: p.description,
           price: String(p.price),
+          actualPrice: String(p.actualPrice ?? ""),
           quantity: String(p.quantity),
           isActive: p.isActive,
           features: p.features,
@@ -94,7 +121,14 @@ export default function ProductForm() {
     setErrors((e) => ({ ...e, [key]: "" }));
   };
 
-  // ── Features ───────────────────────────────────────────────────────────────
+  // Numeric field handler — strips non-numeric characters on every keystroke
+  const numField =
+    (key: "price" | "actualPrice" | "quantity") =>
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      field(key, sanitizeNumeric(e.target.value));
+    };
+
+  // ── Features ─────────────────────────────────────────────────────────────
   const addFeature = () => {
     const v = newFeature.trim();
     if (!v) return;
@@ -108,7 +142,7 @@ export default function ProductForm() {
       form.features.filter((_, idx) => idx !== i),
     );
 
-  // ── Images ─────────────────────────────────────────────────────────────────
+  // ── Images ───────────────────────────────────────────────────────────────
   const handleImageFiles = (files: FileList | null) => {
     if (!files) return;
     const newFiles = Array.from(files);
@@ -140,7 +174,7 @@ export default function ProductForm() {
     }));
   };
 
-  // ── Validation ─────────────────────────────────────────────────────────────
+  // ── Validation ────────────────────────────────────────────────────────────
   const validate = () => {
     const e: Record<string, string> = {};
     if (!form.title.trim()) e.title = "Title is required";
@@ -148,18 +182,25 @@ export default function ProductForm() {
     if (!form.model.trim()) e.model = "Model is required";
     if (!form.category.trim()) e.category = "Category is required";
     if (!form.description.trim()) e.description = "Description is required";
-    if (!form.price || isNaN(Number(form.price)) || Number(form.price) < 0)
-      e.price = "Enter a valid price";
-    if (
-      !form.quantity ||
-      isNaN(Number(form.quantity)) ||
-      Number(form.quantity) < 0
-    )
+
+    const priceVal = Number(form.price.trim());
+    if (!form.price.trim() || isNaN(priceVal) || priceVal < 0)
+      e.price = "Enter a valid starting price";
+
+    // actualPrice is optional — only validate if something was entered
+    if (form.actualPrice.trim() !== "") {
+      const apVal = Number(form.actualPrice.trim());
+      if (isNaN(apVal) || apVal < 0) e.actualPrice = "Enter a valid cost price";
+    }
+
+    const qtyVal = Number(form.quantity.trim());
+    if (!form.quantity.trim() || isNaN(qtyVal) || qtyVal < 0)
       e.quantity = "Enter a valid quantity";
+
     return e;
   };
 
-  // ── Save ───────────────────────────────────────────────────────────────────
+  // ── Save ─────────────────────────────────────────────────────────────────
   const handleSave = async () => {
     const e = validate();
     if (Object.keys(e).length) {
@@ -323,7 +364,7 @@ export default function ProductForm() {
             />
           </Box>
 
-          {/* Row 2 — Model + Category Select */}
+          {/* Row 2 — Model + Category */}
           <Box
             sx={{
               display: "grid",
@@ -342,7 +383,6 @@ export default function ProductForm() {
               sx={inputSx}
             />
 
-            {/* ── Category Select — value = category ID ── */}
             <FormControl size="small" fullWidth error={!!errors.category}>
               <InputLabel sx={{ "&.Mui-focused": { color: colors.primary } }}>
                 Category *
@@ -359,18 +399,13 @@ export default function ProductForm() {
                   </MenuItem>
                 )}
                 {activeCategories.map((cat) => (
-                  // ✅ value = cat.id  (stored in Firestore)
-                  // displayed label = cat.name.en + cat.name.ar
                   <MenuItem key={cat.id} value={cat.id}>
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                       <span style={{ fontWeight: 600, fontSize: "0.875rem" }}>
                         {cat.name.en}
                       </span>
                       <span
-                        style={{
-                          fontSize: "0.75rem",
-                          color: colors.textMuted,
-                        }}
+                        style={{ fontSize: "0.75rem", color: colors.textMuted }}
                       >
                         — {cat.name.ar}
                       </span>
@@ -399,7 +434,77 @@ export default function ProductForm() {
             </FormControl>
           </Box>
 
-          {/* Row 3 — Price + Quantity */}
+          {/* Row 3 — starting Price + Cost Price (actualPrice) */}
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+              gap: 2.5,
+            }}
+          >
+            {/* starting price — visible to users */}
+            <TextField
+              label="Starting Price (EGP) *"
+              size="small"
+              fullWidth
+              value={form.price}
+              onChange={numField("price")}
+              error={!!errors.price}
+              helperText={errors.price}
+              inputProps={numericProps}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <span
+                      style={{ color: colors.textMuted, fontSize: "0.85rem" }}
+                    >
+                      EGP
+                    </span>
+                  </InputAdornment>
+                ),
+              }}
+              sx={inputSx}
+            />
+
+            {/* Cost / actual price — admin panel only */}
+            <TextField
+              label="Cost Price (EGP) — Admin only"
+              size="small"
+              fullWidth
+              value={form.actualPrice}
+              onChange={numField("actualPrice")}
+              error={!!errors.actualPrice}
+              helperText={
+                errors.actualPrice || "Price you paid for this product"
+              }
+              inputProps={numericProps}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <span
+                      style={{ color: colors.textMuted, fontSize: "0.85rem" }}
+                    >
+                      EGP
+                    </span>
+                  </InputAdornment>
+                ),
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <Lock size={14} style={{ color: colors.textMuted }} />
+                  </InputAdornment>
+                ),
+              }}
+              sx={{
+                ...inputSx,
+                "& .MuiOutlinedInput-root": {
+                  ...inputSx["& .MuiOutlinedInput-root"],
+                  bgcolor: "#FFFBEB",
+                },
+              }}
+            />
+          </Box>
+
+          {/* Row 4 — Quantity */}
           <Box
             sx={{
               display: "grid",
@@ -408,30 +513,19 @@ export default function ProductForm() {
             }}
           >
             <TextField
-              label="Price *"
-              size="small"
-              type="number"
-              fullWidth
-              value={form.price}
-              onChange={(e) => field("price", e.target.value)}
-              error={!!errors.price}
-              helperText={errors.price}
-              sx={inputSx}
-            />
-            <TextField
               label="Quantity *"
               size="small"
-              type="number"
               fullWidth
               value={form.quantity}
-              onChange={(e) => field("quantity", e.target.value)}
+              onChange={numField("quantity")}
               error={!!errors.quantity}
               helperText={errors.quantity}
+              inputProps={numericProps}
               sx={inputSx}
             />
           </Box>
 
-          {/* Row 4 — isActive toggle */}
+          {/* Row 5 — isActive toggle */}
           <Box>
             <FormControlLabel
               control={
@@ -808,7 +902,9 @@ export default function ProductForm() {
               <strong>Note:</strong>{" "}
               {isEdit
                 ? "Any changes you make here will be saved and reflected immediately across the platform."
-                : "Once you submit, the product will be live and visible based on its active status."}
+                : "Once you submit, the product will be live and visible based on its active status."}{" "}
+              The <strong>Cost Price</strong> is only visible to admins and will
+              never be shown to users.
             </p>
           </Box>
         </Box>

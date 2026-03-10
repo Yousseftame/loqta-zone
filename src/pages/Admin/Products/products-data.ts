@@ -7,14 +7,15 @@ export interface Product {
   model: string;
   category: string;
   description: string;
-  price: number;
-  quantity: number;          // single quantity field
+  price: number;        // selling / auction start price (visible everywhere)
+  actualPrice: number;  // cost price — admin panel only
+  quantity: number;
   isActive: boolean;
   isArchived: boolean;
   features: string[];
   images: string[];
   thumbnail: string | null;
-  totalAuctions: number;        // auto-managed — incremented/decremented by auctionService
+  totalAuctions: number;
   createdAt: Date;
   updatedAt: Date;
   createdBy: string;
@@ -26,8 +27,9 @@ export interface ProductFormData {
   model: string;
   category: string;
   description: string;
-  price: string;
-  quantity: string;          // single quantity field
+  price: string;        // selling price
+  actualPrice: string;  // cost price (admin only)
+  quantity: string;
   isActive: boolean;
   features: string[];
   newImages: File[];
@@ -72,6 +74,7 @@ export const DEFAULT_FORM_DATA: ProductFormData = {
   category: "",
   description: "",
   price: "",
+  actualPrice: "",
   quantity: "",
   isActive: true,
   features: [],
