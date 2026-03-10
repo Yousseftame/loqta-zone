@@ -31,6 +31,8 @@ import {
   type Voucher,
   getVoucherStatusLabel,
   getVoucherStatusStyle,
+  getVoucherTypeLabel,
+  getVoucherTypeStyle,
   getUsageCount,
 } from "./voucher-data";
 import { useVouchers } from "@/store/AdminContext/VoucherContext/VoucherContext";
@@ -102,8 +104,14 @@ export default function VoucherView() {
 
   const statusLabel = getVoucherStatusLabel(voucher);
   const statusStyle = getVoucherStatusStyle(statusLabel);
+  const typeLabel = getVoucherTypeLabel(voucher.type);
+  const typeStyle = getVoucherTypeStyle(voucher.type);
   const usageCount = getUsageCount(voucher);
   const usagePct = Math.min((usageCount / voucher.maxUses) * 100, 100);
+
+  // Whether this type stores a discountAmount
+  const hasAmount =
+    voucher.type === "discount" || voucher.type === "entry_discount";
 
   // Resolve linked products
   const linkedProducts = products.filter((p) =>
@@ -141,7 +149,7 @@ export default function VoucherView() {
         Back to Vouchers
       </Button>
 
-      {/* Hero Card */}
+      {/* ── Hero Card ── */}
       <Paper
         elevation={0}
         sx={{
@@ -215,9 +223,7 @@ export default function VoucherView() {
             </Box>
             <Box sx={{ display: "flex", gap: 1, mt: 0.5, flexWrap: "wrap" }}>
               {[
-                voucher.type === "join"
-                  ? "Join / Entry"
-                  : "Final Price Discount",
+                typeLabel,
                 voucher.isActive ? "Active" : "Inactive",
                 `${usageCount} / ${voucher.maxUses} uses`,
               ].map((tag) => (
@@ -238,7 +244,6 @@ export default function VoucherView() {
             </Box>
           </Box>
 
-          {/* Actions */}
           <Box sx={{ display: "flex", gap: 1.5, flexShrink: 0 }}>
             <Button
               startIcon={<Edit size={16} />}
@@ -285,19 +290,22 @@ export default function VoucherView() {
           {[
             {
               label: "Type",
-              value:
-                voucher.type === "join" ? "Join / Entry" : "Final Discount",
+              value: typeLabel,
               icon: <Tag size={16} />,
-              color: voucher.type === "join" ? "#3B82F6" : "#7C3AED",
+              color: typeStyle.color,
             },
             {
-              label: "Discount",
+              label: hasAmount
+                ? voucher.type === "entry_discount"
+                  ? "Entry Discount"
+                  : "Final Discount"
+                : "Discount",
               value:
-                voucher.type === "discount" && voucher.discountAmount != null
+                hasAmount && voucher.discountAmount != null
                   ? `${voucher.discountAmount} EGP`
                   : "—",
               icon: <ShieldCheck size={16} />,
-              color: "#7C3AED",
+              color: typeStyle.color,
             },
             {
               label: "Total Uses",
@@ -375,7 +383,7 @@ export default function VoucherView() {
         </Box>
       </Paper>
 
-      {/* Details + Usage progress */}
+      {/* ── Details + Usage grid ── */}
       <Box
         sx={{
           display: "grid",
@@ -451,30 +459,30 @@ export default function VoucherView() {
                 label: "Type",
                 value: (
                   <Chip
-                    label={
-                      voucher.type === "join"
-                        ? "Join / Entry"
-                        : "Final Price Discount"
-                    }
+                    label={typeLabel}
                     size="small"
                     sx={{
-                      bgcolor: voucher.type === "join" ? "#EFF6FF" : "#F3E8FF",
-                      color: voucher.type === "join" ? "#3B82F6" : "#7C3AED",
+                      bgcolor: typeStyle.bg,
+                      color: typeStyle.color,
                       fontWeight: 700,
                     }}
                   />
                 ),
               },
-              ...(voucher.type === "discount" && voucher.discountAmount != null
+              // Show discount amount row for both "discount" and "entry_discount"
+              ...(hasAmount && voucher.discountAmount != null
                 ? [
                     {
-                      label: "Discount Amount",
+                      label:
+                        voucher.type === "entry_discount"
+                          ? "Entry Fee Discount"
+                          : "Final Price Discount",
                       value: (
                         <span
                           style={{
                             fontWeight: 700,
                             fontSize: "1rem",
-                            color: "#7C3AED",
+                            color: typeStyle.color,
                           }}
                         >
                           {voucher.discountAmount} EGP
@@ -486,12 +494,7 @@ export default function VoucherView() {
               {
                 label: "Max Uses",
                 value: (
-                  <span
-                    style={{
-                      fontWeight: 700,
-                      color: colors.textPrimary,
-                    }}
-                  >
+                  <span style={{ fontWeight: 700, color: colors.textPrimary }}>
                     {voucher.maxUses}
                   </span>
                 ),
@@ -769,7 +772,7 @@ export default function VoucherView() {
                           color: colors.textMuted,
                         }}
                       >
-                        {p.brand} · {p.category}
+                        {p.brand} · {p.model}
                       </p>
                     </div>
                     <Chip
@@ -785,7 +788,7 @@ export default function VoucherView() {
                     />
                   </Box>
                 ))}
-                {/* Show IDs for products not found in context */}
+                {/* IDs not found in context */}
                 {voucher.applicableProducts
                   .filter((pid) => !products.find((p) => p.id === pid))
                   .map((pid) => (
@@ -815,7 +818,7 @@ export default function VoucherView() {
         </Paper>
       </Box>
 
-      {/* Used By Card */}
+      {/* ── Used By ── */}
       <Paper
         elevation={0}
         sx={{
@@ -956,7 +959,7 @@ export default function VoucherView() {
         )}
       </Paper>
 
-      {/* Delete Dialog */}
+      {/* ── Delete Dialog ── */}
       <Dialog
         open={deleteDialog}
         onClose={() => !deleting && setDeleteDialog(false)}

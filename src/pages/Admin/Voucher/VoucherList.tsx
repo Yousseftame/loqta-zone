@@ -30,7 +30,6 @@ import {
   Ticket,
   RefreshCw,
   CheckCircle2,
-  XCircle,
   Clock,
   Users,
   Tag,
@@ -41,6 +40,8 @@ import {
   type Voucher,
   getVoucherStatusLabel,
   getVoucherStatusStyle,
+  getVoucherTypeLabel,
+  getVoucherTypeStyle,
   getUsageCount,
 } from "./voucher-data";
 import { useVouchers } from "@/store/AdminContext/VoucherContext/VoucherContext";
@@ -93,6 +94,9 @@ export default function VouchersList() {
   ).length;
   const joinCount = vouchers.filter((v) => v.type === "join").length;
   const discountCount = vouchers.filter((v) => v.type === "discount").length;
+  const entryDiscountCount = vouchers.filter(
+    (v) => v.type === "entry_discount",
+  ).length;
 
   const paginated = filtered.slice(
     page * rowsPerPage,
@@ -222,18 +226,22 @@ export default function VouchersList() {
         </Box>
       </Box>
 
-      {/* Stats */}
+      {/* Stats — now 6 cards */}
       <Box
         sx={{
           display: "grid",
           gap: 2,
-          gridTemplateColumns: { xs: "1fr 1fr", sm: "repeat(5, 1fr)" },
+          gridTemplateColumns: {
+            xs: "1fr 1fr",
+            sm: "repeat(3, 1fr)",
+            md: "repeat(6, 1fr)",
+          },
           mb: 4,
         }}
       >
         {[
           {
-            label: "Total Vouchers",
+            label: "Total",
             value: vouchers.length,
             icon: <Ticket size={20} />,
           },
@@ -242,19 +250,16 @@ export default function VouchersList() {
             value: activeCount,
             icon: <CheckCircle2 size={20} />,
           },
+          { label: "Expired", value: expiredCount, icon: <Clock size={20} /> },
+          { label: "Join / Entry", value: joinCount, icon: <Tag size={20} /> },
           {
-            label: "Expired",
-            value: expiredCount,
-            icon: <Clock size={20} />,
-          },
-          {
-            label: "Join Type",
-            value: joinCount,
+            label: "Final Discount",
+            value: discountCount,
             icon: <Tag size={20} />,
           },
           {
-            label: "FINAL Price Type",
-            value: discountCount,
+            label: "Entry Discount",
+            value: entryDiscountCount,
             icon: <Tag size={20} />,
           },
         ].map(({ label, value, icon }) => (
@@ -433,6 +438,7 @@ export default function VouchersList() {
                 paginated.map((voucher) => {
                   const statusLabel = getVoucherStatusLabel(voucher);
                   const statusStyle = getVoucherStatusStyle(statusLabel);
+                  const typeStyle = getVoucherTypeStyle(voucher.type);
                   const usageCount = getUsageCount(voucher);
 
                   return (
@@ -464,17 +470,11 @@ export default function VouchersList() {
                       {/* Type */}
                       <TableCell>
                         <Chip
-                          label={
-                            voucher.type === "join"
-                              ? "Join / Entry"
-                              : "Final Discount"
-                          }
+                          label={getVoucherTypeLabel(voucher.type)}
                           size="small"
                           sx={{
-                            bgcolor:
-                              voucher.type === "join" ? "#EFF6FF" : "#F3E8FF",
-                            color:
-                              voucher.type === "join" ? "#3B82F6" : "#7C3AED",
+                            bgcolor: typeStyle.bg,
+                            color: typeStyle.color,
                             fontWeight: 700,
                             fontSize: "0.7rem",
                           }}
@@ -483,12 +483,13 @@ export default function VouchersList() {
 
                       {/* Discount */}
                       <TableCell>
-                        {voucher.type === "discount" &&
+                        {(voucher.type === "discount" ||
+                          voucher.type === "entry_discount") &&
                         voucher.discountAmount != null ? (
                           <span
                             style={{
                               fontWeight: 700,
-                              color: "#7C3AED",
+                              color: typeStyle.color,
                               fontSize: "0.9rem",
                             }}
                           >
@@ -727,12 +728,7 @@ export default function VouchersList() {
         <DialogContent>
           <p style={{ color: colors.textPrimary, marginBottom: 16 }}>
             Are you sure you want to delete voucher{" "}
-            <strong
-              style={{
-                fontFamily: "monospace",
-                color: colors.primary,
-              }}
-            >
+            <strong style={{ fontFamily: "monospace", color: colors.primary }}>
               {voucherToDelete?.code}
             </strong>
             ? This action cannot be undone.

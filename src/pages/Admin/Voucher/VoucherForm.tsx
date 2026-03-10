@@ -15,6 +15,7 @@ import {
   FormHelperText,
   Select,
   MenuItem,
+  InputAdornment,
 } from "@mui/material";
 import { ArrowLeft, Save, Ticket, Info, RefreshCw } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -22,6 +23,7 @@ import { colors } from "../Products/products-data";
 import {
   DEFAULT_VOUCHER_FORM,
   toDatetimeLocal,
+  getVoucherTypeLabel,
   type VoucherFormData,
   type VoucherType,
 } from "./voucher-data";
@@ -55,6 +57,41 @@ function generateCode(): string {
   ).join("");
 }
 
+// The 3 voucher type definitions
+const VOUCHER_TYPES: {
+  value: VoucherType;
+  label: string;
+  desc: string;
+  accentBg: string;
+  accentBorder: string;
+  accentText: string;
+}[] = [
+  {
+    value: "join",
+    label: "Join / Entry",
+    desc: "Allows the user to enter an auction for free — entry fee is fully waived.",
+    accentBg: "#EFF6FF",
+    accentBorder: "#BFDBFE",
+    accentText: "#3B82F6",
+  },
+  {
+    value: "discount",
+    label: "Final Price Discount",
+    desc: "Deducts a fixed amount (EGP) from the user's final winning bid price.",
+    accentBg: "#F3E8FF",
+    accentBorder: "#DDD6FE",
+    accentText: "#7C3AED",
+  },
+  {
+    value: "entry_discount",
+    label: "Entry Fee Discount",
+    desc: "Deducts a fixed amount (EGP) from the auction entry fee the user pays to join.",
+    accentBg: "#FFF7ED",
+    accentBorder: "#FED7AA",
+    accentText: "#EA580C",
+  },
+];
+
 export default function VoucherForm() {
   const navigate = useNavigate();
   const { id } = useParams<{ id?: string }>();
@@ -67,7 +104,7 @@ export default function VoucherForm() {
   const [saving, setSaving] = useState(false);
   const [loadingVoucher, setLoadingVoucher] = useState(isEdit);
 
-  // Pre-fill on edit
+  // ── Pre-fill on edit ──────────────────────────────────────────────────────
   useEffect(() => {
     if (!isEdit || !id) return;
     (async () => {
@@ -94,28 +131,38 @@ export default function VoucherForm() {
     setErrors((e) => ({ ...e, [key]: "" }));
   };
 
+  // Whether the currently selected type needs a discount amount input
+  const needsAmount =
+    form.type === "discount" || form.type === "entry_discount";
+
+  // ── Validation ────────────────────────────────────────────────────────────
   const validate = () => {
     const e: Record<string, string> = {};
+
     if (!form.code.trim()) e.code = "Voucher code is required";
     else if (!/^[A-Z0-9_-]{3,20}$/i.test(form.code.trim()))
       e.code = "Code must be 3–20 alphanumeric characters (or - _)";
-    if (form.type === "discount") {
+
+    if (needsAmount) {
       if (
         !form.discountAmount ||
         isNaN(Number(form.discountAmount)) ||
         Number(form.discountAmount) <= 0
       )
-        e.discountAmount = "Enter a valid discount amount";
+        e.discountAmount = "Enter a valid discount amount greater than 0";
     }
+
     if (
       !form.maxUses ||
       isNaN(Number(form.maxUses)) ||
       Number(form.maxUses) < 1
     )
       e.maxUses = "Max uses must be at least 1";
+
     if (!form.expiryDate) e.expiryDate = "Expiry date is required";
     else if (new Date(form.expiryDate) <= new Date())
       e.expiryDate = "Expiry date must be in the future";
+
     return e;
   };
 
@@ -154,6 +201,9 @@ export default function VoucherForm() {
       </Box>
     );
   }
+
+  // Derive the active type config for dynamic info banner
+  const activeTypeConfig = VOUCHER_TYPES.find((t) => t.value === form.type)!;
 
   return (
     <Box
@@ -251,7 +301,7 @@ export default function VoucherForm() {
             gap: 3,
           }}
         >
-          {/* Code + generate button */}
+          {/* ── Code + generate ── */}
           <Box
             sx={{
               display: "grid",
@@ -297,83 +347,105 @@ export default function VoucherForm() {
             </Button>
           </Box>
 
-          {/* Voucher Type */}
+          {/* ── Voucher Type — 3 cards ── */}
           <Box>
             <p
               style={{
                 fontSize: "0.75rem",
                 color: colors.textSecondary,
                 fontWeight: 600,
-                marginBottom: 8,
+                marginBottom: 10,
               }}
             >
               Voucher Type *
             </p>
-            <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
-              {(
-                [
-                  {
-                    value: "join",
-                    label: "Join / Entry",
-                    desc: "Allows user to enter an auction without paying the entry fee",
-                  },
-                  {
-                    value: "discount",
-                    label: "Final Price Discount",
-                    desc: "Applies a discount amount to the final auction price",
-                  },
-                ] as { value: VoucherType; label: string; desc: string }[]
-              ).map(({ value, label, desc }) => {
-                const active = form.type === value;
-                return (
-                  <Box
-                    key={value}
-                    onClick={() => {
-                      field("type", value);
-                      if (value === "join") field("discountAmount", "");
-                    }}
-                    sx={{
-                      flex: { xs: "1 1 100%", sm: "1 1 calc(50% - 6px)" },
-                      p: 2,
-                      borderRadius: 2,
-                      cursor: "pointer",
-                      border: `2px solid ${active ? colors.primary : colors.border}`,
-                      background: active ? colors.primaryBg : "#fff",
-                      transition: "all 0.15s",
-                      "&:hover": {
-                        borderColor: colors.primary,
-                        background: colors.primaryBg,
-                      },
-                    }}
-                  >
-                    <p
-                      style={{
-                        margin: 0,
-                        fontWeight: 700,
-                        fontSize: "0.875rem",
-                        color: active ? colors.primary : colors.textPrimary,
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr 1fr" },
+                gap: 1.5,
+              }}
+            >
+              {VOUCHER_TYPES.map(
+                ({
+                  value,
+                  label,
+                  desc,
+                  accentBg,
+                  accentBorder,
+                  accentText,
+                }) => {
+                  const active = form.type === value;
+                  return (
+                    <Box
+                      key={value}
+                      onClick={() => {
+                        field("type", value);
+                        // Clear amount when switching to "join" (no amount needed)
+                        if (value === "join") field("discountAmount", "");
+                      }}
+                      sx={{
+                        p: 2,
+                        borderRadius: 2,
+                        cursor: "pointer",
+                        border: `2px solid ${active ? accentBorder : colors.border}`,
+                        background: active ? accentBg : "#fff",
+                        transition: "all 0.15s",
+                        "&:hover": {
+                          borderColor: accentBorder,
+                          background: accentBg,
+                        },
                       }}
                     >
-                      {label}
-                    </p>
-                    <p
-                      style={{
-                        margin: "4px 0 0",
-                        fontSize: "0.78rem",
-                        color: colors.textSecondary,
-                        lineHeight: 1.4,
-                      }}
-                    >
-                      {desc}
-                    </p>
-                  </Box>
-                );
-              })}
+                      {/* Type pill */}
+                      <Box
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 1,
+                          mb: 0.75,
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            width: 10,
+                            height: 10,
+                            borderRadius: "50%",
+                            bgcolor: active ? accentText : colors.border,
+                            flexShrink: 0,
+                            transition: "background 0.15s",
+                          }}
+                        />
+                        <p
+                          style={{
+                            margin: 0,
+                            fontWeight: 700,
+                            fontSize: "0.875rem",
+                            color: active ? accentText : colors.textPrimary,
+                          }}
+                        >
+                          {label}
+                        </p>
+                      </Box>
+                      <p
+                        style={{
+                          margin: 0,
+                          fontSize: "0.78rem",
+                          color: colors.textSecondary,
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        {desc}
+                      </p>
+                    </Box>
+                  );
+                },
+              )}
             </Box>
           </Box>
 
-          {/* Discount Amount — only for discount type */}
-          {form.type === "discount" && (
+          {/* ── Discount Amount — shown for "discount" and "entry_discount" ── */}
+          {needsAmount && (
             <Box
               sx={{
                 display: "grid",
@@ -382,23 +454,51 @@ export default function VoucherForm() {
               }}
             >
               <TextField
-                label="Discount Amount (EGP) *"
+                label={
+                  form.type === "discount"
+                    ? "Final Price Discount (EGP) *"
+                    : "Entry Fee Discount (EGP) *"
+                }
                 size="small"
-                type="number"
                 fullWidth
                 value={form.discountAmount}
-                onChange={(e) => field("discountAmount", e.target.value)}
+                onChange={(e) => {
+                  // Allow only numeric input
+                  const val = e.target.value.replace(/[^0-9.]/g, "");
+                  field("discountAmount", val);
+                }}
                 error={!!errors.discountAmount}
                 helperText={
                   errors.discountAmount ||
-                  "Amount deducted from the final auction price"
+                  (form.type === "discount"
+                    ? "Amount deducted from the final auction price"
+                    : "Amount deducted from the auction entry fee")
                 }
-                sx={inputSx}
+                inputProps={{ inputMode: "decimal" }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <span
+                        style={{ color: colors.textMuted, fontSize: "0.85rem" }}
+                      >
+                        EGP
+                      </span>
+                    </InputAdornment>
+                  ),
+                }}
+                sx={{
+                  ...inputSx,
+                  "& .MuiOutlinedInput-root": {
+                    ...inputSx["& .MuiOutlinedInput-root"],
+                    bgcolor:
+                      form.type === "entry_discount" ? "#FFF7ED" : "#F3E8FF22",
+                  },
+                }}
               />
             </Box>
           )}
 
-          {/* Applicable Products */}
+          {/* ── Applicable Products ── */}
           <FormControl
             size="small"
             fullWidth
@@ -423,9 +523,9 @@ export default function VoucherForm() {
               renderValue={(selected) => {
                 if (selected.length === 0) return "All products";
                 return selected
-                  .map((id) => {
-                    const p = products.find((pr) => pr.id === id);
-                    return p ? p.title : id;
+                  .map((sid) => {
+                    const p = products.find((pr) => pr.id === sid);
+                    return p ? p.title : sid;
                   })
                   .join(", ");
               }}
@@ -482,20 +582,21 @@ export default function VoucherForm() {
                 ))
               )}
             </Select>
-            {form.applicableProducts.length > 0 && (
+            {form.applicableProducts.length > 0 ? (
               <FormHelperText sx={{ color: colors.textSecondary }}>
                 {form.applicableProducts.length} product
-                {form.applicableProducts.length > 1 ? "s" : ""} selected
+                {form.applicableProducts.length > 1 ? "s" : ""} selected —
+                voucher will only apply to these
               </FormHelperText>
-            )}
-            {!form.applicableProducts.length && (
+            ) : (
               <FormHelperText sx={{ color: colors.textMuted }}>
-                Leave empty to apply to all products
+                No products selected — this voucher applies to{" "}
+                <strong>all products</strong>
               </FormHelperText>
             )}
           </FormControl>
 
-          {/* Max Uses + Expiry */}
+          {/* ── Max Uses + Expiry ── */}
           <Box
             sx={{
               display: "grid",
@@ -532,7 +633,7 @@ export default function VoucherForm() {
             />
           </Box>
 
-          {/* Active Toggle */}
+          {/* ── Active Toggle ── */}
           <Box>
             <FormControlLabel
               control={
@@ -563,36 +664,48 @@ export default function VoucherForm() {
             />
           </Box>
 
-          {/* Info banner */}
+          {/* ── Info banner — updates dynamically with type ── */}
           <Box
             sx={{
               display: "flex",
               alignItems: "flex-start",
               gap: 1.5,
-              bgcolor: colors.primaryBg,
-              border: `1px solid ${colors.primaryRing}`,
+              bgcolor: activeTypeConfig.accentBg,
+              border: `1px solid ${activeTypeConfig.accentBorder}`,
               borderRadius: 2,
               p: 2,
             }}
           >
             <Info
               size={16}
-              style={{ color: colors.primary, flexShrink: 0, marginTop: 2 }}
+              style={{
+                color: activeTypeConfig.accentText,
+                flexShrink: 0,
+                marginTop: 2,
+              }}
             />
             <p
               style={{
                 fontSize: "0.85rem",
-                color: colors.primaryDark,
+                color: activeTypeConfig.accentText,
                 margin: 0,
               }}
             >
-              <strong>Note:</strong>{" "}
-              {form.type === "join"
-                ? "A Join voucher allows users to enter a paid auction without paying the entry fee."
-                : "A Final Price Discount voucher deducts the specified amount from the user's final bid price."}{" "}
+              <strong>
+                {form.type === "join" && "Join / Entry voucher:"}
+                {form.type === "discount" && "Final Price Discount voucher:"}
+                {form.type === "entry_discount" &&
+                  "Entry Fee Discount voucher:"}
+              </strong>{" "}
+              {form.type === "join" &&
+                "Users can join a paid auction for free — the full entry fee is waived."}
+              {form.type === "discount" &&
+                `Users get ${form.discountAmount ? form.discountAmount + " EGP" : "a set amount"} deducted from their final winning bid price.`}
+              {form.type === "entry_discount" &&
+                `Users get ${form.discountAmount ? form.discountAmount + " EGP" : "a set amount"} deducted from the auction entry fee when they join.`}{" "}
               {form.applicableProducts.length === 0
-                ? "This voucher will be valid for all products."
-                : `This voucher is restricted to ${form.applicableProducts.length} selected product(s).`}
+                ? "Applies to all products."
+                : `Restricted to ${form.applicableProducts.length} selected product(s).`}
             </p>
           </Box>
         </Box>

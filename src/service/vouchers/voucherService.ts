@@ -12,14 +12,17 @@ import {
   orderBy,
 } from "firebase/firestore";
 import { db } from "@/firebase/firebase";
-import type { Voucher, VoucherFormData, UsedByEntry } from "@/pages/Admin/Voucher/voucher-data";
+import type {
+  Voucher,
+  VoucherFormData,
+  UsedByEntry,
+} from "@/pages/Admin/Voucher/voucher-data";
 
 const COLLECTION = "vouchers";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function docToVoucher(id: string, data: Record<string, any>): Voucher {
-  // Normalize usedBy — each entry may be a plain object with a Timestamp usedAt
   const usedBy: UsedByEntry[] = Array.isArray(data.usedBy)
     ? data.usedBy.map((entry: any) => ({
         userId: entry.userId ?? "",
@@ -58,12 +61,16 @@ function docToVoucher(id: string, data: Record<string, any>): Voucher {
   };
 }
 
+// discountAmount is stored for both "discount" (final price) and "entry_discount" (entry fee)
 function formToPayload(formData: VoucherFormData, createdBy = "") {
+  const needsAmount =
+    formData.type === "discount" || formData.type === "entry_discount";
+
   return {
     code: formData.code.trim().toUpperCase(),
     type: formData.type,
     discountAmount:
-      formData.type === "discount" && formData.discountAmount
+      needsAmount && formData.discountAmount
         ? Number(formData.discountAmount)
         : null,
     applicableProducts: formData.applicableProducts,
@@ -77,12 +84,11 @@ function formToPayload(formData: VoucherFormData, createdBy = "") {
 // ─── FETCH ALL ────────────────────────────────────────────────────────────────
 
 export async function fetchVouchers(): Promise<Voucher[]> {
-    const q = query(
-      collection(db, COLLECTION),
-      orderBy("createdAt", "desc")
-    );
-
-    const snap = await getDocs(q);
+  const q = query(
+    collection(db, COLLECTION),
+    orderBy("createdAt", "desc"),
+  );
+  const snap = await getDocs(q);
   return snap.docs.map((d) => docToVoucher(d.id, d.data()));
 }
 
@@ -108,18 +114,19 @@ export async function createVoucher(
   };
 
   const docRef = await addDoc(collection(db, COLLECTION), payload);
-
   const saved = await fetchVoucher(docRef.id);
   if (saved) return saved;
 
   // Fallback
+  const needsAmount =
+    formData.type === "discount" || formData.type === "entry_discount";
   const now = new Date();
   return {
     id: docRef.id,
     code: formData.code.trim().toUpperCase(),
     type: formData.type,
     discountAmount:
-      formData.type === "discount" && formData.discountAmount
+      needsAmount && formData.discountAmount
         ? Number(formData.discountAmount)
         : null,
     applicableProducts: formData.applicableProducts,
@@ -145,17 +152,18 @@ export async function updateVoucher(
   };
 
   await updateDoc(doc(db, COLLECTION, id), payload);
-
   const saved = await fetchVoucher(id);
   if (saved) return saved;
 
+  const needsAmount =
+    formData.type === "discount" || formData.type === "entry_discount";
   const now = new Date();
   return {
     id,
     code: formData.code.trim().toUpperCase(),
     type: formData.type,
     discountAmount:
-      formData.type === "discount" && formData.discountAmount
+      needsAmount && formData.discountAmount
         ? Number(formData.discountAmount)
         : null,
     applicableProducts: formData.applicableProducts,
