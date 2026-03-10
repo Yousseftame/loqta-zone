@@ -1,10 +1,16 @@
 /**
  * src/store/AuthContext/AuthContext.tsx
  *
- * Change vs original: logout() now calls removeCurrentDeviceToken()
- * before signing out so the FCM token is pruned from Firestore.
- *
- * Only the logout function is modified — everything else is identical.
+ * Changes vs previous version:
+ *  - logout() now calls unregisterFCMToken() from useFCM.ts instead of
+ *    inline FCM logic. The inline approach called getToken() during logout
+ *    which could generate a brand-new token and then remove that new one,
+ *    leaving all stale tokens behind. The hook-based approach reads from
+ *    sessionStorage (the exact token registered for this tab) so the right
+ *    token is always removed.
+ *  - Removed direct firebase/messaging imports — all FCM logic lives in useFCM.ts.
+ *  - Removed VAPID_KEY from this file — only useFCM.ts needs it.
+ *  - Removed useRef import — no longer needed here.
  */
 
 import {
@@ -12,7 +18,6 @@ import {
   useContext,
   useState,
   useEffect,
-  useRef,
   type ReactNode,
 } from "react";
 import {
@@ -24,18 +29,11 @@ import {
   onAuthStateChanged,
   updateProfile,
 } from "firebase/auth";
-import { getMessaging, getToken, deleteToken } from "firebase/messaging";
 import toast from "react-hot-toast";
 import app, { auth, db, storage } from "@/firebase/firebase";
-import {
-  doc,
-  setDoc,
-  getDoc,
-  updateDoc,
-  arrayRemove,
-  serverTimestamp,
-} from "firebase/firestore";
+import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { unregisterFCMToken } from "@/hooks/useFCM";
 
 export type UserRole = "user" | "admin" | "superAdmin";
 
@@ -67,8 +65,6 @@ export const useAuth = () => {
   if (!context) throw new Error("useAuth must be used within an AuthProvider");
   return context;
 };
-
-const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY as string;
 
 const getRoleFromFirestore = async (user: User): Promise<UserRole> => {
   const snap = await getDoc(doc(db, "users", user.uid));
@@ -121,6 +117,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setRole(userRole);
       toast.success("Login successful");
       return { role: userRole };
+      // NOTE: FCM token registration happens automatically via the useFCM()
+      // hook once the user state updates and the hook re-runs.
     } catch (error: any) {
       if (error.message === "Account blocked") throw error;
       const messages: Record<string, string> = {
@@ -176,7 +174,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         isBlocked: false,
         verified: false,
         profileImage: photoURL || null,
-        fcmTokens: [], // ← initialise empty token array
+        fcmTokens: [], // initialise empty — useFCM hook will populate after mount
         totalBids: 0,
         totalWins: 0,
         walletBalance: 0,
@@ -206,21 +204,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // ── LOGOUT ─────────────────────────────────────────────────────────────────
   const logout = async () => {
     try {
-      // Remove this device's FCM token before signing out
+      // Remove this tab's FCM token before signing out.
+      // unregisterFCMToken() reads from sessionStorage (written by useFCM on login)
+      // so it always removes the correct token — not a freshly-generated one.
       if (user) {
-        try {
-          const msg = getMessaging(app);
-          const token = await getToken(msg, { vapidKey: VAPID_KEY });
-          if (token) {
-            await deleteToken(msg);
-            await updateDoc(doc(db, "users", user.uid), {
-              fcmTokens: arrayRemove(token),
-            });
-          }
-        } catch (fcmErr) {
-          // Non-fatal — proceed with logout even if token removal fails
-          console.warn("[FCM] Token removal on logout failed:", fcmErr);
-        }
+        await unregisterFCMToken(user.uid);
       }
 
       await firebaseSignOut(auth);

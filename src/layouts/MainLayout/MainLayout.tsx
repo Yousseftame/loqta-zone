@@ -3,10 +3,12 @@ import Navbar from "@/components/Navbar/Navbar";
 import NavigateTop from "@/components/shared/NavigateTop";
 import NotificationBell from "@/components/shared/Notificationbell";
 import ScrollToTop from "@/components/shared/ScrollToTop";
+import { useFCM } from "@/hooks/useFCM";
 import React from "react";
 import { Outlet } from "react-router-dom";
 
 export default function MainLayout() {
+  useFCM(); 
   return (
     <div>
       <div className="min-h-screen flex flex-col bg-background">

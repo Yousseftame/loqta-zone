@@ -313,16 +313,57 @@ function AuctionOfferRow({
   const [page, setPage] = useState(0);
   const rowsPerPage = 5;
 
+  // ── Row-level summary: loaded on mount so counts/selected show
+  //    in the collapsed row before the user ever expands it.
+  const [summary, setSummary] = useState<{
+    count: number;
+    pendingCount: number;
+    selectedAmount: number | null;
+  }>({ count: 0, pendingCount: 0, selectedAmount: null });
+
   useEffect(() => {
     if (auction.productId)
       fetchProductName(auction.productId).then(setProductName);
   }, [auction.productId]);
 
+  useEffect(() => {
+    let cancelled = false;
+    fetchLastOffersForAuction(auction.id)
+      .then((data) => {
+        if (cancelled) return;
+        const pending = data.filter((o) => o.status === "pending").length;
+        const sel = data.find((o) => o.selectedbyAdmin);
+        setSummary({
+          count: data.length,
+          pendingCount: pending,
+          selectedAmount: sel ? sel.amount : null,
+        });
+        // Pre-populate offers so expanding is instant — no second fetch needed
+        setOffers(data);
+      })
+      .catch(() => {
+        /* non-fatal */
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auction.id]);
+
   const handleExpand = async () => {
+    // Offers are pre-loaded on mount; only re-fetch if somehow empty
     if (!open && offers.length === 0) {
       setLoadingOffers(true);
       try {
-        setOffers(await fetchLastOffersForAuction(auction.id));
+        const data = await fetchLastOffersForAuction(auction.id);
+        setOffers(data);
+        const pending = data.filter((o) => o.status === "pending").length;
+        const sel = data.find((o) => o.selectedbyAdmin);
+        setSummary({
+          count: data.length,
+          pendingCount: pending,
+          selectedAmount: sel ? sel.amount : null,
+        });
       } finally {
         setLoadingOffers(false);
       }
@@ -333,7 +374,15 @@ function AuctionOfferRow({
   const handleRefresh = async () => {
     setLoadingOffers(true);
     try {
-      setOffers(await fetchLastOffersForAuction(auction.id));
+      const data = await fetchLastOffersForAuction(auction.id);
+      setOffers(data);
+      const pending = data.filter((o) => o.status === "pending").length;
+      const sel = data.find((o) => o.selectedbyAdmin);
+      setSummary({
+        count: data.length,
+        pendingCount: pending,
+        selectedAmount: sel ? sel.amount : null,
+      });
     } finally {
       setLoadingOffers(false);
     }
@@ -341,9 +390,19 @@ function AuctionOfferRow({
 
   const handleSaveEdit = async (offerId: string, data: LastOfferUpdateData) => {
     await updateLastOffer(auction.id, offerId, data);
-    setOffers((prev) =>
-      prev.map((o) => (o.id === offerId ? { ...o, ...data } : o)),
-    );
+    setOffers((prev) => {
+      const updated = prev.map((o) =>
+        o.id === offerId ? { ...o, ...data } : o,
+      );
+      const pending = updated.filter((o) => o.status === "pending").length;
+      const sel = updated.find((o) => o.selectedbyAdmin);
+      setSummary({
+        count: updated.length,
+        pendingCount: pending,
+        selectedAmount: sel ? sel.amount : null,
+      });
+      return updated;
+    });
   };
 
   const handleDelete = async () => {
@@ -351,7 +410,17 @@ function AuctionOfferRow({
     setDeleting(true);
     try {
       await deleteLastOffer(auction.id, offerToDelete.id);
-      setOffers((prev) => prev.filter((o) => o.id !== offerToDelete.id));
+      setOffers((prev) => {
+        const updated = prev.filter((o) => o.id !== offerToDelete.id);
+        const pending = updated.filter((o) => o.status === "pending").length;
+        const sel = updated.find((o) => o.selectedbyAdmin);
+        setSummary({
+          count: updated.length,
+          pendingCount: pending,
+          selectedAmount: sel ? sel.amount : null,
+        });
+        return updated;
+      });
       setDeleteDialog(false);
       setOfferToDelete(null);
     } finally {
@@ -378,10 +447,10 @@ function AuctionOfferRow({
     page * rowsPerPage,
     (page + 1) * rowsPerPage,
   );
+  // topOffer used in the expanded panel for highlighting the highest bid
   const topOffer =
     offers.length > 0 ? Math.max(...offers.map((o) => o.amount)) : 0;
-  const selectedOffer = offers.find((o) => o.selectedbyAdmin);
-  const pendingCount = offers.filter((o) => o.status === "pending").length;
+  // summary.pendingCount / summary.selectedAmount used for the collapsed row display
 
   return (
     <>
@@ -461,18 +530,18 @@ function AuctionOfferRow({
             }}
           />
         </TableCell>
-        {/* Offers count */}
+        {/* Offers count — uses summary state, populated on mount */}
         <TableCell>
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
             <span style={{ fontWeight: 700, color: colors.textPrimary }}>
-              {offers.length}
+              {summary.count}
             </span>
             <span style={{ color: colors.textMuted, fontSize: "0.75rem" }}>
               offers
             </span>
-            {pendingCount > 0 && (
+            {summary.pendingCount > 0 && (
               <Chip
-                label={`${pendingCount} pending`}
+                label={`${summary.pendingCount} pending`}
                 size="small"
                 sx={{
                   bgcolor: "#FEF3C7",
@@ -484,9 +553,9 @@ function AuctionOfferRow({
             )}
           </Box>
         </TableCell>
-        {/* Selected offer */}
+        {/* Selected offer — uses summary state, populated on mount */}
         <TableCell>
-          {selectedOffer ? (
+          {summary.selectedAmount !== null ? (
             <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
               <Star size={13} style={{ color: "#F59E0B", fill: "#F59E0B" }} />
               <span
@@ -496,7 +565,7 @@ function AuctionOfferRow({
                   fontSize: "0.85rem",
                 }}
               >
-                {selectedOffer.amount.toLocaleString()} EGP
+                {summary.selectedAmount.toLocaleString()} EGP
               </span>
             </Box>
           ) : (

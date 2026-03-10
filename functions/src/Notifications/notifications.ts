@@ -8,6 +8,13 @@
  *  2. Sends FCM push to all registered tokens on that user's doc
  *  3. Removes dead tokens automatically
  *  4. Stamps notifiedMatchedAt to prevent duplicate notifications
+ *
+ * Key fix vs previous version:
+ *  - Tokens are deduplicated via Set before sending. If a user somehow
+ *    accumulated duplicate token strings, they'll only receive one push.
+ *  - The fcmTokens array itself is also deduplicated and written back to
+ *    Firestore if duplicates were found — self-healing cleanup.
+ *  - Expanded dead-token error codes to catch more Firebase error variants.
  */
 
 import { onDocumentUpdated } from "firebase-functions/v2/firestore";
@@ -17,21 +24,27 @@ import { getMessaging } from "firebase-admin/messaging";
 const db = getFirestore();
 const messaging = getMessaging();
 
-// ─────────────────────────────────────────────────────────────────────────────
+// All FCM error codes that indicate a token is permanently dead
+const DEAD_TOKEN_CODES = new Set([
+  "messaging/invalid-registration-token",
+  "messaging/registration-token-not-registered",
+  "messaging/invalid-argument",
+  "messaging/mismatched-credential",      // token belongs to different project
+  "messaging/invalid-recipient",
+]);
 
 export const onAuctionRequestUpdated = onDocumentUpdated(
   "AuctionRequests/{requestId}",
   async (event) => {
     const before = event.data?.before.data();
-    const after = event.data?.after.data();
+    const after  = event.data?.after.data();
 
     if (!before || !after) return;
 
     const requestId = event.params.requestId;
 
     // ── 1. Guard: status must have just changed TO "matched" ─────────────────
-    const justMatched =
-      before.status !== "matched" && after.status === "matched";
+    const justMatched = before.status !== "matched" && after.status === "matched";
     if (!justMatched) return;
 
     // ── 2. Guard: matchedAuctionId must be present ────────────────────────────
@@ -44,21 +57,19 @@ export const onAuctionRequestUpdated = onDocumentUpdated(
     if (!matchedAuctionId || !userId) {
       console.warn(
         `[notifications] requestId=${requestId}: matched status but ` +
-          `userId or matchedAuctionId missing. Skipping.`,
+        `userId or matchedAuctionId missing. Skipping.`,
       );
       return;
     }
 
     // ── 3. Idempotency guard: only run once even if the document is re-saved ──
     if (after.notifiedMatchedAt) {
-      console.log(
-        `[notifications] requestId=${requestId} already notified — skipping.`,
-      );
+      console.log(`[notifications] requestId=${requestId} already notified — skipping.`);
       return;
     }
 
     const title = "Your requested item is now available! 🎉";
-    const body = `${productName} is now live in auctions. Place your bid now!`;
+    const body  = `${productName} is now live in auctions. Place your bid now!`;
 
     try {
       // ── 4. Write in-app notification ───────────────────────────────────────
@@ -66,100 +77,101 @@ export const onAuctionRequestUpdated = onDocumentUpdated(
         .collection("users")
         .doc(userId)
         .collection("notifications")
-        .doc(); // auto-ID
+        .doc();
 
       await notifRef.set({
-        type: "auction_matched",
+        type:      "auction_matched",
         requestId,
         auctionId: matchedAuctionId,
         title,
-        message: body,
-        isRead: false,
+        message:   body,
+        isRead:    false,
         createdAt: FieldValue.serverTimestamp(),
       });
 
-      console.log(
-        `[notifications] In-app notification created: ` +
-          `uid=${userId} notifId=${notifRef.id}`,
-      );
+      console.log(`[notifications] In-app notification created: uid=${userId} notifId=${notifRef.id}`);
 
-      // ── 5. Send FCM push ───────────────────────────────────────────────────
+      // ── 5. Fetch tokens + deduplicate ──────────────────────────────────────
       const userSnap = await db.collection("users").doc(userId).get();
-      const tokens: string[] = userSnap.exists
+      const rawTokens: string[] = userSnap.exists
         ? (userSnap.data()?.fcmTokens ?? [])
         : [];
 
-      if (tokens.length > 0) {
-        const fcmResponse = await messaging.sendEachForMulticast({
-          tokens,
-          notification: { title, body },
-          data: {
-            type: "auction_matched",
-            requestId,
-            auctionId: matchedAuctionId,
-            productName,
-            url: `/auctions/${matchedAuctionId}`,
-          },
-          webpush: {
-            notification: {
-              title,
-              body,
-              icon: "/loqta-removebg-preview.png",
-              badge: "/loqta-removebg-preview.png",
-              requireInteraction: true,
-            },
-            fcmOptions: { link: `/auctions/${matchedAuctionId}` },
-          },
-        });
+      // Deduplicate: convert to Set, filter empty strings
+      const uniqueTokens = [...new Set(rawTokens.filter((t) => typeof t === "string" && t.length > 0))];
 
-        // ── 6. Prune dead tokens ─────────────────────────────────────────────
-        const deadTokens: string[] = [];
-        fcmResponse.responses.forEach((res, idx) => {
-          if (!res.success) {
-            const code = res.error?.code ?? "";
-            console.warn(`[notifications] FCM failed token[${idx}]: ${code}`);
-            if (
-              [
-                "messaging/invalid-registration-token",
-                "messaging/registration-token-not-registered",
-                "messaging/invalid-argument",
-              ].includes(code)
-            ) {
-              deadTokens.push(tokens[idx]);
-            }
-          }
-        });
-
-        if (deadTokens.length > 0) {
-          await db
-            .collection("users")
-            .doc(userId)
-            .update({ fcmTokens: FieldValue.arrayRemove(...deadTokens) });
-          console.log(
-            `[notifications] Removed ${deadTokens.length} dead token(s) for uid=${userId}`,
-          );
-        }
-
+      // Self-heal: if we found duplicates, write the deduplicated list back
+      if (uniqueTokens.length < rawTokens.length) {
         console.log(
-          `[notifications] FCM sent uid=${userId}: ` +
-            `${fcmResponse.successCount} ok / ${fcmResponse.failureCount} failed`,
+          `[notifications] Found ${rawTokens.length - uniqueTokens.length} duplicate token(s) for uid=${userId} — deduplicating.`,
         );
-      } else {
-        console.log(
-          `[notifications] No FCM tokens for uid=${userId} — push skipped.`,
-        );
+        await db.collection("users").doc(userId).update({ fcmTokens: uniqueTokens });
       }
 
-      // ── 7. Stamp idempotency field so this never runs twice ────────────────
+      if (uniqueTokens.length === 0) {
+        console.log(`[notifications] No FCM tokens for uid=${userId} — push skipped.`);
+        // Still stamp idempotency so we don't retry
+        await event.data!.after.ref.update({ notifiedMatchedAt: FieldValue.serverTimestamp() });
+        return;
+      }
+
+      // ── 6. Send FCM push ───────────────────────────────────────────────────
+      console.log(`[notifications] Sending to ${uniqueTokens.length} unique token(s) for uid=${userId}`);
+
+      const fcmResponse = await messaging.sendEachForMulticast({
+        tokens: uniqueTokens,
+        notification: { title, body },
+        data: {
+          type:        "auction_matched",
+          requestId,
+          auctionId:   matchedAuctionId,
+          productName,
+          url:         `/auctions/${matchedAuctionId}`,
+        },
+        webpush: {
+          notification: {
+            title,
+            body,
+            icon:               "/loqta-removebg-preview.png",
+            badge:              "/loqta-removebg-preview.png",
+            requireInteraction: true,
+          },
+          fcmOptions: { link: `/auctions/${matchedAuctionId}` },
+        },
+      });
+
+      // ── 7. Prune dead tokens ───────────────────────────────────────────────
+      const deadTokens: string[] = [];
+      fcmResponse.responses.forEach((res, idx) => {
+        if (!res.success) {
+          const code = res.error?.code ?? "";
+          console.warn(`[notifications] FCM failed token[${idx}]: ${code}`);
+          if (DEAD_TOKEN_CODES.has(code)) {
+            deadTokens.push(uniqueTokens[idx]);
+          }
+        }
+      });
+
+      if (deadTokens.length > 0) {
+        await db.collection("users").doc(userId).update({
+          fcmTokens: FieldValue.arrayRemove(...deadTokens),
+        });
+        console.log(`[notifications] Pruned ${deadTokens.length} dead token(s) for uid=${userId}`);
+      }
+
+      console.log(
+        `[notifications] FCM result uid=${userId}: ` +
+        `${fcmResponse.successCount} sent / ${fcmResponse.failureCount} failed`,
+      );
+
+      // ── 8. Stamp idempotency field so this never runs twice ────────────────
       await event.data!.after.ref.update({
         notifiedMatchedAt: FieldValue.serverTimestamp(),
       });
+
     } catch (err) {
       // Never re-throw — Cloud Functions would retry and could duplicate the notification
-      console.error(
-        `[notifications] Error for requestId=${requestId}:`,
-        err,
-      );
+      console.error(`[notifications] Error for requestId=${requestId}:`, err);
     }
   },
 );
