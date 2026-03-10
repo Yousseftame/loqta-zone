@@ -21,7 +21,7 @@ import { auth, db } from "@/firebase/firebase";
 import { useNavigate } from "react-router-dom";
 
 // ── Constants ─────────────────────────────────────────────────
-const COOLDOWN = 50;
+const COOLDOWN = 60;
 const POLL_INTERVAL = 3000;
 
 // ── Floating particle (purely decorative) ─────────────────────

@@ -3,7 +3,7 @@ import CurvedLoop from "@/components/CurvedLoop";
 import RotatingText from "@/components/RotatingText";
 import ScrollStack, { ScrollStackItem } from "@/components/ScrollStack";
 import ScrollVelocity from "@/components/ScrollVelocity";
-import Shuffle from "@/components/Shuffle";
+// import Shuffle from "@/components/Shuffle";
 import TrueFocus from "@/components/TrueFocus";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 import VariableProximity from "@/components/VariableProximity";

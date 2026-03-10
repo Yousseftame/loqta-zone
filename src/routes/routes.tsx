@@ -55,11 +55,11 @@ export const routes = createBrowserRouter([
       { path: "forget-password", element: <ForgetPassword /> },
     ],
   },
-  {
-    path: "/verify-email",
-    element: <VerifyEmail />,
-    errorElement: <NotFound />,
-  },
+  // {
+  //   path: "/verify-email",
+  //   element: <VerifyEmail />,
+  //   errorElement: <NotFound />,
+  // },
 
   {
     path: "/admin",

@@ -59,7 +59,7 @@ export const useRegister = () => {
     try {
       await register(firstName, lastName, email, phone, password, profileImage);
       // ← Send user to email verification page instead of home
-      navigate("/verify-email");
+      navigate("/");
     } catch {
       // handled in AuthContext
     } finally {
