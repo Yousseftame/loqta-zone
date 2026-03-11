@@ -117,7 +117,7 @@ const Sidebar = () => {
       id: "Users",
       label: "Users",
       icon: AccountCircleIcon,
-      path: "/admin/#",
+      path: "/admin/users",
     },
     {
       id: "Admins",

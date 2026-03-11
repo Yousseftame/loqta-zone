@@ -4,11 +4,12 @@
  * Handles the full "join auction" flow after simulated payment.
  *
  * Security checks (server-side, before any write):
- *  1. User must be authenticated (caller must pass uid)
+ *  1. User must be authenticated
  *  2. Auction must exist
  *  3. Auction must be isActive === true
- *  4. Auction status must NOT be "ended" (endTime > now)
- *  5. User must NOT already be a Participant in that auction
+ *  4. Auction endTime must be in the future
+ *  5. User must NOT already be a Participant
+ *  6. ✅ NEW: User must NOT be in auctions/{id}/restricted/{uid} subcollection
  *
  * Writes (single atomic batch):
  *  - users/{userId}/auctions/{auctionId}        ← user's participation record
@@ -26,8 +27,6 @@ import {
 } from "firebase/firestore";
 import { db } from "@/firebase/firebase";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 export interface AuctionToJoin {
   id: string;
   entryType: "free" | "paid";
@@ -35,21 +34,16 @@ export interface AuctionToJoin {
 }
 
 export interface JoinResult {
-  joined: string[];   // auction IDs successfully joined
-  skipped: string[];  // auction IDs skipped (already joined or failed security)
-  errors: string[];   // auction IDs that had unexpected errors
+  joined: string[];
+  skipped: string[];
+  errors: string[];
 }
-
-// ─── Simulated payment ID generator ──────────────────────────────────────────
-// Replace this with the real gateway's transaction ID when payment is ready.
 
 function generateSimulatedPaymentId(): string {
   const ts = Date.now().toString(36).toUpperCase();
   const rand = Math.random().toString(36).substring(2, 8).toUpperCase();
   return `SIM_${ts}_${rand}`;
 }
-
-// ─── Security validator (per auction) ────────────────────────────────────────
 
 interface ValidationResult {
   valid: boolean;
@@ -60,7 +54,6 @@ async function validateAuctionJoin(
   auctionId: string,
   userId: string,
 ): Promise<ValidationResult> {
-  // 1. Fetch auction document
   const auctionRef = doc(db, "auctions", auctionId);
   const auctionSnap = await getDoc(auctionRef);
 
@@ -70,12 +63,10 @@ async function validateAuctionJoin(
 
   const data = auctionSnap.data();
 
-  // 2. Must be active
   if (!data.isActive) {
     return { valid: false, reason: "Auction is not active" };
   }
 
-  // 3. Must not be ended — endTime must be in the future
   const endTime: Date =
     data.endTime instanceof Timestamp
       ? data.endTime.toDate()
@@ -85,24 +76,25 @@ async function validateAuctionJoin(
     return { valid: false, reason: "Auction has already ended" };
   }
 
-  // 4. User must not already be a Participant
-  const participantRef = doc(
-    db,
-    "auctions",
-    auctionId,
-    "Participants",
-    userId,
-  );
+  // Check if already a participant
+  const participantRef = doc(db, "auctions", auctionId, "Participants", userId);
   const participantSnap = await getDoc(participantRef);
-
   if (participantSnap.exists()) {
     return { valid: false, reason: "Already joined this auction" };
   }
 
+  // ✅ NEW: Check if user is restricted from this auction
+  const restrictedRef = doc(db, "auctions", auctionId, "restricted", userId);
+  const restrictedSnap = await getDoc(restrictedRef);
+  if (restrictedSnap.exists()) {
+    return {
+      valid: false,
+      reason: "You have been restricted from joining this auction. Please contact support.",
+    };
+  }
+
   return { valid: true };
 }
-
-// ─── Main join function ───────────────────────────────────────────────────────
 
 export async function joinAuctions(
   userId: string,
@@ -113,9 +105,6 @@ export async function joinAuctions(
 
   const result: JoinResult = { joined: [], skipped: [], errors: [] };
 
-  // ── Step 1: Validate all auctions BEFORE writing anything ──────────────────
-  // We validate first so we never do a partial batch write on bad data.
-
   const validAuctions: AuctionToJoin[] = [];
 
   for (const auction of auctions) {
@@ -124,25 +113,24 @@ export async function joinAuctions(
       if (validation.valid) {
         validAuctions.push(auction);
       } else {
-        console.warn(
-          `[joinAuctions] Skipping auction ${auction.id}: ${validation.reason}`,
-        );
+        console.warn(`[joinAuctions] Skipping ${auction.id}: ${validation.reason}`);
         result.skipped.push(auction.id);
+        // Surface restriction error to the UI
+        if (validation.reason?.includes("restricted")) {
+          throw new Error(validation.reason);
+        }
       }
-    } catch (err) {
+    } catch (err: any) {
+      // Re-throw restriction errors so the UI can show them
+      if (err?.message?.includes("restricted")) throw err;
       console.error(`[joinAuctions] Validation error for ${auction.id}:`, err);
       result.errors.push(auction.id);
     }
   }
 
   if (validAuctions.length === 0) {
-    // Nothing to write — return early with skipped/error info
     return result;
   }
-
-  // ── Step 2: Build atomic batch ─────────────────────────────────────────────
-  // Firestore batch limit is 500 ops. Each auction = 3 ops (2 sets + 1 update).
-  // With a realistic max of ~10 auctions per checkout this is always safe.
 
   const batch = writeBatch(db);
   const joinedAt = serverTimestamp();
@@ -151,34 +139,18 @@ export async function joinAuctions(
   for (const auction of validAuctions) {
     const entryFee = auction.entryType === "paid" ? auction.entryFee : 0;
 
-    // ── Write 1: users/{userId}/auctions/{auctionId} ───────────────────────
-    const userAuctionRef = doc(
-      db,
-      "users",
-      userId,
-      "auctions",
-      auction.id,
-    );
-
+    const userAuctionRef = doc(db, "users", userId, "auctions", auction.id);
     batch.set(userAuctionRef, {
       auctionId: auction.id,
-      amount: entryFee,       // entry fee paid to join (0 if free)
+      amount: entryFee,
       hasPaid: true,
       joinedAt,
       paymentId,
-      totalAmount: [],        // bid amounts — populated later when user bids
+      totalAmount: [],
       voucherUsed: false,
     });
 
-    // ── Write 2: auctions/{auctionId}/Participants/{userId} ────────────────
-    const participantRef = doc(
-      db,
-      "auctions",
-      auction.id,
-      "Participants",
-      userId,
-    );
-
+    const participantRef = doc(db, "auctions", auction.id, "Participants", userId);
     batch.set(participantRef, {
       auctionId: auction.id,
       userId,
@@ -188,24 +160,18 @@ export async function joinAuctions(
       voucherUsed: false,
     });
 
-    // ── Write 3: increment auctions/{auctionId}.totalParticipants ──────────
     const auctionRef = doc(db, "auctions", auction.id);
-
     batch.update(auctionRef, {
       totalParticipants: increment(1),
     });
   }
 
-  // ── Step 3: Commit the batch atomically ────────────────────────────────────
   try {
     await batch.commit();
     result.joined = validAuctions.map((a) => a.id);
   } catch (err) {
     console.error("[joinAuctions] Batch commit failed:", err);
-    // If the batch fails, nothing was written — safe to throw
-    throw new Error(
-      "Failed to complete registration. Please try again.",
-    );
+    throw new Error("Failed to complete registration. Please try again.");
   }
 
   return result;

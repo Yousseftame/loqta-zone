@@ -24,7 +24,8 @@ import ProductView from "@/pages/Admin/Products/ProductView";
 import AuctionRequestsList from "@/pages/Admin/RequestSystem/AuctionRequestsList";
 import AuctionRequestView from "@/pages/Admin/RequestSystem/AuctionRequestView";
 import Scheduling from "@/pages/Admin/Scheduling/Scheduling";
-import User from "@/pages/Admin/User/User";
+import UsersList from "@/pages/Admin/User/UsersList";
+import UserView from "@/pages/Admin/User/UserView";
 import VoucherForm from "@/pages/Admin/Voucher/VoucherForm";
 import VouchersList from "@/pages/Admin/Voucher/VoucherList";
 import VoucherView from "@/pages/Admin/Voucher/VoucherView";
@@ -105,8 +106,10 @@ export const routes = createBrowserRouter([
       { path: "participants", element: <ParticipantsList /> },
       { path: "lastoffers", element: <LastOfferList /> },
 
+      { path: "/admin/users",     element: <UsersList /> },
+      { path: "/admin/users/:id", element: <UserView /> },
+
       { path: "scheduling", element: <Scheduling /> },
-      { path: "users", element: <User /> },
       { path: "payment", element: <Payment /> },
     ],
   },

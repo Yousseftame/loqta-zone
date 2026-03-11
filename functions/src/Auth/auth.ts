@@ -1,9 +1,19 @@
 /**
  * auth.ts — Firebase Cloud Functions for auth / role management
  *
- * Functions exported:
- *  1. onUserCreated   — Triggered when a new user registers; sets default custom claim role="user"
- *  2. setUserRole     — Callable function (admin only) to change a user's role
+ * KEY FIX vs previous version:
+ *  - blockUser and deleteUser now verify the caller's role by reading their
+ *    Firestore document (db.collection("users").doc(uid).get()) instead of
+ *    checking request.auth.token.role (JWT custom claim).
+ *
+ *  WHY: Custom claims are embedded in the JWT at login time. They are NOT
+ *  updated automatically when you change a user's role — the user must log out
+ *  and back in to get a new token. This means an admin promoted in Firestore
+ *  but still holding an old JWT token with role="user" would get a 403 on
+ *  every Cloud Function call that checks request.auth.token.role.
+ *
+ *  FIX: Read the role from Firestore server-side inside the function. This is
+ *  always current. Cost: 1 extra Firestore read per call — acceptable for admin ops.
  */
 
 import { onCall, HttpsError } from "firebase-functions/v2/https";
@@ -11,24 +21,27 @@ import { getAuth } from "firebase-admin/auth";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { auth as functionsAuth } from "firebase-functions/v1";
 
-// Make sure admin is initialized (it's shared from index.ts)
 const db = getFirestore();
 const firebaseAuth = getAuth();
 
 type UserRole = "user" | "admin" | "superAdmin";
 
+// ─── Helper: get caller's role from Firestore ─────────────────────────────────
+// This is always current — not stale like JWT claims.
+
+async function getCallerRole(uid: string): Promise<UserRole> {
+  const snap = await db.collection("users").doc(uid).get();
+  if (!snap.exists) return "user";
+  return (snap.data()?.role as UserRole) ?? "user";
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. onUserCreated
-//    Fires when Firebase Auth creates a new user.
-//    Sets custom claim { role: "user" } and ensures Firestore doc exists.
 // ─────────────────────────────────────────────────────────────────────────────
 export const onUserCreated = functionsAuth.user().onCreate(async (user) => {
   try {
-    // Set default custom claim
     await firebaseAuth.setCustomUserClaims(user.uid, { role: "user" });
 
-    // Upsert Firestore doc — the client may have already created it,
-    // but this is a safety net with merge: true
     const userRef = db.collection("users").doc(user.uid);
     await userRef.set(
       {
@@ -49,68 +62,49 @@ export const onUserCreated = functionsAuth.user().onCreate(async (user) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 2. setUserRole  (callable — must be called by an authenticated superAdmin)
-//
-//    Request payload: { targetUid: string; role: UserRole }
-//    - Updates Firebase Auth custom claims
-//    - Updates Firestore users/{targetUid}.role
+// 2. setUserRole  (superAdmin only)
 // ─────────────────────────────────────────────────────────────────────────────
 export const setUserRole = onCall(async (request) => {
-  // 1. Verify caller is authenticated
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "You must be signed in.");
   }
 
-  // 2. Verify caller has superAdmin claim
-  const callerClaims = request.auth.token;
-  if (callerClaims.role !== "superAdmin") {
-    throw new HttpsError(
-      "permission-denied",
-      "Only superAdmins can assign roles."
-    );
+  // Check Firestore role — not JWT claim
+  const callerRole = await getCallerRole(request.auth.uid);
+  if (callerRole !== "superAdmin") {
+    throw new HttpsError("permission-denied", "Only superAdmins can assign roles.");
   }
 
-  // 3. Validate payload
-  const { targetUid, role } = request.data as {
-    targetUid: string;
-    role: UserRole;
-  };
-
+  const { targetUid, role } = request.data as { targetUid: string; role: UserRole };
   const validRoles: UserRole[] = ["user", "admin", "superAdmin"];
+
   if (!targetUid || !validRoles.includes(role)) {
-    throw new HttpsError(
-      "invalid-argument",
-      `targetUid and a valid role (${validRoles.join(", ")}) are required.`
-    );
+    throw new HttpsError("invalid-argument", `targetUid and a valid role are required.`);
   }
 
-  // 4. Set custom claims on Firebase Auth
+  // Update Firebase Auth custom claims
   await firebaseAuth.setCustomUserClaims(targetUid, { role });
 
-  // 5. Update Firestore doc
+  // Update Firestore
   await db.collection("users").doc(targetUid).update({
     role,
     updatedAt: FieldValue.serverTimestamp(),
   });
 
-  console.log(
-    `[setUserRole] uid=${targetUid} role set to "${role}" by superAdmin uid=${request.auth.uid}`
-  );
-
-  return { success: true, message: `Role "${role}" assigned to user ${targetUid}.` };
+  console.log(`[setUserRole] uid=${targetUid} → role="${role}" by uid=${request.auth.uid}`);
+  return { success: true };
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 3. blockUser  (callable — admin or superAdmin)
-//
-//    Request payload: { targetUid: string; isBlocked: boolean }
+// 3. blockUser  (admin or superAdmin — checks Firestore role, not JWT)
 // ─────────────────────────────────────────────────────────────────────────────
 export const blockUser = onCall(async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "You must be signed in.");
   }
 
-  const callerRole = request.auth.token.role as UserRole;
+  // ✅ Read from Firestore — always current, not stale JWT
+  const callerRole = await getCallerRole(request.auth.uid);
   if (callerRole !== "admin" && callerRole !== "superAdmin") {
     throw new HttpsError("permission-denied", "Insufficient permissions.");
   }
@@ -124,7 +118,16 @@ export const blockUser = onCall(async (request) => {
     throw new HttpsError("invalid-argument", "targetUid and isBlocked (boolean) are required.");
   }
 
-  // Disable / enable the Firebase Auth account
+  // Prevent admins from blocking other admins/superAdmins
+  const targetRole = await getCallerRole(targetUid);
+  if (targetRole === "superAdmin" && callerRole !== "superAdmin") {
+    throw new HttpsError("permission-denied", "Admins cannot block superAdmins.");
+  }
+  if (targetRole === "admin" && callerRole === "admin") {
+    throw new HttpsError("permission-denied", "Admins cannot block other admins.");
+  }
+
+  // Disable / enable Firebase Auth account
   await firebaseAuth.updateUser(targetUid, { disabled: isBlocked });
 
   // Update Firestore
@@ -133,9 +136,49 @@ export const blockUser = onCall(async (request) => {
     updatedAt: FieldValue.serverTimestamp(),
   });
 
-  console.log(
-    `[blockUser] uid=${targetUid} isBlocked=${isBlocked} by uid=${request.auth.uid}`
-  );
+  console.log(`[blockUser] uid=${targetUid} isBlocked=${isBlocked} by uid=${request.auth.uid}`);
+  return { success: true };
+});
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 4. deleteUser  (admin or superAdmin — checks Firestore role, not JWT)
+// ─────────────────────────────────────────────────────────────────────────────
+export const deleteUser = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "You must be signed in.");
+  }
+
+  // ✅ Read from Firestore — always current
+  const callerRole = await getCallerRole(request.auth.uid);
+  if (callerRole !== "admin" && callerRole !== "superAdmin") {
+    throw new HttpsError("permission-denied", "Insufficient permissions.");
+  }
+
+  const { targetUid } = request.data as { targetUid: string };
+
+  if (!targetUid) {
+    throw new HttpsError("invalid-argument", "targetUid is required.");
+  }
+
+  // Prevent deleting superAdmins unless you are one
+  const targetRole = await getCallerRole(targetUid);
+  if (targetRole === "superAdmin" && callerRole !== "superAdmin") {
+    throw new HttpsError("permission-denied", "Cannot delete a superAdmin account.");
+  }
+
+  // 1. Delete Firebase Auth account
+  try {
+    await firebaseAuth.deleteUser(targetUid);
+  } catch (err: any) {
+    if (err.code !== "auth/user-not-found") {
+      throw new HttpsError("internal", `Failed to delete Auth account: ${err.message}`);
+    }
+    // user-not-found is fine — continue to delete Firestore doc
+  }
+
+  // 2. Delete Firestore document
+  await db.collection("users").doc(targetUid).delete();
+
+  console.log(`[deleteUser] uid=${targetUid} deleted by uid=${request.auth.uid}`);
   return { success: true };
 });

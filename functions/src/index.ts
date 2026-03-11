@@ -15,7 +15,7 @@ if (!admin.apps.length) {
 setGlobalOptions({ maxInstances: 10 });
 
 // ── Auth / Role management ───────────────────────────────────────────────────
-export { onUserCreated, setUserRole, blockUser } from "./Auth/auth";
+export { onUserCreated, setUserRole, blockUser , deleteUser } from "./Auth/auth";
 
 // ── Notifications ────────────────────────────────────────────────────────────
 export { onAuctionRequestUpdated } from "./Notifications/notifications";
@@ -25,3 +25,4 @@ export { onAuctionRequestUpdated } from "./Notifications/notifications";
 // onBidWritten          — Firestore trigger, handles last-second bid edge case
 // resolveAuctionWinners — Scheduled safety net every 10 min (fallback only)
 export { triggerResolveAuction, onBidWritten, resolveAuctionWinners } from "./Auctions/auctionWinner";
+
