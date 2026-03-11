@@ -41,7 +41,7 @@ import { Link } from "react-router-dom";
 import { db } from "@/firebase/firebase";
 import { useAuth } from "@/store/AuthContext/AuthContext";
 
-// ─── Tokens ──────────────────────────────────────────────────────────────────
+// ─── Tokens ───────────────────────────────────────────────────────────────────
 const GOLD = "#c9a96e";
 const GOLD2 = "#b8944e";
 const CREAM = "rgb(229,224,198)";
@@ -62,7 +62,9 @@ interface UserAuctionEntry {
 }
 
 interface AuctionMeta {
-  title?: string;
+  productName?: string; // resolved: products/{productId}.title
+  productId?: string;
+  auctionNumber?: number; // shown as subtitle "Auction #N"
   imageUrl?: string;
   status?: string;
   endDate?: Timestamp | null;
@@ -74,7 +76,7 @@ interface EnrichedEntry extends UserAuctionEntry {
   meta: AuctionMeta;
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 function formatDate(ts: Timestamp | null | undefined): string {
   if (!ts) return "—";
   const d = ts?.toDate ? ts.toDate() : new Date(ts as any);
@@ -96,7 +98,6 @@ function maxBid(arr: number[]): number {
   return Math.max(...arr);
 }
 
-// Only known statuses — no "Unknown" fallback shown to user
 function getStatusConfig(status?: string) {
   switch (status) {
     case "active":
@@ -124,7 +125,7 @@ function getStatusConfig(status?: string) {
         pulse: false,
       };
     default:
-      return null; // hide badge entirely for unknown
+      return null;
   }
 }
 
@@ -139,8 +140,8 @@ const BidSparkline = ({
   if (!data || data.length < 2) return null;
   const w = 80,
     h = 28;
-  const min = Math.min(...data);
-  const max = Math.max(...data);
+  const min = Math.min(...data),
+    max = Math.max(...data);
   const range = max - min || 1;
   const pts = data
     .map((v, i) => {
@@ -212,9 +213,9 @@ const StatPill = ({
         fontWeight: 700,
         color: "rgba(229,224,198,0.3)",
         letterSpacing: "0.1em",
-        textTransform: "uppercase",
+        textTransform: "uppercase" as const,
         fontFamily: "'Jost',sans-serif",
-        textAlign: "center",
+        textAlign: "center" as const,
       }}
     >
       {label}
@@ -234,6 +235,18 @@ const AuctionCard = ({
   const statusCfg = getStatusConfig(entry.meta.status);
   const highestBid = maxBid(entry.totalAmount);
   const bidCount = entry.totalAmount?.length ?? 0;
+
+  // Display name: product name if resolved, else fallback to "Auction #N" or short ID
+  const displayTitle =
+    entry.meta.productName ||
+    (entry.meta.auctionNumber
+      ? `Auction #${entry.meta.auctionNumber}`
+      : `Auction ${entry.auctionId.slice(0, 8)}…`);
+
+  // Subtitle: auction number if we have it
+  const displaySubtitle = entry.meta.auctionNumber
+    ? `Auction #${entry.meta.auctionNumber}`
+    : null;
 
   return (
     <div
@@ -298,7 +311,7 @@ const AuctionCard = ({
           {entry.meta.imageUrl ? (
             <img
               src={entry.meta.imageUrl}
-              alt={entry.meta.title}
+              alt={displayTitle}
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
             />
           ) : (
@@ -337,6 +350,7 @@ const AuctionCard = ({
             }}
           >
             <div style={{ minWidth: 0 }}>
+              {/* ── Product name as title ── */}
               <h3
                 style={{
                   margin: 0,
@@ -350,21 +364,24 @@ const AuctionCard = ({
                   whiteSpace: "nowrap",
                 }}
               >
-                {entry.meta.title || `Auction #${entry.auctionId.slice(0, 8)}`}
+                {displayTitle}
               </h3>
-              <p
-                style={{
-                  margin: "3px 0 0",
-                  fontSize: 10,
-                  color: "rgba(229,224,198,0.28)",
-                  fontFamily: "'Jost',sans-serif",
-                }}
-              >
-                {entry.auctionId.slice(0, 20)}…
-              </p>
+              {/* ── Auction number as subtitle (only shown if available) ── */}
+              {displaySubtitle && (
+                <p
+                  style={{
+                    margin: "3px 0 0",
+                    fontSize: 10,
+                    color: "rgba(229,224,198,0.28)",
+                    fontFamily: "'Jost',sans-serif",
+                  }}
+                >
+                  {displaySubtitle}
+                </p>
+              )}
             </div>
 
-            {/* Status badge — only rendered for known statuses */}
+            {/* Status badge */}
             {statusCfg && (
               <span
                 style={{
@@ -421,21 +438,7 @@ const AuctionCard = ({
               <Calendar size={10} style={{ opacity: 0.6 }} />
               {formatDate(entry.joinedAt)}
             </span>
-            {entry.meta.category && (
-              <span
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 4,
-                  fontSize: 11,
-                  color: "rgba(229,224,198,0.38)",
-                  fontFamily: "'Jost',sans-serif",
-                }}
-              >
-                <Tag size={10} style={{ opacity: 0.6 }} />
-                {entry.meta.category}
-              </span>
-            )}
+            
             {entry.voucherUsed && (
               <span
                 style={{
@@ -564,7 +567,6 @@ const AuctionCard = ({
                   </span>
                 </div>
               </div>
-
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 {entry.totalAmount.map((bid, i) => {
                   const isMax = bid === highestBid;
@@ -624,7 +626,7 @@ const AuctionCard = ({
             </div>
           )}
 
-          {/* Detail grid */}
+          {/* Detail grid — Auction ID card removed */}
           <div
             style={{
               display: "grid",
@@ -638,12 +640,6 @@ const AuctionCard = ({
                 label: "Payment ID",
                 value: entry.paymentId || "—",
                 color: CREAM,
-              },
-              {
-                icon: Hash,
-                label: "Auction ID",
-                value: entry.auctionId.slice(0, 20) + "…",
-                color: "rgba(229,224,198,0.5)",
               },
               {
                 icon: Calendar,
@@ -827,19 +823,51 @@ export default function MyBids() {
         const enriched: EnrichedEntry[] = await Promise.all(
           raw.map(async (entry) => {
             try {
+              // ── Step 1: fetch auction doc ──────────────────────────────
               const aSnap = await getDoc(doc(db, "auctions", entry.auctionId));
-              const meta: AuctionMeta = aSnap.exists()
-                ? {
-                    title: aSnap.data().title ?? aSnap.data().name ?? undefined,
-                    imageUrl:
-                      aSnap.data().imageUrl ?? aSnap.data().image ?? undefined,
-                    status: aSnap.data().status ?? undefined,
-                    endDate:
-                      aSnap.data().endDate ?? aSnap.data().endTime ?? null,
-                    startingPrice: aSnap.data().startingPrice ?? undefined,
-                    category: aSnap.data().category ?? undefined,
+              if (!aSnap.exists()) return { ...entry, meta: {} };
+
+              const aData = aSnap.data();
+              const productId: string = aData.productId ?? "";
+
+              // ── Step 2: fetch product doc to get the name & image ──────
+              let productName: string | undefined;
+              let imageUrl: string | undefined;
+              let category: string | undefined;
+
+              if (productId) {
+                try {
+                  const pSnap = await getDoc(doc(db, "products", productId));
+                  if (pSnap.exists()) {
+                    const pData = pSnap.data();
+                    productName = pData.title ?? undefined;
+                    // Use product thumbnail/images as the card image
+                    imageUrl =
+                      pData.thumbnail && pData.thumbnail !== "null"
+                        ? pData.thumbnail
+                        : Array.isArray(pData.images) && pData.images.length > 0
+                          ? pData.images[0]
+                          : undefined;
+                    category = pData.category ?? undefined;
                   }
-                : {};
+                } catch {
+                  // product fetch failed — continue with no name
+                }
+              }
+
+              const meta: AuctionMeta = {
+                productName,
+                productId,
+                auctionNumber: aData.auctionNumber ?? undefined,
+                // Fall back to auction-level image if product has none
+                imageUrl:
+                  imageUrl ?? aData.imageUrl ?? aData.image ?? undefined,
+                status: aData.status ?? undefined,
+                endDate: aData.endDate ?? aData.endTime ?? null,
+                startingPrice: aData.startingPrice ?? undefined,
+                category: category ?? aData.category ?? undefined,
+              };
+
               return { ...entry, meta };
             } catch {
               return { ...entry, meta: {} };
@@ -864,7 +892,6 @@ export default function MyBids() {
     (s, e) => s + (e.totalAmount?.length ?? 0),
     0,
   );
-  const activeCount = entries.filter((e) => e.meta.status === "active").length;
   const paidCount = entries.filter((e) => e.hasPaid).length;
 
   if (loading)
@@ -913,35 +940,21 @@ export default function MyBids() {
         @keyframes expandIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
         @keyframes pulse    { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
         @keyframes spin     { to { transform:rotate(360deg); } }
-
         .summary-card {
           background: linear-gradient(135deg, ${NAVY2} 0%, ${DARK} 100%);
           border: 1px solid rgba(201,169,110,0.11);
-          border-radius: 18px;
-          padding: 18px 16px;
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-          position: relative;
-          overflow: hidden;
+          border-radius: 18px; padding: 18px 16px;
+          display: flex; flex-direction: column; gap: 8px;
+          position: relative; overflow: hidden;
           transition: transform 0.25s, box-shadow 0.25s;
         }
         .summary-card:hover {
           transform: translateY(-3px);
           box-shadow: 0 12px 36px rgba(0,0,0,0.5), 0 0 0 1px rgba(201,169,110,0.16);
         }
-        .summary-grid {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 14px;
-          margin-bottom: 20px;
-        }
-        @media (max-width: 600px) {
-          .summary-grid { grid-template-columns: repeat(3, 1fr); gap: 10px; }
-        }
-        @media (max-width: 420px) {
-          .summary-grid { grid-template-columns: 1fr 1fr; }
-        }
+        .summary-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; margin-bottom: 20px; }
+        @media (max-width: 600px) { .summary-grid { gap: 10px; } }
+        @media (max-width: 420px) { .summary-grid { grid-template-columns: 1fr 1fr; } }
       `}</style>
 
       <div

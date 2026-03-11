@@ -2,16 +2,12 @@
  * src/components/shared/Notificationbell.tsx
  *
  * Updated to use real Firestore data via useNotifications().
- * FCM token registration is handled by useFcmToken() called inside here.
+ * FCM token registration is handled by useFCM() in MainLayout — NOT here.
+ * Removed useFcmToken() call: having both useFCM (MainLayout) and useFcmToken
+ * (NotificationBell) active simultaneously caused two onMessage listeners,
+ * resulting in duplicate foreground notification toasts.
  *
- * Changes vs the mock version:
- *  - Replaces MOCK_NOTIFICATIONS with live Firestore data
- *  - Adds "auction_matched" type with Gavel icon
- *  - Clicking an "auction_matched" notification navigates to the auction
- *  - "time" is derived from real createdAt timestamp
- *  - Registers this device for FCM push automatically
- *
- * Everything else (CSS, animations, layout) is 100% identical to your original.
+ * Everything else (CSS, animations, layout) is 100% identical to the original.
  */
 
 import { useState, useEffect, useRef } from "react";
@@ -23,7 +19,6 @@ import {
   type AppNotification,
   type NotificationType,
 } from "@/hooks/useNotifications";
-import { useFcmToken } from "@/hooks/useFcmToken";
 
 // ── Relative time ─────────────────────────────────────────────────────────────
 function timeAgo(date: Date): string {
@@ -92,8 +87,9 @@ export const NotificationBell = () => {
   const { notifications, unreadCount, markRead, markAllRead, dismiss } =
     useNotifications();
 
-  // ── Register this device for FCM push (runs once on mount) ───────────────
-  useFcmToken();
+  // ── FCM token registration is handled by useFCM() in MainLayout ──────────
+  // DO NOT call useFcmToken() here — it creates a second onMessage listener
+  // which causes every foreground push to show two toasts.
 
   // Attract animation while unread notifications exist
   useEffect(() => {
@@ -235,7 +231,6 @@ export const NotificationBell = () => {
           <div className="nf-panel">
             <div className="nf-head">
               <div className="nf-head-left">
-               
                 <span className="nf-head-title">Notifications</span>
                 {unreadCount > 0 && (
                   <span className="nf-new-pill">{unreadCount} NEW </span>
@@ -341,7 +336,6 @@ export const NotificationBell = () => {
               </>
             )}
             <span className="nf-arc" />
-           
             <img
               src="/loqta-removebg-preview.png"
               alt="Loqta Zone"
