@@ -12,6 +12,18 @@
  *  - status          : "pending" | "accepted" | "rejected"
  *  - selectedbyAdmin : boolean
  *  - createdAt       : Timestamp
+ *
+ * ─── Last-offer winner promotion logic ───────────────────────────────────────
+ * When an admin sets selectedbyAdmin=true AND status="accepted" on an offer,
+ * this service ALSO writes { winnerId, winningBid } back to the parent
+ * auctions/{auctionId} document. This overrides the original auction winner
+ * with the admin-selected last-offer winner.
+ *
+ * The two writes (lastOffers update + auction update) are sent as a single
+ * Firestore batch so they are atomic — both succeed or both fail.
+ *
+ * Firestore rule requirement: admins must be allowed to update
+ * winnerId + winningBid on ended auctions (see firestore.rules).
  */
 
 import {
@@ -21,8 +33,10 @@ import {
   getDoc,
   updateDoc,
   deleteDoc,
+  writeBatch,
   query,
   orderBy,
+  serverTimestamp,
   Timestamp,
   type UpdateData,
 } from "firebase/firestore";
@@ -105,17 +119,64 @@ export async function fetchLastOffersForAuction(
   return offers.map((o) => ({ ...o, userName: nameMap[o.userId] ?? "Unknown" }));
 }
 
-// ─── UPDATE a last offer (status + selectedbyAdmin) ───────────────────────────
+// ─── UPDATE a last offer — with optional winner promotion ─────────────────────
+//
+// Signature:
+//   updateLastOffer(auctionId, offerId, updateData, offer?)
+//
+// When updateData.selectedbyAdmin === true AND updateData.status === "accepted",
+// the function also promotes this offer's user as the auction winner by updating:
+//   auctions/{auctionId}.winnerId   = offer.userId
+//   auctions/{auctionId}.winningBid = offer.amount
+//
+// Both the lastOffer update and the auction update are committed atomically
+// via a Firestore batch.
+//
+// The `offer` parameter must be supplied when winner promotion could occur
+// (i.e. always pass it from the admin UI). If omitted, no promotion happens.
 
 export async function updateLastOffer(
   auctionId: string,
   offerId: string,
   data: LastOfferUpdateData,
+  offer?: Pick<LastOffer, "userId" | "amount">,
 ): Promise<void> {
-  await updateDoc(
-    doc(db, "auctions", auctionId, "lastOffers", offerId),
-    data as UpdateData<LastOfferUpdateData>,
-  );
+  const shouldPromoteWinner =
+    data.selectedbyAdmin === true &&
+    data.status === "accepted" &&
+    offer !== undefined;
+
+  if (shouldPromoteWinner && offer) {
+    // ── Atomic batch: update lastOffer + promote winner ───────────────────
+    const batch = writeBatch(db);
+
+    // 1. Update the lastOffer document (status + selectedbyAdmin)
+    batch.update(
+      doc(db, "auctions", auctionId, "lastOffers", offerId),
+      data as UpdateData<LastOfferUpdateData>,
+    );
+
+    // 2. Override the auction winner with the selected last-offer user
+    batch.update(doc(db, "auctions", auctionId), {
+      winnerId:   offer.userId,
+      winningBid: offer.amount,
+      updatedAt:  serverTimestamp(),
+    });
+
+    await batch.commit();
+
+    console.info(
+      `[LastOfferService] Winner promoted for auction ${auctionId}:` +
+      ` uid=${offer.userId} amount=${offer.amount}`,
+    );
+  } else {
+    // ── Simple update — no winner change ──────────────────────────────────
+    // This handles: status changes alone, deselection, rejection, etc.
+    await updateDoc(
+      doc(db, "auctions", auctionId, "lastOffers", offerId),
+      data as UpdateData<LastOfferUpdateData>,
+    );
+  }
 }
 
 // ─── DELETE a last offer ──────────────────────────────────────────────────────
@@ -127,7 +188,7 @@ export async function deleteLastOffer(
   await deleteDoc(doc(db, "auctions", auctionId, "lastOffers", offerId));
 }
 
-// ─── Fetch product name helper (reused from other services) ──────────────────
+// ─── Fetch product name helper ────────────────────────────────────────────────
 
 export async function fetchProductName(productId: string): Promise<string> {
   try {

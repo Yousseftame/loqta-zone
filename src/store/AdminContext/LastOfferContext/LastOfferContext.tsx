@@ -24,7 +24,7 @@ interface LastOfferContextType {
   loadOffers: (auctionId: string) => Promise<void>;
   editOffer: (
     auctionId: string,
-    offerId: string,
+    offer: LastOffer,
     data: LastOfferUpdateData,
   ) => Promise<void>;
   removeOffer: (auctionId: string, offerId: string) => Promise<void>;
@@ -65,11 +65,11 @@ export const LastOfferProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const editOffer = useCallback(
-    async (auctionId: string, offerId: string, data: LastOfferUpdateData) => {
+    async (auctionId: string, offer: LastOffer, data: LastOfferUpdateData) => {
       try {
-        await updateLastOffer(auctionId, offerId, data);
+        await updateLastOffer(auctionId, offer.id, data, offer);
         setOffers((prev) =>
-          prev.map((o) => (o.id === offerId ? { ...o, ...data } : o)),
+          prev.map((o) => (o.id === offer.id ? { ...o, ...data } : o)),
         );
         toast.success("Offer updated");
       } catch (err: any) {

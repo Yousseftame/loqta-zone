@@ -41,6 +41,7 @@ import {
   Edit2,
   CheckCircle,
   XCircle,
+ 
 } from "lucide-react";
 import { LocalOffer as LocalOfferIcon } from "@mui/icons-material";
 import { colors } from "../Products/products-data";
@@ -90,7 +91,7 @@ interface EditDialogProps {
   offer: LastOffer | null;
   open: boolean;
   onClose: () => void;
-  onSave: (offerId: string, data: LastOfferUpdateData) => Promise<void>;
+  onSave: (offer: LastOffer, data: LastOfferUpdateData) => Promise<void>;
 }
 
 function EditDialog({ offer, open, onClose, onSave }: EditDialogProps) {
@@ -109,7 +110,8 @@ function EditDialog({ offer, open, onClose, onSave }: EditDialogProps) {
     if (!offer) return;
     setSaving(true);
     try {
-      await onSave(offer.id, { status, selectedbyAdmin: selected });
+      // Pass the full offer so the service can promote the winner if needed
+      await onSave(offer, { status, selectedbyAdmin: selected });
       onClose();
     } finally {
       setSaving(false);
@@ -388,11 +390,16 @@ function AuctionOfferRow({
     }
   };
 
-  const handleSaveEdit = async (offerId: string, data: LastOfferUpdateData) => {
-    await updateLastOffer(auction.id, offerId, data);
+  const handleSaveEdit = async (
+    offer: LastOffer,
+    data: LastOfferUpdateData,
+  ) => {
+    // Pass the full offer so the service can atomically promote the auction winner
+    // when selectedbyAdmin=true + status="accepted" is set simultaneously.
+    await updateLastOffer(auction.id, offer.id, data, offer);
     setOffers((prev) => {
       const updated = prev.map((o) =>
-        o.id === offerId ? { ...o, ...data } : o,
+        o.id === offer.id ? { ...o, ...data } : o,
       );
       const pending = updated.filter((o) => o.status === "pending").length;
       const sel = updated.find((o) => o.selectedbyAdmin);
