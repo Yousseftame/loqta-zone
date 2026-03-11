@@ -1,3 +1,10 @@
+/**
+ * BidContext.tsx
+ *
+ * Updated to include editBid() so BidsList can call winner-promotion
+ * through context, mirroring LastOfferContext.editOffer().
+ */
+
 import {
   createContext,
   useContext,
@@ -6,10 +13,11 @@ import {
   type ReactNode,
 } from "react";
 import toast from "react-hot-toast";
-import type { Bid } from "@/pages/Admin/Biding/Bids-data";
+import type { Bid, BidUpdateData } from "@/pages/Admin/Biding/Bids-data";
 import {
   fetchBidsForAuction,
   deleteBid,
+  updateBid,
 } from "@/service/Bidadminservice/Bidadminservice";
 
 interface BidContextType {
@@ -18,6 +26,7 @@ interface BidContextType {
   error: string | null;
   currentAuctionId: string | null;
   loadBids: (auctionId: string) => Promise<void>;
+  editBid: (auctionId: string, bid: Bid, data: BidUpdateData) => Promise<void>;
   removeBid: (auctionId: string, bidId: string) => Promise<void>;
   clearBids: () => void;
 }
@@ -52,6 +61,23 @@ export const BidProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
+  // Passes full bid so service can atomically promote winner when needed
+  const editBid = useCallback(
+    async (auctionId: string, bid: Bid, data: BidUpdateData) => {
+      try {
+        await updateBid(auctionId, bid.id, data, bid);
+        setBids((prev) =>
+          prev.map((b) => (b.id === bid.id ? { ...b, ...data } : b)),
+        );
+        toast.success("Bid updated");
+      } catch (err: any) {
+        toast.error(err?.message ?? "Failed to update bid");
+        throw err;
+      }
+    },
+    [],
+  );
+
   const removeBid = useCallback(async (auctionId: string, bidId: string) => {
     try {
       await deleteBid(auctionId, bidId);
@@ -77,6 +103,7 @@ export const BidProvider = ({ children }: { children: ReactNode }) => {
         error,
         currentAuctionId,
         loadBids,
+        editBid,
         removeBid,
         clearBids,
       }}

@@ -19,6 +19,12 @@ import {
   CircularProgress,
   Chip,
   Collapse,
+  MenuItem,
+  Select,
+  FormControl,
+  InputLabel,
+  Switch,
+  FormControlLabel,
 } from "@mui/material";
 import {
   Search,
@@ -33,25 +39,300 @@ import {
   User,
   Clock,
   Package,
+  Star,
+  Edit2,
+  CheckCircle,
+  XCircle,
 } from "lucide-react";
 import { colors } from "../Products/products-data";
 import { useAuctions } from "@/store/AdminContext/AuctionContext/AuctionContext";
 import {
   fetchBidsForAuction,
   deleteBid,
+  updateBid,
   fetchProductName,
 } from "@/service/Bidadminservice/Bidadminservice";
-import type { Bid } from "./Bids-data";
+import type { Bid, BidStatus, BidUpdateData } from "./Bids-data";
 import type { Auction } from "../Auctions/auctions-data";
 
-// ─── Per-auction row with expandable bids ────────────────────────────────────
+// ─── Status chip ──────────────────────────────────────────────────────────────
+
+function StatusChip({ status }: { status: BidStatus }) {
+  const map: Record<BidStatus, { bg: string; color: string; label: string }> = {
+    pending: { bg: "#FEF3C7", color: "#D97706", label: "Pending" },
+    accepted: { bg: "#DCFCE7", color: "#22C55E", label: "Accepted" },
+    rejected: { bg: "#FEE2E2", color: "#EF4444", label: "Rejected" },
+  };
+  const s = map[status] ?? map.pending;
+  return (
+    <Chip
+      label={s.label}
+      size="small"
+      sx={{
+        bgcolor: s.bg,
+        color: s.color,
+        fontWeight: 700,
+        fontSize: "0.68rem",
+      }}
+    />
+  );
+}
+
+// ─── Edit Dialog ──────────────────────────────────────────────────────────────
+
+interface EditDialogProps {
+  bid: Bid | null;
+  open: boolean;
+  onClose: () => void;
+  onSave: (bid: Bid, data: BidUpdateData) => Promise<void>;
+}
+
+function EditDialog({ bid, open, onClose, onSave }: EditDialogProps) {
+  const [status, setStatus] = useState<BidStatus>("pending");
+  const [selected, setSelected] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (bid) {
+      setStatus(bid.status);
+      setSelected(bid.selectedbyAdmin);
+    }
+  }, [bid]);
+
+  const handleSave = async () => {
+    if (!bid) return;
+    setSaving(true);
+    try {
+      await onSave(bid, { status, selectedbyAdmin: selected });
+      onClose();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onClose={() => !saving && onClose()}
+      maxWidth="sm"
+      fullWidth
+      PaperProps={{ sx: { borderRadius: 3 } }}
+    >
+      <DialogTitle
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          gap: 1.5,
+          color: colors.primary,
+        }}
+      >
+        <Edit2 size={20} /> Review Bid
+      </DialogTitle>
+
+      <DialogContent sx={{ pt: 2 }}>
+        {bid && (
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 3, mt: 1 }}>
+            {/* Bid summary card */}
+            <Box
+              sx={{
+                p: 2,
+                borderRadius: 2,
+                bgcolor: colors.primaryBg,
+                border: `1px solid ${colors.border}`,
+              }}
+            >
+              <Box
+                sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}
+              >
+                <span
+                  style={{ fontSize: "0.8rem", color: colors.textSecondary }}
+                >
+                  Bidder
+                </span>
+                <span
+                  style={{
+                    fontWeight: 700,
+                    fontSize: "0.85rem",
+                    color: colors.textPrimary,
+                  }}
+                >
+                  {bid.bidderName}
+                </span>
+              </Box>
+              <Box
+                sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}
+              >
+                <span
+                  style={{ fontSize: "0.8rem", color: colors.textSecondary }}
+                >
+                  User ID
+                </span>
+                <span
+                  style={{
+                    fontSize: "0.75rem",
+                    fontFamily: "monospace",
+                    color: colors.textMuted,
+                  }}
+                >
+                  {bid.userId.slice(0, 20)}…
+                </span>
+              </Box>
+              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                <span
+                  style={{ fontSize: "0.8rem", color: colors.textSecondary }}
+                >
+                  Bid Amount
+                </span>
+                <span
+                  style={{
+                    fontWeight: 700,
+                    fontSize: "0.9rem",
+                    color: "#22C55E",
+                  }}
+                >
+                  {bid.amount.toLocaleString()} EGP
+                </span>
+              </Box>
+            </Box>
+
+            {/* Status selector */}
+            <FormControl size="small" fullWidth>
+              <InputLabel>Status</InputLabel>
+              <Select
+                value={status}
+                label="Status"
+                onChange={(e) => setStatus(e.target.value as BidStatus)}
+              >
+                <MenuItem value="pending">Pending</MenuItem>
+                <MenuItem value="accepted">Accepted</MenuItem>
+                <MenuItem value="rejected">Rejected</MenuItem>
+              </Select>
+            </FormControl>
+
+            {/* Selected by admin toggle */}
+            <Box
+              sx={{
+                p: 2,
+                borderRadius: 2,
+                border: `1px solid ${selected ? "#22C55E44" : colors.border}`,
+                bgcolor: selected ? "#F0FDF4" : "#fff",
+                transition: "all 0.2s",
+              }}
+            >
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={selected}
+                    onChange={(e) => setSelected(e.target.checked)}
+                    sx={{
+                      "& .MuiSwitch-switchBase.Mui-checked": {
+                        color: "#22C55E",
+                      },
+                      "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track":
+                        { bgcolor: "#22C55E" },
+                    }}
+                  />
+                }
+                label={
+                  <Box>
+                    <span
+                      style={{
+                        fontWeight: 600,
+                        fontSize: "0.88rem",
+                        color: colors.textPrimary,
+                      }}
+                    >
+                      Selected by Admin
+                    </span>
+                    <p
+                      style={{
+                        margin: 0,
+                        fontSize: "0.75rem",
+                        color: colors.textSecondary,
+                      }}
+                    >
+                      Selecting this bid overrides the auction's Winner ID and
+                      Winning Bid
+                    </p>
+                  </Box>
+                }
+              />
+            </Box>
+
+            {/* Warning when about to promote a winner */}
+            {selected && status === "accepted" && (
+              <Box
+                sx={{
+                  p: 1.5,
+                  borderRadius: 2,
+                  bgcolor: "#FFFBEB",
+                  border: "1px solid #F59E0B",
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 1,
+                }}
+              >
+                <AlertTriangle
+                  size={15}
+                  style={{ color: "#D97706", flexShrink: 0, marginTop: 2 }}
+                />
+                <p style={{ margin: 0, fontSize: "0.78rem", color: "#92400E" }}>
+                  <strong>Heads up:</strong> Saving will override the auction's
+                  current winner with <strong>{bid.bidderName}</strong> at{" "}
+                  <strong>{bid.amount.toLocaleString()} EGP</strong>.
+                </p>
+              </Box>
+            )}
+          </Box>
+        )}
+      </DialogContent>
+
+      <DialogActions sx={{ p: 3, gap: 1 }}>
+        <Button
+          onClick={onClose}
+          disabled={saving}
+          variant="outlined"
+          sx={{
+            textTransform: "none",
+            borderColor: colors.border,
+            color: colors.textPrimary,
+            borderRadius: 2,
+          }}
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={handleSave}
+          disabled={saving}
+          variant="contained"
+          startIcon={
+            saving ? (
+              <CircularProgress size={14} color="inherit" />
+            ) : (
+              <Edit2 size={16} />
+            )
+          }
+          sx={{
+            textTransform: "none",
+            bgcolor: colors.primary,
+            "&:hover": { bgcolor: colors.primaryDark },
+            borderRadius: 2,
+            minWidth: 100,
+          }}
+        >
+          {saving ? "Saving…" : "Save"}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+// ─── Per-auction expandable row ───────────────────────────────────────────────
 
 interface AuctionBidRowProps {
   auction: Auction;
-  // NOTE: subSearchTerm is intentionally separate from the parent auction search.
-  // The parent searchTerm filters which auction ROWS are visible; subSearchTerm
-  // filters bids INSIDE the expanded panel. We always pass "" so that expanding
-  // an auction always shows all its bids regardless of the parent search query.
+  // NOTE: always pass "" from parent — subSearchTerm filters bids INSIDE the
+  // expanded panel only, never the parent auction list.
   subSearchTerm: string;
 }
 
@@ -59,18 +340,48 @@ function AuctionBidRow({ auction, subSearchTerm }: AuctionBidRowProps) {
   const [open, setOpen] = useState(false);
   const [bids, setBids] = useState<Bid[]>([]);
   const [loadingBids, setLoadingBids] = useState(false);
-  const [productName, setProductName] = useState<string>("");
+  const [productName, setProductName] = useState("");
+  const [editBid, setEditBid] = useState<Bid | null>(null);
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [bidToDelete, setBidToDelete] = useState<Bid | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [page, setPage] = useState(0);
   const rowsPerPage = 5;
 
+  // Summary visible on the collapsed row — populated on mount
+  const [summary, setSummary] = useState<{
+    count: number;
+    selectedBidderName: string | null;
+    selectedAmount: number | null;
+  }>({ count: 0, selectedBidderName: null, selectedAmount: null });
+
   useEffect(() => {
-    if (auction.productId) {
+    if (auction.productId)
       fetchProductName(auction.productId).then(setProductName);
-    }
   }, [auction.productId]);
+
+  // Pre-load bids so the summary shows immediately and expanding is instant
+  useEffect(() => {
+    let cancelled = false;
+    fetchBidsForAuction(auction.id)
+      .then((data) => {
+        if (cancelled) return;
+        setBids(data);
+        const sel = data.find((b) => b.selectedbyAdmin);
+        setSummary({
+          count: data.length,
+          selectedBidderName: sel ? sel.bidderName : null,
+          selectedAmount: sel ? sel.amount : null,
+        });
+      })
+      .catch(() => {
+        /* non-fatal */
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auction.id]);
 
   const handleExpand = async () => {
     if (!open && bids.length === 0) {
@@ -78,11 +389,17 @@ function AuctionBidRow({ auction, subSearchTerm }: AuctionBidRowProps) {
       try {
         const data = await fetchBidsForAuction(auction.id);
         setBids(data);
+        const sel = data.find((b) => b.selectedbyAdmin);
+        setSummary({
+          count: data.length,
+          selectedBidderName: sel ? sel.bidderName : null,
+          selectedAmount: sel ? sel.amount : null,
+        });
       } finally {
         setLoadingBids(false);
       }
     }
-    setOpen((prev) => !prev);
+    setOpen((p) => !p);
   };
 
   const handleRefresh = async () => {
@@ -90,9 +407,37 @@ function AuctionBidRow({ auction, subSearchTerm }: AuctionBidRowProps) {
     try {
       const data = await fetchBidsForAuction(auction.id);
       setBids(data);
+      const sel = data.find((b) => b.selectedbyAdmin);
+      setSummary({
+        count: data.length,
+        selectedBidderName: sel ? sel.bidderName : null,
+        selectedAmount: sel ? sel.amount : null,
+      });
     } finally {
       setLoadingBids(false);
     }
+  };
+
+  const recomputeSummary = (updated: Bid[]) => {
+    const sel = updated.find((b) => b.selectedbyAdmin);
+    setSummary({
+      count: updated.length,
+      selectedBidderName: sel ? sel.bidderName : null,
+      selectedAmount: sel ? sel.amount : null,
+    });
+  };
+
+  const handleSaveEdit = async (bid: Bid, data: BidUpdateData) => {
+    // Pass full bid so service can atomically promote auction winner when
+    // selectedbyAdmin=true + status="accepted" are both set
+    await updateBid(auction.id, bid.id, data, bid);
+    setBids((prev) => {
+      const updated = prev.map((b) =>
+        b.id === bid.id ? { ...b, ...data } : b,
+      );
+      recomputeSummary(updated);
+      return updated;
+    });
   };
 
   const handleDelete = async () => {
@@ -100,7 +445,11 @@ function AuctionBidRow({ auction, subSearchTerm }: AuctionBidRowProps) {
     setDeleting(true);
     try {
       await deleteBid(auction.id, bidToDelete.id);
-      setBids((prev) => prev.filter((b) => b.id !== bidToDelete.id));
+      setBids((prev) => {
+        const updated = prev.filter((b) => b.id !== bidToDelete.id);
+        recomputeSummary(updated);
+        return updated;
+      });
       setDeleteDialog(false);
       setBidToDelete(null);
     } finally {
@@ -108,7 +457,6 @@ function AuctionBidRow({ auction, subSearchTerm }: AuctionBidRowProps) {
     }
   };
 
-  // subSearchTerm filters bids inside the panel only — never the parent auction search
   const filteredBids = useMemo(() => {
     if (!subSearchTerm) return bids;
     const s = subSearchTerm.toLowerCase();
@@ -122,19 +470,19 @@ function AuctionBidRow({ auction, subSearchTerm }: AuctionBidRowProps) {
 
   const paginated = filteredBids.slice(
     page * rowsPerPage,
-    page * rowsPerPage + rowsPerPage,
+    (page + 1) * rowsPerPage,
   );
-
   const topBid = bids.length > 0 ? Math.max(...bids.map((b) => b.amount)) : 0;
 
   return (
     <>
+      {/* ── Auction summary row ─────────────────────────────────────────── */}
       <TableRow
         sx={{
-          "&:hover": { bgcolor: colors.muted },
-          transition: "background 0.15s",
           cursor: "pointer",
           bgcolor: open ? colors.primaryBg : "transparent",
+          "&:hover": { bgcolor: colors.muted },
+          transition: "background 0.15s",
         }}
         onClick={handleExpand}
       >
@@ -143,6 +491,8 @@ function AuctionBidRow({ auction, subSearchTerm }: AuctionBidRowProps) {
             {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
           </IconButton>
         </TableCell>
+
+        {/* Auction # */}
         <TableCell>
           <span
             style={{
@@ -154,6 +504,8 @@ function AuctionBidRow({ auction, subSearchTerm }: AuctionBidRowProps) {
             #{auction.auctionNumber}
           </span>
         </TableCell>
+
+        {/* Product */}
         <TableCell>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 0.3 }}>
             <span
@@ -181,6 +533,8 @@ function AuctionBidRow({ auction, subSearchTerm }: AuctionBidRowProps) {
             )}
           </Box>
         </TableCell>
+
+        {/* Auction status */}
         <TableCell>
           <Chip
             label={auction.status}
@@ -204,20 +558,56 @@ function AuctionBidRow({ auction, subSearchTerm }: AuctionBidRowProps) {
             }}
           />
         </TableCell>
+
+        {/* Total bids */}
         <TableCell>
-          <span style={{ fontWeight: 700, color: colors.textPrimary }}>
-            {auction.totalBids}
-          </span>
-          <span style={{ color: colors.textMuted, fontSize: "0.75rem" }}>
-            {" "}
-            bids
-          </span>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
+            <span style={{ fontWeight: 700, color: colors.textPrimary }}>
+              {summary.count}
+            </span>
+            <span style={{ color: colors.textMuted, fontSize: "0.75rem" }}>
+              bids
+            </span>
+          </Box>
         </TableCell>
+
+        {/* Current bid */}
         <TableCell>
           <span style={{ fontWeight: 700, color: "#22C55E" }}>
             {auction.currentBid.toFixed(2)} EGP
           </span>
         </TableCell>
+
+        {/* Admin-selected bid — shows after admin picks one */}
+        <TableCell>
+          {summary.selectedAmount !== null ? (
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+              <Star size={13} style={{ color: "#F59E0B", fill: "#F59E0B" }} />
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 0 }}>
+                <span
+                  style={{
+                    fontWeight: 700,
+                    color: "#22C55E",
+                    fontSize: "0.82rem",
+                  }}
+                >
+                  {summary.selectedAmount.toLocaleString()} EGP
+                </span>
+                {summary.selectedBidderName && (
+                  <span style={{ fontSize: "0.7rem", color: colors.textMuted }}>
+                    {summary.selectedBidderName}
+                  </span>
+                )}
+              </Box>
+            </Box>
+          ) : (
+            <span style={{ color: colors.textMuted, fontSize: "0.78rem" }}>
+              —
+            </span>
+          )}
+        </TableCell>
+
+        {/* End date */}
         <TableCell>
           <span style={{ fontSize: "0.78rem", color: colors.textMuted }}>
             {auction.endTime.toLocaleDateString()}
@@ -225,8 +615,9 @@ function AuctionBidRow({ auction, subSearchTerm }: AuctionBidRowProps) {
         </TableCell>
       </TableRow>
 
+      {/* ── Expanded bids panel ─────────────────────────────────────────── */}
       <TableRow>
-        <TableCell colSpan={7} sx={{ p: 0, border: 0 }}>
+        <TableCell colSpan={8} sx={{ p: 0, border: 0 }}>
           <Collapse in={open} timeout="auto" unmountOnExit>
             <Box
               sx={{
@@ -238,6 +629,7 @@ function AuctionBidRow({ auction, subSearchTerm }: AuctionBidRowProps) {
                 bgcolor: "#fff",
               }}
             >
+              {/* Sub-header */}
               <Box
                 sx={{
                   px: 2.5,
@@ -247,6 +639,8 @@ function AuctionBidRow({ auction, subSearchTerm }: AuctionBidRowProps) {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
+                  flexWrap: "wrap",
+                  gap: 1,
                 }}
               >
                 <Box
@@ -265,7 +659,7 @@ function AuctionBidRow({ auction, subSearchTerm }: AuctionBidRowProps) {
                       color: colors.primaryDark,
                     }}
                   >
-                    Bids for Auction #{auction.auctionNumber}
+                    Bids — Auction #{auction.auctionNumber}
                   </span>
                   {productName && (
                     <Box
@@ -298,7 +692,7 @@ function AuctionBidRow({ auction, subSearchTerm }: AuctionBidRowProps) {
                   />
                   {topBid > 0 && (
                     <Chip
-                      label={`Top: ${topBid.toFixed(2)} EGP`}
+                      label={`Top: ${topBid.toLocaleString()} EGP`}
                       size="small"
                       sx={{
                         bgcolor: "#DCFCE7",
@@ -354,8 +748,9 @@ function AuctionBidRow({ auction, subSearchTerm }: AuctionBidRowProps) {
                         {[
                           "#",
                           "Bidder",
-                          "User ID",
                           "Amount",
+                          "Status",
+                          "Selected",
                           "Time",
                           "Actions",
                         ].map((h) => (
@@ -379,15 +774,20 @@ function AuctionBidRow({ auction, subSearchTerm }: AuctionBidRowProps) {
                     <TableBody>
                       {paginated.map((bid, idx) => {
                         const rank = page * rowsPerPage + idx + 1;
-                        const isTop = bid.amount === topBid;
+                        const isTop = bid.amount === topBid && topBid > 0;
                         return (
                           <TableRow
                             key={bid.id}
                             sx={{
                               "&:hover": { bgcolor: colors.muted },
-                              bgcolor: isTop ? "#F0FDF4" : "transparent",
+                              bgcolor: bid.selectedbyAdmin
+                                ? "#F0FDF4" // green tint — admin selected
+                                : isTop
+                                  ? "#FFFBEB" // yellow tint — highest bid
+                                  : "transparent",
                             }}
                           >
+                            {/* Rank + badges */}
                             <TableCell sx={{ py: 1 }}>
                               <Box
                                 sx={{
@@ -417,8 +817,19 @@ function AuctionBidRow({ auction, subSearchTerm }: AuctionBidRowProps) {
                                     }}
                                   />
                                 )}
+                                {bid.selectedbyAdmin && (
+                                  <Star
+                                    size={13}
+                                    style={{
+                                      color: "#F59E0B",
+                                      fill: "#F59E0B",
+                                    }}
+                                  />
+                                )}
                               </Box>
                             </TableCell>
+
+                            {/* Bidder */}
                             <TableCell sx={{ py: 1 }}>
                               <Box
                                 sx={{
@@ -446,31 +857,39 @@ function AuctionBidRow({ auction, subSearchTerm }: AuctionBidRowProps) {
                                     ? bid.bidderName.charAt(0).toUpperCase()
                                     : "?"}
                                 </Box>
-                                <span
-                                  style={{
-                                    fontWeight: 600,
-                                    fontSize: "0.82rem",
-                                    color: colors.textPrimary,
+                                <Box
+                                  sx={{
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    gap: 0.2,
                                   }}
                                 >
-                                  {bid.bidderName || "Unknown"}
-                                </span>
+                                  <span
+                                    style={{
+                                      fontWeight: 600,
+                                      fontSize: "0.82rem",
+                                      color: colors.textPrimary,
+                                    }}
+                                  >
+                                    {bid.bidderName || "Unknown"}
+                                  </span>
+                                  <span
+                                    style={{
+                                      fontSize: "0.68rem",
+                                      fontFamily: "monospace",
+                                      color: colors.textMuted,
+                                      background: colors.muted,
+                                      padding: "1px 5px",
+                                      borderRadius: 3,
+                                    }}
+                                  >
+                                    {bid.userId.slice(0, 14)}…
+                                  </span>
+                                </Box>
                               </Box>
                             </TableCell>
-                            <TableCell sx={{ py: 1 }}>
-                              <span
-                                style={{
-                                  fontSize: "0.72rem",
-                                  fontFamily: "monospace",
-                                  color: colors.textMuted,
-                                  background: colors.muted,
-                                  padding: "2px 6px",
-                                  borderRadius: 4,
-                                }}
-                              >
-                                {bid.userId.slice(0, 12)}…
-                              </span>
-                            </TableCell>
+
+                            {/* Amount */}
                             <TableCell sx={{ py: 1 }}>
                               <Box
                                 sx={{
@@ -496,6 +915,61 @@ function AuctionBidRow({ auction, subSearchTerm }: AuctionBidRowProps) {
                                 </span>
                               </Box>
                             </TableCell>
+
+                            {/* Status chip */}
+                            <TableCell sx={{ py: 1 }}>
+                              <StatusChip status={bid.status} />
+                            </TableCell>
+
+                            {/* Selected indicator */}
+                            <TableCell sx={{ py: 1 }}>
+                              {bid.selectedbyAdmin ? (
+                                <Box
+                                  sx={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 0.5,
+                                  }}
+                                >
+                                  <CheckCircle
+                                    size={15}
+                                    style={{ color: "#22C55E" }}
+                                  />
+                                  <span
+                                    style={{
+                                      fontSize: "0.75rem",
+                                      color: "#22C55E",
+                                      fontWeight: 600,
+                                    }}
+                                  >
+                                    Selected
+                                  </span>
+                                </Box>
+                              ) : (
+                                <Box
+                                  sx={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 0.5,
+                                  }}
+                                >
+                                  <XCircle
+                                    size={15}
+                                    style={{ color: colors.textMuted }}
+                                  />
+                                  <span
+                                    style={{
+                                      fontSize: "0.75rem",
+                                      color: colors.textMuted,
+                                    }}
+                                  >
+                                    Not selected
+                                  </span>
+                                </Box>
+                              )}
+                            </TableCell>
+
+                            {/* Time */}
                             <TableCell sx={{ py: 1 }}>
                               <Box
                                 sx={{
@@ -518,24 +992,49 @@ function AuctionBidRow({ auction, subSearchTerm }: AuctionBidRowProps) {
                                 </span>
                               </Box>
                             </TableCell>
+
+                            {/* Actions */}
                             <TableCell align="center" sx={{ py: 1 }}>
-                              <IconButton
-                                disabled
-                                size="small"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setBidToDelete(bid);
-                                  setDeleteDialog(true);
-                                }}
+                              <Box
                                 sx={{
-                                  color: colors.error,
-                                  "&:hover": { bgcolor: colors.errorBg },
-                                  borderRadius: 1.5,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  gap: 0.5,
                                 }}
-                                title="Delete bid"
                               >
-                                <Trash2 size={14} />
-                              </IconButton>
+                                <IconButton
+                                  size="small"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditBid(bid);
+                                  }}
+                                  sx={{
+                                    color: colors.primary,
+                                    "&:hover": { bgcolor: colors.primaryBg },
+                                    borderRadius: 1.5,
+                                  }}
+                                  title="Review bid"
+                                >
+                                  <Edit2 size={14} />
+                                </IconButton>
+                                <IconButton
+                                  size="small"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setBidToDelete(bid);
+                                    setDeleteDialog(true);
+                                  }}
+                                  sx={{
+                                    color: colors.error,
+                                    "&:hover": { bgcolor: colors.errorBg },
+                                    borderRadius: 1.5,
+                                  }}
+                                  title="Delete bid"
+                                >
+                                  <Trash2 size={14} />
+                                </IconButton>
+                              </Box>
                             </TableCell>
                           </TableRow>
                         );
@@ -558,6 +1057,15 @@ function AuctionBidRow({ auction, subSearchTerm }: AuctionBidRowProps) {
         </TableCell>
       </TableRow>
 
+      {/* Edit Dialog */}
+      <EditDialog
+        bid={editBid}
+        open={!!editBid}
+        onClose={() => setEditBid(null)}
+        onSave={handleSaveEdit}
+      />
+
+      {/* Delete Dialog */}
       <Dialog
         open={deleteDialog}
         onClose={() => !deleting && setDeleteDialog(false)}
@@ -640,7 +1148,6 @@ function AuctionBidRow({ auction, subSearchTerm }: AuctionBidRowProps) {
 
 export default function BidsList() {
   const { auctions, loading: auctionsLoading, refreshAuctions } = useAuctions();
-  // auctionSearch filters which auction rows are visible in the table
   const [auctionSearch, setAuctionSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
@@ -656,7 +1163,7 @@ export default function BidsList() {
       );
     }
     return [...f].sort((a, b) => {
-      const order = { live: 0, upcoming: 1, ended: 2 };
+      const order: Record<string, number> = { live: 0, upcoming: 1, ended: 2 };
       if (order[a.status] !== order[b.status])
         return order[a.status] - order[b.status];
       return b.totalBids - a.totalBids;
@@ -728,7 +1235,7 @@ export default function BidsList() {
               fontSize: "0.875rem",
             }}
           >
-            View and manage all bids across auctions
+            View, review, and manage all bids across auctions
           </p>
         </div>
         <IconButton
@@ -921,10 +1428,11 @@ export default function BidsList() {
                 {[
                   "",
                   "Auction #",
-                  "Product ID",
+                  "Product",
                   "Status",
                   "Total Bids",
                   "Current Bid",
+                  "Selected Bid",
                   "End Date",
                 ].map((h) => (
                   <TableCell
@@ -946,7 +1454,7 @@ export default function BidsList() {
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 10 }}>
+                  <TableCell colSpan={8} align="center" sx={{ py: 10 }}>
                     <Gavel
                       size={44}
                       style={{
@@ -965,7 +1473,6 @@ export default function BidsList() {
                 </TableRow>
               ) : (
                 filtered.map((auction) => (
-                  // subSearchTerm="" means the expanded bids panel is never filtered by the auction search
                   <AuctionBidRow
                     key={auction.id}
                     auction={auction}
