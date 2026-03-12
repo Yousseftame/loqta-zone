@@ -34,6 +34,8 @@ import {
   UserX,
   UserCheck,
   Lock,
+  StickyNote,
+  Save,
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { colors } from "../Products/products-data";
@@ -47,6 +49,7 @@ import {
   restrictUserFromAuctionFull,
   removeAuctionRestrictionFull,
   fetchUserRestrictions,
+  saveInternalNotes,
 } from "@/service/users/userService";
 import { fetchAuctions } from "@/service/auctions/auctionService";
 import type { Auction } from "@/pages/Admin/Auctions/auctions-data";
@@ -101,6 +104,10 @@ export default function UserView() {
   const [restrictTarget, setRestrictTarget] = useState<Auction | null>(null);
   const [restrictLoading, setRestrictLoading] = useState(false);
 
+  // Internal notes
+  const [notesEdit, setNotesEdit] = useState("");
+  const [notesSaving, setNotesSaving] = useState(false);
+
   const load = async () => {
     if (!id) return;
     setLoading(true);
@@ -114,6 +121,7 @@ export default function UserView() {
       setAuctions(allAuctions);
       setRestrictedIds(restricted);
       if (u) setSelectedRole(u.role);
+      if (u) setNotesEdit(u.internalNotes ?? "");
     } catch (err: any) {
       toast.error("Failed to load user: " + (err?.message ?? ""));
     } finally {
@@ -190,6 +198,20 @@ export default function UserView() {
     } finally {
       setRestrictLoading(false);
       setRestrictTarget(null);
+    }
+  };
+
+  const handleSaveNotes = async () => {
+    if (!user) return;
+    setNotesSaving(true);
+    try {
+      await saveInternalNotes(user.id, notesEdit);
+      setUser((prev) => (prev ? { ...prev, internalNotes: notesEdit } : prev));
+      toast.success("Notes saved");
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to save notes");
+    } finally {
+      setNotesSaving(false);
     }
   };
 
@@ -916,6 +938,81 @@ export default function UserView() {
         </Paper>
       </Box>
 
+      {/* ── Internal Notes ─────────────────────────────────────────────── */}
+      <Paper
+        elevation={0}
+        sx={{
+          borderRadius: 3,
+          border: `1px solid ${colors.border}`,
+          overflow: "hidden",
+          mb: 3,
+        }}
+      >
+        <Box
+          sx={{
+            px: 3,
+            py: 2.5,
+            borderBottom: `1px solid ${colors.border}`,
+            display: "flex",
+            alignItems: "center",
+            gap: 1.5,
+          }}
+        >
+          <StickyNote size={18} style={{ color: colors.primary }} />
+          <span style={{ fontWeight: 700, color: colors.textPrimary }}>
+            Internal Notes
+          </span>
+          <span style={{ fontSize: "0.8rem", color: colors.textSecondary }}>
+             visible to admins only
+          </span>
+        </Box>
+        <Box sx={{ p: 3 }}>
+          <TextField
+            fullWidth
+            multiline
+            minRows={3}
+            maxRows={8}
+            placeholder="Add a note or warning about this user (e.g. 'Suspected fraud — monitor activity', 'VIP customer'…)"
+            value={notesEdit}
+            onChange={(e) => setNotesEdit(e.target.value)}
+            size="small"
+            sx={{
+              mb: 2,
+              "& .MuiOutlinedInput-root": {
+                "& fieldset": { borderColor: colors.border },
+                "&:hover fieldset": { borderColor: colors.primary },
+                "&.Mui-focused fieldset": { borderColor: colors.primary },
+              },
+            }}
+          />
+          <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+            <Button
+              onClick={handleSaveNotes}
+              disabled={
+                notesSaving || notesEdit === (user?.internalNotes ?? "")
+              }
+              variant="contained"
+              startIcon={
+                notesSaving ? (
+                  <CircularProgress size={14} color="inherit" />
+                ) : (
+                  <Save size={15} />
+                )
+              }
+              sx={{
+                textTransform: "none",
+                bgcolor: colors.primary,
+                "&:hover": { bgcolor: "#111" },
+                borderRadius: 2,
+                fontWeight: 600,
+              }}
+            >
+              {notesSaving ? "Saving…" : "Save Notes"}
+            </Button>
+          </Box>
+        </Box>
+      </Paper>
+
       {/* ── Auction Access Control ─────────────────────────────────────── */}
       <Paper
         elevation={0}
@@ -941,7 +1038,7 @@ export default function UserView() {
             Auction Access Control
           </span>
           <span style={{ fontSize: "0.8rem", color: colors.textSecondary }}>
-             Restrict user from joining or bidding in specific auctions
+            Restrict user from joining or bidding in specific auctions
           </span>
           {restrictedIds.length > 0 && (
             <Chip

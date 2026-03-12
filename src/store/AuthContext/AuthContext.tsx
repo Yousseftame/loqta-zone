@@ -126,7 +126,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         "auth/wrong-password": "Invalid email or password.",
         "auth/user-not-found": "No account found with this email.",
         "auth/invalid-email": "Please enter a valid email address.",
-        "auth/user-disabled": "This account has been disabled.",
+        "auth/user-disabled": "This account has been Blocked.",
         "auth/too-many-requests":
           "Too many failed attempts. Please try again later.",
         "auth/network-request-failed": "Network error. Check your connection.",

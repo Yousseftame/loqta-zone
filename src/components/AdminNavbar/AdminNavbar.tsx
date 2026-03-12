@@ -21,10 +21,16 @@ const AdminNavbar = () => {
   const getPageTitle = () => {
     if (location.pathname.includes("Dashboard")) return "Dashboard";
     if (location.pathname.includes("Products")) return "Products";
-    if (location.pathname.includes("menu")) return "Menu Management";
-    if (location.pathname.includes("gallery")) return "Gallery";
-    if (location.pathname.includes("home-sections")) return "Home Sections";
-    if (location.pathname.includes("messages")) return "Messages";
+    if (location.pathname.includes("categories")) return "Categories";
+    if (location.pathname.includes("vouchers")) return "Vouchers";
+    if (location.pathname.includes("auctionRequests")) return "Auction Requests";
+    if (location.pathname.includes("contacts")) return "Contacts";
+    if (location.pathname.includes("feedback")) return "Feedback";
+    if (location.pathname.includes("lastoffers")) return "Last Offer ";
+    if (location.pathname.includes("bids")) return "Bids";
+    if (location.pathname.includes("participants")) return " Auction participants";
+    if (location.pathname.includes("users")) return "Users";
+    if (location.pathname.includes("admins")) return "Admins";
     return "Dashboard";
   };
 
@@ -43,20 +49,20 @@ const AdminNavbar = () => {
         </h1>
 
         {/* Search */}
-        <div className="hidden md:flex items-center bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl px-4 py-2 w-80 focus-within:border-[#2A4863] focus-within:ring-2 focus-within:ring-[#DBEAFE] transition">
+        {/* <div className="hidden md:flex items-center bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl px-4 py-2 w-80 focus-within:border-[#2A4863] focus-within:ring-2 focus-within:ring-[#DBEAFE] transition">
           <Search size={16} className="text-gray-400 mr-2" />
           <input
             type="text"
             placeholder="Search..."
             className="bg-transparent outline-none text-sm w-full text-[#0F172A]"
           />
-        </div>
+        </div> */}
       </div>
 
       {/* Right Section */}
       <div className="flex items-center gap-6">
         {/* Notifications */}
-        <div className="relative cursor-pointer group">
+        {/* <div className="relative cursor-pointer group">
           <div className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-[#EFF6FF] transition">
             <Bell
               size={18}
@@ -64,7 +70,7 @@ const AdminNavbar = () => {
             />
           </div>
           <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-[#2A4863] rounded-full"></span>
-        </div>
+        </div> */}
 
         {/* Profile */}
         <div className="relative">
@@ -83,14 +89,14 @@ const AdminNavbar = () => {
               <span className="text-xs text-gray-400">Administrator</span>
             </div>
 
-            <ChevronDown
+            {/* <ChevronDown
               size={16}
               className="text-gray-400 group-hover:text-[#2A4863] transition"
-            />
+            /> */}
           </div>
 
           {/* Dropdown */}
-          {profileOpen && (
+          {/* {profileOpen && (
             <div className="absolute right-0 mt-4 w-56 bg-white border border-[#E2E8F0] rounded-xl shadow-lg py-2 animate-fadeIn">
               <button
                 onClick={() => navigate("/admin/profile")}
@@ -115,7 +121,7 @@ const AdminNavbar = () => {
                 <LogOut size={16} /> Logout
               </button>
             </div>
-          )}
+          )} */}
         </div>
       </div>
     </header>

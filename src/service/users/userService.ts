@@ -74,6 +74,7 @@ function docToUser(id: string, data: Record<string, any>): AppUser {
     createdAt:     data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
     updatedAt:     data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date(),
     createdBy:     data.createdBy     ?? "",
+    internalNotes: data.internalNotes ?? "",
   };
 }
 
@@ -259,6 +260,15 @@ export async function removeAuctionRestrictionFull(
   const current = await fetchUserRestrictions(uid);
   await updateDoc(doc(db, "users", uid), {
     restrictedAuctions: current.filter((id) => id !== auctionId),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+// ─── INTERNAL NOTES ───────────────────────────────────────────────────────────
+
+export async function saveInternalNotes(uid: string, notes: string): Promise<void> {
+  await updateDoc(doc(db, "users", uid), {
+    internalNotes: notes,
     updatedAt: serverTimestamp(),
   });
 }

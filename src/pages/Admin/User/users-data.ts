@@ -34,6 +34,8 @@ export interface AppUser {
   createdAt: Date;
   updatedAt: Date;
   createdBy: string;
+  // Admin-only note
+  internalNotes: string;
   // Subcollection (loaded on demand)
   auctions?: UserAuction[];
 }

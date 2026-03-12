@@ -19,6 +19,7 @@ import {
   Box,
   CircularProgress,
   Avatar,
+  Collapse,
 } from "@mui/material";
 import {
   Search,
@@ -35,6 +36,9 @@ import {
   Filter,
   CheckCircle2,
   XCircle,
+  ChevronDown,
+  ChevronUp,
+  StickyNote,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { colors } from "../Products/products-data";
@@ -61,6 +65,9 @@ export default function UsersList() {
   const [blockDialog, setBlockDialog] = useState(false);
   const [blockTarget, setBlockTarget] = useState<AppUser | null>(null);
   const [blockLoading, setBlockLoading] = useState(false);
+
+  // Expanded row (internal notes)
+  const [expandedRow, setExpandedRow] = useState<string | null>(null);
 
   // Delete dialog
   const [deleteDialog, setDeleteDialog] = useState(false);
@@ -428,6 +435,7 @@ export default function UsersList() {
             <TableHead>
               <TableRow sx={{ bgcolor: colors.primaryBg }}>
                 {[
+                  "",
                   "User",
                   "Email / Phone",
                   "Status",
@@ -471,235 +479,342 @@ export default function UsersList() {
                 </TableRow>
               ) : (
                 paginated.map((user) => (
-                  <TableRow
-                    key={user.id}
-                    sx={{
-                      "&:hover": { bgcolor: colors.muted },
-                      transition: "background 0.15s",
-                    }}
-                  >
-                    {/* Avatar + Name */}
-                    <TableCell sx={{ minWidth: 200 }}>
-                      <Box
-                        sx={{ display: "flex", alignItems: "center", gap: 1.5 }}
-                      >
-                        <Avatar
-                          src={user.profileImage ?? undefined}
-                          sx={{
-                            width: 36,
-                            height: 36,
-                            bgcolor: colors.primaryBg,
-                            color: colors.primary,
-                            fontSize: "0.85rem",
-                            fontWeight: 700,
-                            border: `2px solid ${user.isBlocked ? "#FEE2E2" : colors.border}`,
-                          }}
-                        >
-                          {user.firstName.charAt(0)}
-                          {user.lastName.charAt(0)}
-                        </Avatar>
-                        <div>
-                          <p
-                            style={{
-                              margin: 0,
-                              fontWeight: 600,
-                              fontSize: "0.875rem",
-                              color: colors.textPrimary,
-                            }}
-                          >
-                            {user.fullName}
-                          </p>
-                          <p
-                            style={{
-                              margin: 0,
-                              fontSize: "0.72rem",
-                              color: colors.textMuted,
-                              fontFamily: "monospace",
-                            }}
-                          >
-                            {user.id.slice(0, 12)}…
-                          </p>
-                        </div>
-                      </Box>
-                    </TableCell>
-
-                    {/* Email + Phone */}
-                    <TableCell sx={{ minWidth: 180 }}>
-                      <p
-                        style={{
-                          margin: 0,
-                          fontSize: "0.82rem",
-                          color: colors.textPrimary,
-                          fontWeight: 500,
-                        }}
-                      >
-                        {user.email}
-                      </p>
-                      <p
-                        style={{
-                          margin: "2px 0 0",
-                          fontSize: "0.75rem",
-                          color: colors.textMuted,
-                        }}
-                      >
-                        {user.phone}
-                      </p>
-                    </TableCell>
-
-                    {/* Status chips */}
-                    <TableCell>
-                      <Box
-                        sx={{
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: 0.5,
-                        }}
-                      >
-                        <Chip
-                          icon={
-                            user.isBlocked ? (
-                              <UserX size={12} />
-                            ) : (
-                              <UserCheck size={12} />
-                            )
-                          }
-                          label={user.isBlocked ? "Blocked" : "Active"}
-                          size="small"
-                          sx={{
-                            bgcolor: user.isBlocked ? "#FEE2E2" : "#DCFCE7",
-                            color: user.isBlocked ? "#EF4444" : "#22C55E",
-                            fontWeight: 700,
-                            fontSize: "0.68rem",
-                            width: "fit-content",
-                            "& .MuiChip-icon": { color: "inherit" },
-                          }}
-                        />
-                        <Chip
-                          icon={
-                            user.verified ? (
-                              <CheckCircle2 size={12} />
-                            ) : (
-                              <XCircle size={12} />
-                            )
-                          }
-                          label={user.verified ? "Verified" : "Unverified"}
-                          size="small"
-                          sx={{
-                            bgcolor: user.verified ? "#EFF6FF" : "#F1F5F9",
-                            color: user.verified ? "#3B82F6" : "#94A3B8",
-                            fontWeight: 700,
-                            fontSize: "0.68rem",
-                            width: "fit-content",
-                            "& .MuiChip-icon": { color: "inherit" },
-                          }}
-                        />
-                      </Box>
-                    </TableCell>
-
-                    {/* Stats */}
-                    <TableCell>
-                      <p
-                        style={{
-                          margin: 0,
-                          fontSize: "0.75rem",
-                          color: colors.textMuted,
-                        }}
-                      >
-                        Bids:{" "}
-                        <strong style={{ color: colors.textPrimary }}>
-                          {user.totalBids}
-                        </strong>
-                      </p>
-                      <p
-                        style={{
-                          margin: "2px 0 0",
-                          fontSize: "0.75rem",
-                          color: colors.textMuted,
-                        }}
-                      >
-                        Wins:{" "}
-                        <strong style={{ color: "#22C55E" }}>
-                          {user.totalWins}
-                        </strong>
-                      </p>
-                    </TableCell>
-
-                    {/* Joined */}
-                    <TableCell sx={{ whiteSpace: "nowrap" }}>
-                      <p
-                        style={{
-                          margin: 0,
-                          fontSize: "0.8rem",
-                          color: colors.textPrimary,
-                        }}
-                      >
-                        {user.createdAt.toLocaleDateString()}
-                      </p>
-                    </TableCell>
-
-                    {/* Actions — ✅ Fix 1: delete button visible to all admins, not just superAdmin */}
-                    <TableCell align="center">
-                      <Box
-                        sx={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          gap: 0.5,
-                        }}
-                      >
+                  <>
+                    <TableRow
+                      key={user.id}
+                      sx={{
+                        "&:hover": { bgcolor: colors.muted },
+                        transition: "background 0.15s",
+                      }}
+                    >
+                      {/* Expand arrow */}
+                      <TableCell sx={{ width: 40, pr: 0 }}>
                         <IconButton
                           size="small"
-                          onClick={() => navigate(`/admin/users/${user.id}`)}
-                          sx={{
-                            color: colors.primary,
-                            "&:hover": { bgcolor: colors.primaryBg },
-                            borderRadius: 1.5,
-                          }}
-                          title="View Details"
+                          onClick={() =>
+                            setExpandedRow(
+                              expandedRow === user.id ? null : user.id,
+                            )
+                          }
+                          sx={{ color: colors.primary, borderRadius: 1.5 }}
+                          title="Internal Notes"
                         >
-                          <Eye size={16} />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          onClick={() => {
-                            setBlockTarget(user);
-                            setBlockDialog(true);
-                          }}
-                          title={user.isBlocked ? "Unblock" : "Block"}
-                          sx={{
-                            color: user.isBlocked ? "#22C55E" : "#EF4444",
-                            "&:hover": {
-                              bgcolor: user.isBlocked ? "#DCFCE7" : "#FEE2E2",
-                            },
-                            borderRadius: 1.5,
-                          }}
-                        >
-                          {user.isBlocked ? (
-                            <ShieldCheck size={16} />
+                          {expandedRow === user.id ? (
+                            <ChevronUp size={16} />
                           ) : (
-                            <ShieldOff size={16} />
+                            <ChevronDown size={16} />
                           )}
                         </IconButton>
-                        {/* ✅ Delete visible to all admins */}
-                        <IconButton
-                          size="small"
-                          onClick={() => {
-                            setDeleteTarget(user);
-                            setDeleteConfirmText("");
-                            setDeleteDialog(true);
-                          }}
-                          title="Delete User"
+                      </TableCell>
+
+                      {/* Avatar + Name */}
+                      <TableCell sx={{ minWidth: 200 }}>
+                        <Box
                           sx={{
-                            color: colors.error,
-                            "&:hover": { bgcolor: colors.errorBg },
-                            borderRadius: 1.5,
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 1.5,
                           }}
                         >
-                          <Trash2 size={16} />
-                        </IconButton>
-                      </Box>
-                    </TableCell>
-                  </TableRow>
+                          <Avatar
+                            src={user.profileImage ?? undefined}
+                            sx={{
+                              width: 36,
+                              height: 36,
+                              bgcolor: colors.primaryBg,
+                              color: colors.primary,
+                              fontSize: "0.85rem",
+                              fontWeight: 700,
+                              border: `2px solid ${user.isBlocked ? "#FEE2E2" : colors.border}`,
+                            }}
+                          >
+                            {user.firstName.charAt(0)}
+                            {user.lastName.charAt(0)}
+                          </Avatar>
+                          <div>
+                            <p
+                              style={{
+                                margin: 0,
+                                fontWeight: 600,
+                                fontSize: "0.875rem",
+                                color: colors.textPrimary,
+                              }}
+                            >
+                              {user.fullName}
+                            </p>
+                            <p
+                              style={{
+                                margin: 0,
+                                fontSize: "0.72rem",
+                                color: colors.textMuted,
+                                fontFamily: "monospace",
+                              }}
+                            >
+                              {user.id.slice(0, 12)}…
+                            </p>
+                          </div>
+                        </Box>
+                      </TableCell>
+
+                      {/* Email + Phone */}
+                      <TableCell sx={{ minWidth: 180 }}>
+                        <p
+                          style={{
+                            margin: 0,
+                            fontSize: "0.82rem",
+                            color: colors.textPrimary,
+                            fontWeight: 500,
+                          }}
+                        >
+                          {user.email}
+                        </p>
+                        <p
+                          style={{
+                            margin: "2px 0 0",
+                            fontSize: "0.75rem",
+                            color: colors.textMuted,
+                          }}
+                        >
+                          {user.phone}
+                        </p>
+                      </TableCell>
+
+                      {/* Status chips */}
+                      <TableCell>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 0.5,
+                          }}
+                        >
+                          <Chip
+                            icon={
+                              user.isBlocked ? (
+                                <UserX size={12} />
+                              ) : (
+                                <UserCheck size={12} />
+                              )
+                            }
+                            label={user.isBlocked ? "Blocked" : "Active"}
+                            size="small"
+                            sx={{
+                              bgcolor: user.isBlocked ? "#FEE2E2" : "#DCFCE7",
+                              color: user.isBlocked ? "#EF4444" : "#22C55E",
+                              fontWeight: 700,
+                              fontSize: "0.68rem",
+                              width: "fit-content",
+                              "& .MuiChip-icon": { color: "inherit" },
+                            }}
+                          />
+                          <Chip
+                            icon={
+                              user.verified ? (
+                                <CheckCircle2 size={12} />
+                              ) : (
+                                <XCircle size={12} />
+                              )
+                            }
+                            label={user.verified ? "Verified" : "Unverified"}
+                            size="small"
+                            sx={{
+                              bgcolor: user.verified ? "#EFF6FF" : "#F1F5F9",
+                              color: user.verified ? "#3B82F6" : "#94A3B8",
+                              fontWeight: 700,
+                              fontSize: "0.68rem",
+                              width: "fit-content",
+                              "& .MuiChip-icon": { color: "inherit" },
+                            }}
+                          />
+                        </Box>
+                      </TableCell>
+
+                      {/* Stats */}
+                      <TableCell>
+                        <p
+                          style={{
+                            margin: 0,
+                            fontSize: "0.75rem",
+                            color: colors.textMuted,
+                          }}
+                        >
+                          Bids:{" "}
+                          <strong style={{ color: colors.textPrimary }}>
+                            {user.totalBids}
+                          </strong>
+                        </p>
+                        <p
+                          style={{
+                            margin: "2px 0 0",
+                            fontSize: "0.75rem",
+                            color: colors.textMuted,
+                          }}
+                        >
+                          Wins:{" "}
+                          <strong style={{ color: "#22C55E" }}>
+                            {user.totalWins}
+                          </strong>
+                        </p>
+                      </TableCell>
+
+                      {/* Joined */}
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>
+                        <p
+                          style={{
+                            margin: 0,
+                            fontSize: "0.8rem",
+                            color: colors.textPrimary,
+                          }}
+                        >
+                          {user.createdAt.toLocaleDateString()}
+                        </p>
+                      </TableCell>
+
+                      {/* Actions — ✅ Fix 1: delete button visible to all admins, not just superAdmin */}
+                      <TableCell align="center">
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: 0.5,
+                          }}
+                        >
+                          <IconButton
+                            size="small"
+                            onClick={() => navigate(`/admin/users/${user.id}`)}
+                            sx={{
+                              color: colors.primary,
+                              "&:hover": { bgcolor: colors.primaryBg },
+                              borderRadius: 1.5,
+                            }}
+                            title="View Details"
+                          >
+                            <Eye size={16} />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            onClick={() => {
+                              setBlockTarget(user);
+                              setBlockDialog(true);
+                            }}
+                            title={user.isBlocked ? "Unblock" : "Block"}
+                            sx={{
+                              color: user.isBlocked ? "#22C55E" : "#EF4444",
+                              "&:hover": {
+                                bgcolor: user.isBlocked ? "#DCFCE7" : "#FEE2E2",
+                              },
+                              borderRadius: 1.5,
+                            }}
+                          >
+                            {user.isBlocked ? (
+                              <ShieldCheck size={16} />
+                            ) : (
+                              <ShieldOff size={16} />
+                            )}
+                          </IconButton>
+                          {/* ✅ Delete visible to all admins */}
+                          <IconButton
+                            size="small"
+                            onClick={() => {
+                              setDeleteTarget(user);
+                              setDeleteConfirmText("");
+                              setDeleteDialog(true);
+                            }}
+                            title="Delete User"
+                            sx={{
+                              color: colors.error,
+                              "&:hover": { bgcolor: colors.errorBg },
+                              borderRadius: 1.5,
+                            }}
+                          >
+                            <Trash2 size={16} />
+                          </IconButton>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                    {/* ── Expanded internal notes row ── */}
+                    <TableRow key={`${user.id}-notes`}>
+                      <TableCell colSpan={7} sx={{ p: 0, border: 0 }}>
+                        <Collapse
+                          in={expandedRow === user.id}
+                          timeout="auto"
+                          unmountOnExit
+                        >
+                          <Box
+                            sx={{
+                              mx: 4,
+                              my: 2,
+                              borderRadius: 2,
+                              border: `1px solid ${colors.border}`,
+                              overflow: "hidden",
+                              bgcolor: "#fff",
+                            }}
+                          >
+                            <Box
+                              sx={{
+                                px: 2.5,
+                                py: 1.5,
+                                bgcolor: colors.primaryBg,
+                                borderBottom: `1px solid ${colors.border}`,
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 1.5,
+                              }}
+                            >
+                              <StickyNote
+                                size={15}
+                                style={{ color: colors.primary }}
+                              />
+                              <span
+                                style={{
+                                  fontWeight: 700,
+                                  fontSize: "0.85rem",
+                                  color: colors.primaryDark,
+                                }}
+                              >
+                                Internal Notes
+                              </span>
+                              <span
+                                style={{
+                                  fontSize: "0.78rem",
+                                  color: colors.textSecondary,
+                                }}
+                              >
+                                visible to admins only
+                              </span>
+                            </Box>
+                            <Box sx={{ px: 2.5, py: 2 }}>
+                              {user.internalNotes ? (
+                                <p
+                                  style={{
+                                    margin: 0,
+                                    fontSize: "0.85rem",
+                                    color: colors.textPrimary,
+                                    whiteSpace: "pre-wrap",
+                                    lineHeight: 1.6,
+                                  }}
+                                >
+                                  {user.internalNotes}
+                                </p>
+                              ) : (
+                                <p
+                                  style={{
+                                    margin: 0,
+                                    fontSize: "0.82rem",
+                                    color: colors.textMuted,
+                                    fontStyle: "italic",
+                                  }}
+                                >
+                                  No notes — click View to add one.
+                                </p>
+                              )}
+                            </Box>
+                          </Box>
+                        </Collapse>
+                      </TableCell>
+                    </TableRow>
+                  </>
                 ))
               )}
             </TableBody>
@@ -786,8 +901,8 @@ export default function UsersList() {
           ) : (
             <>
               <p style={{ color: colors.textPrimary }}>
-                This will <strong>immediately disable</strong> this user's
-                Firebase Auth account. They cannot log in until unblocked.
+                This action will <strong>immediately disable</strong> This user
+                will be blocked from accessing the platform until unblocked.
               </p>
               <Box
                 sx={{
@@ -801,8 +916,8 @@ export default function UsersList() {
                 <p
                   style={{ fontSize: "0.875rem", color: "#DC2626", margin: 0 }}
                 >
-                  <strong>Server-side action</strong> — Firebase Auth rejects
-                  all login attempts immediately.
+                  <strong>Server-side action</strong> — The user will be blocked
+                  from logging in immediately.
                 </p>
               </Box>
             </>
@@ -918,8 +1033,8 @@ export default function UsersList() {
             }}
           >
             <p style={{ fontSize: "0.875rem", color: "#DC2626", margin: 0 }}>
-              <strong>⚠ Irreversible.</strong> Deletes Firebase Auth account AND
-              all Firestore data permanently.
+              <strong>⚠ Irreversible.</strong> Permanently delete this user and
+              all their data. This action cannot be undone.
             </p>
           </Box>
           <p
