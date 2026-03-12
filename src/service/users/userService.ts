@@ -12,6 +12,7 @@
  *  - restrictUserFromAuctionFull(...)    — add to restricted subcollection
  *  - removeAuctionRestrictionFull(...)   — remove from restricted subcollection
  *  - fetchUserRestrictions(uid)          — get list of restricted auction IDs for a user
+ *  - createAdminService(data)            — create a new admin/superAdmin via Cloud Function
  *
  * ── Why block uses a Cloud Function ──────────────────────────────────────────
  * Firebase Auth accounts can only be disabled server-side (Admin SDK).
@@ -271,4 +272,26 @@ export async function saveInternalNotes(uid: string, notes: string): Promise<voi
     internalNotes: notes,
     updatedAt: serverTimestamp(),
   });
+}
+
+// ─── CREATE ADMIN / SUPER ADMIN ───────────────────────────────────────────────
+// Creates a new Firebase Auth account + Firestore document with admin/superAdmin role.
+// Done via Cloud Function so the current admin session is NOT interrupted.
+// The new account is immediately active.
+
+export interface CreateAdminPayload {
+  firstName: string;
+  lastName:  string;
+  email:     string;
+  password:  string;
+  role:      "admin" | "superAdmin";
+}
+
+export async function createAdminService(payload: CreateAdminPayload): Promise<AppUser> {
+  await refreshToken();
+  const fn = httpsCallable(functions, "createAdminAccount");
+  const result = await fn(payload);
+  const data = result.data as Record<string, any>;
+  // Cloud Function returns the new user's Firestore doc fields + uid
+  return docToUser(data.uid, data);
 }

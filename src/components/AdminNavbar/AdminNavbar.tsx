@@ -86,7 +86,6 @@ const AdminNavbar = () => {
               <span className="text-sm font-medium text-[#0F172A]">
                 {adminName}
               </span>
-              <span className="text-xs text-gray-400">Administrator</span>
             </div>
 
             {/* <ChevronDown

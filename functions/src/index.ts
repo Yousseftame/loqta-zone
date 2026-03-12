@@ -15,8 +15,7 @@ if (!admin.apps.length) {
 setGlobalOptions({ maxInstances: 10 });
 
 // ── Auth / Role management ───────────────────────────────────────────────────
-export { onUserCreated, setUserRole, blockUser , deleteUser } from "./Auth/auth";
-
+export { onUserCreated, setUserRole, blockUser, deleteUser, createAdminAccount } from "./Auth/auth";
 // ── Notifications ────────────────────────────────────────────────────────────
 export { onAuctionRequestUpdated } from "./Notifications/notifications";
 

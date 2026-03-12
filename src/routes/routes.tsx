@@ -24,6 +24,7 @@ import ProductView from "@/pages/Admin/Products/ProductView";
 import AuctionRequestsList from "@/pages/Admin/RequestSystem/AuctionRequestsList";
 import AuctionRequestView from "@/pages/Admin/RequestSystem/AuctionRequestView";
 import Scheduling from "@/pages/Admin/Scheduling/Scheduling";
+import AdminsList from "@/pages/Admin/User/AdminsList";
 import UsersList from "@/pages/Admin/User/UsersList";
 import UserView from "@/pages/Admin/User/UserView";
 import VoucherForm from "@/pages/Admin/Voucher/VoucherForm";
@@ -67,7 +68,7 @@ export const routes = createBrowserRouter([
     element: (
       <ProtectedRoute allowedRoles={["admin", "superAdmin"]}>
         <DashboardLayout />
-      </ProtectedRoute>
+      </ProtectedRoute> 
     ),
     errorElement: <NotFound />,
     children: [
@@ -106,8 +107,10 @@ export const routes = createBrowserRouter([
       { path: "participants", element: <ParticipantsList /> },
       { path: "lastoffers", element: <LastOfferList /> },
 
-      { path: "/admin/users",     element: <UsersList /> },
-      { path: "/admin/users/:id", element: <UserView /> },
+      { path: "users", element: <UsersList /> },
+      { path: "users/:id", element: <UserView /> },
+
+      { path: "admins", element: <AdminsList /> },
 
       { path: "scheduling", element: <Scheduling /> },
       { path: "payment", element: <Payment /> },

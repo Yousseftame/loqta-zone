@@ -20,7 +20,7 @@ const Sidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { logout, user } = useAuth();
+  const { logout, user, role } = useAuth();
   const { contactNewCount, feedbackNewCount } = useContactFeedback();
   let timerInterval: ReturnType<typeof setInterval>;
 
@@ -48,43 +48,55 @@ const Sidebar = () => {
     });
   };
 
-  const menuItems = [
-    { id: "Dashboard", label: "Dashboard", icon: Home, path: "/admin" },
+  const allMenuItems = [
+    {
+      id: "Dashboard",
+      label: "Dashboard",
+      icon: Home,
+      path: "/admin",
+      roles: ["admin", "superAdmin"],
+    },
     {
       id: "Category",
       label: "Category",
       icon: CategoryIcon,
       path: "/admin/categories",
+      roles: ["admin", "superAdmin"],
     },
     {
       id: "Products",
       label: "Products",
       icon: Dashboard,
       path: "/admin/Products",
+      roles: ["admin", "superAdmin"],
     },
     {
       id: "Auctions",
       label: "Auctions",
       icon: MenuBook,
       path: "/admin/auctions",
+      roles: ["admin", "superAdmin"],
     },
     {
       id: "Vouchers",
       label: "Vouchers",
       icon: LocalActivityIcon,
       path: "/admin/vouchers",
+      roles: ["admin", "superAdmin"],
     },
     {
       id: "Auction Requests",
       label: "Auction Requests",
       icon: AttachEmailIcon,
       path: "/admin/auctionRequests",
+      roles: ["admin", "superAdmin"],
     },
     {
       id: "Contacts",
       label: "Contacts",
       icon: ContactsIcon,
       path: "/admin/contacts",
+      roles: ["admin", "superAdmin"],
       badge: contactNewCount,
     },
     {
@@ -92,6 +104,7 @@ const Sidebar = () => {
       label: "Feedback",
       icon: FeedbackIcon,
       path: "/admin/feedback",
+      roles: ["admin", "superAdmin"],
       badge: feedbackNewCount,
     },
     {
@@ -99,33 +112,43 @@ const Sidebar = () => {
       label: "Last Offer System",
       icon: LocalOfferIcon,
       path: "/admin/lastoffers",
+      roles: ["admin", "superAdmin"],
     },
     {
       id: "Bids",
       label: "Bids",
       icon: AddCardIcon,
       path: "/admin/bids",
+      roles: ["admin", "superAdmin"],
     },
     {
       id: "Auction Participants",
       label: "Auction Participants",
       icon: FolderSharedIcon,
       path: "/admin/participants",
+      roles: ["admin", "superAdmin"],
     },
-
     {
       id: "Users",
       label: "Users",
       icon: AccountCircleIcon,
       path: "/admin/users",
+      roles: ["admin", "superAdmin"],
     },
+    // ── Admins page: superAdmin only ──────────────────────────────────────────
     {
       id: "Admins",
       label: "Admins",
       icon: AdminPanelSettingsIcon,
-      path: "/admin/#",
+      path: "/admin/admins",
+      roles: ["superAdmin"],
     },
   ];
+
+  // Filter menu items based on current user's role
+  const menuItems = allMenuItems.filter(
+    (item) => !role || item.roles.includes(role),
+  );
 
   return (
     <div className="flex h-screen">
@@ -272,7 +295,9 @@ const Sidebar = () => {
                 }`}
               >
                 <p className="text-sm text-gray-700 truncate">{user?.email}</p>
-                <p className="text-xs text-gray-400">Administrator</p>
+                <p className="text-xs text-gray-400">
+                  {role === "superAdmin" ? "Super Admin" : "Administrator"}
+                </p>
               </div>
             </div>
 

@@ -40,10 +40,31 @@ async function getCallerRole(uid: string): Promise<UserRole> {
 // ─────────────────────────────────────────────────────────────────────────────
 export const onUserCreated = functionsAuth.user().onCreate(async (user) => {
   try {
+    // ── RACE-CONDITION FIX ────────────────────────────────────────────────────
+    // createAdminAccount calls firebaseAuth.createUser() which fires this trigger
+    // BEFORE it has a chance to write the Firestore doc. So we cannot rely on a
+    // Firestore doc check here.
+    //
+    // Instead, createAdminAccount sets custom claims immediately after createUser
+    // via firebaseAuth.setCustomUserClaims(). We read those claims directly from
+    // the Auth record — they are synchronous server-side and are already set by
+    // the time this trigger function body executes.
+    //
+    // If the account was created by createAdminAccount the claims will be
+    // { role: "admin" } or { role: "superAdmin" }. In that case we skip this
+    // handler entirely — createAdminAccount has already written everything.
+    const authUser = await firebaseAuth.getUser(user.uid);
+    const existingRole = (authUser.customClaims as any)?.role;
+
+    if (existingRole && existingRole !== "user") {
+      console.log(`[onUserCreated] uid=${user.uid} already has role="${existingRole}" via claims — skipping.`);
+      return;
+    }
+
+    // Normal self-registration path — set role to "user"
     await firebaseAuth.setCustomUserClaims(user.uid, { role: "user" });
 
-    const userRef = db.collection("users").doc(user.uid);
-    await userRef.set(
+    await db.collection("users").doc(user.uid).set(
       {
         email: user.email ?? "",
         role: "user",
@@ -52,7 +73,7 @@ export const onUserCreated = functionsAuth.user().onCreate(async (user) => {
         createdAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
       },
-      { merge: true }
+      { merge: true },
     );
 
     console.log(`[onUserCreated] Set role=user for uid=${user.uid}`);
@@ -141,8 +162,96 @@ export const blockUser = onCall(async (request) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 4. deleteUser  (admin or superAdmin — checks Firestore role, not JWT)
+// 5. createAdminAccount  (superAdmin only)
 // ─────────────────────────────────────────────────────────────────────────────
+// Creates a new Firebase Auth account with admin or superAdmin role without
+// signing out the currently authenticated admin. This is the ONLY way to create
+// admin/superAdmin accounts — it is not available from the client SDK without
+// interrupting the current session.
+
+export const createAdminAccount = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "You must be signed in.");
+  }
+
+  // Only superAdmins can create admin/superAdmin accounts
+  const callerRole = await getCallerRole(request.auth.uid);
+  if (callerRole !== "superAdmin") {
+    throw new HttpsError("permission-denied", "Only superAdmins can create admin accounts.");
+  }
+
+  const { firstName, lastName, email, password, role } = request.data as {
+    firstName: string;
+    lastName:  string;
+    email:     string;
+    password:  string;
+    role:      "admin" | "superAdmin";
+  };
+
+  const validRoles = ["admin", "superAdmin"];
+  if (!firstName || !lastName || !email || !password || !validRoles.includes(role)) {
+    throw new HttpsError("invalid-argument", "firstName, lastName, email, password, and a valid role are required.");
+  }
+  if (password.length < 6) {
+    throw new HttpsError("invalid-argument", "Password must be at least 6 characters.");
+  }
+
+  // 1. Create Firebase Auth account
+  const newUser = await firebaseAuth.createUser({
+    email,
+    password,
+    displayName: `${firstName} ${lastName}`,
+  });
+
+  // 2. Set custom claim
+  await firebaseAuth.setCustomUserClaims(newUser.uid, { role });
+
+  // 3. Write Firestore document
+  const now = FieldValue.serverTimestamp();
+  const userData = {
+    firstName,
+    lastName,
+    fullName: `${firstName} ${lastName}`,
+    email,
+    phone: "",
+    role,
+    isBlocked: false,
+    verified: true,           // admin accounts are pre-verified
+    profileImage: null,
+    fcmTokens: [],
+    totalBids: 0,
+    totalWins: 0,
+    walletBalance: 0,
+    internalNotes: "",
+    createdAt: now,
+    updatedAt: now,
+    createdBy: request.auth.uid,
+  };
+
+  await db.collection("users").doc(newUser.uid).set(userData);
+
+  console.log(`[createAdminAccount] uid=${newUser.uid} role="${role}" created by uid=${request.auth.uid}`);
+
+  // Return enough data for the client to build an AppUser without a second fetch
+  return {
+    uid: newUser.uid,
+    firstName,
+    lastName,
+    fullName: `${firstName} ${lastName}`,
+    email,
+    phone: "",
+    role,
+    isBlocked: false,
+    verified: true,
+    profileImage: null,
+    fcmTokens: [],
+    totalBids: 0,
+    totalWins: 0,
+    walletBalance: 0,
+    internalNotes: "",
+    createdBy: request.auth.uid,
+  };
+});
 export const deleteUser = onCall(async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "You must be signed in.");
