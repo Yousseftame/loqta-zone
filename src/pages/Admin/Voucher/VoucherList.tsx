@@ -35,6 +35,14 @@ import {
   Tag,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import {
+  collection,
+  getDocs,
+  getDoc,
+  doc,
+  Timestamp,
+} from "firebase/firestore";
+import { db } from "@/firebase/firebase";
 import { colors } from "../Products/products-data";
 import {
   type Voucher,
@@ -45,14 +53,56 @@ import {
   getUsageCount,
 } from "./voucher-data";
 import { useVouchers } from "@/store/AdminContext/VoucherContext/VoucherContext";
-import { useProducts } from "@/store/AdminContext/ProductContext/ProductsCotnext";
 import { usePermissions } from "@/permissions/usePermissions";
+
+// ─── Auction cache (loaded once for display in the list) ─────────────────────
+
+interface AuctionMeta {
+  id: string;
+  auctionNumber: number;
+  productTitle: string;
+}
+
+async function loadAuctionMeta(): Promise<Record<string, AuctionMeta>> {
+  const snap = await getDocs(collection(db, "auctions"));
+  if (snap.empty) return {};
+
+  const productIds = [
+    ...new Set(
+      snap.docs.map((d) => d.data().productId).filter(Boolean) as string[],
+    ),
+  ];
+  const titleMap: Record<string, string> = {};
+  await Promise.all(
+    productIds.map(async (pid) => {
+      try {
+        const pSnap = await getDoc(doc(db, "products", pid));
+        titleMap[pid] = pSnap.exists() ? (pSnap.data().title ?? "") : "";
+      } catch {
+        titleMap[pid] = "";
+      }
+    }),
+  );
+
+  const map: Record<string, AuctionMeta> = {};
+  snap.docs.forEach((d) => {
+    const data = d.data();
+    map[d.id] = {
+      id: d.id,
+      auctionNumber: data.auctionNumber ?? 0,
+      productTitle: titleMap[data.productId ?? ""] ?? "",
+    };
+  });
+  return map;
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export default function VouchersList() {
   const navigate = useNavigate();
   const { vouchers, loading, error, refreshVouchers, removeVoucher } =
     useVouchers();
-  const { products } = useProducts();
+  const { can } = usePermissions();
 
   const [filtered, setFiltered] = useState<Voucher[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -61,8 +111,16 @@ export default function VouchersList() {
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [voucherToDelete, setVoucherToDelete] = useState<Voucher | null>(null);
   const [loadingDelete, setLoadingDelete] = useState(false);
-      const { can } = usePermissions();
 
+  // Auction meta cache
+  const [auctionMeta, setAuctionMeta] = useState<Record<string, AuctionMeta>>(
+    {},
+  );
+  useEffect(() => {
+    loadAuctionMeta()
+      .then(setAuctionMeta)
+      .catch(() => setAuctionMeta({}));
+  }, []);
 
   useEffect(() => {
     let f = vouchers;
@@ -207,29 +265,31 @@ export default function VouchersList() {
           >
             <RefreshCw size={18} />
           </IconButton>
-          {can("vouchers", "create") && <Button
-            variant="contained"
-            startIcon={<Plus size={18} />}
-            onClick={() => navigate("/admin/vouchers/add")}
-            sx={{
-              bgcolor: colors.primary,
-              color: "white",
-              textTransform: "none",
-              px: 3,
-              py: 1.5,
-              borderRadius: 2,
-              fontWeight: 600,
-              boxShadow: "none",
-              width: { xs: "100%", sm: "auto" },
-              "&:hover": { bgcolor: "#111" },
-            }}
-          >
-            Add New Voucher
-          </Button>}
+          {can("vouchers", "create") && (
+            <Button
+              variant="contained"
+              startIcon={<Plus size={18} />}
+              onClick={() => navigate("/admin/vouchers/add")}
+              sx={{
+                bgcolor: colors.primary,
+                color: "white",
+                textTransform: "none",
+                px: 3,
+                py: 1.5,
+                borderRadius: 2,
+                fontWeight: 600,
+                boxShadow: "none",
+                width: { xs: "100%", sm: "auto" },
+                "&:hover": { bgcolor: "#111" },
+              }}
+            >
+              Add New Voucher
+            </Button>
+          )}
         </Box>
       </Box>
 
-      {/* Stats — now 6 cards */}
+      {/* Stats */}
       <Box
         sx={{
           display: "grid",
@@ -394,7 +454,7 @@ export default function VouchersList() {
                   "Code",
                   "Type",
                   "Discount",
-                  "Products",
+                  "Auctions",
                   "Usage",
                   "Expiry",
                   "Status",
@@ -510,16 +570,16 @@ export default function VouchersList() {
                         )}
                       </TableCell>
 
-                      {/* Products */}
-                      <TableCell sx={{ minWidth: 140 }}>
-                        {voucher.applicableProducts.length === 0 ? (
+                      {/* Auctions */}
+                      <TableCell sx={{ minWidth: 160 }}>
+                        {voucher.applicableAuctions.length === 0 ? (
                           <span
                             style={{
                               fontSize: "0.78rem",
                               color: colors.textMuted,
                             }}
                           >
-                            All products
+                            All auctions
                           </span>
                         ) : (
                           <Box
@@ -527,16 +587,16 @@ export default function VouchersList() {
                               display: "flex",
                               gap: 0.5,
                               flexWrap: "wrap",
-                              maxWidth: 180,
+                              maxWidth: 200,
                             }}
                           >
-                            {voucher.applicableProducts
+                            {voucher.applicableAuctions
                               .slice(0, 2)
-                              .map((pid) => {
-                                const p = products.find((pr) => pr.id === pid);
+                              .map((aid) => {
+                                const meta = auctionMeta[aid];
                                 return (
                                   <span
-                                    key={pid}
+                                    key={aid}
                                     style={{
                                       fontSize: "0.7rem",
                                       background: colors.primaryBg,
@@ -547,11 +607,13 @@ export default function VouchersList() {
                                       whiteSpace: "nowrap",
                                     }}
                                   >
-                                    {p ? p.title : pid.slice(0, 6) + "…"}
+                                    {meta
+                                      ? `${meta.productTitle || "—"} #${meta.auctionNumber}`
+                                      : aid.slice(0, 6) + "…"}
                                   </span>
                                 );
                               })}
-                            {voucher.applicableProducts.length > 2 && (
+                            {voucher.applicableAuctions.length > 2 && (
                               <span
                                 style={{
                                   fontSize: "0.7rem",
@@ -559,7 +621,7 @@ export default function VouchersList() {
                                   padding: "2px 4px",
                                 }}
                               >
-                                +{voucher.applicableProducts.length - 2} more
+                                +{voucher.applicableAuctions.length - 2} more
                               </span>
                             )}
                           </Box>
@@ -644,49 +706,55 @@ export default function VouchersList() {
                             gap: 0.5,
                           }}
                         >
-                          {can("vouchers", "read") && <IconButton
-                            size="small"
-                            onClick={() =>
-                              navigate(`/admin/vouchers/${voucher.id}`)
-                            }
-                            sx={{
-                              color: colors.primary,
-                              "&:hover": { bgcolor: colors.primaryBg },
-                              borderRadius: 1.5,
-                            }}
-                            title="View"
-                          >
-                            <Eye size={16} />
-                          </IconButton>}
-                          {can("vouchers", "update") && <IconButton
-                            size="small"
-                            onClick={() =>
-                              navigate(`/admin/vouchers/${voucher.id}/edit`)
-                            }
-                            sx={{
-                              color: "#7C3AED",
-                              "&:hover": { bgcolor: "#F3E8FF" },
-                              borderRadius: 1.5,
-                            }}
-                            title="Edit"
-                          >
-                            <Edit size={16} />
-                          </IconButton>}
-                          {can("categories", "delete") && <IconButton
-                            size="small"
-                            onClick={() => {
-                              setVoucherToDelete(voucher);
-                              setDeleteDialog(true);
-                            }}
-                            sx={{
-                              color: colors.error,
-                              "&:hover": { bgcolor: colors.errorBg },
-                              borderRadius: 1.5,
-                            }}
-                            title="Delete"
-                          >
-                            <Trash2 size={16} />
-                          </IconButton>}
+                          {can("vouchers", "read") && (
+                            <IconButton
+                              size="small"
+                              onClick={() =>
+                                navigate(`/admin/vouchers/${voucher.id}`)
+                              }
+                              sx={{
+                                color: colors.primary,
+                                "&:hover": { bgcolor: colors.primaryBg },
+                                borderRadius: 1.5,
+                              }}
+                              title="View"
+                            >
+                              <Eye size={16} />
+                            </IconButton>
+                          )}
+                          {can("vouchers", "update") && (
+                            <IconButton
+                              size="small"
+                              onClick={() =>
+                                navigate(`/admin/vouchers/${voucher.id}/edit`)
+                              }
+                              sx={{
+                                color: "#7C3AED",
+                                "&:hover": { bgcolor: "#F3E8FF" },
+                                borderRadius: 1.5,
+                              }}
+                              title="Edit"
+                            >
+                              <Edit size={16} />
+                            </IconButton>
+                          )}
+                          {can("vouchers", "delete") && (
+                            <IconButton
+                              size="small"
+                              onClick={() => {
+                                setVoucherToDelete(voucher);
+                                setDeleteDialog(true);
+                              }}
+                              sx={{
+                                color: colors.error,
+                                "&:hover": { bgcolor: colors.errorBg },
+                                borderRadius: 1.5,
+                              }}
+                              title="Delete"
+                            >
+                              <Trash2 size={16} />
+                            </IconButton>
+                          )}
                         </Box>
                       </TableCell>
                     </TableRow>

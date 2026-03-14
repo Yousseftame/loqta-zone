@@ -23,9 +23,11 @@ import {
   Clock,
   Tag,
   ShieldCheck,
-  Package,
+  Gavel,
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
+import { doc, getDoc, Timestamp } from "firebase/firestore";
+import { db } from "@/firebase/firebase";
 import { colors } from "../Products/products-data";
 import {
   type Voucher,
@@ -36,19 +38,83 @@ import {
   getUsageCount,
 } from "./voucher-data";
 import { useVouchers } from "@/store/AdminContext/VoucherContext/VoucherContext";
-import { useProducts } from "@/store/AdminContext/ProductContext/ProductsCotnext";
+
+// ─── Enriched auction info for the view card ──────────────────────────────────
+
+interface AuctionDetail {
+  id: string;
+  auctionNumber: number;
+  productTitle: string;
+  productId: string;
+  status: "upcoming" | "live" | "ended";
+  isActive: boolean;
+}
+
+async function fetchAuctionDetails(ids: string[]): Promise<AuctionDetail[]> {
+  if (ids.length === 0) return [];
+  const snaps = await Promise.all(
+    ids.map((id) => getDoc(doc(db, "auctions", id))),
+  );
+  const results: AuctionDetail[] = [];
+
+  for (const snap of snaps) {
+    if (!snap.exists()) continue;
+    const d = snap.data();
+    const endTime =
+      d.endTime instanceof Timestamp ? d.endTime.toDate() : new Date(d.endTime);
+    const startTime =
+      d.startTime instanceof Timestamp
+        ? d.startTime.toDate()
+        : new Date(d.startTime);
+    const now = new Date();
+    const status: AuctionDetail["status"] =
+      now < startTime ? "upcoming" : now <= endTime ? "live" : "ended";
+
+    // Fetch product title
+    let productTitle = "";
+    if (d.productId) {
+      try {
+        const pSnap = await getDoc(doc(db, "products", d.productId));
+        productTitle = pSnap.exists() ? (pSnap.data().title ?? "") : "";
+      } catch {
+        productTitle = "";
+      }
+    }
+
+    results.push({
+      id: snap.id,
+      auctionNumber: d.auctionNumber ?? 0,
+      productTitle,
+      productId: d.productId ?? "",
+      status,
+      isActive: d.isActive ?? true,
+    });
+  }
+  return results;
+}
+
+function statusColor(s: AuctionDetail["status"]): string {
+  if (s === "live") return "#4ade80";
+  if (s === "upcoming") return "#93c5fd";
+  return "#f87171";
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export default function VoucherView() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { getVoucher, removeVoucher } = useVouchers();
-  const { products } = useProducts();
 
   const [voucher, setVoucher] = useState<Voucher | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [done, setDone] = useState(false);
+
+  // Enriched auction details for the applicable-auctions card
+  const [auctionDetails, setAuctionDetails] = useState<AuctionDetail[]>([]);
+  const [loadingAuctions, setLoadingAuctions] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -57,6 +123,14 @@ export default function VoucherView() {
       const v = await getVoucher(id);
       setVoucher(v);
       setLoading(false);
+      // Fetch auction details once voucher is loaded
+      if (v && v.applicableAuctions.length > 0) {
+        setLoadingAuctions(true);
+        fetchAuctionDetails(v.applicableAuctions)
+          .then(setAuctionDetails)
+          .catch(() => setAuctionDetails([]))
+          .finally(() => setLoadingAuctions(false));
+      }
     })();
   }, [id, getVoucher]);
 
@@ -108,15 +182,8 @@ export default function VoucherView() {
   const typeStyle = getVoucherTypeStyle(voucher.type);
   const usageCount = getUsageCount(voucher);
   const usagePct = Math.min((usageCount / voucher.maxUses) * 100, 100);
-
-  // Whether this type stores a discountAmount
   const hasAmount =
     voucher.type === "discount" || voucher.type === "entry_discount";
-
-  // Resolve linked products
-  const linkedProducts = products.filter((p) =>
-    voucher.applicableProducts.includes(p.id),
-  );
 
   return (
     <Box
@@ -169,7 +236,6 @@ export default function VoucherView() {
             gap: 3,
           }}
         >
-          {/* Icon */}
           <Box
             sx={{
               width: { xs: 60, md: 72 },
@@ -314,12 +380,12 @@ export default function VoucherView() {
               color: usageCount >= voucher.maxUses ? colors.error : "#0EA5E9",
             },
             {
-              label: "Products",
+              label: "Auctions",
               value:
-                voucher.applicableProducts.length === 0
+                voucher.applicableAuctions.length === 0
                   ? "All"
-                  : voucher.applicableProducts.length,
-              icon: <Package size={16} />,
+                  : voucher.applicableAuctions.length,
+              icon: <Gavel size={16} />,
               color: colors.primary,
             },
           ].map(({ label, value, icon, color }, i) => (
@@ -383,7 +449,7 @@ export default function VoucherView() {
         </Box>
       </Paper>
 
-      {/* ── Details + Usage grid ── */}
+      {/* ── Details + Applicable Auctions grid ── */}
       <Box
         sx={{
           display: "grid",
@@ -469,7 +535,6 @@ export default function VoucherView() {
                   />
                 ),
               },
-              // Show discount amount row for both "discount" and "entry_discount"
               ...(hasAmount && voucher.discountAmount != null
                 ? [
                     {
@@ -619,7 +684,7 @@ export default function VoucherView() {
           </Box>
         </Paper>
 
-        {/* Applicable Products Card */}
+        {/* ── Applicable Auctions Card ── */}
         <Paper
           elevation={0}
           sx={{
@@ -638,9 +703,9 @@ export default function VoucherView() {
               gap: 1.5,
             }}
           >
-            <Package size={18} style={{ color: colors.primary }} />
+            <Gavel size={18} style={{ color: colors.primary }} />
             <span style={{ fontWeight: 700, color: colors.textPrimary }}>
-              Applicable Products
+              Applicable Auctions
               <span
                 style={{
                   marginLeft: 8,
@@ -652,14 +717,14 @@ export default function VoucherView() {
                   fontWeight: 700,
                 }}
               >
-                {voucher.applicableProducts.length === 0
+                {voucher.applicableAuctions.length === 0
                   ? "All"
-                  : voucher.applicableProducts.length}
+                  : voucher.applicableAuctions.length}
               </span>
             </span>
           </Box>
           <Box sx={{ p: { xs: 2, md: 3 } }}>
-            {voucher.applicableProducts.length === 0 ? (
+            {voucher.applicableAuctions.length === 0 ? (
               <Box
                 sx={{
                   p: 3,
@@ -669,7 +734,7 @@ export default function VoucherView() {
                   textAlign: "center",
                 }}
               >
-                <Package
+                <Gavel
                   size={28}
                   style={{
                     color: colors.primary,
@@ -685,7 +750,7 @@ export default function VoucherView() {
                     fontSize: "0.875rem",
                   }}
                 >
-                  Applies to all products
+                  Applies to all auctions
                 </p>
                 <p
                   style={{
@@ -694,15 +759,19 @@ export default function VoucherView() {
                     fontSize: "0.8rem",
                   }}
                 >
-                  No product restriction set
+                  No auction restriction set
                 </p>
+              </Box>
+            ) : loadingAuctions ? (
+              <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+                <CircularProgress size={24} sx={{ color: colors.primary }} />
               </Box>
             ) : (
               <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-                {linkedProducts.map((p) => (
+                {auctionDetails.map((auction) => (
                   <Box
-                    key={p.id}
-                    onClick={() => navigate(`/admin/products/${p.id}`)}
+                    key={auction.id}
+                    onClick={() => navigate(`/admin/auctions/${auction.id}`)}
                     sx={{
                       display: "flex",
                       alignItems: "center",
@@ -718,39 +787,16 @@ export default function VoucherView() {
                       },
                     }}
                   >
-                    {p.thumbnail && p.thumbnail !== "null" ? (
-                      <Box
-                        component="img"
-                        src={p.thumbnail}
-                        alt={p.title}
-                        sx={{
-                          width: 36,
-                          height: 36,
-                          borderRadius: 1.5,
-                          objectFit: "cover",
-                          flexShrink: 0,
-                          border: `1px solid ${colors.border}`,
-                        }}
-                      />
-                    ) : (
-                      <Box
-                        sx={{
-                          width: 36,
-                          height: 36,
-                          borderRadius: 1.5,
-                          bgcolor: colors.primaryBg,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          flexShrink: 0,
-                          fontWeight: 700,
-                          fontSize: "0.85rem",
-                          color: colors.primary,
-                        }}
-                      >
-                        {p.title.charAt(0)}
-                      </Box>
-                    )}
+                    {/* Status dot */}
+                    <Box
+                      sx={{
+                        width: 10,
+                        height: 10,
+                        borderRadius: "50%",
+                        bgcolor: statusColor(auction.status),
+                        flexShrink: 0,
+                      }}
+                    />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p
                         style={{
@@ -763,7 +809,7 @@ export default function VoucherView() {
                           whiteSpace: "nowrap",
                         }}
                       >
-                        {p.title}
+                        {auction.productTitle || "—"}
                       </p>
                       <p
                         style={{
@@ -772,15 +818,24 @@ export default function VoucherView() {
                           color: colors.textMuted,
                         }}
                       >
-                        {p.brand} · {p.model}
+                        Auction #{auction.auctionNumber} ·{" "}
+                        <span
+                          style={{
+                            color: statusColor(auction.status),
+                            fontWeight: 600,
+                            textTransform: "capitalize",
+                          }}
+                        >
+                          {auction.status}
+                        </span>
                       </p>
                     </div>
                     <Chip
-                      label={p.isActive ? "Active" : "Inactive"}
+                      label={auction.isActive ? "Active" : "Inactive"}
                       size="small"
                       sx={{
-                        bgcolor: p.isActive ? "#DCFCE7" : "#FEE2E2",
-                        color: p.isActive ? "#22C55E" : "#EF4444",
+                        bgcolor: auction.isActive ? "#DCFCE7" : "#FEE2E2",
+                        color: auction.isActive ? "#22C55E" : "#EF4444",
                         fontWeight: 700,
                         fontSize: "0.65rem",
                         flexShrink: 0,
@@ -788,12 +843,12 @@ export default function VoucherView() {
                     />
                   </Box>
                 ))}
-                {/* IDs not found in context */}
-                {voucher.applicableProducts
-                  .filter((pid) => !products.find((p) => p.id === pid))
-                  .map((pid) => (
+                {/* IDs not found in Firestore */}
+                {voucher.applicableAuctions
+                  .filter((aid) => !auctionDetails.find((a) => a.id === aid))
+                  .map((aid) => (
                     <Box
-                      key={pid}
+                      key={aid}
                       sx={{
                         p: 1.5,
                         borderRadius: 2,
@@ -808,7 +863,7 @@ export default function VoucherView() {
                           color: colors.textMuted,
                         }}
                       >
-                        {pid}
+                        {aid}
                       </span>
                     </Box>
                   ))}

@@ -19,6 +19,14 @@ import {
 } from "@mui/material";
 import { ArrowLeft, Save, Ticket, Info, RefreshCw } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
+import {
+  collection,
+  getDocs,
+  getDoc,
+  doc,
+  Timestamp,
+} from "firebase/firestore";
+import { db } from "@/firebase/firebase";
 import { colors } from "../Products/products-data";
 import {
   DEFAULT_VOUCHER_FORM,
@@ -27,7 +35,6 @@ import {
   type VoucherType,
 } from "./voucher-data";
 import { useVouchers } from "@/store/AdminContext/VoucherContext/VoucherContext";
-import { useProducts } from "@/store/AdminContext/ProductContext/ProductsCotnext";
 
 const inputSx = {
   "& .MuiOutlinedInput-root": {
@@ -74,18 +81,98 @@ const VOUCHER_TYPES: { value: VoucherType; label: string; desc: string }[] = [
   },
 ];
 
+// ─── Auction option (enriched with product title) ─────────────────────────────
+
+interface AuctionOption {
+  id: string;
+  auctionNumber: number;
+  productTitle: string;
+  productId: string;
+  status: "upcoming" | "live" | "ended";
+}
+
+async function loadAuctionOptions(): Promise<AuctionOption[]> {
+  const snap = await getDocs(collection(db, "auctions"));
+  if (snap.empty) return [];
+
+  // Collect unique productIds
+  const productIds = [
+    ...new Set(
+      snap.docs.map((d) => d.data().productId).filter(Boolean) as string[],
+    ),
+  ];
+
+  // Batch-fetch product titles
+  const titleMap: Record<string, string> = {};
+  await Promise.all(
+    productIds.map(async (pid) => {
+      try {
+        const pSnap = await getDoc(doc(db, "products", pid));
+        titleMap[pid] = pSnap.exists() ? (pSnap.data().title ?? "") : "";
+      } catch {
+        titleMap[pid] = "";
+      }
+    }),
+  );
+
+  const now = new Date();
+  return snap.docs
+    .map((d) => {
+      const data = d.data();
+      const endTime =
+        data.endTime instanceof Timestamp
+          ? data.endTime.toDate()
+          : new Date(data.endTime);
+      const startTime =
+        data.startTime instanceof Timestamp
+          ? data.startTime.toDate()
+          : new Date(data.startTime);
+      const status: AuctionOption["status"] =
+        now < startTime ? "upcoming" : now <= endTime ? "live" : "ended";
+      return {
+        id: d.id,
+        auctionNumber: data.auctionNumber ?? 0,
+        productId: data.productId ?? "",
+        productTitle: titleMap[data.productId ?? ""] ?? "",
+        status,
+      };
+    })
+    .sort((a, b) => b.auctionNumber - a.auctionNumber); // newest first
+}
+
+// Status dot colour
+function statusColor(s: AuctionOption["status"]): string {
+  if (s === "live") return "#4ade80";
+  if (s === "upcoming") return "#93c5fd";
+  return "#f87171";
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
 export default function VoucherForm() {
   const navigate = useNavigate();
   const { id } = useParams<{ id?: string }>();
   const isEdit = Boolean(id);
   const { getVoucher, addVoucher, editVoucher } = useVouchers();
-  const { products } = useProducts();
 
   const [form, setForm] = useState<VoucherFormData>(DEFAULT_VOUCHER_FORM);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [loadingVoucher, setLoadingVoucher] = useState(isEdit);
 
+  // Auction options (loaded once)
+  const [auctionOptions, setAuctionOptions] = useState<AuctionOption[]>([]);
+  const [loadingAuctions, setLoadingAuctions] = useState(true);
+
+  // Load auctions on mount
+  useEffect(() => {
+    loadAuctionOptions()
+      .then(setAuctionOptions)
+      .catch(() => setAuctionOptions([]))
+      .finally(() => setLoadingAuctions(false));
+  }, []);
+
+  // Load existing voucher for edit mode
   useEffect(() => {
     if (!isEdit || !id) return;
     (async () => {
@@ -97,7 +184,7 @@ export default function VoucherForm() {
           type: v.type,
           discountAmount:
             v.discountAmount != null ? String(v.discountAmount) : "",
-          applicableProducts: v.applicableProducts,
+          applicableAuctions: v.applicableAuctions,
           maxUses: String(v.maxUses),
           isActive: v.isActive,
           expiryDate: toDatetimeLocal(v.expiryDate),
@@ -156,6 +243,13 @@ export default function VoucherForm() {
     } finally {
       setSaving(false);
     }
+  };
+
+  // Lookup helper — auction label for display
+  const auctionLabel = (auctionId: string): string => {
+    const opt = auctionOptions.find((a) => a.id === auctionId);
+    if (!opt) return auctionId.slice(0, 8) + "…";
+    return `${opt.productTitle || "—"} — Auction #${opt.auctionNumber}`;
   };
 
   if (loadingVoucher) {
@@ -315,7 +409,7 @@ export default function VoucherForm() {
             </Button>
           </Box>
 
-          {/* Voucher Type — 3 cards, original styling */}
+          {/* Voucher Type */}
           <Box>
             <p
               style={{
@@ -377,7 +471,7 @@ export default function VoucherForm() {
             </Box>
           </Box>
 
-          {/* Discount Amount — shown for "discount" and "entry_discount" */}
+          {/* Discount Amount */}
           {needsAmount && (
             <Box
               sx={{
@@ -423,100 +517,123 @@ export default function VoucherForm() {
             </Box>
           )}
 
-          {/* Applicable Products (leave empty for all) */}
+          {/* ── Applicable Auctions ───────────────────────────────────────── */}
           <FormControl
             size="small"
             fullWidth
-            error={!!errors.applicableProducts}
+            error={!!errors.applicableAuctions}
           >
             <InputLabel sx={{ "&.Mui-focused": { color: colors.primary } }}>
-              Applicable Products (leave empty for all)
+              Applicable Auctions (leave empty for all)
             </InputLabel>
             <Select
               multiple
-              value={form.applicableProducts}
+              value={form.applicableAuctions}
               onChange={(e) => {
                 const val = e.target.value;
                 field(
-                  "applicableProducts",
+                  "applicableAuctions",
                   typeof val === "string" ? val.split(",") : val,
                 );
               }}
               input={
-                <OutlinedInput label="Applicable Products (leave empty for all)" />
+                <OutlinedInput label="Applicable Auctions (leave empty for all)" />
               }
               renderValue={(selected) => {
-                if (selected.length === 0) return "All products";
-                return selected
-                  .map((sid) => {
-                    const p = products.find((pr) => pr.id === sid);
-                    return p ? p.title : sid;
-                  })
-                  .join(", ");
+                if (selected.length === 0) return "All auctions";
+                return selected.map(auctionLabel).join(", ");
               }}
               sx={selectSx}
+              disabled={loadingAuctions}
+              startAdornment={
+                loadingAuctions ? (
+                  <InputAdornment position="start">
+                    <CircularProgress
+                      size={14}
+                      sx={{ color: colors.primary }}
+                    />
+                  </InputAdornment>
+                ) : undefined
+              }
             >
-              {products.length === 0 ? (
-                <MenuItem disabled>No products available</MenuItem>
+              {auctionOptions.length === 0 ? (
+                <MenuItem disabled>No auctions available</MenuItem>
               ) : (
-                products.map((p) => (
-                  <MenuItem key={p.id} value={p.id}>
+                auctionOptions.map((auction) => (
+                  <MenuItem key={auction.id} value={auction.id}>
                     <Checkbox
-                      checked={form.applicableProducts.includes(p.id)}
+                      checked={form.applicableAuctions.includes(auction.id)}
                       sx={{
                         color: colors.primary,
                         "&.Mui-checked": { color: colors.primary },
                       }}
                     />
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                      {p.thumbnail && p.thumbnail !== "null" ? (
+                    {/* Status dot + product title + auction number */}
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1.5,
+                        minWidth: 0,
+                      }}
+                    >
+                      {/* Status indicator */}
+                      <Box
+                        sx={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: "50%",
+                          bgcolor: statusColor(auction.status),
+                          flexShrink: 0,
+                        }}
+                      />
+                      <Box sx={{ minWidth: 0 }}>
                         <Box
-                          component="img"
-                          src={p.thumbnail}
-                          alt={p.title}
                           sx={{
-                            width: 28,
-                            height: 28,
-                            borderRadius: 1,
-                            objectFit: "cover",
-                            flexShrink: 0,
-                          }}
-                        />
-                      ) : (
-                        <Box
-                          sx={{
-                            width: 28,
-                            height: 28,
-                            borderRadius: 1,
-                            bgcolor: colors.primaryBg,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: "0.7rem",
-                            fontWeight: 700,
-                            color: colors.primary,
-                            flexShrink: 0,
+                            fontSize: "0.875rem",
+                            fontWeight: 600,
+                            color: colors.textPrimary,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
                           }}
                         >
-                          {p.title.charAt(0)}
+                          {auction.productTitle || "—"}
                         </Box>
-                      )}
-                      <ListItemText primary={p.title} />
+                        <Box
+                          sx={{
+                            fontSize: "0.72rem",
+                            color: colors.textMuted,
+                            fontWeight: 500,
+                          }}
+                        >
+                          Auction #{auction.auctionNumber} ·{" "}
+                          <span
+                            style={{
+                              color: statusColor(auction.status),
+                              fontWeight: 600,
+                              textTransform: "capitalize",
+                            }}
+                          >
+                            {auction.status}
+                          </span>
+                        </Box>
+                      </Box>
                     </Box>
                   </MenuItem>
                 ))
               )}
             </Select>
-            {form.applicableProducts.length > 0 ? (
+            {form.applicableAuctions.length > 0 ? (
               <FormHelperText sx={{ color: colors.textSecondary }}>
-                {form.applicableProducts.length} product
-                {form.applicableProducts.length > 1 ? "s" : ""} selected —
+                {form.applicableAuctions.length} auction
+                {form.applicableAuctions.length > 1 ? "s" : ""} selected —
                 voucher will only apply to these
               </FormHelperText>
             ) : (
               <FormHelperText sx={{ color: colors.textMuted }}>
-                No products selected — this voucher applies to{" "}
-                <strong>all products</strong>
+                No auctions selected — this voucher applies to{" "}
+                <strong>all auctions</strong>
               </FormHelperText>
             )}
           </FormControl>
@@ -619,9 +736,9 @@ export default function VoucherForm() {
                 `A Final Price Discount voucher deducts ${form.discountAmount ? form.discountAmount + " EGP" : "the specified amount"} from the user's final winning bid price.`}
               {form.type === "entry_discount" &&
                 `An Entry Fee Discount voucher deducts ${form.discountAmount ? form.discountAmount + " EGP" : "the specified amount"} from the auction entry fee when the user joins.`}{" "}
-              {form.applicableProducts.length === 0
-                ? "This voucher will be valid for all products."
-                : `This voucher is restricted to ${form.applicableProducts.length} selected product(s).`}
+              {form.applicableAuctions.length === 0
+                ? "This voucher will be valid for all auctions."
+                : `This voucher is restricted to ${form.applicableAuctions.length} selected auction(s).`}
             </p>
           </Box>
         </Box>

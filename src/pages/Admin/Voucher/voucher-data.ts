@@ -13,7 +13,7 @@ export interface Voucher {
   code: string;
   type: VoucherType;
   discountAmount: number | null; // used for "discount" (final price) and "entry_discount"
-  applicableProducts: string[];  // array of product IDs — empty means ALL products
+  applicableAuctions: string[];  // array of auction IDs — empty means ALL auctions
   maxUses: number;
   usedBy: UsedByEntry[];
   isActive: boolean;
@@ -27,7 +27,7 @@ export interface VoucherFormData {
   code: string;
   type: VoucherType;
   discountAmount: string;        // used for "discount" and "entry_discount"
-  applicableProducts: string[];  // product IDs — empty means ALL products
+  applicableAuctions: string[];  // auction IDs — empty means ALL auctions
   maxUses: string;
   isActive: boolean;
   expiryDate: string;            // ISO string from datetime-local input
@@ -87,7 +87,7 @@ export const DEFAULT_VOUCHER_FORM: VoucherFormData = {
   code: "",
   type: "join",
   discountAmount: "",
-  applicableProducts: [],
+  applicableAuctions: [],
   maxUses: "",
   isActive: true,
   expiryDate: "",

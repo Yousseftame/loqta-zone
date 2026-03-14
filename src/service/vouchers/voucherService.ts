@@ -34,14 +34,19 @@ function docToVoucher(id: string, data: Record<string, any>): Voucher {
       }))
     : [];
 
+  // Support legacy docs that still have applicableProducts field
+  const applicableAuctions: string[] = Array.isArray(data.applicableAuctions)
+    ? data.applicableAuctions
+    : Array.isArray(data.applicableProducts)
+      ? data.applicableProducts   // graceful migration read
+      : [];
+
   return {
     id,
     code: data.code ?? "",
     type: data.type ?? "join",
     discountAmount: data.discountAmount ?? null,
-    applicableProducts: Array.isArray(data.applicableProducts)
-      ? data.applicableProducts
-      : [],
+    applicableAuctions,
     maxUses: data.maxUses ?? 1,
     usedBy,
     isActive: data.isActive ?? true,
@@ -73,7 +78,7 @@ function formToPayload(formData: VoucherFormData, createdBy = "") {
       needsAmount && formData.discountAmount
         ? Number(formData.discountAmount)
         : null,
-    applicableProducts: formData.applicableProducts,
+    applicableAuctions: formData.applicableAuctions,
     maxUses: Number(formData.maxUses),
     isActive: formData.isActive,
     expiryDate: Timestamp.fromDate(new Date(formData.expiryDate)),
@@ -129,7 +134,7 @@ export async function createVoucher(
       needsAmount && formData.discountAmount
         ? Number(formData.discountAmount)
         : null,
-    applicableProducts: formData.applicableProducts,
+    applicableAuctions: formData.applicableAuctions,
     maxUses: Number(formData.maxUses),
     usedBy: [],
     isActive: formData.isActive,
@@ -166,7 +171,7 @@ export async function updateVoucher(
       needsAmount && formData.discountAmount
         ? Number(formData.discountAmount)
         : null,
-    applicableProducts: formData.applicableProducts,
+    applicableAuctions: formData.applicableAuctions,
     maxUses: Number(formData.maxUses),
     usedBy: [],
     isActive: formData.isActive,
