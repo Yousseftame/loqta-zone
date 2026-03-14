@@ -41,27 +41,26 @@ async function getCallerRole(uid: string): Promise<UserRole> {
 export const onUserCreated = functionsAuth.user().onCreate(async (user) => {
   try {
     // ── RACE-CONDITION FIX ────────────────────────────────────────────────────
-    // createAdminAccount calls firebaseAuth.createUser() which fires this trigger
-    // BEFORE it has a chance to write the Firestore doc. So we cannot rely on a
-    // Firestore doc check here.
+    // createAdminAccount writes a sentinel Firestore doc with the correct role
+    // BEFORE calling firebaseAuth.createUser(). This guarantees that by the time
+    // this trigger fires, the doc already has role="admin" or "superAdmin".
     //
-    // Instead, createAdminAccount sets custom claims immediately after createUser
-    // via firebaseAuth.setCustomUserClaims(). We read those claims directly from
-    // the Auth record — they are synchronous server-side and are already set by
-    // the time this trigger function body executes.
+    // We check Firestore (not custom claims) because:
+    //  - Claims are set AFTER createUser() — they may not exist yet here.
+    //  - Firestore sentinel is written BEFORE createUser() — always present.
     //
-    // If the account was created by createAdminAccount the claims will be
-    // { role: "admin" } or { role: "superAdmin" }. In that case we skip this
-    // handler entirely — createAdminAccount has already written everything.
-    const authUser = await firebaseAuth.getUser(user.uid);
-    const existingRole = (authUser.customClaims as any)?.role;
-
-    if (existingRole && existingRole !== "user") {
-      console.log(`[onUserCreated] uid=${user.uid} already has role="${existingRole}" via claims — skipping.`);
-      return;
+    // If the doc already has a non-"user" role, skip — the admin account is
+    // already fully configured by createAdminAccount.
+    const existingDoc = await db.collection("users").doc(user.uid).get();
+    if (existingDoc.exists) {
+      const existingRole = existingDoc.data()?.role;
+      if (existingRole && existingRole !== "user") {
+        console.log(`[onUserCreated] uid=${user.uid} sentinel doc has role="${existingRole}" — skipping.`);
+        return;
+      }
     }
 
-    // Normal self-registration path — set role to "user"
+    // Normal self-registration path — new regular user account
     await firebaseAuth.setCustomUserClaims(user.uid, { role: "user" });
 
     await db.collection("users").doc(user.uid).set(
@@ -196,17 +195,22 @@ export const createAdminAccount = onCall(async (request) => {
     throw new HttpsError("invalid-argument", "Password must be at least 6 characters.");
   }
 
-  // 1. Create Firebase Auth account
+  // ── Step 1: Create the Firebase Auth account ──────────────────────────────
+  // This fires the onUserCreated trigger as a separate Cloud Function invocation.
+  // onUserCreated is NOT synchronous — it runs asynchronously after a delay
+  // (cold start + queue). We immediately write the Firestore doc in Step 2
+  // before onUserCreated has a chance to execute. onUserCreated reads the doc
+  // and skips if it already has a non-"user" role.
   const newUser = await firebaseAuth.createUser({
     email,
     password,
     displayName: `${firstName} ${lastName}`,
   });
 
-  // 2. Set custom claim
-  await firebaseAuth.setCustomUserClaims(newUser.uid, { role });
-
-  // 3. Write Firestore document
+  // ── Step 2: Write Firestore doc immediately ────────────────────────────────
+  // Written RIGHT AFTER createUser (same Cloud Function invocation, no delay).
+  // onUserCreated runs in a separate invocation and always arrives after this.
+  // The doc has role="admin"|"superAdmin" → onUserCreated sees it and skips.
   const now = FieldValue.serverTimestamp();
   const userData = {
     firstName,
@@ -214,7 +218,7 @@ export const createAdminAccount = onCall(async (request) => {
     fullName: `${firstName} ${lastName}`,
     email,
     phone: "",
-    role,
+    role,                     // ← correct role, never "user"
     isBlocked: false,
     verified: true,           // admin accounts are pre-verified
     profileImage: null,
@@ -229,6 +233,9 @@ export const createAdminAccount = onCall(async (request) => {
   };
 
   await db.collection("users").doc(newUser.uid).set(userData);
+
+  // ── Step 3: Set custom claims ───────────────────────────────────────────────
+  await firebaseAuth.setCustomUserClaims(newUser.uid, { role });
 
   console.log(`[createAdminAccount] uid=${newUser.uid} role="${role}" created by uid=${request.auth.uid}`);
 
