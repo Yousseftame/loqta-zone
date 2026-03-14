@@ -96,6 +96,7 @@ export function usePendingLastOffer(): {
         const joinedSnap = await getDocs(
           collection(db, "users", uid, "auctions"),
         );
+        console.log("[usePendingLastOffer] Joined auctions:", joinedSnap.size);
         if (joinedSnap.empty) return;
 
         const joinedAuctionIds: string[] = joinedSnap.docs.map(
@@ -121,8 +122,9 @@ export function usePendingLastOffer(): {
           if (!snap.exists()) continue;
           const d = snap.data();
 
-          // Must be ended
-          if (d.status !== "ended") continue;
+          // Must be ended — status is computed client-side only, so compare endTime
+          const endTime = d.endTime?.toDate?.() ?? null;
+          if (!endTime || endTime > new Date()) continue;
 
           // Must have a real winner (not NO_WINNER, not null/undefined)
           const winnerId = d.winnerId as string | null | undefined;
@@ -146,6 +148,7 @@ export function usePendingLastOffer(): {
           });
         }
 
+        console.log("[usePendingLastOffer] Qualifying auctions:", qualifying.length, qualifying.map(q => q.auctionId));
         if (qualifying.length === 0) return;
 
         // ── Step 3: check each qualifying auction for existing lastOffer ──

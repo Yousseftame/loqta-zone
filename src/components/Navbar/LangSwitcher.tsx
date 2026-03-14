@@ -63,8 +63,8 @@ const LangSwitcher = ({ mobile = false }: LangSwitcherProps) => {
         <div
           style={{
             position: "absolute",
-            top: mobile ? "auto" : "calc(100% + 8px)",
-            bottom: mobile ? "calc(100% + 8px)" : "auto",
+            top: "calc(100% + 8px)",
+            bottom: "auto",
             right: 0,
             background: "linear-gradient(160deg,#162d45,#0d1b2a)",
             border: "1px solid rgba(201,169,110,.18)",

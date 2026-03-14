@@ -17,11 +17,12 @@ import {
 } from "firebase/firestore";
 import { db } from "@/firebase/firebase";
 
-const GOLD = "#c9a96e",
-  GOLD2 = "#b8944e",
-  NAVY = "#2A4863",
-  NAVY2 = "#1e3652",
-  CREAM = "rgb(229,224,198)";
+// ── Design tokens ─────────────────────────────────────────────
+const GOLD = "#c9a96e";
+const GOLD2 = "#b8944e";
+const NAVY = "#2A4863";
+const NAVY2 = "#1e3652";
+const CREAM = "rgb(229,224,198)";
 
 // ── Types ─────────────────────────────────────────────────────
 interface UpcomingAuction {
@@ -37,6 +38,7 @@ interface UpcomingAuction {
   sessionDate: string;
   isHot: boolean;
 }
+
 interface PastAuction {
   id: string;
   title: string;
@@ -68,8 +70,6 @@ function useAuctionsData() {
         setError(null);
         const now = Timestamp.now();
 
-        // upcoming = startTime > now (not yet started, excludes live)
-        // past     = endTime <= now  (already ended)
         const [upSnap, pastSnap] = await Promise.all([
           getDocs(
             query(
@@ -161,7 +161,7 @@ function useAuctionsData() {
             startingPrice: data.startingPrice ?? 0,
             currency: "EGP",
             pieces: p.quantity ?? 1,
-            startsAt: start.toISOString(), // countdown to START — not end
+            startsAt: start.toISOString(),
             sessionDate: `${fmt(start, { month: "short", day: "numeric", year: "numeric" })} · ${fmtT(start)} – ${fmtT(end)}`,
             isHot: (data.totalBids ?? 0) > 5,
           };
@@ -236,15 +236,16 @@ function useCountdown(target: string) {
   const calc = useCallback(() => {
     const diff = new Date(target).getTime() - Date.now();
     if (diff <= 0) return { d: 0, h: 0, m: 0, s: 0, done: true };
-    const s = Math.floor(diff / 1000);
+    const total = Math.floor(diff / 1000);
     return {
-      d: Math.floor(s / 86400),
-      h: Math.floor((s % 86400) / 3600),
-      m: Math.floor((s % 3600) / 60),
-      s: s % 60,
+      d: Math.floor(total / 86400),
+      h: Math.floor((total % 86400) / 3600),
+      m: Math.floor((total % 3600) / 60),
+      s: total % 60,
       done: false,
     };
   }, [target]);
+
   const [time, setTime] = useState(calc);
   useEffect(() => {
     const t = setInterval(() => setTime(calc()), 1000);
@@ -253,164 +254,63 @@ function useCountdown(target: string) {
   return time;
 }
 
-// ── Mobile hook ───────────────────────────────────────────────
-function useIsMobile(bp = 640) {
-  const [m, setM] = useState(() =>
-    typeof window !== "undefined" ? window.innerWidth <= bp : false,
-  );
-  useEffect(() => {
-    const fn = () => setM(window.innerWidth <= bp);
-    window.addEventListener("resize", fn, { passive: true });
-    fn();
-    return () => window.removeEventListener("resize", fn);
-  }, [bp]);
-  return m;
-}
+// ── CountdownUnit ─────────────────────────────────────────────
+// Elegant serif digit with smooth fade-slide on change.
+// No overflow clipping, no two-span juggling — just opacity + translateY.
+function CountdownUnit({ value, label }: { value: number; label: string }) {
+  const display = String(value).padStart(2, "0");
+  const [shown, setShown] = useState(display);
+  const [leaving, setLeaving] = useState(false);
 
-// ── FlipTile ──────────────────────────────────────────────────
-function FlipTile({
-  digit,
-  W,
-  H,
-  R,
-  fs,
-}: {
-  digit: string;
-  W: number;
-  H: number;
-  R: number;
-  fs: number;
-}) {
-  const [cur, setCur] = useState(digit),
-    [nxt, setNxt] = useState(digit),
-    [flip, setFlip] = useState(false);
   useEffect(() => {
-    if (digit === cur) return;
-    setNxt(digit);
-    setFlip(true);
+    if (display === shown) return;
+    setLeaving(true);
     const t = setTimeout(() => {
-      setCur(digit);
-      setFlip(false);
-    }, 300);
+      setShown(display);
+      setLeaving(false);
+    }, 180);
     return () => clearTimeout(t);
-  }, [digit]);
-  const base: React.CSSProperties = {
-    fontFamily: "'Jost','DM Mono',monospace",
-    fontSize: fs,
-    fontWeight: 700,
-    color: GOLD,
-    position: "absolute",
-    left: 0,
-    right: 0,
-    textAlign: "center",
-    lineHeight: `${H}px`,
-    top: 0,
-    userSelect: "none",
-  };
-  return (
-    <div
-      style={{
-        width: W,
-        height: H,
-        borderRadius: R,
-        background: `linear-gradient(180deg,#243c55,${NAVY2})`,
-        border: "1px solid rgba(201,169,110,0.2)",
-        boxShadow:
-          "0 4px 14px rgba(0,0,0,0.55),inset 0 1px 0 rgba(255,255,255,0.07)",
-        position: "relative",
-        overflow: "hidden",
-        flexShrink: 0,
-      }}
-    >
-      <div style={base}>{nxt}</div>
-      <div
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          height: "50%",
-          overflow: "hidden",
-          transformOrigin: "bottom center",
-          transform: flip ? "rotateX(-90deg)" : "rotateX(0)",
-          transition: flip ? "transform 0.15s ease-in" : "none",
-          borderRadius: `${R}px ${R}px 0 0`,
-          background: "linear-gradient(180deg,#2c4b68,#243c55)",
-          zIndex: 3,
-        }}
-      >
-        <div style={base}>{cur}</div>
-      </div>
-      <div
-        style={{
-          position: "absolute",
-          bottom: 0,
-          left: 0,
-          right: 0,
-          height: "50%",
-          overflow: "hidden",
-          transformOrigin: "top center",
-          transform: flip ? "rotateX(90deg)" : "rotateX(0)",
-          transition: flip ? "transform 0.15s ease-out 0.15s" : "none",
-          borderRadius: `0 0 ${R}px ${R}px`,
-          background: `linear-gradient(180deg,${NAVY2},#162d45)`,
-          zIndex: 3,
-        }}
-      >
-        <div style={{ ...base, top: `-${H / 2}px` }}>{nxt}</div>
-      </div>
-      <div
-        style={{
-          position: "absolute",
-          left: 0,
-          right: 0,
-          top: "50%",
-          height: 1,
-          background: "rgba(0,0,0,0.6)",
-          zIndex: 10,
-        }}
-      />
-    </div>
-  );
-}
+  }, [display]); // eslint-disable-line react-hooks/exhaustive-deps
 
-function FlipDigit({
-  value,
-  label,
-  W,
-  H,
-  R,
-  fs,
-}: {
-  value: number;
-  label: string;
-  W: number;
-  H: number;
-  R: number;
-  fs: number;
-}) {
-  const d = String(value).padStart(2, "0");
   return (
     <div
       style={{
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        gap: 5,
+        width: 68,
+        gap: 8,
       }}
     >
-      <div style={{ display: "flex", gap: 3 }}>
-        {d.split("").map((c, i) => (
-          <FlipTile key={i} digit={c} W={W} H={H} R={R} fs={fs} />
-        ))}
-      </div>
       <span
         style={{
+          fontFamily: "'Jost', sans-serif",
+          fontSize: 50,
+          fontWeight: 700,
+          color: GOLD,
+          lineHeight: 1,
+          letterSpacing: "0.01em",
+          display: "block",
+          minWidth: 64,
+          textAlign: "center",
+          opacity: leaving ? 0 : 1,
+          transform: leaving ? "translateY(-6px)" : "translateY(0)",
+          transition: leaving
+            ? "opacity 0.16s ease, transform 0.18s ease"
+            : "opacity 0.22s ease 0.02s, transform 0.22s cubic-bezier(0,0,0.2,1) 0.02s",
+          userSelect: "none",
+        }}
+      >
+        {shown}
+      </span>
+      <span
+        style={{
+          fontFamily: "'Jost', sans-serif",
           fontSize: 8,
-          fontWeight: 800,
-          color: "rgba(229,224,198,0.38)",
-          letterSpacing: "0.2em",
+          fontWeight: 700,
+          letterSpacing: "0.26em",
           textTransform: "uppercase",
+          color: "rgba(201,169,110,0.36)",
         }}
       >
         {label}
@@ -422,38 +322,29 @@ function FlipDigit({
 // ── CountdownBar ──────────────────────────────────────────────
 function CountdownBar({ startsAt }: { startsAt: string }) {
   const { d, h, m, s, done } = useCountdown(startsAt);
-  const mob = useIsMobile();
   const { t } = useTranslation();
-  const W = mob ? 28 : 40,
-    H = mob ? 38 : 54,
-    R = mob ? 6 : 9,
-    fs = mob ? 20 : 30;
-  const sep = mob ? 18 : 24,
-    lh = `${H}px`,
-    mb = mob ? 14 : 22;
 
-  // Countdown hit zero = auction is now live (will move to live section on reload)
-  if (done)
+  if (done) {
     return (
       <div
         style={{
-          display: "flex",
+          display: "inline-flex",
           alignItems: "center",
           gap: 8,
-          padding: "10px 16px",
-          background: "rgba(94,232,160,0.08)",
-          border: "1px solid rgba(94,232,160,0.25)",
+          padding: "10px 18px",
+          border: "1px solid rgba(94,232,160,0.22)",
           borderRadius: 10,
           color: "#5ee8a0",
-          fontSize: 12,
+          fontSize: 11,
+          fontFamily: "'Jost', sans-serif",
           fontWeight: 700,
-          letterSpacing: "0.1em",
+          letterSpacing: "0.14em",
         }}
       >
         <span
           style={{
-            width: 7,
-            height: 7,
+            width: 6,
+            height: 6,
             borderRadius: "50%",
             background: "#5ee8a0",
             boxShadow: "0 0 6px #5ee8a0",
@@ -464,69 +355,57 @@ function CountdownBar({ startsAt }: { startsAt: string }) {
         Live Now
       </div>
     );
+  }
 
   const Sep = () => (
     <span
       style={{
-        fontSize: sep,
-        fontWeight: 200,
-        color: `${GOLD}55`,
-        lineHeight: lh,
-        marginBottom: mb,
+        fontFamily: "'Cormorant Garamond', Georgia, serif",
+        fontSize: 28,
+        fontWeight: 300,
+        color: "rgba(201,169,110,0.2)",
+        lineHeight: 1,
+        paddingBottom: 24,
+        margin: "0 2px",
         flexShrink: 0,
+        userSelect: "none",
       }}
     >
-      :
+      ·
     </span>
   );
+
   return (
     <div
       style={{
-        display: "flex",
-        alignItems: "flex-start",
-        gap: mob ? 4 : 6,
-        padding: mob ? "10px 12px" : "14px 16px",
-        background: "rgba(10,10,26,0.6)",
-        border: "1px solid rgba(201,169,110,0.15)",
+        display: "inline-flex",
+        alignItems: "flex-end",
+        padding: "16px 20px 14px",
+        background: "rgba(10,14,28,0.6)",
+        border: "1px solid rgba(201,169,110,0.13)",
         borderRadius: 14,
-        backdropFilter: "blur(8px)",
-        flexWrap: "nowrap",
+        backdropFilter: "blur(12px)",
+        position: "relative",
+        gap: 0,
       }}
     >
-      <FlipDigit
-        value={d}
-        label={t("auctionsSection.days")}
-        W={W}
-        H={H}
-        R={R}
-        fs={fs}
-      />
+      <CountdownUnit value={d} label={t("auctionsSection.days")} />
       <Sep />
-      <FlipDigit
-        value={h}
-        label={t("auctionsSection.hours")}
-        W={W}
-        H={H}
-        R={R}
-        fs={fs}
-      />
+      <CountdownUnit value={h} label={t("auctionsSection.hours")} />
       <Sep />
-      <FlipDigit
-        value={m}
-        label={t("auctionsSection.mins")}
-        W={W}
-        H={H}
-        R={R}
-        fs={fs}
-      />
+      <CountdownUnit value={m} label={t("auctionsSection.mins")} />
       <Sep />
-      <FlipDigit
-        value={s}
-        label={t("auctionsSection.secs")}
-        W={W}
-        H={H}
-        R={R}
-        fs={fs}
+      <CountdownUnit value={s} label={t("auctionsSection.secs")} />
+      <div
+        style={{
+          position: "absolute",
+          left: 20,
+          right: 20,
+          bottom: 0,
+          height: 1,
+          background:
+            "linear-gradient(90deg,transparent,rgba(201,169,110,0.15),transparent)",
+        }}
       />
     </div>
   );
@@ -544,7 +423,15 @@ function SkeletonCard() {
         overflow: "hidden",
       }}
     >
-      <style>{`@keyframes sh{0%{background-position:200% 0}100%{background-position:-200% 0}}.sk{background:linear-gradient(90deg,rgba(255,255,255,.04) 25%,rgba(255,255,255,.08) 50%,rgba(255,255,255,.04) 75%);background-size:200% 100%;animation:sh 1.5s infinite;border-radius:4px}`}</style>
+      <style>{`
+        @keyframes sh { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+        .sk {
+          background: linear-gradient(90deg,rgba(255,255,255,.04) 25%,rgba(255,255,255,.08) 50%,rgba(255,255,255,.04) 75%);
+          background-size: 200% 100%;
+          animation: sh 1.5s infinite;
+          border-radius: 4px;
+        }
+      `}</style>
       <div className="sk ac-img" style={{ minHeight: 220 }} />
       <div
         style={{
@@ -559,7 +446,7 @@ function SkeletonCard() {
         <div className="sk" style={{ height: 10, width: 120 }} />
         <div className="sk" style={{ height: 24, width: "50%" }} />
         <div className="sk" style={{ height: 1 }} />
-        <div className="sk" style={{ height: 80, borderRadius: 14 }} />
+        <div className="sk" style={{ height: 90, borderRadius: 14 }} />
       </div>
     </div>
   );
@@ -576,8 +463,8 @@ const UpcomingCard = memo(function UpcomingCard({
   onRegister: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [vis, setVis] = useState(false),
-    [hov, setHov] = useState(false);
+  const [vis, setVis] = useState(false);
+  const [hov, setHov] = useState(false);
   const { t } = useTranslation();
 
   useEffect(() => {
@@ -605,16 +492,17 @@ const UpcomingCard = memo(function UpcomingCard({
       style={{
         opacity: vis ? 1 : 0,
         transform: vis ? "translateY(0)" : "translateY(40px)",
-        transition: `opacity 0.7s ease ${index * 0.1}s,transform 0.7s cubic-bezier(0.22,1,0.36,1) ${index * 0.1}s`,
         borderRadius: 20,
         background: hov ? "rgba(255,255,255,0.055)" : "rgba(255,255,255,0.028)",
         border: `1px solid ${hov ? "rgba(201,169,110,0.4)" : "rgba(229,224,198,0.08)"}`,
         backdropFilter: "blur(14px)",
         boxShadow: hov
-          ? `0 24px 64px rgba(0,0,0,0.5),inset 0 1px 0 rgba(255,255,255,0.07)`
+          ? "0 24px 64px rgba(0,0,0,0.5),inset 0 1px 0 rgba(255,255,255,0.07)"
           : "0 4px 24px rgba(0,0,0,0.2)",
+        transition: `opacity 0.7s ease ${index * 0.1}s, transform 0.7s cubic-bezier(0.22,1,0.36,1) ${index * 0.1}s, background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease`,
       }}
     >
+      {/* Image */}
       <div
         className="ac-img"
         style={{
@@ -681,6 +569,7 @@ const UpcomingCard = memo(function UpcomingCard({
               fontWeight: 800,
               color: "#ffb0b0",
               letterSpacing: "0.1em",
+              fontFamily: "'Jost', sans-serif",
             }}
           >
             🔥 HOT
@@ -688,6 +577,7 @@ const UpcomingCard = memo(function UpcomingCard({
         )}
       </div>
 
+      {/* Body */}
       <div
         style={{
           padding: "22px 24px",
@@ -723,25 +613,7 @@ const UpcomingCard = memo(function UpcomingCard({
           </div>
           <button
             className="ac-btn"
-            style={{
-              background: `linear-gradient(135deg,${GOLD},${GOLD2})`,
-              color: "#0a0a1a",
-              border: "none",
-              borderRadius: 999,
-              padding: "10px 22px",
-              fontSize: 10,
-              fontWeight: 800,
-              letterSpacing: "0.18em",
-              textTransform: "uppercase",
-              cursor: "pointer",
-              whiteSpace: "nowrap",
-              flexShrink: 0,
-              boxShadow: `0 4px 20px ${GOLD}44`,
-              transition: "all 0.3s ease",
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-            }}
+            onClick={onRegister}
             onMouseEnter={(e) => {
               (e.currentTarget as HTMLButtonElement).style.transform =
                 "translateY(-2px) scale(1.04)";
@@ -753,7 +625,26 @@ const UpcomingCard = memo(function UpcomingCard({
               (e.currentTarget as HTMLButtonElement).style.boxShadow =
                 `0 4px 20px ${GOLD}44`;
             }}
-            onClick={onRegister}
+            style={{
+              background: `linear-gradient(135deg,${GOLD},${GOLD2})`,
+              color: "#0a0a1a",
+              border: "none",
+              borderRadius: 999,
+              padding: "10px 22px",
+              fontSize: 10,
+              fontWeight: 800,
+              fontFamily: "'Jost', sans-serif",
+              letterSpacing: "0.18em",
+              textTransform: "uppercase",
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+              flexShrink: 0,
+              boxShadow: `0 4px 20px ${GOLD}44`,
+              transition: "all 0.3s ease",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
           >
             {t("auctionsSection.registerToJoin")}
           </button>
@@ -797,14 +688,29 @@ const UpcomingCard = memo(function UpcomingCard({
               fontWeight: 700,
               letterSpacing: "0.14em",
               textTransform: "uppercase",
+              fontFamily: "'Jost', sans-serif",
             }}
           >
             {t("auctionsSection.startingFrom")}
           </span>
-          <span style={{ fontSize: 20, fontWeight: 900, color: GOLD }}>
+          <span
+            style={{
+              fontSize: 20,
+              fontWeight: 900,
+              color: GOLD,
+              fontFamily: "'Jost', sans-serif",
+            }}
+          >
             {item.startingPrice.toLocaleString()}
           </span>
-          <span style={{ fontSize: 11, fontWeight: 600, color: `${GOLD}99` }}>
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              color: `${GOLD}99`,
+              fontFamily: "'Jost', sans-serif",
+            }}
+          >
             {item.currency}
           </span>
         </div>
@@ -819,12 +725,13 @@ const UpcomingCard = memo(function UpcomingCard({
         <div>
           <div
             style={{
-              fontSize: 9,
+              fontSize: 12,
               fontWeight: 800,
-              color: "rgba(229,224,198,0.35)",
-              letterSpacing: "0.2em",
+              color: "rgba(229,224,198,0.3)",
+              letterSpacing: "0.24em",
               textTransform: "uppercase",
-              marginBottom: 8,
+              marginBottom: 10,
+              fontFamily: "'Jost', sans-serif",
             }}
           >
             {t("auctionsSection.sessionStartsIn")}
@@ -845,8 +752,8 @@ const PastCard = memo(function PastCard({
   index: number;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [vis, setVis] = useState(false),
-    [hov, setHov] = useState(false);
+  const [vis, setVis] = useState(false);
+  const [hov, setHov] = useState(false);
   const { t } = useTranslation();
 
   useEffect(() => {
@@ -874,7 +781,6 @@ const PastCard = memo(function PastCard({
       style={{
         opacity: vis ? 1 : 0,
         transform: vis ? "translateY(0)" : "translateY(40px)",
-        transition: `opacity 0.7s ease ${index * 0.1}s,transform 0.7s cubic-bezier(0.22,1,0.36,1) ${index * 0.1}s`,
         borderRadius: 20,
         background: hov ? "rgba(255,255,255,0.045)" : "rgba(255,255,255,0.022)",
         border: `1px solid ${hov ? "rgba(229,224,198,0.18)" : "rgba(229,224,198,0.07)"}`,
@@ -882,8 +788,10 @@ const PastCard = memo(function PastCard({
         boxShadow: hov
           ? "0 20px 56px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.06)"
           : "0 4px 20px rgba(0,0,0,0.18)",
+        transition: `opacity 0.7s ease ${index * 0.1}s, transform 0.7s cubic-bezier(0.22,1,0.36,1) ${index * 0.1}s, background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease`,
       }}
     >
+      {/* Image */}
       <div
         className="ac-img"
         style={{
@@ -907,7 +815,7 @@ const PastCard = memo(function PastCard({
               filter: "grayscale(30%) brightness(0.75)",
               transform: hov ? "scale(1.06)" : "scale(1)",
               transition:
-                "transform 0.65s cubic-bezier(0.25,0.46,0.45,0.94),filter 0.4s ease",
+                "transform 0.65s cubic-bezier(0.25,0.46,0.45,0.94), filter 0.4s ease",
             }}
             onError={(e) => {
               (e.target as HTMLImageElement).style.display = "none";
@@ -957,12 +865,14 @@ const PastCard = memo(function PastCard({
             textShadow: "0 0 12px rgba(220,60,60,0.4)",
             boxShadow: "inset 0 0 16px rgba(220,60,60,0.15)",
             background: "rgba(10,10,26,0.5)",
+            fontFamily: "'Jost', sans-serif",
           }}
         >
           {t("auctionsSection.soldOut")}
         </div>
       </div>
 
+      {/* Body */}
       <div
         style={{
           padding: "22px 24px",
@@ -994,6 +904,7 @@ const PastCard = memo(function PastCard({
             {item.subtitle}
           </p>
         </div>
+
         <span
           style={{
             display: "flex",
@@ -1006,6 +917,7 @@ const PastCard = memo(function PastCard({
           <span style={{ color: GOLD, fontSize: 13 }}>📅</span>
           {t("auctionsSection.session")}: {item.sessionDate}
         </span>
+
         <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
           <span
             style={{
@@ -1014,17 +926,33 @@ const PastCard = memo(function PastCard({
               fontWeight: 700,
               letterSpacing: "0.14em",
               textTransform: "uppercase",
+              fontFamily: "'Jost', sans-serif",
             }}
           >
             {t("auctionsSection.winningPrice")}
           </span>
-          <span style={{ fontSize: 20, fontWeight: 900, color: "#7ecf9a" }}>
+          <span
+            style={{
+              fontSize: 20,
+              fontWeight: 900,
+              color: "#7ecf9a",
+              fontFamily: "'Jost', sans-serif",
+            }}
+          >
             {item.winningPrice.toLocaleString()}
           </span>
-          <span style={{ fontSize: 11, fontWeight: 600, color: "#5aaa7a" }}>
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              color: "#5aaa7a",
+              fontFamily: "'Jost', sans-serif",
+            }}
+          >
             {item.currency}
           </span>
         </div>
+
         <div
           style={{
             height: 1,
@@ -1032,6 +960,7 @@ const PastCard = memo(function PastCard({
               "linear-gradient(90deg,rgba(229,224,198,0.1),transparent)",
           }}
         />
+
         <div>
           <div
             style={{
@@ -1054,6 +983,7 @@ const PastCard = memo(function PastCard({
                   color: "rgba(229,224,198,0.3)",
                   letterSpacing: "0.18em",
                   textTransform: "uppercase",
+                  fontFamily: "'Jost', sans-serif",
                 }}
               >
                 {h}
@@ -1092,7 +1022,11 @@ const PastCard = memo(function PastCard({
                 <img
                   src={item.winner.avatar}
                   alt={item.winner.name}
-                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                  }}
                   onError={(e) => {
                     (e.target as HTMLImageElement).style.display = "none";
                   }}
@@ -1103,12 +1037,25 @@ const PastCard = memo(function PastCard({
                 </span>
               )}
             </div>
-            <span style={{ fontSize: 13, fontWeight: 700, color: CREAM }}>
+            <span
+              style={{
+                fontSize: 13,
+                fontWeight: 700,
+                color: CREAM,
+                fontFamily: "'Jost', sans-serif",
+              }}
+            >
               {item.winner.name}
             </span>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{ fontSize: 22 }}>{item.winner.country}</span>
-              <span style={{ fontSize: 11, color: "rgba(229,224,198,0.45)" }}>
+              <span
+                style={{
+                  fontSize: 11,
+                  color: "rgba(229,224,198,0.45)",
+                  fontFamily: "'Jost', sans-serif",
+                }}
+              >
                 {item.winner.countryName}
               </span>
             </div>
@@ -1152,7 +1099,7 @@ function TabButton({
       <span style={{ fontSize: 16 }}>{icon}</span>
       <span
         style={{
-          fontFamily: "'Jost',sans-serif",
+          fontFamily: "'Jost', sans-serif",
           fontSize: 12,
           fontWeight: 800,
           letterSpacing: "0.22em",
@@ -1177,7 +1124,7 @@ function TabButton({
           background: `linear-gradient(90deg,transparent,${GOLD},transparent)`,
           borderRadius: 999,
           transition:
-            "left 0.45s cubic-bezier(0.22,1,0.36,1),right 0.45s cubic-bezier(0.22,1,0.36,1)",
+            "left 0.45s cubic-bezier(0.22,1,0.36,1), right 0.45s cubic-bezier(0.22,1,0.36,1)",
           opacity: active ? 1 : 0,
           boxShadow: active ? `0 0 10px ${GOLD}88` : "none",
         }}
@@ -1192,7 +1139,7 @@ function TabButton({
             height: 1,
             background: "rgba(229,224,198,0.2)",
             borderRadius: 999,
-            transition: "left 0.3s ease,right 0.3s ease",
+            transition: "left 0.3s ease, right 0.3s ease",
           }}
         />
       )}
@@ -1252,10 +1199,10 @@ export default function AuctionsSection() {
     }, 220);
   };
 
-  const bg = {
-    position: "absolute" as const,
+  const bg: React.CSSProperties = {
+    position: "absolute",
     borderRadius: "50%",
-    pointerEvents: "none" as const,
+    pointerEvents: "none",
   };
 
   return (
@@ -1269,18 +1216,23 @@ export default function AuctionsSection() {
       }}
     >
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300&display=swap');
+
         @keyframes tabIn { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes liveP  { 0%,100%{opacity:1;box-shadow:0 0 6px #5ee8a0} 50%{opacity:.4;box-shadow:0 0 12px #5ee8a0} }
-        .tab-in  { animation:tabIn 0.38s cubic-bezier(0.22,1,0.36,1) forwards }
-        .tab-out { opacity:0;transform:translateY(-8px);transition:opacity .2s ease,transform .2s ease }
-        .ac      { display:grid;grid-template-columns:220px 1fr;overflow:hidden;border-radius:20px }
-        .ac-img  { position:relative;overflow:hidden;background:#0d1520;min-height:220px }
-        .ac-top  { display:flex;align-items:flex-start;justify-content:space-between;gap:16px }
-        @media(max-width:640px){
-          .ac    { grid-template-columns:1fr !important }
-          .ac-img{ height:200px !important;min-height:200px !important }
-          .ac-top{ flex-direction:column !important;align-items:stretch !important;gap:10px !important }
-          .ac-btn{ width:100% !important;padding:13px 0 !important;justify-content:center !important }
+        @keyframes liveP { 0%,100%{opacity:1;box-shadow:0 0 6px #5ee8a0} 50%{opacity:.4;box-shadow:0 0 12px #5ee8a0} }
+
+        .tab-in  { animation: tabIn 0.38s cubic-bezier(0.22,1,0.36,1) forwards }
+        .tab-out { opacity:0; transform:translateY(-8px); transition:opacity .2s ease,transform .2s ease }
+
+        .ac     { display:grid; grid-template-columns:220px 1fr; overflow:hidden; border-radius:20px }
+        .ac-img { position:relative; overflow:hidden; background:#0d1520; min-height:220px }
+        .ac-top { display:flex; align-items:flex-start; justify-content:space-between; gap:16px }
+
+        @media (max-width: 640px) {
+          .ac     { grid-template-columns: 1fr !important }
+          .ac-img { height:200px !important; min-height:200px !important }
+          .ac-top { flex-direction:column !important; align-items:stretch !important; gap:10px !important }
+          .ac-btn { width:100% !important; padding:13px 0 !important; justify-content:center !important }
         }
       `}</style>
 
@@ -1293,6 +1245,7 @@ export default function AuctionsSection() {
         }}
       />
 
+      {/* Decorative blobs */}
       <div
         style={{
           ...bg,
@@ -1339,7 +1292,7 @@ export default function AuctionsSection() {
         }}
       />
 
-      {/* Header */}
+      {/* ── Header ── */}
       <div
         ref={headerRef}
         style={{
@@ -1357,7 +1310,7 @@ export default function AuctionsSection() {
             marginBottom: 20,
             opacity: vis ? 1 : 0,
             transform: vis ? "translateY(0)" : "translateY(14px)",
-            transition: "opacity 0.55s ease,transform 0.55s ease",
+            transition: "opacity 0.55s ease, transform 0.55s ease",
           }}
         >
           <div
@@ -1374,6 +1327,7 @@ export default function AuctionsSection() {
               color: GOLD,
               letterSpacing: "0.3em",
               textTransform: "uppercase",
+              fontFamily: "'Jost', sans-serif",
             }}
           >
             {t("auctionsSection.eyebrow")}
@@ -1386,6 +1340,7 @@ export default function AuctionsSection() {
             }}
           />
         </div>
+
         <div
           style={{
             fontSize: "clamp(32px,5vw,56px)",
@@ -1432,6 +1387,7 @@ export default function AuctionsSection() {
             to={{ opacity: 1, y: 0 }}
           />
         </div>
+
         <p
           style={{
             color: "rgba(229,224,198,0.42)",
@@ -1441,7 +1397,7 @@ export default function AuctionsSection() {
             lineHeight: 1.75,
             opacity: vis ? 1 : 0,
             transform: vis ? "translateY(0)" : "translateY(10px)",
-            transition: "opacity 0.7s ease 0.2s,transform 0.7s ease 0.2s",
+            transition: "opacity 0.7s ease 0.2s, transform 0.7s ease 0.2s",
           }}
         >
           {tab === "upcoming"
@@ -1450,7 +1406,7 @@ export default function AuctionsSection() {
         </p>
       </div>
 
-      {/* Tabs */}
+      {/* ── Tabs ── */}
       <div
         style={{
           display: "flex",
@@ -1487,7 +1443,7 @@ export default function AuctionsSection() {
         </div>
       </div>
 
-      {/* Content */}
+      {/* ── Content ── */}
       <div
         className={anim ? "tab-out" : "tab-in"}
         key={tab}
@@ -1548,6 +1504,7 @@ export default function AuctionsSection() {
                     color: "rgba(229,224,198,0.4)",
                     letterSpacing: "0.18em",
                     textTransform: "uppercase",
+                    fontFamily: "'Jost', sans-serif",
                   }}
                 >
                   {t("auctionsSection.upcomingCount", {
@@ -1611,6 +1568,7 @@ export default function AuctionsSection() {
                     color: "rgba(229,224,198,0.4)",
                     letterSpacing: "0.18em",
                     textTransform: "uppercase",
+                    fontFamily: "'Jost', sans-serif",
                   }}
                 >
                   {t("auctionsSection.pastCount", { count: past.length })}
@@ -1642,6 +1600,7 @@ export default function AuctionsSection() {
         )}
       </div>
 
+      {/* Bottom rule */}
       <div
         style={{
           position: "absolute",

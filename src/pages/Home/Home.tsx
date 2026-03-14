@@ -23,28 +23,15 @@ import LiveAuctionsSection from "@/components/shared/LiveAuctionssection";
 
 export default function Home() {
 
-   const { i18n } = useTranslation();
-   const isArabic = i18n.language === "ar";
+   
 
 
   return (
     <>
-      {/* <AnimatedThemeToggler /> */}
+  
       <HeroSections />
 
-      <CurvedLoop
-        marqueeText={
-          isArabic
-            ? "لقطه ✦ زون ✦ لقطه ✦ زون ✦ "
-            : "  ZONE ✦ LOQTA ✦ ZONE ✦ LOQTA ✦"
-        }
-        speed={2}
-        curveAmount={400}
-        direction={isArabic ? "left" : "right"}
-        interactive
-        className="custom-text-style"
-      />
-
+    
       <LiveAuctionsSection/>
       <AuctionSwiper />
       <StatsSection />
