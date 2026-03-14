@@ -1,4 +1,5 @@
 import ProtectedRoute from "@/components/ProtectedRoute/ProtectedRoute";
+import PermissionRoute from "@/permissions/PermissionRoute";
 import AuthLayout from "@/layouts/AuthLayout/AuthLayout";
 import DashboardLayout from "@/layouts/DashboardLayout/DashboardLayout";
 import MainLayout from "@/layouts/MainLayout/MainLayout";
@@ -68,52 +69,267 @@ export const routes = createBrowserRouter([
     element: (
       <ProtectedRoute allowedRoles={["admin", "superAdmin"]}>
         <DashboardLayout />
-      </ProtectedRoute> 
+      </ProtectedRoute>
     ),
     errorElement: <NotFound />,
     children: [
+      // Dashboard — always accessible to any admin
       { index: true, element: <Dashboard /> },
 
-      { path: "categories", element: <CategoriesList /> },
-      { path: "categories/add", element: <CategoryForm /> },
-      { path: "categories/:id", element: <CategoryView /> },
-      { path: "categories/:id/edit", element: <CategoryForm /> },
+      // ── Categories ───────────────────────────────────────────────────────
+      {
+        path: "categories",
+        element: (
+          <PermissionRoute module="categories" action="read">
+            <CategoriesList />
+          </PermissionRoute>
+        ),
+      },
+      {
+        path: "categories/add",
+        element: (
+          <PermissionRoute module="categories" action="create">
+            <CategoryForm />
+          </PermissionRoute>
+        ),
+      },
+      {
+        path: "categories/:id",
+        element: (
+          <PermissionRoute module="categories" action="read">
+            <CategoryView />
+          </PermissionRoute>
+        ),
+      },
+      {
+        path: "categories/:id/edit",
+        element: (
+          <PermissionRoute module="categories" action="update">
+            <CategoryForm />
+          </PermissionRoute>
+        ),
+      },
 
-      { path: "products", element: <ProductsList /> },
-      { path: "products/add", element: <ProductForm /> },
-      { path: "products/:id", element: <ProductView /> },
-      { path: "products/:id/edit", element: <ProductForm /> },
+      // ── Products ─────────────────────────────────────────────────────────
+      {
+        path: "products",
+        element: (
+          <PermissionRoute module="products" action="read">
+            <ProductsList />
+          </PermissionRoute>
+        ),
+      },
+      {
+        path: "products/add",
+        element: (
+          <PermissionRoute module="products" action="create">
+            <ProductForm />
+          </PermissionRoute>
+        ),
+      },
+      {
+        path: "products/:id",
+        element: (
+          <PermissionRoute module="products" action="read">
+            <ProductView />
+          </PermissionRoute>
+        ),
+      },
+      {
+        path: "products/:id/edit",
+        element: (
+          <PermissionRoute module="products" action="update">
+            <ProductForm />
+          </PermissionRoute>
+        ),
+      },
 
-      { path: "auctions", element: <AuctionsList /> },
-      { path: "auctions/add", element: <AuctionForm /> },
-      { path: "auctions/:id", element: <AuctionView /> },
-      { path: "auctions/:id/edit", element: <AuctionForm /> },
+      // ── Auctions ─────────────────────────────────────────────────────────
+      {
+        path: "auctions",
+        element: (
+          <PermissionRoute module="auctions" action="read">
+            <AuctionsList />
+          </PermissionRoute>
+        ),
+      },
+      {
+        path: "auctions/add",
+        element: (
+          <PermissionRoute module="auctions" action="create">
+            <AuctionForm />
+          </PermissionRoute>
+        ),
+      },
+      {
+        path: "auctions/:id",
+        element: (
+          <PermissionRoute module="auctions" action="read">
+            <AuctionView />
+          </PermissionRoute>
+        ),
+      },
+      {
+        path: "auctions/:id/edit",
+        element: (
+          <PermissionRoute module="auctions" action="update">
+            <AuctionForm />
+          </PermissionRoute>
+        ),
+      },
 
-      { path: "vouchers", element: <VouchersList /> },
-      { path: "vouchers/add", element: <VoucherForm /> },
-      { path: "vouchers/:id", element: <VoucherView /> },
-      { path: "vouchers/:id/edit", element: <VoucherForm /> },
+      // ── Vouchers ─────────────────────────────────────────────────────────
+      {
+        path: "vouchers",
+        element: (
+          <PermissionRoute module="vouchers" action="read">
+            <VouchersList />
+          </PermissionRoute>
+        ),
+      },
+      {
+        path: "vouchers/add",
+        element: (
+          <PermissionRoute module="vouchers" action="create">
+            <VoucherForm />
+          </PermissionRoute>
+        ),
+      },
+      {
+        path: "vouchers/:id",
+        element: (
+          <PermissionRoute module="vouchers" action="read">
+            <VoucherView />
+          </PermissionRoute>
+        ),
+      },
+      {
+        path: "vouchers/:id/edit",
+        element: (
+          <PermissionRoute module="vouchers" action="update">
+            <VoucherForm />
+          </PermissionRoute>
+        ),
+      },
 
-      { path: "auctionRequests", element: <AuctionRequestsList /> },
-      { path: "auctionRequests/:id", element: <AuctionRequestView /> },
+      // ── Auction Requests ─────────────────────────────────────────────────
+      {
+        path: "auctionRequests",
+        element: (
+          <PermissionRoute module="auctionRequests" action="read">
+            <AuctionRequestsList />
+          </PermissionRoute>
+        ),
+      },
+      {
+        path: "auctionRequests/:id",
+        element: (
+          <PermissionRoute module="auctionRequests" action="read">
+            <AuctionRequestView />
+          </PermissionRoute>
+        ),
+      },
 
-      { path: "contacts", element: <AdminContactList /> },
-      { path: "contacts/:id", element: <AdminContactView /> },
+      // ── Contacts ─────────────────────────────────────────────────────────
+      {
+        path: "contacts",
+        element: (
+          <PermissionRoute module="contacts" action="read">
+            <AdminContactList />
+          </PermissionRoute>
+        ),
+      },
+      {
+        path: "contacts/:id",
+        element: (
+          <PermissionRoute module="contacts" action="read">
+            <AdminContactView />
+          </PermissionRoute>
+        ),
+      },
 
-      { path: "feedback", element: <AdminFeedbackList /> },
-      { path: "feedback/:id", element: <AdminFeedbackView /> },
+      // ── Feedback ─────────────────────────────────────────────────────────
+      {
+        path: "feedback",
+        element: (
+          <PermissionRoute module="feedback" action="read">
+            <AdminFeedbackList />
+          </PermissionRoute>
+        ),
+      },
+      {
+        path: "feedback/:id",
+        element: (
+          <PermissionRoute module="feedback" action="read">
+            <AdminFeedbackView />
+          </PermissionRoute>
+        ),
+      },
 
-      { path: "bids", element: <BidsList /> },
-      { path: "participants", element: <ParticipantsList /> },
-      { path: "lastoffers", element: <LastOfferList /> },
+      // ── Bids / Participants / Last Offers ─────────────────────────────────
+      {
+        path: "bids",
+        element: (
+          <PermissionRoute module="bids" action="read">
+            <BidsList />
+          </PermissionRoute>
+        ),
+      },
+      {
+        path: "participants",
+        element: (
+          <PermissionRoute module="participants" action="read">
+            <ParticipantsList />
+          </PermissionRoute>
+        ),
+      },
+      {
+        path: "lastoffers",
+        element: (
+          <PermissionRoute module="lastOffers" action="read">
+            <LastOfferList />
+          </PermissionRoute>
+        ),
+      },
 
-      { path: "users", element: <UsersList /> },
-      { path: "users/:id", element: <UserView /> },
+      // ── Users ─────────────────────────────────────────────────────────────
+      {
+        path: "users",
+        element: (
+          <PermissionRoute module="users" action="read">
+            <UsersList />
+          </PermissionRoute>
+        ),
+      },
+      {
+        path: "users/:id",
+        element: (
+          <PermissionRoute module="users" action="read">
+            <UserView />
+          </PermissionRoute>
+        ),
+      },
 
+      // ── Admins — superAdmin-only guard is inside AdminsList itself ─────────
       { path: "admins", element: <AdminsList /> },
 
-      { path: "scheduling", element: <Scheduling /> },
-      { path: "payment", element: <Payment /> },
+      // ── Scheduling / Payment ──────────────────────────────────────────────
+      {
+        path: "scheduling",
+        element: (
+          <PermissionRoute module="scheduling" action="read">
+            <Scheduling />
+          </PermissionRoute>
+        ),
+      },
+      {
+        path: "payment",
+        element: (
+          <PermissionRoute module="payment" action="read">
+            <Payment />
+          </PermissionRoute>
+        ),
+      },
     ],
   },
 
@@ -128,7 +344,6 @@ export const routes = createBrowserRouter([
       { path: "terms", element: <TermsAndConditions /> },
       { path: "contact", element: <Contact /> },
 
-      // profile bids
       { path: "my-profile", element: <MyProfile /> },
       { path: "my-bids", element: <MyBids /> },
       { path: "change-password", element: <ChangePassword /> },

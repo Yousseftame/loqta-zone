@@ -179,12 +179,15 @@ export const createAdminAccount = onCall(async (request) => {
     throw new HttpsError("permission-denied", "Only superAdmins can create admin accounts.");
   }
 
-  const { firstName, lastName, email, password, role } = request.data as {
-    firstName: string;
-    lastName:  string;
-    email:     string;
-    password:  string;
-    role:      "admin" | "superAdmin";
+  const { firstName, lastName, email, password, role, permissions } = request.data as {
+    firstName:   string;
+    lastName:    string;
+    email:       string;
+    password:    string;
+    role:        "admin" | "superAdmin";
+    // permissions is sent from the client for role="admin" accounts.
+    // For superAdmin accounts it is ignored (they always have full access).
+    permissions?: Record<string, Record<string, boolean>> | null;
   };
 
   const validRoles = ["admin", "superAdmin"];
@@ -194,6 +197,9 @@ export const createAdminAccount = onCall(async (request) => {
   if (password.length < 6) {
     throw new HttpsError("invalid-argument", "Password must be at least 6 characters.");
   }
+
+  // Permissions sanity-check: only store for admin accounts, never for superAdmin
+  const resolvedPermissions = role === "admin" ? (permissions ?? null) : null;
 
   // ── Step 1: Create the Firebase Auth account ──────────────────────────────
   // This fires the onUserCreated trigger as a separate Cloud Function invocation.
@@ -212,7 +218,7 @@ export const createAdminAccount = onCall(async (request) => {
   // onUserCreated runs in a separate invocation and always arrives after this.
   // The doc has role="admin"|"superAdmin" → onUserCreated sees it and skips.
   const now = FieldValue.serverTimestamp();
-  const userData = {
+  const userData: Record<string, unknown> = {
     firstName,
     lastName,
     fullName: `${firstName} ${lastName}`,
@@ -231,6 +237,11 @@ export const createAdminAccount = onCall(async (request) => {
     updatedAt: now,
     createdBy: request.auth.uid,
   };
+
+  // Only store the permissions map for regular admins
+  if (role === "admin" && resolvedPermissions) {
+    userData.permissions = resolvedPermissions;
+  }
 
   await db.collection("users").doc(newUser.uid).set(userData);
 
@@ -257,6 +268,7 @@ export const createAdminAccount = onCall(async (request) => {
     walletBalance: 0,
     internalNotes: "",
     createdBy: request.auth.uid,
+    ...(role === "admin" && resolvedPermissions ? { permissions: resolvedPermissions } : {}),
   };
 });
 export const deleteUser = onCall(async (request) => {

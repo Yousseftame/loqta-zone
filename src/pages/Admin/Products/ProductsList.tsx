@@ -39,12 +39,16 @@ import { useNavigate } from "react-router-dom";
 import { type Product, colors, getAvatarColor } from "./products-data";
 import { useProducts } from "@/store/AdminContext/ProductContext/ProductsCotnext";
 import { useCategories } from "@/store/AdminContext/CategoryContext/CategoryContext";
+import { usePermissions } from "@/permissions/usePermissions";
+
 
 export default function ProductsList() {
   const navigate = useNavigate();
   const { products, loading, error, refreshProducts, removeProduct } =
     useProducts();
   const { categories } = useCategories();
+    const { can } = usePermissions();
+
 
   const [filtered, setFiltered] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -202,7 +206,7 @@ export default function ProductsList() {
           >
             <RefreshCw size={18} />
           </IconButton>
-          <Button
+          {can("products", "create") && <Button
             variant="contained"
             startIcon={<Plus size={18} />}
             onClick={() => navigate("/admin/products/add")}
@@ -220,7 +224,7 @@ export default function ProductsList() {
             }}
           >
             Add New Product
-          </Button>
+          </Button>}
         </Box>
       </Box>
 
@@ -590,7 +594,7 @@ export default function ProductsList() {
                           gap: 0.5,
                         }}
                       >
-                        <IconButton
+                        {can("products", "read") && <IconButton
                           size="small"
                           onClick={() =>
                             navigate(`/admin/products/${product.id}`)
@@ -603,8 +607,8 @@ export default function ProductsList() {
                           title="View"
                         >
                           <Eye size={16} />
-                        </IconButton>
-                        <IconButton
+                        </IconButton>}
+                        {can("products", "update") && <IconButton
                           size="small"
                           onClick={() =>
                             navigate(`/admin/products/${product.id}/edit`)
@@ -617,8 +621,8 @@ export default function ProductsList() {
                           title="Edit"
                         >
                           <Edit size={16} />
-                        </IconButton>
-                        <IconButton
+                        </IconButton>}
+                        {can("products", "delete") && <IconButton
                           size="small"
                           onClick={() => {
                             setProductToDelete(product);
@@ -632,7 +636,7 @@ export default function ProductsList() {
                           title="Delete"
                         >
                           <Trash2 size={16} />
-                        </IconButton>
+                        </IconButton>}
                       </Box>
                     </TableCell>
                   </TableRow>

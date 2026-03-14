@@ -37,6 +37,7 @@ import { useNavigate } from "react-router-dom";
 import { colors } from "./Categories-data";
 import type { Category } from "./Categories-data";
 import { useCategories } from "@/store/AdminContext/CategoryContext/CategoryContext";
+import { usePermissions } from "@/permissions/usePermissions";
 
 export default function CategoriesList() {
   const navigate = useNavigate();
@@ -52,6 +53,8 @@ export default function CategoriesList() {
     null,
   );
   const [loadingDelete, setLoadingDelete] = useState(false);
+      const { can } = usePermissions();
+  
 
   useEffect(() => {
     let f = categories;
@@ -189,7 +192,7 @@ export default function CategoriesList() {
           >
             <RefreshCw size={18} />
           </IconButton>
-          <Button
+       {can("categories","create")  &&  <Button
             variant="contained"
             startIcon={<Plus size={18} />}
             onClick={() => navigate("/admin/categories/add")}
@@ -207,7 +210,7 @@ export default function CategoriesList() {
             }}
           >
             Add New Category
-          </Button>
+          </Button> }
         </Box>
       </Box>
 
@@ -508,7 +511,7 @@ export default function CategoriesList() {
                           gap: 0.5,
                         }}
                       >
-                        <IconButton
+                        {can("categories", "read") && <IconButton
                           size="small"
                           onClick={() =>
                             navigate(`/admin/categories/${category.id}`)
@@ -521,8 +524,8 @@ export default function CategoriesList() {
                           title="View"
                         >
                           <Eye size={16} />
-                        </IconButton>
-                        <IconButton
+                        </IconButton>}
+                        {can("categories", "update") && <IconButton
                           size="small"
                           onClick={() =>
                             navigate(`/admin/categories/${category.id}/edit`)
@@ -535,8 +538,8 @@ export default function CategoriesList() {
                           title="Edit"
                         >
                           <Edit size={16} />
-                        </IconButton>
-                        <IconButton
+                        </IconButton>}
+                        {can("categories", "delete") && <IconButton
                           size="small"
                           onClick={() => {
                             setCategoryToDelete(category);
@@ -550,7 +553,7 @@ export default function CategoriesList() {
                           title="Delete"
                         >
                           <Trash2 size={16} />
-                        </IconButton>
+                        </IconButton>}
                       </Box>
                     </TableCell>
                   </TableRow>

@@ -9,12 +9,7 @@
  *  3. Removes dead tokens automatically
  *  4. Stamps notifiedMatchedAt to prevent duplicate notifications
  *
- * Key fix vs previous version:
- *  - Tokens are deduplicated via Set before sending. If a user somehow
- *    accumulated duplicate token strings, they'll only receive one push.
- *  - The fcmTokens array itself is also deduplicated and written back to
- *    Firestore if duplicates were found — self-healing cleanup.
- *  - Expanded dead-token error codes to catch more Firebase error variants.
+ * 
  */
 
 import { onDocumentUpdated } from "firebase-functions/v2/firestore";

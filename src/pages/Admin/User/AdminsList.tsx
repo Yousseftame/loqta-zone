@@ -35,6 +35,7 @@ import {
   Mail,
   UserPlus,
   Check,
+  KeyRound,
 } from "lucide-react";
 import { colors } from "../Products/products-data";
 import type { AppUser, UserRole } from "./users-data";
@@ -47,6 +48,8 @@ import {
 } from "@/service/users/userService";
 import { useAuth } from "@/store/AuthContext/AuthContext";
 import CreateAdminForm from "./CreateAdminForm";
+import EditAdminPermissions from "./EditAdminPermissions";
+import type { AdminPermissions } from "@/permissions/permissions-data";
 import toast from "react-hot-toast";
 
 // ─── Role chip ────────────────────────────────────────────────────────────────
@@ -333,6 +336,7 @@ export default function AdminsList() {
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   const [roleTarget, setRoleTarget] = useState<AppUser | null>(null);
+  const [permTarget, setPermTarget] = useState<AppUser | null>(null);
 
   // ── Load ──────────────────────────────────────────────────────────────────
 
@@ -432,6 +436,14 @@ export default function AdminsList() {
       toast.error(err?.message ?? "Failed to update role");
       throw err;
     }
+  };
+
+  // ── Permissions saved ────────────────────────────────────────────────────
+
+  const handlePermsSaved = (uid: string, permissions: AdminPermissions) => {
+    setAdmins((prev) =>
+      prev.map((u) => (u.id === uid ? { ...u, permissions } : u)),
+    );
   };
 
   // ── Stats ─────────────────────────────────────────────────────────────────
@@ -909,6 +921,28 @@ export default function AdminsList() {
                             <UserCog size={15} />
                           </IconButton>
 
+                          {/* Edit permissions */}
+                          <IconButton
+                            size="small"
+                            disabled={self || admin.role === "superAdmin"}
+                            onClick={() => setPermTarget(admin)}
+                            sx={{
+                              color: "#7C3AED",
+                              "&:hover": { bgcolor: "#F5F3FF" },
+                              borderRadius: 1.5,
+                              "&.Mui-disabled": { opacity: 0.3 },
+                            }}
+                            title={
+                              admin.role === "superAdmin"
+                                ? "Super Admins have full access"
+                                : self
+                                  ? "Cannot edit your own permissions"
+                                  : "Edit permissions"
+                            }
+                          >
+                            <KeyRound size={15} />
+                          </IconButton>
+
                           {/* Block / Unblock */}
                           <IconButton
                             size="small"
@@ -1080,6 +1114,14 @@ export default function AdminsList() {
         </DialogActions>
       </Dialog>
 
+      {/* ── Edit Permissions Dialog ──────────────────────────────────────── */}
+      <EditAdminPermissions
+        target={permTarget}
+        open={!!permTarget}
+        onClose={() => setPermTarget(null)}
+        onSaved={handlePermsSaved}
+      />
+
       {/* ── Delete Dialog ─────────────────────────────────────────────────── */}
       <Dialog
         open={!!deleteTarget}
@@ -1103,7 +1145,7 @@ export default function AdminsList() {
             You are about to permanently delete{" "}
             <strong>{deleteTarget?.fullName}</strong>'s account (
             <strong>{deleteTarget?.email}</strong>). This removes their 
-             account and all the  data.  <br /> This action cannot be undone.
+             account and all  data. This action cannot be undone.
           </p>
           <Box
             sx={{

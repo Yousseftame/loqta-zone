@@ -280,11 +280,13 @@ export async function saveInternalNotes(uid: string, notes: string): Promise<voi
 // The new account is immediately active.
 
 export interface CreateAdminPayload {
-  firstName: string;
-  lastName:  string;
-  email:     string;
-  password:  string;
-  role:      "admin" | "superAdmin";
+  firstName:   string;
+  lastName:    string;
+  email:       string;
+  password:    string;
+  role:        "admin" | "superAdmin";
+  // Permissions are sent for role="admin" accounts. Ignored (full access) for superAdmin.
+  permissions?: import("@/permissions/permissions-data").AdminPermissions | null;
 }
 
 export async function createAdminService(payload: CreateAdminPayload): Promise<AppUser> {
@@ -294,4 +296,18 @@ export async function createAdminService(payload: CreateAdminPayload): Promise<A
   const data = result.data as Record<string, any>;
   // Cloud Function returns the new user's Firestore doc fields + uid
   return docToUser(data.uid, data);
+}
+
+// ─── UPDATE PERMISSIONS ───────────────────────────────────────────────────────
+// Writes the permissions map directly to the admin's Firestore doc.
+// Only applicable to role="admin" — superAdmins have hardcoded full access.
+
+export async function updateAdminPermissionsService(
+  uid: string,
+  permissions: import("@/permissions/permissions-data").AdminPermissions,
+): Promise<void> {
+  await updateDoc(doc(db, "users", uid), {
+    permissions,
+    updatedAt: serverTimestamp(),
+  });
 }

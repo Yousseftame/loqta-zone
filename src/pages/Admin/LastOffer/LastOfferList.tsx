@@ -58,6 +58,7 @@ import type {
   LastOfferUpdateData,
 } from "@/service/LastOfferService/LastOfferService";
 import type { Auction } from "../Auctions/auctions-data";
+import { usePermissions } from "@/permissions/usePermissions";
 
 // ─── Status chip helper ───────────────────────────────────────────────────────
 
@@ -313,6 +314,8 @@ function AuctionOfferRow({
   const [offerToDelete, setOfferToDelete] = useState<LastOffer | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [page, setPage] = useState(0);
+      const { can } = usePermissions();
+
   const rowsPerPage = 5;
 
   // ── Row-level summary: loaded on mount so counts/selected show
@@ -979,7 +982,7 @@ function AuctionOfferRow({
                                   gap: 0.5,
                                 }}
                               >
-                                <IconButton
+                                {can("lastOffers", "update") && <IconButton
                                   size="small"
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -993,8 +996,8 @@ function AuctionOfferRow({
                                   title="Edit offer"
                                 >
                                   <Edit2 size={14} />
-                                </IconButton>
-                                <IconButton
+                                </IconButton>}
+                                {can("lastOffers", "delete") && <IconButton
                                   size="small"
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -1009,7 +1012,7 @@ function AuctionOfferRow({
                                   title="Delete offer"
                                 >
                                   <Trash2 size={14} />
-                                </IconButton>
+                                </IconButton>}
                               </Box>
                             </TableCell>
                           </TableRow>
@@ -1114,6 +1117,8 @@ export default function LastOfferList() {
   const [searchTerm, setSearchTerm] = useState("");
   const [auctionStatusFilter, setAuctionStatusFilter] = useState("ended");
   const [offerStatusFilter, setOfferStatusFilter] = useState("all");
+      const { can } = usePermissions();
+
 
   // Only show auctions where lastOfferEnabled = true (or show all ended auctions)
   const filtered = useMemo(() => {

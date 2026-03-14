@@ -2,11 +2,11 @@
  * src/pages/Admin/User/CreateAdminForm.tsx
  *
  * Standalone form component for creating a new admin or superAdmin account.
- * - Full field validation using the shared validation.ts rules
- * - Confirm password field
- * - Password strength meter
- * - Role picker (Admin / Super Admin)
- * - Extracted from AdminsList so it can be tested / reused independently
+ *  - Full field validation using the shared validation.ts rules
+ *  - Confirm password field + strength meter
+ *  - Role picker (Admin / Super Admin)
+ *  - Full CRUD permissions matrix for admin accounts
+ *    (disabled + banner for superAdmin — they have full access by default)
  */
 
 import { useState, useCallback } from "react";
@@ -36,7 +36,7 @@ import {
   User,
 } from "lucide-react";
 import { colors } from "../Products/products-data";
-import type { AppUser, UserRole } from "./users-data";
+import type { AppUser } from "./users-data";
 import { getRoleStyle } from "./users-data";
 import { createAdminService } from "@/service/users/userService";
 import {
@@ -47,6 +47,11 @@ import {
   validateConfirmPassword,
   getPasswordStrength,
 } from "@/types/validation";
+import PermissionsMatrix from "@/permissions/PermissionsMatrix";
+import {
+  emptyPermissions,
+  type AdminPermissions,
+} from "@/permissions/permissions-data";
 import toast from "react-hot-toast";
 
 // ─── Field style helper ────────────────────────────────────────────────────────
@@ -95,7 +100,7 @@ function PasswordStrengthBar({ password }: { password: string }) {
   );
 }
 
-// ─── Form state ────────────────────────────────────────────────────────────────
+// ─── Form state & errors ──────────────────────────────────────────────────────
 
 interface FormState {
   firstName: string;
@@ -165,6 +170,8 @@ export default function CreateAdminForm({
   const [showPw, setShowPw] = useState(false);
   const [showCpw, setShowCpw] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [permissions, setPermissions] =
+    useState<AdminPermissions>(emptyPermissions());
 
   // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -172,9 +179,7 @@ export default function CreateAdminForm({
     (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) => {
       const next = { ...form, [field]: e.target.value };
       setForm(next);
-      if (touched[field as keyof FormErrors]) {
-        setErrors(validateAll(next));
-      }
+      if (touched[field as keyof FormErrors]) setErrors(validateAll(next));
     };
 
   const setRole = (role: "admin" | "superAdmin") =>
@@ -191,6 +196,7 @@ export default function CreateAdminForm({
     setTouched({});
     setShowPw(false);
     setShowCpw(false);
+    setPermissions(emptyPermissions());
   }, []);
 
   const handleClose = () => {
@@ -202,7 +208,6 @@ export default function CreateAdminForm({
   // ── Submit ────────────────────────────────────────────────────────────────
 
   const handleCreate = async () => {
-    // Mark all fields touched so errors show
     setTouched({
       firstName: true,
       lastName: true,
@@ -212,7 +217,6 @@ export default function CreateAdminForm({
     });
     const errs = validateAll(form);
     setErrors(errs);
-
     if (Object.values(errs).some(Boolean)) {
       toast.error("Please fix the errors before submitting.");
       return;
@@ -226,13 +230,14 @@ export default function CreateAdminForm({
         email: form.email.trim(),
         password: form.password,
         role: form.role,
+        // Only pass permissions for admin accounts; superAdmin has full access
+        permissions: form.role === "admin" ? permissions : null,
       });
       const label = form.role === "superAdmin" ? "Super Admin" : "Admin";
       toast.success(`${label} account created successfully`);
       onCreate(newAdmin);
       handleClose();
     } catch (err: any) {
-      // Surface Firebase-specific errors clearly
       const msg = err?.message ?? "Failed to create account";
       if (
         msg.includes("email-already-in-use") ||
@@ -255,11 +260,10 @@ export default function CreateAdminForm({
     <Dialog
       open={open}
       onClose={handleClose}
-      maxWidth="sm"
+      maxWidth="md"
       fullWidth
       PaperProps={{ sx: { borderRadius: 3 } }}
     >
-      {/* Header */}
       <DialogTitle
         sx={{
           display: "flex",
@@ -339,154 +343,177 @@ export default function CreateAdminForm({
             </Box>
           </Box>
 
-          {/* ── Name row ───────────────────────────────────────────────────── */}
-          <Box sx={{ display: "flex", gap: 1.5 }}>
-            <TextField
-              label="First Name"
-              value={form.firstName}
-              onChange={set("firstName")}
-              onBlur={blur("firstName")}
-              error={show("firstName")}
-              helperText={show("firstName") ? errors.firstName : " "}
-              size="small"
-              fullWidth
-                          disabled={saving}
-                          
-             
-              sx={fieldSx(show("firstName"))}
-            />
-            <TextField
-              label="Last Name"
-              value={form.lastName}
-              onChange={set("lastName")}
-              onBlur={blur("lastName")}
-              error={show("lastName")}
-              helperText={show("lastName") ? errors.lastName : " "}
-              size="small"
-              fullWidth
-              disabled={saving}
-              sx={fieldSx(show("lastName"))}
-            />
-          </Box>
-
-          {/* ── Email ──────────────────────────────────────────────────────── */}
-          <TextField
-            label="Email Address"
-            type="email"
-            value={form.email}
-            onChange={set("email")}
-            onBlur={blur("email")}
-            error={show("email")}
-            helperText={show("email") ? errors.email : " "}
-            size="small"
-            fullWidth
-            disabled={saving}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Mail size={14} style={{ color: colors.textMuted }} />
-                </InputAdornment>
-              ),
-            }}
-            sx={fieldSx(show("email"))}
-          />
-
-          {/* ── Password ───────────────────────────────────────────────────── */}
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-            <TextField
-              label="Password"
-              type={showPw ? "text" : "password"}
-              value={form.password}
-              onChange={set("password")}
-              onBlur={blur("password")}
-              error={show("password")}
-              helperText={
-                show("password")
-                  ? errors.password
-                  : "Min 8 chars, uppercase, number, special char"
-              }
-              size="small"
-              fullWidth
-              disabled={saving}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Lock size={14} style={{ color: colors.textMuted }} />
-                  </InputAdornment>
-                ),
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      size="small"
-                      onClick={() => setShowPw(!showPw)}
-                      disabled={saving}
-                    >
-                      {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-              sx={fieldSx(show("password"))}
-            />
-            <PasswordStrengthBar password={form.password} />
-          </Box>
-
-          {/* ── Confirm password ───────────────────────────────────────────── */}
-          <TextField
-            label="Confirm Password"
-            type={showCpw ? "text" : "password"}
-            value={form.confirmPassword}
-            onChange={set("confirmPassword")}
-            onBlur={blur("confirmPassword")}
-            error={show("confirmPassword")}
-            helperText={show("confirmPassword") ? errors.confirmPassword : " "}
-            size="small"
-            fullWidth
-            disabled={saving}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Lock size={14} style={{ color: colors.textMuted }} />
-                </InputAdornment>
-              ),
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton
-                    size="small"
-                    onClick={() => setShowCpw(!showCpw)}
-                    disabled={saving}
-                  >
-                    {showCpw ? <EyeOff size={15} /> : <Eye size={15} />}
-                  </IconButton>
-                </InputAdornment>
-              ),
-            }}
-            sx={fieldSx(show("confirmPassword"))}
-          />
-
-          {/* ── Info box ───────────────────────────────────────────────────── */}
+          {/* ── Two-column layout: fields LEFT, permissions RIGHT ──────────── */}
           <Box
             sx={{
-              p: 1.5,
-              borderRadius: 2,
-              bgcolor: colors.primaryBg,
-              border: `1px solid ${colors.border}`,
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
+              gap: 2.5,
             }}
           >
-            <p
-              style={{
-                margin: 0,
-                fontSize: "0.78rem",
-                color: colors.textSecondary,
-                lineHeight: 1.6,
-              }}
-            >
-              A account will be created with the{" "}
-              <strong style={{ color: getRoleStyle(form.role).color }}>
-                {getRoleStyle(form.role).label}
-              </strong>{" "}
-              role. The account is immediately active and can sign in.
-            </p>
+            {/* LEFT: account fields */}
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              {/* Name row */}
+              <Box sx={{ display: "flex", gap: 1.5 }}>
+                <TextField
+                  label="First Name"
+                  value={form.firstName}
+                  onChange={set("firstName")}
+                  onBlur={blur("firstName")}
+                  error={show("firstName")}
+                  helperText={show("firstName") ? errors.firstName : " "}
+                  size="small"
+                  fullWidth
+                  disabled={saving}
+                 
+                  sx={fieldSx(show("firstName"))}
+                />
+                <TextField
+                  label="Last Name"
+                  value={form.lastName}
+                  onChange={set("lastName")}
+                  onBlur={blur("lastName")}
+                  error={show("lastName")}
+                  helperText={show("lastName") ? errors.lastName : " "}
+                  size="small"
+                  fullWidth
+                  disabled={saving}
+                  sx={fieldSx(show("lastName"))}
+                />
+              </Box>
+
+              {/* Email */}
+              <TextField
+                label="Email Address"
+                type="email"
+                value={form.email}
+                onChange={set("email")}
+                onBlur={blur("email")}
+                error={show("email")}
+                helperText={show("email") ? errors.email : " "}
+                size="small"
+                fullWidth
+                disabled={saving}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Mail size={14} style={{ color: colors.textMuted }} />
+                    </InputAdornment>
+                  ),
+                }}
+                sx={fieldSx(show("email"))}
+              />
+
+              {/* Password */}
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                <TextField
+                  label="Password"
+                  type={showPw ? "text" : "password"}
+                  value={form.password}
+                  onChange={set("password")}
+                  onBlur={blur("password")}
+                  error={show("password")}
+                  helperText={
+                    show("password")
+                      ? errors.password
+                      : "Min 8 chars, uppercase, number, special char"
+                  }
+                  size="small"
+                  fullWidth
+                  disabled={saving}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Lock size={14} style={{ color: colors.textMuted }} />
+                      </InputAdornment>
+                    ),
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          size="small"
+                          onClick={() => setShowPw(!showPw)}
+                          disabled={saving}
+                        >
+                          {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
+                  sx={fieldSx(show("password"))}
+                />
+                <PasswordStrengthBar password={form.password} />
+              </Box>
+
+              {/* Confirm password */}
+              <TextField
+                label="Confirm Password"
+                type={showCpw ? "text" : "password"}
+                value={form.confirmPassword}
+                onChange={set("confirmPassword")}
+                onBlur={blur("confirmPassword")}
+                error={show("confirmPassword")}
+                helperText={
+                  show("confirmPassword") ? errors.confirmPassword : " "
+                }
+                size="small"
+                fullWidth
+                disabled={saving}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Lock size={14} style={{ color: colors.textMuted }} />
+                    </InputAdornment>
+                  ),
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        size="small"
+                        onClick={() => setShowCpw(!showCpw)}
+                        disabled={saving}
+                      >
+                        {showCpw ? <EyeOff size={15} /> : <Eye size={15} />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
+                sx={fieldSx(show("confirmPassword"))}
+              />
+
+              {/* Info box */}
+              <Box
+                sx={{
+                  p: 1.5,
+                  borderRadius: 2,
+                  bgcolor: colors.primaryBg,
+                  border: `1px solid ${colors.border}`,
+                }}
+              >
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: "0.78rem",
+                    color: colors.textSecondary,
+                    lineHeight: 1.6,
+                  }}
+                >
+                  Account created with{" "}
+                  <strong style={{ color: getRoleStyle(form.role).color }}>
+                    {getRoleStyle(form.role).label}
+                  </strong>{" "}
+                  role. Active immediately.
+                </p>
+              </Box>
+            </Box>
+
+            {/* RIGHT: permissions matrix */}
+            <Box>
+              <PermissionsMatrix
+                role={form.role}
+                value={permissions}
+                onChange={setPermissions}
+                disabled={saving}
+              />
+            </Box>
           </Box>
         </Box>
       </DialogContent>

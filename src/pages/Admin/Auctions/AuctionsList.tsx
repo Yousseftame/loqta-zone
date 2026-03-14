@@ -46,6 +46,7 @@ import {
 } from "./auctions-data";
 import { useAuctions } from "@/store/AdminContext/AuctionContext/AuctionContext";
 import { useProducts } from "@/store/AdminContext/ProductContext/ProductsCotnext";
+import { usePermissions } from "@/permissions/usePermissions";
 
 const statusIcon = (s: AuctionStatus) =>
   s === "live" ? (
@@ -70,6 +71,8 @@ export default function AuctionsList() {
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [auctionToDelete, setAuctionToDelete] = useState<Auction | null>(null);
   const [loadingDelete, setLoadingDelete] = useState(false);
+      const { can } = usePermissions();
+
 
   useEffect(() => {
     let f = auctions;
@@ -216,7 +219,7 @@ export default function AuctionsList() {
           >
             <RefreshCw size={18} />
           </IconButton>
-          <Button
+          {can("auctions", "create") && <Button
             variant="contained"
             startIcon={<Plus size={18} />}
             onClick={() => navigate("/admin/auctions/add")}
@@ -234,7 +237,7 @@ export default function AuctionsList() {
             }}
           >
             Add New Auction
-          </Button>
+          </Button>}
         </Box>
       </Box>
 
@@ -793,7 +796,7 @@ export default function AuctionsList() {
                             gap: 0.5,
                           }}
                         >
-                          <IconButton
+                          {can("categories", "read") && <IconButton
                             size="small"
                             onClick={() =>
                               navigate(`/admin/auctions/${auction.id}`)
@@ -806,8 +809,8 @@ export default function AuctionsList() {
                             title="View"
                           >
                             <Eye size={16} />
-                          </IconButton>
-                          <IconButton
+                          </IconButton>}
+                          {can("categories", "update") && <IconButton
                             size="small"
                             onClick={() =>
                               navigate(`/admin/auctions/${auction.id}/edit`)
@@ -838,8 +841,8 @@ export default function AuctionsList() {
                             }
                           >
                             <Edit size={16} />
-                          </IconButton>
-                          <IconButton
+                          </IconButton>}
+                          {can("categories", "delete") && <IconButton
                             size="small"
                             onClick={() => {
                               setAuctionToDelete(auction);
@@ -853,7 +856,7 @@ export default function AuctionsList() {
                             title="Delete"
                           >
                             <Trash2 size={16} />
-                          </IconButton>
+                          </IconButton>}
                         </Box>
                       </TableCell>
                     </TableRow>

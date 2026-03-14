@@ -35,6 +35,7 @@ import {
   REQUEST_URGENCY_LABELS,
 } from "./auction-requests-data";
 import { useAuctionRequests } from "@/store/AdminContext/AuctionRequestContext/AuctionRequestContext";
+import { usePermissions } from "@/permissions/usePermissions";
 
 export default function AuctionRequestsList() {
   const navigate = useNavigate();
@@ -44,6 +45,8 @@ export default function AuctionRequestsList() {
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+      const { can } = usePermissions();
+
 
   useEffect(() => {
     let f = requests;
@@ -486,7 +489,7 @@ export default function AuctionRequestsList() {
 
                       {/* Actions */}
                       <TableCell align="center" sx={{ minWidth: 80 }}>
-                        <IconButton
+                        {can("auctionRequests", "read") && <IconButton
                           size="small"
                           onClick={() =>
                             navigate(`/admin/auctionRequests/${req.id}`)
@@ -499,7 +502,7 @@ export default function AuctionRequestsList() {
                           title="View / Edit"
                         >
                           <Eye size={16} />
-                        </IconButton>
+                        </IconButton>}
                       </TableCell>
                     </TableRow>
                   );

@@ -45,6 +45,7 @@ import {
   type FeedbackMessage,
   type FeedbackStatus,
 } from "../ContactUs/contact-feedback-data";
+import { usePermissions } from "@/permissions/usePermissions";
 
 const STATUS_FILTER_OPTIONS: { value: "" | FeedbackStatus; label: string }[] = [
   { value: "", label: "All Statuses" },
@@ -82,6 +83,8 @@ export default function AdminFeedbackList() {
     changeFeedbackStatus,
     removeFeedback,
   } = useContactFeedback();
+      const { can } = usePermissions();
+
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"" | FeedbackStatus>("");
@@ -661,7 +664,7 @@ export default function AdminFeedbackList() {
                           gap: 0.5,
                         }}
                       >
-                        <IconButton
+                        {can("feedback", "read") && <IconButton
                           size="small"
                           onClick={() => navigate(`/admin/feedback/${fb.id}`)}
                           sx={{
@@ -672,8 +675,8 @@ export default function AdminFeedbackList() {
                           title="View full feedback"
                         >
                           <Eye size={16} />
-                        </IconButton>
-                        <IconButton
+                        </IconButton>}
+                        {can("feedback", "delete") && <IconButton
                           size="small"
                           onClick={() => {
                             setFbToDelete(fb);
@@ -687,7 +690,7 @@ export default function AdminFeedbackList() {
                           title="Delete feedback"
                         >
                           <Trash2 size={16} />
-                        </IconButton>
+                        </IconButton>}
                       </Box>
                     </TableCell>
                   </TableRow>

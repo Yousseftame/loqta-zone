@@ -36,6 +36,8 @@ export interface AppUser {
   createdBy: string;
   // Admin-only note
   internalNotes: string;
+  // RBAC permissions — only present on role="admin" docs, null for users/superAdmins
+  permissions?: import("@/permissions/permissions-data").AdminPermissions | null;
   // Subcollection (loaded on demand)
   auctions?: UserAuction[];
 }

@@ -45,6 +45,7 @@ import {
 } from "@/service/Participantservice/Participantservice";
 import type { Participant } from "./Participants-data";
 import type { Auction } from "../Auctions/auctions-data";
+import { usePermissions } from "@/permissions/usePermissions";
 
 // ─── Per-auction row with expandable participants ─────────────────────────────
 
@@ -68,6 +69,8 @@ function AuctionParticipantRow({
   const [deleting, setDeleting] = useState(false);
   const [page, setPage] = useState(0);
   const rowsPerPage = 5;
+      const { can } = usePermissions();
+
 
   useEffect(() => {
     if (auction.productId)
@@ -602,8 +605,8 @@ function AuctionParticipantRow({
                               </Box>
                             </TableCell>
                             <TableCell align="center" sx={{ py: 1 }}>
-                              <IconButton
-                                disabled
+                              {can("participants", "delete") && <IconButton
+                                
                                 size="small"
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -618,7 +621,7 @@ function AuctionParticipantRow({
                                 title="Remove participant"
                               >
                                 <Trash2 size={14} />
-                              </IconButton>
+                              </IconButton>}
                             </TableCell>
                           </TableRow>
                         );

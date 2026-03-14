@@ -44,6 +44,7 @@ import {
   type ContactMessage,
   type ContactStatus,
 } from "./contact-feedback-data";
+import { usePermissions } from "@/permissions/usePermissions";
 
 const STATUS_FILTER_OPTIONS: { value: "" | ContactStatus; label: string }[] = [
   { value: "", label: "All Statuses" },
@@ -75,6 +76,8 @@ export default function AdminContactList() {
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [msgToDelete, setMsgToDelete] = useState<ContactMessage | null>(null);
   const [deleting, setDeleting] = useState(false);
+      const { can } = usePermissions();
+
 
   const filtered = contacts.filter((c) => {
     const s = search.toLowerCase();
@@ -617,7 +620,7 @@ export default function AdminContactList() {
                           gap: 0.5,
                         }}
                       >
-                        <IconButton
+                        {can("contacts", "read") && <IconButton
                           size="small"
                           onClick={() => navigate(`/admin/contacts/${msg.id}`)}
                           sx={{
@@ -628,8 +631,8 @@ export default function AdminContactList() {
                           title="View full message"
                         >
                           <Eye size={16} />
-                        </IconButton>
-                        <IconButton
+                        </IconButton>}
+                        {can("contacts", "delete") && <IconButton
                           size="small"
                           onClick={() => {
                             setMsgToDelete(msg);
@@ -643,7 +646,7 @@ export default function AdminContactList() {
                           title="Delete message"
                         >
                           <Trash2 size={16} />
-                        </IconButton>
+                        </IconButton>}
                       </Box>
                     </TableCell>
                   </TableRow>

@@ -54,6 +54,7 @@ import {
 } from "@/service/Bidadminservice/Bidadminservice";
 import type { Bid, BidStatus, BidUpdateData } from "./Bids-data";
 import type { Auction } from "../Auctions/auctions-data";
+import { usePermissions } from "@/permissions/usePermissions";
 
 // ─── Status chip ──────────────────────────────────────────────────────────────
 
@@ -91,6 +92,8 @@ function EditDialog({ bid, open, onClose, onSave }: EditDialogProps) {
   const [status, setStatus] = useState<BidStatus>("pending");
   const [selected, setSelected] = useState(false);
   const [saving, setSaving] = useState(false);
+      const { can } = usePermissions();
+
 
   useEffect(() => {
     if (bid) {
@@ -347,6 +350,8 @@ function AuctionBidRow({ auction, subSearchTerm }: AuctionBidRowProps) {
   const [deleting, setDeleting] = useState(false);
   const [page, setPage] = useState(0);
   const rowsPerPage = 5;
+      const { can } = usePermissions();
+
 
   // Summary visible on the collapsed row — populated on mount
   const [summary, setSummary] = useState<{
@@ -1003,7 +1008,7 @@ function AuctionBidRow({ auction, subSearchTerm }: AuctionBidRowProps) {
                                   gap: 0.5,
                                 }}
                               >
-                                <IconButton
+                                {can("bids", "update") && <IconButton
                                   size="small"
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -1017,8 +1022,8 @@ function AuctionBidRow({ auction, subSearchTerm }: AuctionBidRowProps) {
                                   title="Review bid"
                                 >
                                   <Edit2 size={14} />
-                                </IconButton>
-                                <IconButton
+                                </IconButton>}
+                                {can("bids", "delete") && <IconButton
                                   size="small"
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -1033,7 +1038,7 @@ function AuctionBidRow({ auction, subSearchTerm }: AuctionBidRowProps) {
                                   title="Delete bid"
                                 >
                                   <Trash2 size={14} />
-                                </IconButton>
+                                </IconButton>}
                               </Box>
                             </TableCell>
                           </TableRow>

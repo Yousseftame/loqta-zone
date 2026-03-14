@@ -46,6 +46,7 @@ import {
 } from "./voucher-data";
 import { useVouchers } from "@/store/AdminContext/VoucherContext/VoucherContext";
 import { useProducts } from "@/store/AdminContext/ProductContext/ProductsCotnext";
+import { usePermissions } from "@/permissions/usePermissions";
 
 export default function VouchersList() {
   const navigate = useNavigate();
@@ -60,6 +61,8 @@ export default function VouchersList() {
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [voucherToDelete, setVoucherToDelete] = useState<Voucher | null>(null);
   const [loadingDelete, setLoadingDelete] = useState(false);
+      const { can } = usePermissions();
+
 
   useEffect(() => {
     let f = vouchers;
@@ -204,7 +207,7 @@ export default function VouchersList() {
           >
             <RefreshCw size={18} />
           </IconButton>
-          <Button
+          {can("vouchers", "create") && <Button
             variant="contained"
             startIcon={<Plus size={18} />}
             onClick={() => navigate("/admin/vouchers/add")}
@@ -222,7 +225,7 @@ export default function VouchersList() {
             }}
           >
             Add New Voucher
-          </Button>
+          </Button>}
         </Box>
       </Box>
 
@@ -641,7 +644,7 @@ export default function VouchersList() {
                             gap: 0.5,
                           }}
                         >
-                          <IconButton
+                          {can("vouchers", "read") && <IconButton
                             size="small"
                             onClick={() =>
                               navigate(`/admin/vouchers/${voucher.id}`)
@@ -654,8 +657,8 @@ export default function VouchersList() {
                             title="View"
                           >
                             <Eye size={16} />
-                          </IconButton>
-                          <IconButton
+                          </IconButton>}
+                          {can("vouchers", "update") && <IconButton
                             size="small"
                             onClick={() =>
                               navigate(`/admin/vouchers/${voucher.id}/edit`)
@@ -668,8 +671,8 @@ export default function VouchersList() {
                             title="Edit"
                           >
                             <Edit size={16} />
-                          </IconButton>
-                          <IconButton
+                          </IconButton>}
+                          {can("categories", "delete") && <IconButton
                             size="small"
                             onClick={() => {
                               setVoucherToDelete(voucher);
@@ -683,7 +686,7 @@ export default function VouchersList() {
                             title="Delete"
                           >
                             <Trash2 size={16} />
-                          </IconButton>
+                          </IconButton>}
                         </Box>
                       </TableCell>
                     </TableRow>

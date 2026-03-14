@@ -37,6 +37,7 @@ import {
 import { useAuctionRequests } from "@/store/AdminContext/AuctionRequestContext/AuctionRequestContext";
 import { useAuctions } from "@/store/AdminContext/AuctionContext/AuctionContext";
 import { useProducts } from "@/store/AdminContext/ProductContext/ProductsCotnext";
+import { usePermissions } from "@/permissions/usePermissions";
 
 const inputSx = {
   "& .MuiOutlinedInput-root": {
@@ -68,6 +69,7 @@ export default function AuctionRequestView() {
   const [request, setRequest] = useState<AuctionRequest | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+    const { can } = usePermissions();
 
   const [form, setForm] = useState<AuctionRequestFormData>({
     status: "pending",
@@ -818,7 +820,7 @@ export default function AuctionRequestView() {
         >
           Cancel
         </Button>
-        <Button
+        {can("auctionRequests", "update") && <Button
           onClick={handleSave}
           variant="contained"
           disabled={saving}
@@ -841,7 +843,7 @@ export default function AuctionRequestView() {
           }}
         >
           {saving ? "Saving…" : "Save Changes"}
-        </Button>
+        </Button>}
       </Box>
     </Box>
   );

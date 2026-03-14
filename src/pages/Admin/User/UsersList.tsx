@@ -49,6 +49,7 @@ import {
   deleteUserService,
 } from "@/service/users/userService";
 import toast from "react-hot-toast";
+import { usePermissions } from "@/permissions/usePermissions";
 
 export default function UsersList() {
   const navigate = useNavigate();
@@ -74,6 +75,8 @@ export default function UsersList() {
   const [deleteTarget, setDeleteTarget] = useState<AppUser | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
+      const { can } = usePermissions();
+
 
   const load = async () => {
     setLoading(true);
@@ -680,7 +683,7 @@ export default function UsersList() {
                             gap: 0.5,
                           }}
                         >
-                          <IconButton
+                          {can("users", "read") && <IconButton
                             size="small"
                             onClick={() => navigate(`/admin/users/${user.id}`)}
                             sx={{
@@ -691,7 +694,7 @@ export default function UsersList() {
                             title="View Details"
                           >
                             <Eye size={16} />
-                          </IconButton>
+                          </IconButton>}
                           <IconButton
                             size="small"
                             onClick={() => {
@@ -714,7 +717,7 @@ export default function UsersList() {
                             )}
                           </IconButton>
                           {/* ✅ Delete visible to all admins */}
-                          <IconButton
+                          {can("users", "delete") && <IconButton
                             size="small"
                             onClick={() => {
                               setDeleteTarget(user);
@@ -729,7 +732,7 @@ export default function UsersList() {
                             }}
                           >
                             <Trash2 size={16} />
-                          </IconButton>
+                          </IconButton>}
                         </Box>
                       </TableCell>
                     </TableRow>
