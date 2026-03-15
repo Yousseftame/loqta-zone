@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, memo } from "react";
+import React, { useRef, useState, useEffect, useMemo, memo } from "react";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Autoplay, FreeMode } from "swiper/modules";
 import { useInView } from "motion/react";
@@ -117,8 +117,7 @@ function usePublicProducts() {
 }
 
 // ─────────────────────────────────────────────────────────────
-// SHARED RESPONSIVE CSS — used by BOTH the real card and the
-// skeleton so they are always the exact same dimensions.
+// SHARED RESPONSIVE CSS
 // ─────────────────────────────────────────────────────────────
 const CARD_CSS = `
   @keyframes lz-shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
@@ -143,7 +142,6 @@ const CARD_CSS = `
   .lz-cat-row           { bottom: 8px; left: 8px; right: 8px; }
   .lz-shiny-btn         { font-size: 9px !important; padding: 7px 4px !important; }
 
-  /* skeleton shimmer blocks */
   .lz-skel {
     background: linear-gradient(90deg, #eef1f4 25%, #e4e9ee 50%, #eef1f4 75%);
     background-size: 200% 100%;
@@ -195,8 +193,6 @@ const CARD_CSS = `
 `;
 
 // ── Skeleton Card ─────────────────────────────────────────────
-// Mirrors AuctionCard's DOM structure exactly so every measurement
-// (banner, image, body padding, price block) is pixel-identical.
 const SkeletonCard = () => (
   <div
     style={{
@@ -211,7 +207,6 @@ const SkeletonCard = () => (
       height: "100%",
     }}
   >
-    {/* Promo banner — same class → same height as real card */}
     <div
       className="lz-card-banner"
       style={{
@@ -219,19 +214,14 @@ const SkeletonCard = () => (
         opacity: 0.45,
       }}
     />
-
-    {/* Image — same class → same height at every breakpoint */}
     <div
       className="lz-card-img lz-skel"
       style={{ flexShrink: 0, borderRadius: 0 }}
     />
-
-    {/* Body — same padding class */}
     <div
       className="lz-card-body"
       style={{ display: "flex", flexDirection: "column", flex: 1 }}
     >
-      {/* Title block — minHeight: 52 matches real card */}
       <div
         style={{
           minHeight: 52,
@@ -244,16 +234,12 @@ const SkeletonCard = () => (
         <div className="lz-skel" style={{ height: 14, width: "72%" }} />
         <div className="lz-skel" style={{ height: 10, width: "44%" }} />
       </div>
-
-      {/* Meta row — hidden mobile, visible sm+, minHeight: 18 */}
       <div
         className="lz-card-meta"
         style={{ minHeight: 18, flexShrink: 0, alignItems: "center" }}
       >
         <div className="lz-skel" style={{ height: 10, width: "38%" }} />
       </div>
-
-      {/* Divider */}
       <div
         style={{
           height: 1,
@@ -261,8 +247,6 @@ const SkeletonCard = () => (
           flexShrink: 0,
         }}
       />
-
-      {/* Price block — same class → same padding, flex:1 → same height */}
       <div
         className="lz-card-price-block"
         style={{
@@ -275,7 +259,6 @@ const SkeletonCard = () => (
           justifyContent: "space-between",
         }}
       >
-        {/* Price row */}
         <div
           style={{
             display: "flex",
@@ -285,9 +268,7 @@ const SkeletonCard = () => (
           }}
         >
           <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-            {/* "FROM" label */}
             <div className="lz-skel" style={{ height: 8, width: 40 }} />
-            {/* Price number */}
             <div className="lz-skel" style={{ height: 20, width: 72 }} />
           </div>
           <div
@@ -298,14 +279,10 @@ const SkeletonCard = () => (
               alignItems: "flex-end",
             }}
           >
-            {/* "AUCTIONS" label */}
             <div className="lz-skel" style={{ height: 8, width: 44 }} />
-            {/* Count */}
             <div className="lz-skel" style={{ height: 13, width: 24 }} />
           </div>
         </div>
-
-        {/* CTA button — ShinyButton is ~34–38px tall */}
         <div
           className="lz-skel"
           style={{ height: 34, borderRadius: 8, width: "100%" }}
@@ -316,15 +293,19 @@ const SkeletonCard = () => (
 );
 
 // ── Card ──────────────────────────────────────────────────────
+// NOTE: `t` is passed as a prop so the card itself never calls useTranslation.
+// This means a language change does NOT re-mount the card — it just re-renders
+// the text in place, which keeps the Swiper DOM stable.
 const AuctionCard = memo(function AuctionCard({
   item,
   onRegisterClick,
+  t,
 }: {
   item: EnrichedProduct;
   onRegisterClick: () => void;
+  t: (key: string) => string;
 }) {
   const [hovered, setHovered] = useState(false);
-  const { t } = useTranslation();
 
   const displayImage =
     item.thumbnail && item.thumbnail !== "null"
@@ -332,379 +313,371 @@ const AuctionCard = memo(function AuctionCard({
       : (item.images?.[0] ?? null);
 
   return (
-    <>
-      {/* dir="ltr": card layout always LTR regardless of page language */}
+    <div
+      dir="ltr"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        borderRadius: 14,
+        overflow: "hidden",
+        background: "#fff",
+        border: `1px solid ${hovered ? "rgba(42,72,99,0.35)" : "rgba(42,72,99,0.10)"}`,
+        boxShadow: hovered
+          ? `0 20px 56px rgba(42,72,99,0.18), 0 4px 16px rgba(42,72,99,0.10)`
+          : "0 2px 16px rgba(42,72,99,0.07)",
+        transform: hovered ? "translateY(-5px)" : "translateY(0)",
+        transition: "all 0.45s cubic-bezier(0.22, 1, 0.36, 1)",
+        cursor: "pointer",
+        display: "flex",
+        flexDirection: "column",
+        userSelect: "none",
+        width: "100%",
+        height: "100%",
+      }}
+    >
+      {/* Promo banner */}
       <div
-        dir="ltr"
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
+        className="lz-card-banner"
         style={{
-          borderRadius: 14,
+          background: hovered
+            ? `linear-gradient(90deg, ${NAVY2}, ${NAVY})`
+            : `linear-gradient(90deg, ${NAVY}, #3a5a78)`,
+          textAlign: "center",
+          fontWeight: 700,
+          color: CREAM,
+          textTransform: "uppercase",
+          position: "relative",
           overflow: "hidden",
-          background: "#fff",
-          border: `1px solid ${hovered ? "rgba(42,72,99,0.35)" : "rgba(42,72,99,0.10)"}`,
-          boxShadow: hovered
-            ? `0 20px 56px rgba(42,72,99,0.18), 0 4px 16px rgba(42,72,99,0.10)`
-            : "0 2px 16px rgba(42,72,99,0.07)",
-          transform: hovered ? "translateY(-5px)" : "translateY(0)",
-          transition: "all 0.45s cubic-bezier(0.22, 1, 0.36, 1)",
-          cursor: "pointer",
-          display: "flex",
-          flexDirection: "column",
-          userSelect: "none",
-          width: "100%",
-          height: "100%",
+          transition: "background 0.4s ease",
         }}
       >
-        {/* Promo banner */}
+        <span style={{ position: "relative", zIndex: 1 }}>
+          {t("auctionSwiper.promoCode")}
+        </span>
         <div
-          className="lz-card-banner"
           style={{
-            background: hovered
-              ? `linear-gradient(90deg, ${NAVY2}, ${NAVY})`
-              : `linear-gradient(90deg, ${NAVY}, #3a5a78)`,
-            textAlign: "center",
-            fontWeight: 700,
-            color: CREAM,
-            textTransform: "uppercase",
-            position: "relative",
-            overflow: "hidden",
-            transition: "background 0.4s ease",
+            position: "absolute",
+            inset: 0,
+            background:
+              "linear-gradient(90deg, transparent, rgba(229,224,198,0.18), transparent)",
+            transform: hovered ? "translateX(200%)" : "translateX(-100%)",
+            transition: "transform 0.7s ease",
           }}
-        >
-          <span style={{ position: "relative", zIndex: 1 }}>
-            {t("auctionSwiper.promoCode")}
-          </span>
-          <div
+        />
+      </div>
+
+      {/* Image */}
+      <div
+        className="lz-card-img"
+        style={{
+          position: "relative",
+          overflow: "hidden",
+          background: "#eef1f4",
+          flexShrink: 0,
+        }}
+      >
+        {displayImage ? (
+          <img
+            src={displayImage}
+            alt={item.title}
             style={{
-              position: "absolute",
-              inset: 0,
-              background:
-                "linear-gradient(90deg, transparent, rgba(229,224,198,0.18), transparent)",
-              transform: hovered ? "translateX(200%)" : "translateX(-100%)",
-              transition: "transform 0.7s ease",
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              objectPosition: "center",
+              transform: hovered ? "scale(1.05)" : "scale(1)",
+              transition:
+                "transform 0.65s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
+              display: "block",
+            }}
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = "/fallback.jpg";
             }}
           />
-        </div>
-
-        {/* Image */}
-        <div
-          className="lz-card-img"
-          style={{
-            position: "relative",
-            overflow: "hidden",
-            background: "#eef1f4",
-            flexShrink: 0,
-          }}
-        >
-          {displayImage ? (
-            <img
-              src={displayImage}
-              alt={item.title}
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                objectPosition: "center",
-                transform: hovered ? "scale(1.05)" : "scale(1)",
-                transition:
-                  "transform 0.65s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
-                display: "block",
-              }}
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = "/fallback.jpg";
-              }}
-            />
-          ) : (
-            <div
-              style={{
-                width: "100%",
-                height: "100%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                background: `linear-gradient(135deg, ${NAVY}18, ${NAVY}08)`,
-              }}
-            >
-              <span
-                style={{
-                  fontSize: 42,
-                  fontWeight: 900,
-                  color: `${NAVY}30`,
-                  textTransform: "uppercase",
-                }}
-              >
-                {item.title.charAt(0)}
-              </span>
-            </div>
-          )}
-
+        ) : (
           <div
             style={{
-              position: "absolute",
-              inset: 0,
-              background:
-                "linear-gradient(to bottom, transparent 40%, rgba(20,35,52,0.75) 100%)",
-            }}
-          />
-
-          {/* LOQTA ZONE stamp */}
-          <div
-            className="lz-card-stamp"
-            style={{
-              position: "absolute",
-              borderRadius: "50%",
-              background: `linear-gradient(135deg, ${NAVY}, ${NAVY2})`,
-              border: `2px dashed ${CREAM2}`,
+              width: "100%",
+              height: "100%",
               display: "flex",
-              flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
-              boxShadow: "0 4px 14px rgba(0,0,0,0.35)",
-              transform: hovered
-                ? "rotate(10deg) scale(1.08)"
-                : "rotate(0deg) scale(1)",
-              transition: "transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1)",
+              background: `linear-gradient(135deg, ${NAVY}18, ${NAVY}08)`,
             }}
           >
             <span
               style={{
+                fontSize: 42,
                 fontWeight: 900,
-                color: CREAM,
-                textAlign: "center",
-                lineHeight: 1.4,
-                letterSpacing: "0.05em",
+                color: `${NAVY}30`,
                 textTransform: "uppercase",
               }}
             >
-              LOQTA
-              <br />
-              ZONE
-              <br />
-              <span className="lz-stamp-stars" style={{ color: GOLD }}>
-                ★★★
-              </span>
+              {item.title.charAt(0)}
             </span>
           </div>
+        )}
 
-          {/* Auctions count badge */}
-          <div
-            className="lz-card-badge"
-            style={{
-              position: "absolute",
-              background: "rgba(20, 35, 52, 0.72)",
-              backdropFilter: "blur(6px)",
-              borderRadius: 999,
-              display: "flex",
-              alignItems: "center",
-              gap: 4,
-              fontWeight: 700,
-              color: CREAM2,
-              letterSpacing: "0.04em",
-              border: `1px solid rgba(229,224,198,0.2)`,
-            }}
-          >
-            <span>🔨 {item.totalAuctions}</span>
-          </div>
-
-          {/* Category */}
-          <div
-            className="lz-cat-row"
-            style={{
-              position: "absolute",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 4,
-            }}
-          >
-            <div
-              className="lz-card-cat"
-              style={{
-                background: "rgba(20,35,52,0.80)",
-                backdropFilter: "blur(6px)",
-                border: `1px solid rgba(229,224,198,0.25)`,
-                borderRadius: 5,
-                fontWeight: 700,
-                color: CREAM,
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {item.categoryName}
-            </div>
-          </div>
-        </div>
-
-        {/* Card body */}
         <div
-          className="lz-card-body"
           style={{
+            position: "absolute",
+            inset: 0,
+            background:
+              "linear-gradient(to bottom, transparent 40%, rgba(20,35,52,0.75) 100%)",
+          }}
+        />
+
+        {/* LOQTA ZONE stamp */}
+        <div
+          className="lz-card-stamp"
+          style={{
+            position: "absolute",
+            borderRadius: "50%",
+            background: `linear-gradient(135deg, ${NAVY}, ${NAVY2})`,
+            border: `2px dashed ${CREAM2}`,
             display: "flex",
             flexDirection: "column",
-            flex: 1,
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: "0 4px 14px rgba(0,0,0,0.35)",
+            transform: hovered
+              ? "rotate(10deg) scale(1.08)"
+              : "rotate(0deg) scale(1)",
+            transition: "transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1)",
           }}
         >
-          {/* Title + subtitle */}
-          <div style={{ minHeight: 52, flexShrink: 0 }}>
-            <h3
-              className="lz-card-title"
-              style={{
-                margin: 0,
-                fontWeight: 800,
-                color: NAVY,
-                textTransform: "uppercase",
-                letterSpacing: "0.03em",
-                lineHeight: 1.2,
-                display: "-webkit-box",
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: "vertical",
-                overflow: "hidden",
-              }}
-            >
-              {item.title}
-            </h3>
-            <p
-              className="lz-card-subtitle"
-              style={{
-                margin: "3px 0 0",
-                color: "#7a8ea0",
-                fontWeight: 500,
-                lineHeight: 1.3,
-                display: "-webkit-box",
-                WebkitLineClamp: 1,
-                WebkitBoxOrient: "vertical",
-                overflow: "hidden",
-              }}
-            >
-              · {item.model}
-            </p>
-          </div>
-
-          {/* Meta row */}
-          <div
-            className="lz-card-meta"
+          <span
             style={{
-              gap: 10,
-              color: "#8fa0b0",
-              fontWeight: 600,
-              alignItems: "center",
-              fontSize: 10,
-              minHeight: 18,
-              flexShrink: 0,
+              fontWeight: 900,
+              color: CREAM,
+              textAlign: "center",
+              lineHeight: 1.4,
+              letterSpacing: "0.05em",
+              textTransform: "uppercase",
             }}
           >
-            <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <span style={{ opacity: 0.7 }}>🏷️</span> {item.brand}
+            LOQTA
+            <br />
+            ZONE
+            <br />
+            <span className="lz-stamp-stars" style={{ color: GOLD }}>
+              ★★★
             </span>
-          </div>
+          </span>
+        </div>
 
-          {/* Divider */}
-          <div
-            style={{
-              height: 1,
-              background: `linear-gradient(90deg, rgba(42,72,99,0.18), transparent)`,
-              flexShrink: 0,
-            }}
-          />
+        {/* Auctions count badge */}
+        <div
+          className="lz-card-badge"
+          style={{
+            position: "absolute",
+            background: "rgba(20, 35, 52, 0.72)",
+            backdropFilter: "blur(6px)",
+            borderRadius: 999,
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            fontWeight: 700,
+            color: CREAM2,
+            letterSpacing: "0.04em",
+            border: `1px solid rgba(229,224,198,0.2)`,
+          }}
+        >
+          <span>🔨 {item.totalAuctions}</span>
+        </div>
 
-          {/* Price block */}
+        {/* Category */}
+        <div
+          className="lz-cat-row"
+          style={{
+            position: "absolute",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 4,
+          }}
+        >
           <div
-            className="lz-card-price-block"
+            className="lz-card-cat"
             style={{
-              borderRadius: 10,
-              background: hovered ? "rgba(42,72,99,0.04)" : "#f7f8fa",
-              border: `1px solid rgba(42,72,99,0.10)`,
-              display: "flex",
-              flexDirection: "column",
-              transition: "background 0.3s ease",
-              flex: 1,
-              justifyContent: "space-between",
+              background: "rgba(20,35,52,0.80)",
+              backdropFilter: "blur(6px)",
+              border: `1px solid rgba(229,224,198,0.25)`,
+              borderRadius: 5,
+              fontWeight: 700,
+              color: CREAM,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              whiteSpace: "nowrap",
             }}
           >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "flex-end",
-                marginBottom: 8,
-              }}
-            >
-              <div>
+            {item.categoryName}
+          </div>
+        </div>
+      </div>
+
+      {/* Card body */}
+      <div
+        className="lz-card-body"
+        style={{ display: "flex", flexDirection: "column", flex: 1 }}
+      >
+        <div style={{ minHeight: 52, flexShrink: 0 }}>
+          <h3
+            className="lz-card-title"
+            style={{
+              margin: 0,
+              fontWeight: 800,
+              color: NAVY,
+              textTransform: "uppercase",
+              letterSpacing: "0.03em",
+              lineHeight: 1.2,
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+            }}
+          >
+            {item.title}
+          </h3>
+          <p
+            className="lz-card-subtitle"
+            style={{
+              margin: "3px 0 0",
+              color: "#7a8ea0",
+              fontWeight: 500,
+              lineHeight: 1.3,
+              display: "-webkit-box",
+              WebkitLineClamp: 1,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+            }}
+          >
+            · {item.model}
+          </p>
+        </div>
+
+        <div
+          className="lz-card-meta"
+          style={{
+            gap: 10,
+            color: "#8fa0b0",
+            fontWeight: 600,
+            alignItems: "center",
+            fontSize: 10,
+            minHeight: 18,
+            flexShrink: 0,
+          }}
+        >
+          <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <span style={{ opacity: 0.7 }}>🏷️</span> {item.brand}
+          </span>
+        </div>
+
+        <div
+          style={{
+            height: 1,
+            background: `linear-gradient(90deg, rgba(42,72,99,0.18), transparent)`,
+            flexShrink: 0,
+          }}
+        />
+
+        {/* Price block */}
+        <div
+          className="lz-card-price-block"
+          style={{
+            borderRadius: 10,
+            background: hovered ? "rgba(42,72,99,0.04)" : "#f7f8fa",
+            border: `1px solid rgba(42,72,99,0.10)`,
+            display: "flex",
+            flexDirection: "column",
+            transition: "background 0.3s ease",
+            flex: 1,
+            justifyContent: "space-between",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-end",
+              marginBottom: 8,
+            }}
+          >
+            <div>
+              <div
+                className="lz-card-price-label"
+                style={{
+                  color: "#9aabbb",
+                  fontWeight: 700,
+                  letterSpacing: "0.14em",
+                  textTransform: "uppercase",
+                  marginBottom: 2,
+                }}
+              >
+                {t("auctionSwiper.from")}
+              </div>
+              <div
+                className="lz-card-price-value"
+                style={{
+                  fontWeight: 900,
+                  color: GOLD,
+                  letterSpacing: "-0.01em",
+                  lineHeight: 1,
+                }}
+              >
+                {item.price.toLocaleString()}
+                <span
+                  style={{
+                    fontSize: "0.55em",
+                    fontWeight: 600,
+                    color: "#b8996a",
+                    marginLeft: 3,
+                  }}
+                >
+                  EGP
+                </span>
+              </div>
+            </div>
+
+            {item.totalAuctions > 0 && (
+              <div style={{ textAlign: "right" }}>
                 <div
-                  className="lz-card-price-label"
+                  className="lz-card-bid-label"
                   style={{
                     color: "#9aabbb",
                     fontWeight: 700,
-                    letterSpacing: "0.14em",
+                    letterSpacing: "0.1em",
                     textTransform: "uppercase",
                     marginBottom: 2,
                   }}
                 >
-                  {t("auctionSwiper.from")}
+                  Auctions
                 </div>
                 <div
-                  className="lz-card-price-value"
-                  style={{
-                    fontWeight: 900,
-                    color: GOLD,
-                    letterSpacing: "-0.01em",
-                    lineHeight: 1,
-                  }}
+                  className="lz-card-bid-value"
+                  style={{ fontWeight: 800, color: NAVY }}
                 >
-                  {item.price.toLocaleString()}
-                  <span
-                    style={{
-                      fontSize: "0.55em",
-                      fontWeight: 600,
-                      color: "#b8996a",
-                      marginLeft: 3,
-                    }}
-                  >
-                    EGP
-                  </span>
+                  ×{item.totalAuctions}
                 </div>
               </div>
-
-              {item.totalAuctions > 0 && (
-                <div style={{ textAlign: "right" }}>
-                  <div
-                    className="lz-card-bid-label"
-                    style={{
-                      color: "#9aabbb",
-                      fontWeight: 700,
-                      letterSpacing: "0.1em",
-                      textTransform: "uppercase",
-                      marginBottom: 2,
-                    }}
-                  >
-                    Auctions
-                  </div>
-                  <div
-                    className="lz-card-bid-value"
-                    style={{ fontWeight: 800, color: NAVY }}
-                  >
-                    ×{item.totalAuctions}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <ShinyButton
-              className="lz-shiny-btn w-full !rounded-lg"
-              onClick={onRegisterClick}
-            >
-              {t("auctionSwiper.registerToJoin")}
-            </ShinyButton>
+            )}
           </div>
+
+          <ShinyButton
+            className="lz-shiny-btn w-full !rounded-lg"
+            onClick={onRegisterClick}
+          >
+            {t("auctionSwiper.registerToJoin")}
+          </ShinyButton>
         </div>
       </div>
-    </>
+    </div>
   );
 });
 
 // ── Header ────────────────────────────────────────────────────
+// Completely isolated component — its re-renders (from language changes)
+// do NOT propagate up to AuctionSwiper thanks to memo.
 const AuctionHeader = memo(function AuctionHeader() {
   const headerRef = useRef<HTMLDivElement>(null);
   const isInView = useInView(headerRef, { once: false, margin: "-80px" });
@@ -729,6 +702,7 @@ const AuctionHeader = memo(function AuctionHeader() {
   return (
     <div
       ref={headerRef}
+      dir={isArabic ? "rtl" : "ltr"}
       style={{
         textAlign: "center",
         marginBottom: 52,
@@ -844,18 +818,150 @@ const AuctionHeader = memo(function AuctionHeader() {
   );
 });
 
-// ── Main section ──────────────────────────────────────────────
-export default function AuctionSwiper() {
+// ── Swiper section — isolated from language changes ───────────
+// Accepts `t` as a prop so it never subscribes to i18n directly.
+// This means language changes will NOT cause this component to re-render,
+// keeping the Swiper DOM completely stable.
+const SwiperSection = memo(function SwiperSection({
+  products,
+  t,
+  onRegisterClick,
+}: {
+  products: EnrichedProduct[];
+  t: (key: string) => string;
+  onRegisterClick: (id: string) => void;
+}) {
   const swiperRef = useRef<any>(null);
   const [activeIdx, setActiveIdx] = useState(0);
   const resumeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Stable looped list — only recomputes when the products array changes,
+  // never when language changes.
+  const loopedProducts = useMemo(
+    () => (products.length > 0 ? [...products, ...products] : []),
+    [products],
+  );
+
+  if (products.length === 0) {
+    return (
+      <div
+        style={{
+          textAlign: "center",
+          padding: "60px 20px",
+          color: "rgba(229,224,198,0.4)",
+        }}
+      >
+        <div style={{ fontSize: 48, marginBottom: 12 }}>🔨</div>
+        <p style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>
+          No products available yet
+        </p>
+        <p style={{ fontSize: 13, marginTop: 6, opacity: 0.7 }}>
+          Check back soon for upcoming auctions
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <style>{`
+        .lz-swiper { overflow: visible !important; }
+        .lz-swiper-wrap { overflow: hidden; padding: 8px 4px 4px; }
+        .lz-swiper .swiper-slide { height: auto; }
+        .lz-dot {
+          width: 8px; height: 8px; border-radius: 4px;
+          background: rgba(229,224,198,0.2);
+          border: none; cursor: pointer;
+          transition: width 0.2s ease, background 0.2s ease;
+          padding: 0; flex-shrink: 0;
+        }
+        .lz-dot.active { width: 26px; background: #c9a96e; }
+        .lz-dot:hover:not(.active) { background: rgba(229,224,198,0.4); }
+      `}</style>
+
+      {/* dir="ltr" is critical — Swiper's freeMode loop autoplay breaks under RTL */}
+      <div dir="ltr" className="lz-swiper-wrap">
+        <Swiper
+          className="lz-swiper"
+          modules={[Autoplay, FreeMode]}
+          onSwiper={(s) => {
+            swiperRef.current = s;
+          }}
+          onSlideChange={(s) => setActiveIdx(s.realIndex % products.length)}
+          loop={products.length > 2}
+          speed={4000}
+          autoplay={{
+            delay: 0,
+            disableOnInteraction: false,
+            pauseOnMouseEnter: true,
+          }}
+          allowTouchMove={true}
+          freeMode={true}
+          dir="ltr"
+          breakpoints={{
+            0: { slidesPerView: 2, spaceBetween: 10 },
+            640: { slidesPerView: 3, spaceBetween: 14 },
+            900: { slidesPerView: 4, spaceBetween: 18 },
+            1200: { slidesPerView: 5, spaceBetween: 20 },
+          }}
+        >
+          {loopedProducts.map((item, i) => (
+            <SwiperSlide
+              key={`${item.id}-${i}`}
+              style={{ height: "auto", display: "flex" }}
+            >
+              <AuctionCard
+                item={item}
+                onRegisterClick={() => onRegisterClick(item.id)}
+                t={t}
+              />
+            </SwiperSlide>
+          ))}
+        </Swiper>
+      </div>
+
+      {/* Dot navigation */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          gap: 8,
+          marginTop: 24,
+        }}
+      >
+        {products.map((_, i) => (
+          <button
+            key={i}
+            className={`lz-dot${activeIdx === i ? " active" : ""}`}
+            onClick={() => {
+              const sw = swiperRef.current;
+              if (!sw) return;
+              if (resumeTimer.current) clearTimeout(resumeTimer.current);
+              sw.autoplay.stop();
+              sw.params.speed = 600;
+              sw.slideToLoop(i, 600);
+              setActiveIdx(i);
+              resumeTimer.current = setTimeout(() => {
+                sw.params.speed = 5000;
+                sw.autoplay.start();
+              }, 1000);
+            }}
+          />
+        ))}
+      </div>
+    </>
+  );
+});
+
+// ── Main section ──────────────────────────────────────────────
+export default function AuctionSwiper() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation(); // ← only used here to pass down as prop
   const [modalOpen, setModalOpen] = useState(false);
 
   const { products, loading, error } = usePublicProducts();
-  const loopedProducts = products.length > 0 ? [...products, ...products] : [];
 
   const handleRegisterClick = (productId: string) => {
     if (user) {
@@ -872,6 +978,7 @@ export default function AuctionSwiper() {
 
   return (
     <section
+      dir="ltr"
       style={{
         background: `linear-gradient(180deg, #0a0a1a 0%, #0d1b2a 50%, #0a0a1a 100%)`,
         padding: "72px 0 88px",
@@ -879,7 +986,6 @@ export default function AuctionSwiper() {
         overflow: "hidden",
       }}
     >
-      {/* Shared CSS for both real cards and skeletons */}
       <style>{CARD_CSS}</style>
 
       <LoginPromptModal
@@ -939,24 +1045,10 @@ export default function AuctionSwiper() {
         }}
       />
 
+      {/* Header — isolated; its re-renders don't affect the Swiper below */}
       <AuctionHeader />
 
       <div style={{ padding: "0 12px" }}>
-        <style>{`
-          .lz-swiper { overflow: visible !important; }
-          .lz-swiper-wrap { overflow: hidden; padding: 8px 4px 4px; }
-          .lz-swiper .swiper-slide { height: auto; }
-          .lz-dot {
-            width: 8px; height: 8px; border-radius: 4px;
-            background: rgba(229,224,198,0.2);
-            border: none; cursor: pointer;
-            transition: width 0.2s ease, background 0.2s ease;
-            padding: 0; flex-shrink: 0;
-          }
-          .lz-dot.active { width: 26px; background: #c9a96e; }
-          .lz-dot:hover:not(.active) { background: rgba(229,224,198,0.4); }
-        `}</style>
-
         {/* Error */}
         {error && !loading && (
           <div
@@ -971,131 +1063,36 @@ export default function AuctionSwiper() {
           </div>
         )}
 
-        {/* Loading skeletons — rendered inside an identical Swiper layout */}
+        {/* Loading skeletons */}
         {loading && (
-          <div className="lz-swiper-wrap">
+          <div style={{ overflow: "hidden", padding: "8px 4px 4px" }}>
+            <style>{`
+              @media(min-width:640px){ .lz-skel-grid { grid-template-columns: repeat(3,1fr) !important; gap: 14px !important; } }
+              @media(min-width:900px){ .lz-skel-grid { grid-template-columns: repeat(4,1fr) !important; gap: 18px !important; } }
+              @media(min-width:1200px){ .lz-skel-grid { grid-template-columns: repeat(5,1fr) !important; gap: 20px !important; } }
+            `}</style>
             <div
+              className="lz-skel-grid"
               style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(2, 1fr)",
                 gap: 10,
               }}
             >
-              <style>{`
-                @media(min-width:640px){ .lz-skel-grid { grid-template-columns: repeat(3,1fr) !important; gap: 14px !important; } }
-                @media(min-width:900px){ .lz-skel-grid { grid-template-columns: repeat(4,1fr) !important; gap: 18px !important; } }
-                @media(min-width:1200px){ .lz-skel-grid { grid-template-columns: repeat(5,1fr) !important; gap: 20px !important; } }
-              `}</style>
-              <div
-                className="lz-skel-grid"
-                style={{
-                  gridColumn: "1 / -1",
-                  display: "grid",
-                  gridTemplateColumns: "repeat(2, 1fr)",
-                  gap: 10,
-                }}
-              >
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <SkeletonCard key={i} />
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Empty */}
-        {!loading && !error && products.length === 0 && (
-          <div
-            style={{
-              textAlign: "center",
-              padding: "60px 20px",
-              color: "rgba(229,224,198,0.4)",
-            }}
-          >
-            <div style={{ fontSize: 48, marginBottom: 12 }}>🔨</div>
-            <p style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>
-              No products available yet
-            </p>
-            <p style={{ fontSize: 13, marginTop: 6, opacity: 0.7 }}>
-              Check back soon for upcoming auctions
-            </p>
-          </div>
-        )}
-
-        {/* Swiper with real data */}
-        {!loading && products.length > 0 && (
-          <>
-            <div className="lz-swiper-wrap">
-              <Swiper
-                className="lz-swiper"
-                modules={[Autoplay, FreeMode]}
-                onSwiper={(s) => {
-                  swiperRef.current = s;
-                }}
-                onSlideChange={(s) =>
-                  setActiveIdx(s.realIndex % products.length)
-                }
-                loop={products.length > 2}
-                speed={4000}
-                autoplay={{
-                  delay: 0,
-                  disableOnInteraction: false,
-                  pauseOnMouseEnter: true,
-                }}
-                allowTouchMove={true}
-                freeMode={true}
-                breakpoints={{
-                  0: { slidesPerView: 2, spaceBetween: 10 },
-                  640: { slidesPerView: 3, spaceBetween: 14 },
-                  900: { slidesPerView: 4, spaceBetween: 18 },
-                  1200: { slidesPerView: 5, spaceBetween: 20 },
-                }}
-              >
-                {loopedProducts.map((item, i) => (
-                  <SwiperSlide
-                    key={`${item.id}-${i}`}
-                    style={{ height: "auto", display: "flex" }}
-                  >
-                    <AuctionCard
-                      item={item}
-                      onRegisterClick={() => handleRegisterClick(item.id)}
-                    />
-                  </SwiperSlide>
-                ))}
-              </Swiper>
-            </div>
-
-            {/* Dot navigation */}
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-                gap: 8,
-                marginTop: 24,
-              }}
-            >
-              {products.map((_, i) => (
-                <button
-                  key={i}
-                  className={`lz-dot${activeIdx === i ? " active" : ""}`}
-                  onClick={() => {
-                    const sw = swiperRef.current;
-                    if (!sw) return;
-                    if (resumeTimer.current) clearTimeout(resumeTimer.current);
-                    sw.autoplay.stop();
-                    sw.params.speed = 600;
-                    sw.slideToLoop(i, 600);
-                    setActiveIdx(i);
-                    resumeTimer.current = setTimeout(() => {
-                      sw.params.speed = 5000;
-                      sw.autoplay.start();
-                    }, 1000);
-                  }}
-                />
+              {Array.from({ length: 5 }).map((_, i) => (
+                <SkeletonCard key={i} />
               ))}
             </div>
-          </>
+          </div>
+        )}
+
+        {/* Swiper — only re-renders when products change, NOT when language changes */}
+        {!loading && (
+          <SwiperSection
+            products={products}
+            t={t}
+            onRegisterClick={handleRegisterClick}
+          />
         )}
       </div>
     </section>

@@ -681,7 +681,7 @@
       }
     }
   },
-  
+
   "termsPage": {
     "brand": "Loqta Zone",
     "pageTitle": "Terms & Conditions",
@@ -862,12 +862,7 @@
           },
           {
             "type": "tags",
-            "items": [
-              "New",
-              "Used",
-              "Refurbished",
-              "Clearance"
-            ]
+            "items": ["New", "Used", "Refurbished", "Clearance"]
           },
           {
             "type": "text",
@@ -997,19 +992,178 @@
     "loginBtn": "Go to Login",
     "cancelBtn": "Maybe Later",
     "trustNote": "Secure & encrypted · Free to join"
+  },
+
+  "auctionRegister": {
+    "back": "Back",
+    "breadcrumb": "Auction Registration",
+    "chooseSession": "Choose your session",
+    "noAuctions": "No active auctions",
+    "noAuctionsSub": "Check back soon for upcoming sessions",
+    "startingPrice": "Starting price",
+    "entryFee": "Entry fee",
+    "free": "Free",
+    "paidCheck": "Paid ✓",
+    "registered": "Registered ✓",
+    "lastOfferTag": "⚡ Last offer enabled",
+    "auctionLabel": "Auction",
+    "tapSelect": "Tap to select this session",
+    "tapRemove": "Selected — tap to remove",
+    "reenter": "Re-enter Auction Room",
+    "session": "session",
+    "sessions": "sessions",
+    "selected": "new session selected",
+    "selectedPlural": "new sessions selected",
+    "paid": "paid",
+    "freeEntry": "free",
+    "totalPayment": "Total payment",
+    "freeEntryLabel": "Free Entry",
+    "wasPrice": "was {{price}} EGP",
+    "checkoutBtn": "Checkout · {{price}} EGP",
+    "registerFree": "Register for Free",
+    "selectSession": "Select a new session to continue",
+    "agreeTerms": "Please agree to terms",
+    "processing": "Processing…",
+    "secure": "🔒 Secured by Loqta Zone · All entries are final",
+    "termsText": "I agree to the",
+    "termsLink": "Loqta Zone Terms & Conditions",
+    "termsEnd": "and confirm all entries are final and non-refundable.",
+    "promoBtn": "🏷️ Have a promo code?",
+    "promoEntryWaived": "Entry fee waived",
+    "promoEntryDiscount": "{{amount}} EGP off entry fee",
+    "promoFinalDiscount": "{{amount}} EGP off final price",
+    "promoPartialNote": "· {{covered}}/{{total}} auctions",
+    "promoPartialInfo": "⚠️ This code only applies to {{covered}} of your selected auctions. The remaining {{rest}} will be charged at full price.",
+    "promoFinalInfo": "ℹ️ This discount applies to your final winning bid price, not the entry fee. It'll be applied at payment time.",
+    "brand": "Brand",
+    "model": "Model",
+    "category": "Category",
+    "availability": "Availability",
+    "inStock": "{{count}} units",
+    "outOfStock": "Out of stock",
+    "totalSessions": "{{count}} total",
+    "sessionsLabel": "Sessions"
+  },
+  "auctionLive": {
+    "back": "Back",
+    "auctionNum": "Auction #{{num}}",
+    "notFound": "Auction not found.",
+    "goBack": "← Go Back",
+    "participants": "Participants",
+    "totalBids": "Total Bids",
+    "entry": "Entry",
+    "entryFree": "Free",
+    "ends": "Ends",
+    "currentBid": "Current Bid",
+    "winningBid": "Winning Bid",
+    "startsIn": "Starts in",
+    "ended": "Ended",
+    "endsIn": "Ends in",
+    "bidType": {
+      "fixed": "Fixed bid · +{{amount}} EGP per bid",
+      "free": "Free bid · Min increment +{{amount}} EGP"
+    },
+    "bidDesc": {
+      "fixed": "Each bid increases by {{amount}} EGP",
+      "free": "Minimum bid: {{amount}} EGP"
+    },
+    "bidBtn": {
+      "place": "Bid {{amount}} EGP",
+      "placeFree": "Place Bid",
+      "upcoming": "Starts at {{time}}",
+      "ended": "Auction Ended",
+      "placing": "Placing bid…"
+    },
+    "noBids": "No bids yet — be the first!",
+    "bidHistory": "Bid History",
+    "notJoined": "You haven't joined this auction.",
+    "locked": {
+      "title": "This auction is locked",
+      "desc": "You need to join this auction before you can view or place bids.",
+      "joinBtn": "Join this Auction"
+    }
+  },
+  "winnerCelebration": {
+    "youWon": "You Won! 🎉",
+    "weHaveWinner": "We Have a Winner!",
+    "won": "Won:",
+    "congrats": "Congratulations! You secured this auction with the highest bid.",
+    "winningBid": "Winning Bid"
+  },
+  "postAuction": {
+    "congrats": "Congratulations!",
+    "ended": "Auction Ended",
+    "winner": "Winner",
+    "youWon": "You 🎉",
+    "winningBid": "Winning Bid",
+    "winnerMsg": "Your winning bid has been recorded. Our team will contact you shortly.",
+    "loserMsg": "Better luck next time! There are always more auctions to join.",
+    "browse": "Browse More Auctions",
+    "back": "Go Back"
+  },
+  "lastOffer": {
+    "title": "Last Offer",
+    "yourChance": "Your chance to win",
+    "backupChance": "Your backup chance to win",
+    "winner": "Winner",
+    "winningBid": "Winning Bid",
+    "infoText": "If the winner doesn't complete payment within the required period, the highest last offer submitted by participants will be selected as the new winner.",
+    "label": "Your Last Offer",
+    "minLabel": "Min: {{price}} EGP",
+    "minError": "Minimum offer is {{price}} EGP",
+    "submitBtn": "Submit Last Offer",
+    "submitting": "Submitting…",
+    "skip": "No thanks, skip",
+    "alreadyTitle": "Offer Submitted",
+    "alreadyNote": "We'll contact you if the winner doesn't pay.",
+    "close": "Close",
+    "successTitle": "Offer Recorded!",
+    "successNote": "You're in the backup pool. We'll reach out if the winner doesn't pay.",
+    "done": "Done"
+  },
+  "promoModal": {
+    "title": "Promo Code",
+    "subtitle": "Enter your promo code to unlock a discount\non your entry fee or final winning price.",
+    "placeholder": "e.g. SUMMER25",
+    "applyBtn": "Apply Code",
+    "checking": "Checking…",
+    "applyAnyway": "Apply Anyway",
+    "differentCode": "Enter a Different Code",
+    "hint": "Codes are case-insensitive · One code per checkout",
+    "errors": {
+      "empty": "Please enter a promo code.",
+      "notFound": "This promo code doesn't exist.",
+      "inactive": "This promo code is no longer active.",
+      "expired": "This promo code expired on {{date}}.",
+      "maxUses": "This promo code has reached its maximum number of uses.",
+      "alreadyUsed": "You have already used this promo code.",
+      "notApplicable": "This promo code is not valid for any of your selected auctions.",
+      "freeEntry": "The auctions this code applies to already have free entry, nothing to discount.",
+      "generic": "Failed to validate code. Please try again."
+    },
+    "partial": "This code applies to {{covered}} of your {{total}} selected auctions. The other {{uncovered}} will be charged at full price.",
+    "discountInfo": "This code gives a {{amount}} EGP discount off your final winning price, not the entry fee. You can still apply it now — the discount will be deducted when you pay the winning amount.",
+    "toasts": {
+      "join": "🎉 Promo applied! Entry fee waived.",
+      "entry_discount": "🎉 Promo applied! {{amount}} EGP off entry fee.",
+      "discount": "🎉 Promo applied! {{amount}} EGP off your winning price."
+    }
+  },
+  "liveAuctions": {
+    "title": "Live Auctions",
+    "active": "active",
+    "happening": "Happening",
+    "rightNow": "Right Now.",
+    "subtitle": "These sessions are live. Every bid raises the stakes, place yours before the clock runs out.",
+    "closingIn": "Closing in",
+    "currentBid": "Current Bid",
+    "bids": "Bids",
+    "bidNow": "Bid Now — Join Session",
+    "endsIn": "Ends in",
+    "ended": "Session Ended",
+    "bidCount": "bids",
+    "joinNow": "Join Now",
+    "moreSessions": "More Sessions",
+    "onlyOne": "Only one live session right now"
   }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 }
