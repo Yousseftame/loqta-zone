@@ -17,14 +17,12 @@ import {
 } from "firebase/firestore";
 import { db } from "@/firebase/firebase";
 
-// ── Design tokens ─────────────────────────────────────────────
 const GOLD = "#c9a96e";
 const GOLD2 = "#b8944e";
 const NAVY = "#2A4863";
 const NAVY2 = "#1e3652";
 const CREAM = "rgb(229,224,198)";
 
-// ── Types ─────────────────────────────────────────────────────
 interface UpcomingAuction {
   id: string;
   productId: string;
@@ -38,7 +36,6 @@ interface UpcomingAuction {
   sessionDate: string;
   isHot: boolean;
 }
-
 interface PastAuction {
   id: string;
   title: string;
@@ -55,7 +52,6 @@ interface PastAuction {
   };
 }
 
-// ── Data hook ─────────────────────────────────────────────────
 function useAuctionsData() {
   const [upcoming, setUpcoming] = useState<UpcomingAuction[]>([]);
   const [past, setPast] = useState<PastAuction[]>([]);
@@ -69,7 +65,6 @@ function useAuctionsData() {
         setLoading(true);
         setError(null);
         const now = Timestamp.now();
-
         const [upSnap, pastSnap] = await Promise.all([
           getDocs(
             query(
@@ -94,7 +89,6 @@ function useAuctionsData() {
         [...upSnap.docs, ...pastSnap.docs].forEach((d) => {
           if (d.data().productId) productIds.add(d.data().productId);
         });
-
         const winnerIds = new Set<string>();
         pastSnap.docs.forEach((d) => {
           const w = d.data().winnerId;
@@ -131,7 +125,6 @@ function useAuctionsData() {
         const uMap: Record<string, any> = Object.fromEntries(
           userEntries.filter(Boolean) as any,
         );
-
         const toDate = (v: any): Date =>
           v instanceof Timestamp ? v.toDate() : new Date(v);
         const fmt = (d: Date, o: Intl.DateTimeFormatOptions) =>
@@ -231,7 +224,6 @@ function useAuctionsData() {
   return { upcoming, past, loading, error };
 }
 
-// ── Countdown hook ────────────────────────────────────────────
 function useCountdown(target: string) {
   const calc = useCallback(() => {
     const diff = new Date(target).getTime() - Date.now();
@@ -245,7 +237,6 @@ function useCountdown(target: string) {
       done: false,
     };
   }, [target]);
-
   const [time, setTime] = useState(calc);
   useEffect(() => {
     const t = setInterval(() => setTime(calc()), 1000);
@@ -254,14 +245,10 @@ function useCountdown(target: string) {
   return time;
 }
 
-// ── CountdownUnit ─────────────────────────────────────────────
-// Elegant serif digit with smooth fade-slide on change.
-// No overflow clipping, no two-span juggling — just opacity + translateY.
 function CountdownUnit({ value, label }: { value: number; label: string }) {
   const display = String(value).padStart(2, "0");
   const [shown, setShown] = useState(display);
   const [leaving, setLeaving] = useState(false);
-
   useEffect(() => {
     if (display === shown) return;
     setLeaving(true);
@@ -270,7 +257,7 @@ function CountdownUnit({ value, label }: { value: number; label: string }) {
       setLeaving(false);
     }, 180);
     return () => clearTimeout(t);
-  }, [display]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [display]);
 
   return (
     <div
@@ -308,9 +295,10 @@ function CountdownUnit({ value, label }: { value: number; label: string }) {
           fontFamily: "'Jost', sans-serif",
           fontSize: 8,
           fontWeight: 700,
-          letterSpacing: "0.26em",
+          letterSpacing: 0,
           textTransform: "uppercase",
           color: "rgba(201,169,110,0.36)",
+          direction: "ltr",
         }}
       >
         {label}
@@ -319,7 +307,6 @@ function CountdownUnit({ value, label }: { value: number; label: string }) {
   );
 }
 
-// ── CountdownBar ──────────────────────────────────────────────
 function CountdownBar({ startsAt }: { startsAt: string }) {
   const { d, h, m, s, done } = useCountdown(startsAt);
   const { t } = useTranslation();
@@ -377,6 +364,7 @@ function CountdownBar({ startsAt }: { startsAt: string }) {
 
   return (
     <div
+      dir="ltr"
       style={{
         display: "inline-flex",
         alignItems: "flex-end",
@@ -411,7 +399,6 @@ function CountdownBar({ startsAt }: { startsAt: string }) {
   );
 }
 
-// ── Skeleton ──────────────────────────────────────────────────
 function SkeletonCard() {
   return (
     <div
@@ -423,15 +410,7 @@ function SkeletonCard() {
         overflow: "hidden",
       }}
     >
-      <style>{`
-        @keyframes sh { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
-        .sk {
-          background: linear-gradient(90deg,rgba(255,255,255,.04) 25%,rgba(255,255,255,.08) 50%,rgba(255,255,255,.04) 75%);
-          background-size: 200% 100%;
-          animation: sh 1.5s infinite;
-          border-radius: 4px;
-        }
-      `}</style>
+      <style>{`@keyframes sh{0%{background-position:200% 0}100%{background-position:-200% 0}}.sk{background:linear-gradient(90deg,rgba(255,255,255,.04) 25%,rgba(255,255,255,.08) 50%,rgba(255,255,255,.04) 75%);background-size:200% 100%;animation:sh 1.5s infinite;border-radius:4px;}`}</style>
       <div className="sk ac-img" style={{ minHeight: 220 }} />
       <div
         style={{
@@ -452,7 +431,6 @@ function SkeletonCard() {
   );
 }
 
-// ── UpcomingCard ──────────────────────────────────────────────
 const UpcomingCard = memo(function UpcomingCard({
   item,
   index,
@@ -465,7 +443,9 @@ const UpcomingCard = memo(function UpcomingCard({
   const ref = useRef<HTMLDivElement>(null);
   const [vis, setVis] = useState(false);
   const [hov, setHov] = useState(false);
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isRtl = i18n.language === "ar";
+  const cur = isRtl ? "جنيه" : item.currency;
 
   useEffect(() => {
     const el = ref.current;
@@ -499,10 +479,9 @@ const UpcomingCard = memo(function UpcomingCard({
         boxShadow: hov
           ? "0 24px 64px rgba(0,0,0,0.5),inset 0 1px 0 rgba(255,255,255,0.07)"
           : "0 4px 24px rgba(0,0,0,0.2)",
-        transition: `opacity 0.7s ease ${index * 0.1}s, transform 0.7s cubic-bezier(0.22,1,0.36,1) ${index * 0.1}s, background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease`,
+        transition: `opacity 0.7s ease ${index * 0.1}s,transform 0.7s cubic-bezier(0.22,1,0.36,1) ${index * 0.1}s,background 0.3s ease,border-color 0.3s ease,box-shadow 0.3s ease`,
       }}
     >
-      {/* Image */}
       <div
         className="ac-img"
         style={{
@@ -577,7 +556,6 @@ const UpcomingCard = memo(function UpcomingCard({
         )}
       </div>
 
-      {/* Body */}
       <div
         style={{
           padding: "22px 24px",
@@ -711,7 +689,7 @@ const UpcomingCard = memo(function UpcomingCard({
               fontFamily: "'Jost', sans-serif",
             }}
           >
-            {item.currency}
+            {cur}
           </span>
         </div>
 
@@ -743,7 +721,6 @@ const UpcomingCard = memo(function UpcomingCard({
   );
 });
 
-// ── PastCard ──────────────────────────────────────────────────
 const PastCard = memo(function PastCard({
   item,
   index,
@@ -754,7 +731,9 @@ const PastCard = memo(function PastCard({
   const ref = useRef<HTMLDivElement>(null);
   const [vis, setVis] = useState(false);
   const [hov, setHov] = useState(false);
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isRtl = i18n.language === "ar";
+  const cur = isRtl ? "جنيه" : item.currency;
 
   useEffect(() => {
     const el = ref.current;
@@ -788,10 +767,9 @@ const PastCard = memo(function PastCard({
         boxShadow: hov
           ? "0 20px 56px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.06)"
           : "0 4px 20px rgba(0,0,0,0.18)",
-        transition: `opacity 0.7s ease ${index * 0.1}s, transform 0.7s cubic-bezier(0.22,1,0.36,1) ${index * 0.1}s, background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease`,
+        transition: `opacity 0.7s ease ${index * 0.1}s,transform 0.7s cubic-bezier(0.22,1,0.36,1) ${index * 0.1}s,background 0.3s ease,border-color 0.3s ease,box-shadow 0.3s ease`,
       }}
     >
-      {/* Image */}
       <div
         className="ac-img"
         style={{
@@ -815,7 +793,7 @@ const PastCard = memo(function PastCard({
               filter: "grayscale(30%) brightness(0.75)",
               transform: hov ? "scale(1.06)" : "scale(1)",
               transition:
-                "transform 0.65s cubic-bezier(0.25,0.46,0.45,0.94), filter 0.4s ease",
+                "transform 0.65s cubic-bezier(0.25,0.46,0.45,0.94),filter 0.4s ease",
             }}
             onError={(e) => {
               (e.target as HTMLImageElement).style.display = "none";
@@ -872,7 +850,6 @@ const PastCard = memo(function PastCard({
         </div>
       </div>
 
-      {/* Body */}
       <div
         style={{
           padding: "22px 24px",
@@ -949,7 +926,7 @@ const PastCard = memo(function PastCard({
               fontFamily: "'Jost', sans-serif",
             }}
           >
-            {item.currency}
+            {cur}
           </span>
         </div>
 
@@ -1022,11 +999,7 @@ const PastCard = memo(function PastCard({
                 <img
                   src={item.winner.avatar}
                   alt={item.winner.name}
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
-                  }}
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
                   onError={(e) => {
                     (e.target as HTMLImageElement).style.display = "none";
                   }}
@@ -1066,7 +1039,6 @@ const PastCard = memo(function PastCard({
   );
 });
 
-// ── TabButton ─────────────────────────────────────────────────
 function TabButton({
   label,
   active,
@@ -1124,7 +1096,7 @@ function TabButton({
           background: `linear-gradient(90deg,transparent,${GOLD},transparent)`,
           borderRadius: 999,
           transition:
-            "left 0.45s cubic-bezier(0.22,1,0.36,1), right 0.45s cubic-bezier(0.22,1,0.36,1)",
+            "left 0.45s cubic-bezier(0.22,1,0.36,1),right 0.45s cubic-bezier(0.22,1,0.36,1)",
           opacity: active ? 1 : 0,
           boxShadow: active ? `0 0 10px ${GOLD}88` : "none",
         }}
@@ -1139,7 +1111,7 @@ function TabButton({
             height: 1,
             background: "rgba(229,224,198,0.2)",
             borderRadius: 999,
-            transition: "left 0.3s ease, right 0.3s ease",
+            transition: "left 0.3s ease,right 0.3s ease",
           }}
         />
       )}
@@ -1147,7 +1119,6 @@ function TabButton({
   );
 }
 
-// ── Main ──────────────────────────────────────────────────────
 export default function AuctionsSection() {
   const [tab, setTab] = useState<"upcoming" | "past">("upcoming");
   const [anim, setAnim] = useState(false);
@@ -1207,6 +1178,7 @@ export default function AuctionsSection() {
 
   return (
     <section
+      dir={isAr ? "rtl" : "ltr"}
       style={{
         background:
           "linear-gradient(180deg,#0a0a1a 0%,#0c1828 50%,#0a0a1a 100%)",
@@ -1217,17 +1189,13 @@ export default function AuctionsSection() {
     >
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300&display=swap');
-
         @keyframes tabIn { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
         @keyframes liveP { 0%,100%{opacity:1;box-shadow:0 0 6px #5ee8a0} 50%{opacity:.4;box-shadow:0 0 12px #5ee8a0} }
-
         .tab-in  { animation: tabIn 0.38s cubic-bezier(0.22,1,0.36,1) forwards }
         .tab-out { opacity:0; transform:translateY(-8px); transition:opacity .2s ease,transform .2s ease }
-
         .ac     { display:grid; grid-template-columns:220px 1fr; overflow:hidden; border-radius:20px }
         .ac-img { position:relative; overflow:hidden; background:#0d1520; min-height:220px }
         .ac-top { display:flex; align-items:flex-start; justify-content:space-between; gap:16px }
-
         @media (max-width: 640px) {
           .ac     { grid-template-columns: 1fr !important }
           .ac-img { height:200px !important; min-height:200px !important }
@@ -1245,7 +1213,7 @@ export default function AuctionsSection() {
         }}
       />
 
-      {/* Decorative blobs */}
+      {/* Blobs */}
       <div
         style={{
           ...bg,
@@ -1292,7 +1260,7 @@ export default function AuctionsSection() {
         }}
       />
 
-      {/* ── Header ── */}
+      {/* Header */}
       <div
         ref={headerRef}
         style={{
@@ -1310,7 +1278,7 @@ export default function AuctionsSection() {
             marginBottom: 20,
             opacity: vis ? 1 : 0,
             transform: vis ? "translateY(0)" : "translateY(14px)",
-            transition: "opacity 0.55s ease, transform 0.55s ease",
+            transition: "opacity 0.55s ease,transform 0.55s ease",
           }}
         >
           <div
@@ -1387,7 +1355,6 @@ export default function AuctionsSection() {
             to={{ opacity: 1, y: 0 }}
           />
         </div>
-
         <p
           style={{
             color: "rgba(229,224,198,0.42)",
@@ -1397,7 +1364,7 @@ export default function AuctionsSection() {
             lineHeight: 1.75,
             opacity: vis ? 1 : 0,
             transform: vis ? "translateY(0)" : "translateY(10px)",
-            transition: "opacity 0.7s ease 0.2s, transform 0.7s ease 0.2s",
+            transition: "opacity 0.7s ease 0.2s,transform 0.7s ease 0.2s",
           }}
         >
           {tab === "upcoming"
@@ -1406,7 +1373,7 @@ export default function AuctionsSection() {
         </p>
       </div>
 
-      {/* ── Tabs ── */}
+      {/* Tabs */}
       <div
         style={{
           display: "flex",
@@ -1443,7 +1410,7 @@ export default function AuctionsSection() {
         </div>
       </div>
 
-      {/* ── Content ── */}
+      {/* Content */}
       <div
         className={anim ? "tab-out" : "tab-in"}
         key={tab}
@@ -1523,10 +1490,14 @@ export default function AuctionsSection() {
               >
                 <div style={{ fontSize: 48, marginBottom: 12 }}>🔨</div>
                 <p style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>
-                  No upcoming auctions right now
+                  {isAr
+                    ? "لا توجد مزادات قادمة الآن"
+                    : "No upcoming auctions right now"}
                 </p>
                 <p style={{ fontSize: 13, marginTop: 6, opacity: 0.7 }}>
-                  Check back soon for new sessions
+                  {isAr
+                    ? "تحقق قريباً من جلسات جديدة"
+                    : "Check back soon for new sessions"}
                 </p>
               </div>
             ) : (
@@ -1585,10 +1556,14 @@ export default function AuctionsSection() {
               >
                 <div style={{ fontSize: 48, marginBottom: 12 }}>🏆</div>
                 <p style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>
-                  No completed auctions yet
+                  {isAr
+                    ? "لا توجد مزادات مكتملة بعد"
+                    : "No completed auctions yet"}
                 </p>
                 <p style={{ fontSize: 13, marginTop: 6, opacity: 0.7 }}>
-                  Winners will appear here after auctions close
+                  {isAr
+                    ? "ستظهر الفائزون هنا بعد انتهاء المزادات"
+                    : "Winners will appear here after auctions close"}
                 </p>
               </div>
             ) : (
@@ -1600,7 +1575,6 @@ export default function AuctionsSection() {
         )}
       </div>
 
-      {/* Bottom rule */}
       <div
         style={{
           position: "absolute",

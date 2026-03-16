@@ -223,9 +223,10 @@ function FlipUnit({
         style={{
           fontSize: 8,
           fontWeight: 600,
-          letterSpacing: "0.22em",
+          letterSpacing: 0,
           color: `${color}50`,
           textTransform: "uppercase",
+          direction: "ltr",
         }}
       >
         {label}
@@ -290,7 +291,7 @@ function FlipCountdown({
       </span>
     );
   return (
-    <div style={{ display: "flex", alignItems: "flex-end", gap: 6 }}>
+    <div dir="ltr" style={{ display: "flex", alignItems: "flex-end", gap: 6 }}>
       {h > 0 && (
         <>
           <FlipUnit
@@ -873,7 +874,7 @@ const AuctionRow = memo(function AuctionRow({
       <div style={{ textAlign: "right", flexShrink: 0 }}>
         <div
           style={{
-            fontSize: 8,
+            fontSize: 10,
             fontWeight: 800,
             letterSpacing: "0.26em",
             color: "rgba(229,224,198,0.22)",
