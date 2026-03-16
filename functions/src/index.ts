@@ -25,3 +25,10 @@ export { onAuctionRequestUpdated } from "./Notifications/notifications";
 // resolveAuctionWinners — Scheduled safety net every 10 min (fallback only)
 export { triggerResolveAuction, onBidWritten, resolveAuctionWinners } from "./Auctions/auctionWinner";
 
+
+// ── Analytics ────────────────────────────────────────────────────────────
+
+export { onUserWritten, onProductWritten, onAuctionWritten,
+         onCategoryWritten, onVoucherWritten, onAuctionRequestWritten,
+         onFeedbackWritten, rebuildAnalytics } from "./Analytics/analytics";
+

@@ -435,24 +435,7 @@ export default function UserView() {
             >
               {user.isBlocked ? "Unblock" : "Block"}
             </Button>
-            {currentRole === "superAdmin" && (
-              <Button
-                startIcon={<Crown size={16} />}
-                onClick={() => setRoleDialog(true)}
-                variant="contained"
-                sx={{
-                  bgcolor: "rgba(255,255,255,0.2)",
-                  color: "#fff",
-                  textTransform: "none",
-                  borderRadius: 2,
-                  fontWeight: 600,
-                  border: "1px solid rgba(255,255,255,0.2)",
-                  "&:hover": { bgcolor: "rgba(255,255,255,0.3)" },
-                }}
-              >
-                Change Role
-              </Button>
-            )}
+           
             {/* ✅ Delete now visible to all admins */}
             <Button
               startIcon={<Trash2 size={16} />}
