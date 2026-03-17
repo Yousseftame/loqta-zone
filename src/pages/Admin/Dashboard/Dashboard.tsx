@@ -35,7 +35,7 @@ import TopAuctionsCharts from "./components/TopAuctionsCharts";
 import MarginReportTable from "./components/MarginReportTable";
 
 export default function Dashboard() {
-  const { analytics, topAuctions, loading } = useAnalytics();
+  const { analytics, topAuctions, loading, error, refetch } = useAnalytics();
   const { role } = useAuth();
   const [rebuilding, setRebuilding] = useState(false);
 
@@ -45,6 +45,7 @@ export default function Dashboard() {
     try {
       const fn = httpsCallable(getFunctions(app), "rebuildAnalytics");
       await fn({});
+      await refetch();
       toast.success("Analytics rebuilt successfully");
     } catch (err: any) {
       toast.error(err?.message ?? "Failed to rebuild analytics");
@@ -133,11 +134,13 @@ export default function Dashboard() {
         )}
       </Box>
 
+      {/* ── Section: Top Auctions ───────────────────────────────────────────── */}
       <SectionLabel label="Top Auctions" />
       <Box sx={{ mb: 4 }}>
         <TopAuctionsCharts topAuctions={topAuctions} loading={loading} />
       </Box>
 
+      {/* ── Section: Status Distributions ──────────────────────────────────── */}
       <SectionLabel label="Status Distributions" />
       <Box sx={{ mb: 4 }}>
         <StatusPieCharts analytics={analytics} loading={loading} />
@@ -151,107 +154,121 @@ export default function Dashboard() {
           gridTemplateColumns: {
             xs: "1fr 1fr",
             sm: "repeat(3, 1fr)",
-            lg: "repeat(6, 1fr)",
+            lg: "repeat(5, 1fr)",
           },
           gap: 2.5,
-          mb: 4,
+          mb: 2.5,
         }}
       >
         <MetricCard
           label="Total Users"
           value={analytics.totalUsers}
-          icon={<Users size={22} />}
-          sub={`${analytics.activeUsers} active`}
+          icon={<Users size={20} />}
+          sub={`${analytics.activeUsers} active · ${analytics.inactiveUsers} blocked`}
+          accentIndex={0}
+          delay={0}
           loading={loading}
         />
         <MetricCard
           label="Total Products"
           value={analytics.totalProducts}
-          icon={<Package size={22} />}
-          sub={`${analytics.activeProducts} active`}
-          accent="#7C3AED"
+          icon={<Package size={20} />}
+          sub={`${analytics.activeProducts} active · ${analytics.inactiveProducts} inactive`}
+          accentIndex={1}
+          delay={50}
           loading={loading}
         />
         <MetricCard
           label="Total Auctions"
           value={analytics.totalAuctions}
-          icon={<Gavel size={22} />}
-          sub={`${analytics.liveAuctions} live now`}
-          accent="#0EA5E9"
-          loading={loading}
-        />
-        <MetricCard
-          label="Total Inventory"
-          value={analytics.totalInventory.toLocaleString()}
-          icon={<Layers size={22} />}
-          sub="units across all products"
-          accent="#F59E0B"
+          icon={<Gavel size={20} />}
+          sub={`${analytics.liveAuctions} live · ${analytics.upcomingAuctions} upcoming`}
+          accentIndex={2}
+          delay={100}
           loading={loading}
         />
         <MetricCard
           label="Highest Bid"
-          value={`${analytics.highestWinningBid.toLocaleString()} EGP`}
-          icon={<TrendingUp size={22} />}
+          value={
+            analytics.highestWinningBid > 0
+              ? `${analytics.highestWinningBid.toLocaleString()} EGP`
+              : "—"
+          }
+          icon={<TrendingUp size={20} />}
           sub={`Avg: ${Math.round(analytics.avgWinningBid).toLocaleString()} EGP`}
-          accent="#22C55E"
+          accentIndex={3}
+          delay={150}
           loading={loading}
         />
         <MetricCard
           label="Avg Rating"
-          value={analytics.avgRating > 0 ? analytics.avgRating.toFixed(1) : "—"}
-          icon={<Star size={22} />}
+          value={
+            analytics.avgRating > 0
+              ? `${analytics.avgRating.toFixed(1)} / 5`
+              : "—"
+          }
+          icon={<Star size={20} />}
           sub={`${analytics.totalRatings} reviews`}
-          accent="#F97316"
+          accentIndex={4}
+          delay={200}
           loading={loading}
         />
       </Box>
-
-      {/* ── Section: Secondary Metrics ──────────────────────────────────────── */}
       <Box
         sx={{
           display: "grid",
           gridTemplateColumns: {
             xs: "1fr 1fr",
             sm: "repeat(3, 1fr)",
+            lg: "repeat(5, 1fr)",
           },
           gap: 2.5,
           mb: 4,
         }}
       >
         <MetricCard
+          label="Total Inventory"
+          value={analytics.totalInventory.toLocaleString()}
+          icon={<Layers size={20} />}
+          sub="units across all products"
+          accentIndex={0}
+          delay={0}
+          loading={loading}
+        />
+        <MetricCard
           label="Categories"
           value={analytics.totalCategories}
           icon={<Tag size={20} />}
-          accent="#0EA5E9"
+          accentIndex={1}
+          delay={50}
           loading={loading}
         />
         <MetricCard
           label="Vouchers"
           value={analytics.totalVouchers}
           icon={<Ticket size={20} />}
-          accent="#7C3AED"
+          accentIndex={2}
+          delay={100}
           loading={loading}
         />
         <MetricCard
           label="Auction Requests"
           value={analytics.totalAuctionRequests}
           icon={<FileText size={20} />}
-          accent="#F59E0B"
+          accentIndex={3}
+          delay={150}
           loading={loading}
         />
-        {/* <MetricCard
+        <MetricCard
           label="Total Revenue"
           value={`${analytics.totalRevenue.toLocaleString()} EGP`}
           icon={<TrendingUp size={20} />}
-          sub={`Avg margin: ${analytics.avgMargin.toFixed(1)}%`}
-          accent="#22C55E"
+          sub={`Avg margin ${analytics.avgMargin.toFixed(1)}%`}
+          accentIndex={4}
+          delay={200}
           loading={loading}
-        /> */}
+        />
       </Box>
-
-      {/* ── Section: Status Distributions ──────────────────────────────────── */}
-
-      {/* ── Section: Top Auctions ───────────────────────────────────────────── */}
 
       {/* ── Section: Financial Report ───────────────────────────────────────── */}
       <SectionLabel label="Financial Report" />

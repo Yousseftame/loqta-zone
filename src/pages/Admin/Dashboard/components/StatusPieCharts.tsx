@@ -1,10 +1,11 @@
 /**
  * src/pages/Admin/Dashboard/components/StatusPieCharts.tsx
  *
- * Three pie charts: Users, Products, Auctions status distributions.
+ * Pie charts using the EXACT same Paper/header/body shell as TopAuctionsCharts.
+ * Pie segments use a high-contrast multi-hue palette for clear readability.
  */
 
-import { Box, Paper } from "@mui/material";
+import { Box, Paper, Chip } from "@mui/material";
 import {
   PieChart,
   Pie,
@@ -16,9 +17,11 @@ import {
 import { colors } from "../../Products/products-data";
 import type { DashboardAnalytics } from "../analytics-data";
 
-const RADIAN = Math.PI / 180;
+// Distinct, high-contrast palette — each slice is immediately readable at a glance
+const PIE_COLORS = ["#0EA5E9", "#10B981", "#F59E0B", "#8B5CF6", "#F43F5E"];
 
-const renderCustomLabel = ({
+const RADIAN = Math.PI / 180;
+const renderLabel = ({
   cx,
   cy,
   midAngle,
@@ -26,10 +29,10 @@ const renderCustomLabel = ({
   outerRadius,
   percent,
 }: any) => {
-  if (percent < 0.05) return null;
-  const radius = innerRadius + (outerRadius - innerRadius) * 0.55;
-  const x = cx + radius * Math.cos(-midAngle * RADIAN);
-  const y = cy + radius * Math.sin(-midAngle * RADIAN);
+  if (percent < 0.08) return null;
+  const r = innerRadius + (outerRadius - innerRadius) * 0.55;
+  const x = cx + r * Math.cos(-midAngle * RADIAN);
+  const y = cy + r * Math.sin(-midAngle * RADIAN);
   return (
     <text
       x={x}
@@ -37,21 +40,33 @@ const renderCustomLabel = ({
       fill="#fff"
       textAnchor="middle"
       dominantBaseline="central"
-      style={{ fontSize: 11, fontWeight: 700 }}
+      style={{
+        fontSize: 11,
+        fontWeight: 700,
+        fontFamily: "system-ui, sans-serif",
+      }}
     >
       {`${(percent * 100).toFixed(0)}%`}
     </text>
   );
 };
 
-interface PieCardProps {
-  title: string;
-  data: { name: string; value: number; color: string }[];
-  loading?: boolean;
+interface Segment {
+  name: string;
+  value: number;
 }
 
-function PieCard({ title, data, loading }: PieCardProps) {
-  const hasData = data.some((d) => d.value > 0);
+function PieCard({
+  title,
+  segments,
+  loading,
+}: {
+  title: string;
+  segments: Segment[];
+  loading?: boolean;
+}) {
+  const nonEmpty = segments.filter((s) => s.value > 0);
+  const total = segments.reduce((a, b) => a + b.value, 0);
 
   return (
     <Paper
@@ -64,12 +79,16 @@ function PieCard({ title, data, loading }: PieCardProps) {
         minWidth: 0,
       }}
     >
+      {/* Header — pixel-identical to BarCard header */}
       <Box
         sx={{
           px: 3,
           py: 2,
           borderBottom: `1px solid ${colors.border}`,
           bgcolor: colors.primaryBg,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
         }}
       >
         <span
@@ -81,8 +100,20 @@ function PieCard({ title, data, loading }: PieCardProps) {
         >
           {title}
         </span>
+        <Chip
+          label={total.toLocaleString()}
+          size="small"
+          sx={{
+            bgcolor: colors.primary,
+            color: "#fff",
+            fontWeight: 700,
+            fontSize: "0.68rem",
+          }}
+        />
       </Box>
-      <Box sx={{ p: 2 }}>
+
+      {/* Body */}
+      <Box sx={{ p: { xs: 2, md: 2.5 } }}>
         {loading ? (
           <Box
             sx={{
@@ -94,17 +125,15 @@ function PieCard({ title, data, loading }: PieCardProps) {
           >
             <Box
               sx={{
-                width: 120,
-                height: 120,
+                width: 110,
+                height: 110,
                 borderRadius: "50%",
-                background:
-                  "linear-gradient(90deg,#f0f0f0 25%,#e8e8e8 50%,#f0f0f0 75%)",
-                backgroundSize: "200% 100%",
+                background: "linear-gradient(180deg,#e8e8e8,#f0f0f0)",
                 animation: "shimmer 1.4s infinite",
               }}
             />
           </Box>
-        ) : !hasData ? (
+        ) : nonEmpty.length === 0 ? (
           <Box
             sx={{
               height: 220,
@@ -127,42 +156,43 @@ function PieCard({ title, data, loading }: PieCardProps) {
           <ResponsiveContainer width="100%" height={220}>
             <PieChart>
               <Pie
-                data={data.filter((d) => d.value > 0)}
+                data={nonEmpty}
                 cx="50%"
-                cy="50%"
-                innerRadius={48}
+                cy="46%"
+                innerRadius={50}
                 outerRadius={80}
                 paddingAngle={3}
                 dataKey="value"
                 labelLine={false}
-                label={renderCustomLabel}
+                label={renderLabel}
               >
-                {data
-                  .filter((d) => d.value > 0)
-                  .map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
+                {nonEmpty.map((_e, i) => (
+                  <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                ))}
               </Pie>
               <Tooltip
-                formatter={(value) => [
-                  typeof value === "number" ? value.toLocaleString() : value,
-                  "",
-                ]}
                 contentStyle={{
                   borderRadius: 10,
                   border: `1px solid ${colors.border}`,
                   fontSize: "0.8rem",
                 }}
+                formatter={(v, name) => [
+                  typeof v === "number"
+                    ? v.toLocaleString()
+                    : Number(v ?? 0).toLocaleString(),
+                  name,
+                ]}
               />
               <Legend
                 iconType="circle"
-                iconSize={8}
+                iconSize={7}
                 formatter={(value) => (
                   <span
                     style={{
-                      fontSize: "0.78rem",
+                      fontSize: "0.76rem",
                       color: colors.textSecondary,
                       fontWeight: 600,
+                      fontFamily: "system-ui, sans-serif",
                     }}
                   >
                     {value}
@@ -172,45 +202,6 @@ function PieCard({ title, data, loading }: PieCardProps) {
             </PieChart>
           </ResponsiveContainer>
         )}
-        {/* Totals row */}
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "center",
-            gap: 2,
-            mt: 1,
-            flexWrap: "wrap",
-          }}
-        >
-          {data.map((d) => (
-            <Box
-              key={d.name}
-              sx={{ display: "flex", alignItems: "center", gap: 0.5 }}
-            >
-              <Box
-                sx={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: "50%",
-                  bgcolor: d.color,
-                  flexShrink: 0,
-                }}
-              />
-              <span
-                style={{
-                  fontSize: "0.72rem",
-                  color: colors.textMuted,
-                  fontWeight: 600,
-                }}
-              >
-                {d.name}:{" "}
-                <strong style={{ color: colors.textPrimary }}>
-                  {d.value.toLocaleString()}
-                </strong>
-              </span>
-            </Box>
-          ))}
-        </Box>
       </Box>
     </Paper>
   );
@@ -222,31 +213,6 @@ interface Props {
 }
 
 export default function StatusPieCharts({ analytics, loading }: Props) {
-  const usersData = [
-    { name: "Active", value: analytics.activeUsers, color: "#38BDF8" },
-    { name: "Inactive", value: analytics.inactiveUsers, color: "#EF4444" },
-  ];
-
-  const adminsData = [
-    { name: "Admins", value: analytics.totalAdmins, color: colors.primary },
-    {
-      name: "Super Admins",
-      value: analytics.totalSuperAdmins,
-      color: "#7C3AED",
-    },
-  ];
-
-  const auctionsData = [
-    { name: "Live", value: analytics.liveAuctions, color: "#38BDF8" },
-    { name: "Upcoming", value: analytics.upcomingAuctions, color: "#3B82F6" },
-    { name: "Ended", value: analytics.endedAuctions, color: "#94A3B8" },
-  ];
-
-  const productsData = [
-    { name: "Active", value: analytics.activeProducts, color: "#38BDF8" },
-    { name: "Inactive", value: analytics.inactiveProducts, color: "#EF4444" },
-  ];
-
   return (
     <Box
       sx={{
@@ -255,12 +221,40 @@ export default function StatusPieCharts({ analytics, loading }: Props) {
         gap: 3,
       }}
     >
-      <PieCard title="Users Distribution" data={usersData} loading={loading} />
-      <PieCard title="Admin Roles" data={adminsData} loading={loading} />
-      <PieCard title="Auction Status" data={auctionsData} loading={loading} />
       <PieCard
-        title="Products Distribution"
-        data={productsData}
+        title="Users"
+        segments={[
+          { name: "Active", value: analytics.activeUsers },
+          { name: "Blocked", value: analytics.inactiveUsers },
+        ]}
+        loading={loading}
+      />
+
+      <PieCard
+        title="Admin Roles"
+        segments={[
+          { name: "Admins", value: analytics.totalAdmins },
+          { name: "Super Admins", value: analytics.totalSuperAdmins },
+        ]}
+        loading={loading}
+      />
+
+      <PieCard
+        title="Auction Status"
+        segments={[
+          { name: "Live", value: analytics.liveAuctions },
+          { name: "Upcoming", value: analytics.upcomingAuctions },
+          { name: "Ended", value: analytics.endedAuctions },
+        ]}
+        loading={loading}
+      />
+
+      <PieCard
+        title="Products"
+        segments={[
+          { name: "Active", value: analytics.activeProducts },
+          { name: "Inactive", value: analytics.inactiveProducts },
+        ]}
         loading={loading}
       />
     </Box>
