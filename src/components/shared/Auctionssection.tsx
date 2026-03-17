@@ -261,17 +261,19 @@ function CountdownUnit({ value, label }: { value: number; label: string }) {
 
   return (
     <div
+      className="lz-cd-unit"
       style={{
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
+        // Desktop: original fixed width
         width: 68,
         gap: 8,
+        flexShrink: 0,
       }}
     >
       <span
         style={{
-          fontFamily: "'Jost', sans-serif",
           fontSize: 50,
           fontWeight: 700,
           color: GOLD,
@@ -292,13 +294,13 @@ function CountdownUnit({ value, label }: { value: number; label: string }) {
       </span>
       <span
         style={{
-          fontFamily: "'Jost', sans-serif",
           fontSize: 8,
           fontWeight: 700,
           letterSpacing: 0,
           textTransform: "uppercase",
           color: "rgba(201,169,110,0.36)",
           direction: "ltr",
+          whiteSpace: "nowrap",
         }}
       >
         {label}
@@ -347,12 +349,11 @@ function CountdownBar({ startsAt }: { startsAt: string }) {
   const Sep = () => (
     <span
       style={{
-        fontFamily: "'Cormorant Garamond', Georgia, serif",
-        fontSize: 28,
+        fontSize: "clamp(18px, 5vw, 28px)",
         fontWeight: 300,
         color: "rgba(201,169,110,0.2)",
         lineHeight: 1,
-        paddingBottom: 24,
+        paddingBottom: "1.5em",
         margin: "0 2px",
         flexShrink: 0,
         userSelect: "none",
@@ -363,8 +364,11 @@ function CountdownBar({ startsAt }: { startsAt: string }) {
   );
 
   return (
+    // Desktop: inline-flex (original — shrink-wraps to content)
+    // Mobile: full-width via .lz-cd-bar CSS class override
     <div
       dir="ltr"
+      className="lz-cd-bar"
       style={{
         display: "inline-flex",
         alignItems: "flex-end",
@@ -434,10 +438,12 @@ function SkeletonCard() {
 const UpcomingCard = memo(function UpcomingCard({
   item,
   index,
+  isLoggedIn,
   onRegister,
 }: {
   item: UpcomingAuction;
   index: number;
+  isLoggedIn: boolean; // FIX: added prop
   onRegister: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -480,6 +486,9 @@ const UpcomingCard = memo(function UpcomingCard({
           ? "0 24px 64px rgba(0,0,0,0.5),inset 0 1px 0 rgba(255,255,255,0.07)"
           : "0 4px 24px rgba(0,0,0,0.2)",
         transition: `opacity 0.7s ease ${index * 0.1}s,transform 0.7s cubic-bezier(0.22,1,0.36,1) ${index * 0.1}s,background 0.3s ease,border-color 0.3s ease,box-shadow 0.3s ease`,
+        // FIX: prevent card itself from overflowing
+        overflow: "hidden",
+        minWidth: 0,
       }}
     >
       <div
@@ -558,14 +567,18 @@ const UpcomingCard = memo(function UpcomingCard({
 
       <div
         style={{
-          padding: "22px 24px",
+          // FIX: clamp padding on mobile, ensure no overflow
+          padding: "20px clamp(16px, 4vw, 24px)",
           display: "flex",
           flexDirection: "column",
           gap: 12,
+          minWidth: 0,
+          overflow: "hidden",
+          boxSizing: "border-box",
         }}
       >
         <div className="ac-top">
-          <div>
+          <div style={{ minWidth: 0, flex: 1 }}>
             <h3
               style={{
                 margin: 0,
@@ -574,6 +587,8 @@ const UpcomingCard = memo(function UpcomingCard({
                 color: CREAM,
                 letterSpacing: "-0.01em",
                 lineHeight: 1.2,
+                // FIX: allow wrapping on narrow screens
+                wordBreak: "break-word",
               }}
             >
               {item.title}
@@ -589,6 +604,7 @@ const UpcomingCard = memo(function UpcomingCard({
               {item.subtitle}
             </p>
           </div>
+          {/* FIX: button label depends on auth state */}
           <button
             className="ac-btn"
             onClick={onRegister}
@@ -624,12 +640,19 @@ const UpcomingCard = memo(function UpcomingCard({
               gap: 6,
             }}
           >
-            {t("auctionsSection.registerToJoin")}
+            {isLoggedIn
+              ? t("auctionsSection.joinNow") || "✦ JOIN NOW"
+              : t("auctionsSection.registerToJoin")}
           </button>
         </div>
 
         <div
-          style={{ display: "flex", flexWrap: "wrap", gap: 16, fontSize: 11 }}
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "8px 16px",
+            fontSize: 11,
+          }}
         >
           <span
             style={{
@@ -637,6 +660,9 @@ const UpcomingCard = memo(function UpcomingCard({
               alignItems: "center",
               gap: 6,
               color: "rgba(229,224,198,0.5)",
+              // FIX: allow text to wrap instead of overflow
+              flexWrap: "wrap",
+              wordBreak: "break-word",
             }}
           >
             <span style={{ color: GOLD, fontSize: 13 }}>📅</span>
@@ -658,7 +684,14 @@ const UpcomingCard = memo(function UpcomingCard({
           </span>
         </div>
 
-        <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "baseline",
+            gap: 6,
+            flexWrap: "wrap",
+          }}
+        >
           <span
             style={{
               fontSize: 10,
@@ -700,7 +733,7 @@ const UpcomingCard = memo(function UpcomingCard({
           }}
         />
 
-        <div>
+        <div style={{ minWidth: 0, overflow: "hidden" }}>
           <div
             style={{
               fontSize: 12,
@@ -714,7 +747,10 @@ const UpcomingCard = memo(function UpcomingCard({
           >
             {t("auctionsSection.sessionStartsIn")}
           </div>
-          <CountdownBar startsAt={item.startsAt} />
+          {/* overflow:hidden clips the bar if it's wider than the container on mobile */}
+          <div style={{ overflow: "hidden" }}>
+            <CountdownBar startsAt={item.startsAt} />
+          </div>
         </div>
       </div>
     </div>
@@ -768,6 +804,8 @@ const PastCard = memo(function PastCard({
           ? "0 20px 56px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.06)"
           : "0 4px 20px rgba(0,0,0,0.18)",
         transition: `opacity 0.7s ease ${index * 0.1}s,transform 0.7s cubic-bezier(0.22,1,0.36,1) ${index * 0.1}s,background 0.3s ease,border-color 0.3s ease,box-shadow 0.3s ease`,
+        overflow: "hidden",
+        minWidth: 0,
       }}
     >
       <div
@@ -856,6 +894,8 @@ const PastCard = memo(function PastCard({
           display: "flex",
           flexDirection: "column",
           gap: 14,
+          minWidth: 0,
+          boxSizing: "border-box",
         }}
       >
         <div>
@@ -866,6 +906,7 @@ const PastCard = memo(function PastCard({
               fontWeight: 900,
               color: CREAM,
               letterSpacing: "-0.01em",
+              wordBreak: "break-word",
             }}
           >
             {item.title}
@@ -889,13 +930,21 @@ const PastCard = memo(function PastCard({
             gap: 6,
             fontSize: 11,
             color: "rgba(229,224,198,0.45)",
+            flexWrap: "wrap",
           }}
         >
           <span style={{ color: GOLD, fontSize: 13 }}>📅</span>
           {t("auctionsSection.session")}: {item.sessionDate}
         </span>
 
-        <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "baseline",
+            gap: 6,
+            flexWrap: "wrap",
+          }}
+        >
           <span
             style={{
               fontSize: 10,
@@ -1016,11 +1065,19 @@ const PastCard = memo(function PastCard({
                 fontWeight: 700,
                 color: CREAM,
                 fontFamily: "'Jost', sans-serif",
+                wordBreak: "break-word",
               }}
             >
               {item.winner.name}
             </span>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                flexWrap: "wrap",
+              }}
+            >
               <span style={{ fontSize: 22 }}>{item.winner.country}</span>
               <span
                 style={{
@@ -1193,14 +1250,21 @@ export default function AuctionsSection() {
         @keyframes liveP { 0%,100%{opacity:1;box-shadow:0 0 6px #5ee8a0} 50%{opacity:.4;box-shadow:0 0 12px #5ee8a0} }
         .tab-in  { animation: tabIn 0.38s cubic-bezier(0.22,1,0.36,1) forwards }
         .tab-out { opacity:0; transform:translateY(-8px); transition:opacity .2s ease,transform .2s ease }
-        .ac     { display:grid; grid-template-columns:220px 1fr; overflow:hidden; border-radius:20px }
+
+        /* FIX: card layout — side-by-side on ≥640, stacked on mobile */
+        .ac { display:grid; grid-template-columns:220px 1fr; overflow:hidden; border-radius:20px; min-width:0; box-sizing:border-box; }
         .ac-img { position:relative; overflow:hidden; background:#0d1520; min-height:220px }
         .ac-top { display:flex; align-items:flex-start; justify-content:space-between; gap:16px }
+
         @media (max-width: 640px) {
-          .ac     { grid-template-columns: 1fr !important }
+          .ac     { grid-template-columns: 1fr !important; width:100% !important; }
           .ac-img { height:200px !important; min-height:200px !important }
           .ac-top { flex-direction:column !important; align-items:stretch !important; gap:10px !important }
           .ac-btn { width:100% !important; padding:13px 0 !important; justify-content:center !important }
+          /* Countdown: on mobile make the bar full-width and units share space equally */
+          .lz-cd-bar { display:flex !important; width:100% !important; box-sizing:border-box !important; padding:14px 12px 12px !important; }
+          .lz-cd-unit { width:auto !important; flex:1 1 0 !important; min-width:0 !important; }
+          .lz-cd-unit span:first-child { font-size:clamp(22px, 9vw, 40px) !important; min-width:0 !important; }
         }
       `}</style>
 
@@ -1422,6 +1486,10 @@ export default function AuctionsSection() {
           gap: 20,
           position: "relative",
           zIndex: 1,
+          // FIX: prevent content from exceeding viewport width
+          width: "100%",
+          boxSizing: "border-box",
+          overflow: "hidden",
         }}
       >
         {loading && (
@@ -1506,6 +1574,7 @@ export default function AuctionsSection() {
                   key={item.id}
                   item={item}
                   index={i}
+                  isLoggedIn={!!user}
                   onRegister={() => onRegister(item.productId)}
                 />
               ))

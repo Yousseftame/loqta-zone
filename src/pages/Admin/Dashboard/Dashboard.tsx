@@ -222,7 +222,7 @@ export default function Dashboard() {
           gridTemplateColumns: {
             xs: "1fr 1fr",
             sm: "repeat(3, 1fr)",
-            lg: "repeat(5, 1fr)",
+            lg: "repeat(4, 1fr)",
           },
           gap: 2.5,
           mb: 4,
@@ -261,7 +261,7 @@ export default function Dashboard() {
           delay={150}
           loading={loading}
         />
-        <MetricCard
+        {/* <MetricCard
           label="Total Revenue"
           value={`${analytics.totalRevenue.toLocaleString()} EGP`}
           icon={<TrendingUp size={20} />}
@@ -269,7 +269,7 @@ export default function Dashboard() {
           accentIndex={4}
           delay={200}
           loading={loading}
-        />
+        /> */}
       </Box>
 
       {/* ── Section: Financial Report ───────────────────────────────────────── */}
