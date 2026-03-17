@@ -6,25 +6,23 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import SplitText from "@/components/SplitText";
 import { useAuth } from "@/store/AuthContext/AuthContext";
+import { useUserJoinedProducts } from "@/hooks/useUserJoinedProducts";
 import "swiper/css/free-mode";
 import "swiper/css";
 import "swiper/css/navigation";
 import "swiper/css/pagination";
 import { ShinyButton } from "../ui/shiny-button";
 import LoginPromptModal from "./Loginpromptmodal";
-
-// Firebase imports
 import { collection, getDocs, query, orderBy, where } from "firebase/firestore";
 import { db } from "@/firebase/firebase";
 
-// ── Design tokens ─────────────────────────────────────────────
 const NAVY = "#2A4863";
 const NAVY2 = "#1e3652";
 const CREAM = "rgb(229, 224, 198)";
 const CREAM2 = "rgba(229, 224, 198, 0.75)";
 const GOLD = "#c9a96e";
+const GREEN = "#4ade80";
 
-// ── Types ──────────────────────────────────────────────────────
 interface EnrichedProduct {
   id: string;
   title: string;
@@ -41,20 +39,16 @@ interface EnrichedProduct {
   totalAuctions: number;
 }
 
-// ── Custom hook: fetch products + categories ───────────────────
 function usePublicProducts() {
   const [products, setProducts] = useState<EnrichedProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
   useEffect(() => {
     let cancelled = false;
-
     async function load() {
       try {
         setLoading(true);
         setError(null);
-
         const [catSnap, prodSnap] = await Promise.all([
           getDocs(collection(db, "categories")),
           getDocs(
@@ -65,15 +59,11 @@ function usePublicProducts() {
             ),
           ),
         ]);
-
         if (cancelled) return;
-
         const categoryMap: Record<string, string> = {};
         catSnap.docs.forEach((d) => {
-          const data = d.data();
-          categoryMap[d.id] = data.name?.en ?? d.id;
+          categoryMap[d.id] = d.data().name?.en ?? d.id;
         });
-
         const enriched: EnrichedProduct[] = prodSnap.docs.map((d) => {
           const data = d.data();
           return {
@@ -95,104 +85,99 @@ function usePublicProducts() {
             totalAuctions: data.totalAuctions ?? 0,
           };
         });
-
         setProducts(enriched);
       } catch (err: any) {
-        if (!cancelled) {
-          console.error("[AuctionSwiper] Failed to load products:", err);
-          setError("Failed to load products");
-        }
+        if (!cancelled) setError("Failed to load products");
       } finally {
         if (!cancelled) setLoading(false);
       }
     }
-
     load();
     return () => {
       cancelled = true;
     };
   }, []);
-
   return { products, loading, error };
 }
 
-// ─────────────────────────────────────────────────────────────
-// SHARED RESPONSIVE CSS
-// ─────────────────────────────────────────────────────────────
 const CARD_CSS = `
   @keyframes lz-shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+  @keyframes lz-joined-pulse { 0%,100%{opacity:1;box-shadow:0 0 6px #4ade80} 50%{opacity:.6;box-shadow:0 0 12px #4ade80} }
 
-  .lz-card-img          { height: 180px; }
-  .lz-card-title        { font-size: 11px; }
-  .lz-card-subtitle     { font-size: 10px; }
-  .lz-card-meta         { display: none !important; }
-  .lz-card-price-label  { font-size: 8px; }
-  .lz-card-price-value  { font-size: 16px; }
-  .lz-card-bid-label    { font-size: 8px; }
-  .lz-card-bid-value    { font-size: 11px; }
-  .lz-card-body         { padding: 10px 10px 12px; gap: 8px; }
-  .lz-card-price-block  { padding: 10px 10px; gap: 8px; }
-  .lz-card-banner       { font-size: 8px; padding: 5px 0; letter-spacing: 0.14em; }
-  .lz-card-stamp        { width: 38px; height: 38px; top: 8px; left: 8px; }
-  .lz-card-stamp span   { font-size: 5px !important; }
+  .lz-card-img { height: 180px; }
+  .lz-card-title { font-size: 11px; }
+  .lz-card-subtitle { font-size: 10px; }
+  .lz-card-meta { display: none !important; }
+  .lz-card-price-label { font-size: 8px; }
+  .lz-card-price-value { font-size: 16px; }
+  .lz-card-bid-label { font-size: 8px; }
+  .lz-card-bid-value { font-size: 11px; }
+  .lz-card-body { padding: 10px 10px 12px; gap: 8px; }
+  .lz-card-price-block { padding: 10px 10px; gap: 8px; }
+  .lz-card-banner { font-size: 8px; padding: 5px 0; letter-spacing: 0.14em; }
+  .lz-card-stamp { width: 38px; height: 38px; top: 8px; left: 8px; }
+  .lz-card-stamp span { font-size: 5px !important; }
   .lz-card-stamp .lz-stamp-stars { font-size: 6px !important; }
-  .lz-card-badge        { font-size: 9px; padding: 3px 8px; top: 8px; right: 8px; }
-  .lz-card-cat          { font-size: 8px; padding: 3px 7px; }
-  .lz-card-bids         { font-size: 8px; padding: 3px 7px; }
-  .lz-cat-row           { bottom: 8px; left: 8px; right: 8px; }
-  .lz-shiny-btn         { font-size: 9px !important; padding: 7px 4px !important; }
-
+  .lz-card-badge { font-size: 9px; padding: 3px 8px; top: 8px; right: 8px; }
+  .lz-card-cat { font-size: 8px; padding: 3px 7px; }
+  .lz-cat-row { bottom: 8px; left: 8px; right: 8px; }
+  .lz-shiny-btn { font-size: 9px !important; padding: 7px 4px !important; }
   .lz-skel {
     background: linear-gradient(90deg, #eef1f4 25%, #e4e9ee 50%, #eef1f4 75%);
     background-size: 200% 100%;
     animation: lz-shimmer 1.5s infinite;
     border-radius: 4px;
   }
+  .lz-joined-ribbon {
+    position: absolute; top: 0; left: 0; right: 0; z-index: 4;
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+    padding: 5px 0;
+    background: rgba(15,45,20,0.9); backdrop-filter: blur(8px);
+    border-bottom: 1px solid rgba(74,222,128,0.4);
+    font-size: 8px; font-weight: 800; letter-spacing: 0.2em; text-transform: uppercase; color: #4ade80;
+  }
+  .lz-joined-dot {
+    width: 5px; height: 5px; border-radius: 50%; background: #4ade80;
+    box-shadow: 0 0 6px #4ade80; animation: lz-joined-pulse 2s ease infinite; flex-shrink: 0;
+  }
+  .lz-joined-btn {
+    width: 100%; height: 34px; border-radius: 8px; cursor: pointer;
+    background: rgba(74,222,128,0.1); border: 1px solid rgba(74,222,128,0.4);
+    color: #4ade80; font-size: 9px !important; font-weight: 800; letter-spacing: 0.16em;
+    text-transform: uppercase; display: flex; align-items: center; justify-content: center; gap: 5px;
+    transition: all 0.28s cubic-bezier(0.22,1,0.36,1); font-family: inherit;
+  }
+  .lz-joined-btn:hover { background: rgba(74,222,128,0.18); border-color: rgba(74,222,128,0.7); transform: translateY(-1px); box-shadow: 0 6px 22px rgba(74,222,128,0.15); }
+  .lz-jarrow { font-size: 11px; transition: transform 0.2s ease; }
+  .lz-joined-btn:hover .lz-jarrow { transform: translateX(3px); }
 
   @media (min-width: 640px) {
-    .lz-card-img          { height: 220px; }
-    .lz-card-title        { font-size: 13px; }
-    .lz-card-subtitle     { font-size: 11px; }
-    .lz-card-meta         { display: flex !important; }
-    .lz-card-price-label  { font-size: 9px; }
-    .lz-card-price-value  { font-size: 19px; }
-    .lz-card-bid-label    { font-size: 9px; }
-    .lz-card-bid-value    { font-size: 13px; }
-    .lz-card-body         { padding: 14px 14px 16px; gap: 11px; }
-    .lz-card-price-block  { padding: 12px 12px; gap: 10px; }
-    .lz-card-banner       { font-size: 9px; padding: 7px 0; letter-spacing: 0.18em; }
-    .lz-card-stamp        { width: 48px; height: 48px; top: 10px; left: 10px; }
-    .lz-card-stamp span   { font-size: 6px !important; }
-    .lz-card-stamp .lz-stamp-stars { font-size: 7px !important; }
-    .lz-card-badge        { font-size: 10px; padding: 4px 10px; top: 10px; right: 10px; }
-    .lz-card-cat          { font-size: 9px; padding: 3px 9px; }
-    .lz-card-bids         { font-size: 9px; padding: 3px 9px; }
-    .lz-cat-row           { bottom: 10px; left: 10px; right: 10px; }
-    .lz-shiny-btn         { font-size: 10px !important; padding: 9px 6px !important; }
+    .lz-card-img { height: 220px; } .lz-card-title { font-size: 13px; } .lz-card-subtitle { font-size: 11px; }
+    .lz-card-meta { display: flex !important; } .lz-card-price-label { font-size: 9px; } .lz-card-price-value { font-size: 19px; }
+    .lz-card-bid-label { font-size: 9px; } .lz-card-bid-value { font-size: 13px; }
+    .lz-card-body { padding: 14px 14px 16px; gap: 11px; } .lz-card-price-block { padding: 12px 12px; gap: 10px; }
+    .lz-card-banner { font-size: 9px; padding: 7px 0; letter-spacing: 0.18em; }
+    .lz-card-stamp { width: 48px; height: 48px; top: 10px; left: 10px; }
+    .lz-card-stamp span { font-size: 6px !important; } .lz-card-stamp .lz-stamp-stars { font-size: 7px !important; }
+    .lz-card-badge { font-size: 10px; padding: 4px 10px; top: 10px; right: 10px; }
+    .lz-card-cat { font-size: 9px; padding: 3px 9px; } .lz-cat-row { bottom: 10px; left: 10px; right: 10px; }
+    .lz-shiny-btn { font-size: 10px !important; padding: 9px 6px !important; }
+    .lz-joined-ribbon { font-size: 9px; padding: 6px 0; } .lz-joined-btn { height: 38px; font-size: 10px !important; }
   }
-
   @media (min-width: 900px) {
-    .lz-card-img          { height: 240px; }
-    .lz-card-title        { font-size: 15px; }
-    .lz-card-subtitle     { font-size: 12px; }
-    .lz-card-price-label  { font-size: 9px; }
-    .lz-card-price-value  { font-size: 21px; }
-    .lz-card-bid-value    { font-size: 14px; }
-    .lz-card-body         { padding: 18px 20px 20px; gap: 14px; }
-    .lz-card-price-block  { padding: 14px 16px; gap: 12px; }
-    .lz-card-banner       { font-size: 10px; padding: 8px 0; letter-spacing: 0.22em; }
-    .lz-card-stamp        { width: 56px; height: 56px; top: 12px; left: 12px; }
-    .lz-card-stamp span   { font-size: 6.5px !important; }
-    .lz-card-stamp .lz-stamp-stars { font-size: 8px !important; }
-    .lz-card-badge        { font-size: 11px; padding: 5px 12px; top: 12px; right: 12px; }
-    .lz-card-cat          { font-size: 10px; padding: 4px 10px; }
-    .lz-card-bids         { font-size: 10px; padding: 4px 10px; }
-    .lz-cat-row           { bottom: 12px; left: 12px; right: 12px; }
-    .lz-shiny-btn         { font-size: 11px !important; padding: 10px 8px !important; }
+    .lz-card-img { height: 240px; } .lz-card-title { font-size: 15px; } .lz-card-subtitle { font-size: 12px; }
+    .lz-card-price-value { font-size: 21px; } .lz-card-bid-value { font-size: 14px; }
+    .lz-card-body { padding: 18px 20px 20px; gap: 14px; } .lz-card-price-block { padding: 14px 16px; gap: 12px; }
+    .lz-card-banner { font-size: 10px; padding: 8px 0; letter-spacing: 0.22em; }
+    .lz-card-stamp { width: 56px; height: 56px; top: 12px; left: 12px; }
+    .lz-card-stamp span { font-size: 6.5px !important; } .lz-card-stamp .lz-stamp-stars { font-size: 8px !important; }
+    .lz-card-badge { font-size: 11px; padding: 5px 12px; top: 12px; right: 12px; }
+    .lz-card-cat { font-size: 10px; padding: 4px 10px; } .lz-cat-row { bottom: 12px; left: 12px; right: 12px; }
+    .lz-shiny-btn { font-size: 11px !important; padding: 10px 8px !important; }
+    .lz-joined-ribbon { font-size: 10px; } .lz-joined-btn { height: 40px; }
   }
 `;
 
-// ── Skeleton Card ─────────────────────────────────────────────
 const SkeletonCard = () => (
   <div
     style={{
@@ -292,21 +277,18 @@ const SkeletonCard = () => (
   </div>
 );
 
-// ── Card ──────────────────────────────────────────────────────
-// NOTE: `t` is passed as a prop so the card itself never calls useTranslation.
-// This means a language change does NOT re-mount the card — it just re-renders
-// the text in place, which keeps the Swiper DOM stable.
 const AuctionCard = memo(function AuctionCard({
   item,
+  isJoined,
   onRegisterClick,
   t,
 }: {
   item: EnrichedProduct;
+  isJoined: boolean;
   onRegisterClick: () => void;
   t: (key: string) => string;
 }) {
   const [hovered, setHovered] = useState(false);
-
   const displayImage =
     item.thumbnail && item.thumbnail !== "null"
       ? item.thumbnail
@@ -320,11 +302,17 @@ const AuctionCard = memo(function AuctionCard({
       style={{
         borderRadius: 14,
         overflow: "hidden",
-        background: "#fff",
-        border: `1px solid ${hovered ? "rgba(42,72,99,0.35)" : "rgba(42,72,99,0.10)"}`,
-        boxShadow: hovered
-          ? `0 20px 56px rgba(42,72,99,0.18), 0 4px 16px rgba(42,72,99,0.10)`
-          : "0 2px 16px rgba(42,72,99,0.07)",
+        background: isJoined ? "rgba(14,38,18,0.97)" : "#fff",
+        border: isJoined
+          ? `1.5px solid ${hovered ? "rgba(74,222,128,0.72)" : "rgba(74,222,128,0.42)"}`
+          : `1px solid ${hovered ? "rgba(42,72,99,0.35)" : "rgba(42,72,99,0.10)"}`,
+        boxShadow: isJoined
+          ? hovered
+            ? "0 20px 56px rgba(74,222,128,0.16), 0 4px 16px rgba(74,222,128,0.08)"
+            : "0 4px 24px rgba(74,222,128,0.08)"
+          : hovered
+            ? "0 20px 56px rgba(42,72,99,0.18), 0 4px 16px rgba(42,72,99,0.10)"
+            : "0 2px 16px rgba(42,72,99,0.07)",
         transform: hovered ? "translateY(-5px)" : "translateY(0)",
         transition: "all 0.45s cubic-bezier(0.22, 1, 0.36, 1)",
         cursor: "pointer",
@@ -335,47 +323,53 @@ const AuctionCard = memo(function AuctionCard({
         height: "100%",
       }}
     >
-      {/* Promo banner */}
-      <div
-        className="lz-card-banner"
-        style={{
-          background: hovered
-            ? `linear-gradient(90deg, ${NAVY2}, ${NAVY})`
-            : `linear-gradient(90deg, ${NAVY}, #3a5a78)`,
-          textAlign: "center",
-          fontWeight: 700,
-          color: CREAM,
-          textTransform: "uppercase",
-          position: "relative",
-          overflow: "hidden",
-          transition: "background 0.4s ease",
-        }}
-      >
-        <span style={{ position: "relative", zIndex: 1 }}>
-          {t("auctionSwiper.promoCode")}
-        </span>
+      {!isJoined && (
         <div
+          className="lz-card-banner"
           style={{
-            position: "absolute",
-            inset: 0,
-            background:
-              "linear-gradient(90deg, transparent, rgba(229,224,198,0.18), transparent)",
-            transform: hovered ? "translateX(200%)" : "translateX(-100%)",
-            transition: "transform 0.7s ease",
+            background: hovered
+              ? `linear-gradient(90deg, ${NAVY2}, ${NAVY})`
+              : `linear-gradient(90deg, ${NAVY}, #3a5a78)`,
+            textAlign: "center",
+            fontWeight: 700,
+            color: CREAM,
+            textTransform: "uppercase",
+            position: "relative",
+            overflow: "hidden",
+            transition: "background 0.4s ease",
           }}
-        />
-      </div>
+        >
+          <span style={{ position: "relative", zIndex: 1 }}>
+            {t("auctionSwiper.promoCode")}
+          </span>
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background:
+                "linear-gradient(90deg, transparent, rgba(229,224,198,0.18), transparent)",
+              transform: hovered ? "translateX(200%)" : "translateX(-100%)",
+              transition: "transform 0.7s ease",
+            }}
+          />
+        </div>
+      )}
 
-      {/* Image */}
       <div
         className="lz-card-img"
         style={{
           position: "relative",
           overflow: "hidden",
-          background: "#eef1f4",
+          background: isJoined ? "#0a1f10" : "#eef1f4",
           flexShrink: 0,
         }}
       >
+        {isJoined && (
+          <div className="lz-joined-ribbon">
+            <div className="lz-joined-dot" />
+            {t("auctionSwiper.joined") || "Registered"}
+          </div>
+        )}
         {displayImage ? (
           <img
             src={displayImage}
@@ -389,6 +383,7 @@ const AuctionCard = memo(function AuctionCard({
               transition:
                 "transform 0.65s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
               display: "block",
+              filter: isJoined ? "brightness(0.65) saturate(0.8)" : "none",
             }}
             onError={(e) => {
               (e.target as HTMLImageElement).src = "/fallback.jpg";
@@ -402,14 +397,16 @@ const AuctionCard = memo(function AuctionCard({
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              background: `linear-gradient(135deg, ${NAVY}18, ${NAVY}08)`,
+              background: isJoined
+                ? "linear-gradient(135deg, rgba(74,222,128,0.08), rgba(74,222,128,0.03))"
+                : `linear-gradient(135deg, ${NAVY}18, ${NAVY}08)`,
             }}
           >
             <span
               style={{
                 fontSize: 42,
                 fontWeight: 900,
-                color: `${NAVY}30`,
+                color: isJoined ? "rgba(74,222,128,0.22)" : `${NAVY}30`,
                 textTransform: "uppercase",
               }}
             >
@@ -417,24 +414,26 @@ const AuctionCard = memo(function AuctionCard({
             </span>
           </div>
         )}
-
         <div
           style={{
             position: "absolute",
             inset: 0,
-            background:
-              "linear-gradient(to bottom, transparent 40%, rgba(20,35,52,0.75) 100%)",
+            background: isJoined
+              ? "linear-gradient(to bottom, transparent 30%, rgba(8,28,12,0.88) 100%)"
+              : "linear-gradient(to bottom, transparent 40%, rgba(20,35,52,0.75) 100%)",
           }}
         />
 
-        {/* LOQTA ZONE stamp */}
+        {/* Stamp */}
         <div
           className="lz-card-stamp"
           style={{
             position: "absolute",
             borderRadius: "50%",
-            background: `linear-gradient(135deg, ${NAVY}, ${NAVY2})`,
-            border: `2px dashed ${CREAM2}`,
+            background: isJoined
+              ? "linear-gradient(135deg, #1a4025, #0f2a18)"
+              : `linear-gradient(135deg, ${NAVY}, ${NAVY2})`,
+            border: `2px dashed ${isJoined ? "rgba(74,222,128,0.48)" : CREAM2}`,
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
@@ -449,7 +448,7 @@ const AuctionCard = memo(function AuctionCard({
           <span
             style={{
               fontWeight: 900,
-              color: CREAM,
+              color: isJoined ? "#4ade80" : CREAM,
               textAlign: "center",
               lineHeight: 1.4,
               letterSpacing: "0.05em",
@@ -460,13 +459,16 @@ const AuctionCard = memo(function AuctionCard({
             <br />
             ZONE
             <br />
-            <span className="lz-stamp-stars" style={{ color: GOLD }}>
+            <span
+              className="lz-stamp-stars"
+              style={{ color: isJoined ? "#4ade80" : GOLD }}
+            >
               ★★★
             </span>
           </span>
         </div>
 
-        {/* Auctions count badge */}
+        {/* Badge */}
         <div
           className="lz-card-badge"
           style={{
@@ -516,7 +518,7 @@ const AuctionCard = memo(function AuctionCard({
         </div>
       </div>
 
-      {/* Card body */}
+      {/* Body */}
       <div
         className="lz-card-body"
         style={{ display: "flex", flexDirection: "column", flex: 1 }}
@@ -527,7 +529,7 @@ const AuctionCard = memo(function AuctionCard({
             style={{
               margin: 0,
               fontWeight: 800,
-              color: NAVY,
+              color: isJoined ? GREEN : NAVY,
               textTransform: "uppercase",
               letterSpacing: "0.03em",
               lineHeight: 1.2,
@@ -543,7 +545,7 @@ const AuctionCard = memo(function AuctionCard({
             className="lz-card-subtitle"
             style={{
               margin: "3px 0 0",
-              color: "#7a8ea0",
+              color: isJoined ? "rgba(74,222,128,0.5)" : "#7a8ea0",
               fontWeight: 500,
               lineHeight: 1.3,
               display: "-webkit-box",
@@ -560,7 +562,7 @@ const AuctionCard = memo(function AuctionCard({
           className="lz-card-meta"
           style={{
             gap: 10,
-            color: "#8fa0b0",
+            color: isJoined ? "rgba(74,222,128,0.4)" : "#8fa0b0",
             fontWeight: 600,
             alignItems: "center",
             fontSize: 10,
@@ -576,7 +578,9 @@ const AuctionCard = memo(function AuctionCard({
         <div
           style={{
             height: 1,
-            background: `linear-gradient(90deg, rgba(42,72,99,0.18), transparent)`,
+            background: isJoined
+              ? "linear-gradient(90deg, rgba(74,222,128,0.22), transparent)"
+              : "linear-gradient(90deg, rgba(42,72,99,0.18), transparent)",
             flexShrink: 0,
           }}
         />
@@ -586,8 +590,16 @@ const AuctionCard = memo(function AuctionCard({
           className="lz-card-price-block"
           style={{
             borderRadius: 10,
-            background: hovered ? "rgba(42,72,99,0.04)" : "#f7f8fa",
-            border: `1px solid rgba(42,72,99,0.10)`,
+            background: isJoined
+              ? hovered
+                ? "rgba(74,222,128,0.07)"
+                : "rgba(74,222,128,0.04)"
+              : hovered
+                ? "rgba(42,72,99,0.04)"
+                : "#f7f8fa",
+            border: isJoined
+              ? `1px solid rgba(74,222,128,0.16)`
+              : `1px solid rgba(42,72,99,0.10)`,
             display: "flex",
             flexDirection: "column",
             transition: "background 0.3s ease",
@@ -607,7 +619,7 @@ const AuctionCard = memo(function AuctionCard({
               <div
                 className="lz-card-price-label"
                 style={{
-                  color: "#9aabbb",
+                  color: isJoined ? "rgba(74,222,128,0.38)" : "#9aabbb",
                   fontWeight: 700,
                   letterSpacing: "0.14em",
                   textTransform: "uppercase",
@@ -620,7 +632,7 @@ const AuctionCard = memo(function AuctionCard({
                 className="lz-card-price-value"
                 style={{
                   fontWeight: 900,
-                  color: GOLD,
+                  color: isJoined ? GREEN : GOLD,
                   letterSpacing: "-0.01em",
                   lineHeight: 1,
                 }}
@@ -630,7 +642,7 @@ const AuctionCard = memo(function AuctionCard({
                   style={{
                     fontSize: "0.55em",
                     fontWeight: 600,
-                    color: "#b8996a",
+                    color: isJoined ? "rgba(74,222,128,0.45)" : "#b8996a",
                     marginLeft: 3,
                   }}
                 >
@@ -638,13 +650,12 @@ const AuctionCard = memo(function AuctionCard({
                 </span>
               </div>
             </div>
-
             {item.totalAuctions > 0 && (
               <div style={{ textAlign: "right" }}>
                 <div
                   className="lz-card-bid-label"
                   style={{
-                    color: "#9aabbb",
+                    color: isJoined ? "rgba(74,222,128,0.38)" : "#9aabbb",
                     fontWeight: 700,
                     letterSpacing: "0.1em",
                     textTransform: "uppercase",
@@ -655,7 +666,7 @@ const AuctionCard = memo(function AuctionCard({
                 </div>
                 <div
                   className="lz-card-bid-value"
-                  style={{ fontWeight: 800, color: NAVY }}
+                  style={{ fontWeight: 800, color: isJoined ? GREEN : NAVY }}
                 >
                   ×{item.totalAuctions}
                 </div>
@@ -663,21 +674,28 @@ const AuctionCard = memo(function AuctionCard({
             )}
           </div>
 
-          <ShinyButton
-            className="lz-shiny-btn w-full !rounded-lg"
-            onClick={onRegisterClick}
-          >
-            {t("auctionSwiper.registerToJoin")}
-          </ShinyButton>
+          {isJoined ? (
+            <button className="lz-joined-btn" onClick={onRegisterClick}>
+              <span>✓</span>
+              <span>
+                {t("auctionSwiper.viewSessions") || "View My Sessions"}
+              </span>
+              <span className="lz-jarrow">→</span>
+            </button>
+          ) : (
+            <ShinyButton
+              className="lz-shiny-btn w-full !rounded-lg"
+              onClick={onRegisterClick}
+            >
+              {t("auctionSwiper.registerToJoin")}
+            </ShinyButton>
+          )}
         </div>
       </div>
     </div>
   );
 });
 
-// ── Header ────────────────────────────────────────────────────
-// Completely isolated component — its re-renders (from language changes)
-// do NOT propagate up to AuctionSwiper thanks to memo.
 const AuctionHeader = memo(function AuctionHeader() {
   const headerRef = useRef<HTMLDivElement>(null);
   const isInView = useInView(headerRef, { once: false, margin: "-80px" });
@@ -685,7 +703,6 @@ const AuctionHeader = memo(function AuctionHeader() {
   const wasInView = useRef(false);
   const { t, i18n } = useTranslation();
   const isArabic = i18n.language === "ar";
-
   useEffect(() => {
     if (isInView && !wasInView.current) {
       setAnimKey((k) => k + 1);
@@ -694,11 +711,9 @@ const AuctionHeader = memo(function AuctionHeader() {
       wasInView.current = false;
     }
   }, [isInView]);
-
   useEffect(() => {
     setAnimKey((k) => k + 1);
   }, [i18n.language]);
-
   return (
     <div
       ref={headerRef}
@@ -749,7 +764,6 @@ const AuctionHeader = memo(function AuctionHeader() {
           }}
         />
       </div>
-
       <div
         style={{
           fontSize: "clamp(26px, 4.5vw, 44px)",
@@ -773,7 +787,6 @@ const AuctionHeader = memo(function AuctionHeader() {
           to={{ opacity: 1, y: 0, rotateX: 0 }}
         />
       </div>
-
       <div
         style={{
           fontSize: "clamp(26px, 4.5vw, 44px)",
@@ -797,7 +810,6 @@ const AuctionHeader = memo(function AuctionHeader() {
           to={{ opacity: 1, y: 0 }}
         />
       </div>
-
       <p
         style={{
           margin: "0 auto",
@@ -818,31 +830,26 @@ const AuctionHeader = memo(function AuctionHeader() {
   );
 });
 
-// ── Swiper section — isolated from language changes ───────────
-// Accepts `t` as a prop so it never subscribes to i18n directly.
-// This means language changes will NOT cause this component to re-render,
-// keeping the Swiper DOM completely stable.
 const SwiperSection = memo(function SwiperSection({
   products,
+  joinedProductIds,
   t,
   onRegisterClick,
 }: {
   products: EnrichedProduct[];
+  joinedProductIds: Set<string>;
   t: (key: string) => string;
   onRegisterClick: (id: string) => void;
 }) {
   const swiperRef = useRef<any>(null);
   const [activeIdx, setActiveIdx] = useState(0);
   const resumeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Stable looped list — only recomputes when the products array changes,
-  // never when language changes.
   const loopedProducts = useMemo(
     () => (products.length > 0 ? [...products, ...products] : []),
     [products],
   );
 
-  if (products.length === 0) {
+  if (products.length === 0)
     return (
       <div
         style={{
@@ -855,31 +862,12 @@ const SwiperSection = memo(function SwiperSection({
         <p style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>
           No products available yet
         </p>
-        <p style={{ fontSize: 13, marginTop: 6, opacity: 0.7 }}>
-          Check back soon for upcoming auctions
-        </p>
       </div>
     );
-  }
 
   return (
     <>
-      <style>{`
-        .lz-swiper { overflow: visible !important; }
-        .lz-swiper-wrap { overflow: hidden; padding: 8px 4px 4px; }
-        .lz-swiper .swiper-slide { height: auto; }
-        .lz-dot {
-          width: 8px; height: 8px; border-radius: 4px;
-          background: rgba(229,224,198,0.2);
-          border: none; cursor: pointer;
-          transition: width 0.2s ease, background 0.2s ease;
-          padding: 0; flex-shrink: 0;
-        }
-        .lz-dot.active { width: 26px; background: #c9a96e; }
-        .lz-dot:hover:not(.active) { background: rgba(229,224,198,0.4); }
-      `}</style>
-
-      {/* dir="ltr" is critical — Swiper's freeMode loop autoplay breaks under RTL */}
+      <style>{`.lz-swiper{overflow:visible!important}.lz-swiper-wrap{overflow:hidden;padding:8px 4px 4px}.lz-swiper .swiper-slide{height:auto}.lz-dot{width:8px;height:8px;border-radius:4px;background:rgba(229,224,198,0.2);border:none;cursor:pointer;transition:width .2s ease,background .2s ease;padding:0;flex-shrink:0}.lz-dot.active{width:26px;background:#c9a96e}.lz-dot:hover:not(.active){background:rgba(229,224,198,0.4)}`}</style>
       <div dir="ltr" className="lz-swiper-wrap">
         <Swiper
           className="lz-swiper"
@@ -912,6 +900,7 @@ const SwiperSection = memo(function SwiperSection({
             >
               <AuctionCard
                 item={item}
+                isJoined={joinedProductIds.has(item.id)}
                 onRegisterClick={() => onRegisterClick(item.id)}
                 t={t}
               />
@@ -919,8 +908,6 @@ const SwiperSection = memo(function SwiperSection({
           ))}
         </Swiper>
       </div>
-
-      {/* Dot navigation */}
       <div
         style={{
           display: "flex",
@@ -954,26 +941,17 @@ const SwiperSection = memo(function SwiperSection({
   );
 });
 
-// ── Main section ──────────────────────────────────────────────
 export default function AuctionSwiper() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { t } = useTranslation(); // ← only used here to pass down as prop
+  const { t } = useTranslation();
   const [modalOpen, setModalOpen] = useState(false);
-
   const { products, loading, error } = usePublicProducts();
+  const { joinedProductIds } = useUserJoinedProducts();
 
   const handleRegisterClick = (productId: string) => {
-    if (user) {
-      navigate(`/auctions/register/${productId}`);
-    } else {
-      setModalOpen(true);
-    }
-  };
-
-  const handleGoToLogin = () => {
-    setModalOpen(false);
-    navigate("/login");
+    if (user) navigate(`/auctions/register/${productId}`);
+    else setModalOpen(true);
   };
 
   return (
@@ -987,14 +965,14 @@ export default function AuctionSwiper() {
       }}
     >
       <style>{CARD_CSS}</style>
-
       <LoginPromptModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
-        onGoToLogin={handleGoToLogin}
+        onGoToLogin={() => {
+          setModalOpen(false);
+          navigate("/login");
+        }}
       />
-
-      {/* Top gold border */}
       <div
         style={{
           position: "absolute",
@@ -1006,8 +984,6 @@ export default function AuctionSwiper() {
           opacity: 0.5,
         }}
       />
-
-      {/* Decorative rings */}
       <div
         style={{
           position: "absolute",
@@ -1044,12 +1020,8 @@ export default function AuctionSwiper() {
           pointerEvents: "none",
         }}
       />
-
-      {/* Header — isolated; its re-renders don't affect the Swiper below */}
       <AuctionHeader />
-
       <div style={{ padding: "0 12px" }}>
-        {/* Error */}
         {error && !loading && (
           <div
             style={{
@@ -1062,15 +1034,9 @@ export default function AuctionSwiper() {
             {error}
           </div>
         )}
-
-        {/* Loading skeletons */}
         {loading && (
           <div style={{ overflow: "hidden", padding: "8px 4px 4px" }}>
-            <style>{`
-              @media(min-width:640px){ .lz-skel-grid { grid-template-columns: repeat(3,1fr) !important; gap: 14px !important; } }
-              @media(min-width:900px){ .lz-skel-grid { grid-template-columns: repeat(4,1fr) !important; gap: 18px !important; } }
-              @media(min-width:1200px){ .lz-skel-grid { grid-template-columns: repeat(5,1fr) !important; gap: 20px !important; } }
-            `}</style>
+            <style>{`@media(min-width:640px){.lz-skel-grid{grid-template-columns:repeat(3,1fr)!important;gap:14px!important}}@media(min-width:900px){.lz-skel-grid{grid-template-columns:repeat(4,1fr)!important;gap:18px!important}}@media(min-width:1200px){.lz-skel-grid{grid-template-columns:repeat(5,1fr)!important;gap:20px!important}}`}</style>
             <div
               className="lz-skel-grid"
               style={{
@@ -1085,11 +1051,10 @@ export default function AuctionSwiper() {
             </div>
           </div>
         )}
-
-        {/* Swiper — only re-renders when products change, NOT when language changes */}
         {!loading && (
           <SwiperSection
             products={products}
+            joinedProductIds={joinedProductIds}
             t={t}
             onRegisterClick={handleRegisterClick}
           />

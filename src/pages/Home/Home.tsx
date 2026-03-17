@@ -35,9 +35,7 @@ export default function Home() {
       <LiveAuctionsSection/>
       <AuctionSwiper />
       <StatsSection />
-      <HowItWorksSection />
       <AuctionsSection />
-      <AuctionRequestSection />
     </>
   );
 }

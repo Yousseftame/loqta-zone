@@ -32,3 +32,10 @@ export { onUserWritten, onProductWritten, onAuctionWritten,
          onCategoryWritten, onVoucherWritten, onAuctionRequestWritten,
          onFeedbackWritten, rebuildAnalytics } from "./Analytics/analytics";
 
+
+
+
+ // ── Finance ──────────────────────────────────────────────────────────────────
+        
+export { onTransactionCreated, onTransactionDeleted, rebuildFinanceStats } from "./Finance/finance";
+

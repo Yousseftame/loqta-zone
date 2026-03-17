@@ -18,7 +18,7 @@ import { colors } from "../../Products/products-data";
 import type { DashboardAnalytics } from "../analytics-data";
 
 // Distinct, high-contrast palette — each slice is immediately readable at a glance
-const PIE_COLORS = ["#0EA5E9", "#10B981", "#F59E0B", "#8B5CF6", "#F43F5E"];
+const PIE_COLORS = ["#0EA5E9", "#10B981",  "#8B5CF6", "#F43F5E"];
 
 const RADIAN = Math.PI / 180;
 const renderLabel = ({

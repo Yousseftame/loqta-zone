@@ -46,6 +46,7 @@ import MyBids from "@/pages/User/Bids/MyBids";
 import MyProfile from "@/pages/User/Profile/MyProfile";
 import ChangePassword from "@/pages/User/Settings/ChangePassword";
 import { createBrowserRouter } from "react-router-dom";
+import CantFind from "@/pages/CantFind/CantFind";
 
 export const routes = createBrowserRouter([
   {
@@ -343,6 +344,7 @@ export const routes = createBrowserRouter([
       { path: "aboutUs", element: <AboutUs /> },
       { path: "terms", element: <TermsAndConditions /> },
       { path: "contact", element: <Contact /> },
+      { path: "cantFind", element: <CantFind /> },
 
       { path: "my-profile", element: <MyProfile /> },
       { path: "my-bids", element: <MyBids /> },

@@ -1,3 +1,4 @@
+import HowItWorksSection from "@/components/shared/Howitworkssection";
 import React, { useRef, useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -82,6 +83,7 @@ function StepCard({
           padding: "32px 32px 28px",
         }}
       >
+
         {/* Top accent bar */}
         <div
           style={{
@@ -985,6 +987,7 @@ export default function HowItWork() {
               pointerEvents: "none",
             }}
           />
+          {/* <HowItWorksSection /> */}
 
           {/* Section header */}
           <div

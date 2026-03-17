@@ -25,6 +25,7 @@ const NAV_LINKS = [
   { labelKey: "nav.howItWorks", to: "/how-it-works", icon: "◈" },
   { labelKey: "nav.about", to: "/aboutUs", icon: "✦" },
   { labelKey: "nav.contact", to: "/contact", icon: "◇" },
+  { labelKey: "nav.cantFind", to: "/cantFind", icon: "◇" },
 ];
 
 const USER_MOBILE_ITEMS = [

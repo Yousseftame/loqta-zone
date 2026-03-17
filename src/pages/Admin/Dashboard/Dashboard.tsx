@@ -33,6 +33,7 @@ import MetricCard from "./components/MetricCard";
 import StatusPieCharts from "./components/StatusPieCharts";
 import TopAuctionsCharts from "./components/TopAuctionsCharts";
 import MarginReportTable from "./components/MarginReportTable";
+import FinancePage from "../Finance/FinancePage";
 
 export default function Dashboard() {
   const { analytics, topAuctions, loading, error, refetch } = useAnalytics();
@@ -63,6 +64,7 @@ export default function Dashboard() {
           100% { background-position: -200% 0; }
         }
       `}</style>
+      <FinancePage />
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <Box
