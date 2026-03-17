@@ -38,7 +38,7 @@
     "season": "٢٠٢٦ — الموسم الأول",
     "scroll": "تمرير"
   },
-  "auctionSwiper": {
+    "auctionSwiper": {
     "eyebrow": "· المزادات المباشرة ·",
     "titleLine1": "المزادات ",
     "titleLine2": "القادمة.",
@@ -46,7 +46,11 @@
     "promoCode": "✦ كود خصم ✦",
     "from": "يبدأ من",
     "bid": "المزايدة",
-    "registerToJoin": "✦ سجّل للمشاركة ✦"
+    "registerToJoin": "✦ سجّل للمشاركة ✦",
+    "registered": " مسجّل",
+    "joinNow": "✦ انضم الآن ✦",
+    "registeredLabel": "مسجّل",
+    "viewSessions": "عرض جلساتي"
   },
   "statsSection": {
     "eyebrow": "بالأرقام",

@@ -38,7 +38,7 @@
     "season": "2026 — Season I",
     "scroll": "Scroll"
   },
-  "auctionSwiper": {
+ "auctionSwiper": {
     "eyebrow": "· Live Auctions ·",
     "titleLine1": "Upcoming",
     "titleLine2": "Auctions.",
@@ -46,7 +46,11 @@
     "promoCode": "✦ Promo Code ✦",
     "from": "From",
     "bid": "Bid",
-    "registerToJoin": "✦ Register To Join ✦"
+    "registerToJoin": "✦ Register To Join ✦",
+    "joinNow": "✦ JOIN NOW ✦",
+    "registered": " Registered",
+    "registeredLabel": "Registered",
+    "viewSessions": "View My Sessions"
   },
   "statsSection": {
     "eyebrow": "By The Numbers",
