@@ -51,7 +51,7 @@ export const VoucherProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchVouchers();
+      const { vouchers: data } = await fetchVouchers(); // ✅ destructure the object
       setVouchers(data);
     } catch (err: any) {
       const msg = err?.message ?? "Failed to load vouchers";

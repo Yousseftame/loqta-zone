@@ -1029,7 +1029,7 @@ export default function AuctionRegisterPage() {
                                 className="lz-promo-btn"
                                 onClick={() => setShowPromoFor(a.id)}
                               >
-                                🏷️ {t("auctionRegister.promoBtn")}
+                                {t("auctionRegister.promoBtn")}
                               </button>
                             ) : (
                               <div className="lz-promo-applied">
