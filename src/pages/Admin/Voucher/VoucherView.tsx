@@ -24,13 +24,24 @@ import {
   Tag,
   ShieldCheck,
   Gavel,
+  RefreshCw,
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
-import { doc, getDoc, Timestamp } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  collection,
+  getDocs,
+  query,
+  orderBy,
+  limit,
+  Timestamp,
+} from "firebase/firestore";
 import { db } from "@/firebase/firebase";
 import { colors } from "../Products/products-data";
 import {
   type Voucher,
+  type VoucherUsage,
   getVoucherStatusLabel,
   getVoucherStatusStyle,
   getVoucherTypeLabel,
@@ -39,7 +50,7 @@ import {
 } from "./voucher-data";
 import { useVouchers } from "@/store/AdminContext/VoucherContext/VoucherContext";
 
-// ─── Enriched auction info for the view card ──────────────────────────────────
+// ─── Auction detail helpers ───────────────────────────────────────────────────
 
 interface AuctionDetail {
   id: string;
@@ -70,7 +81,6 @@ async function fetchAuctionDetails(ids: string[]): Promise<AuctionDetail[]> {
     const status: AuctionDetail["status"] =
       now < startTime ? "upcoming" : now <= endTime ? "live" : "ended";
 
-    // Fetch product title
     let productTitle = "";
     if (d.productId) {
       try {
@@ -93,10 +103,51 @@ async function fetchAuctionDetails(ids: string[]): Promise<AuctionDetail[]> {
   return results;
 }
 
-function statusColor(s: AuctionDetail["status"]): string {
+function statusDotColor(s: AuctionDetail["status"]): string {
   if (s === "live") return "#4ade80";
   if (s === "upcoming") return "#93c5fd";
   return "#f87171";
+}
+
+// ─── Fetch usages subcollection (replaces usedBy array) ──────────────────────
+
+async function fetchUsages(
+  voucherId: string,
+  pageSize = 20,
+): Promise<VoucherUsage[]> {
+  const q = query(
+    collection(db, "vouchers", voucherId, "usages"),
+    orderBy("usedAt", "desc"),
+    limit(pageSize),
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => {
+    const data = d.data();
+    return {
+      userId: d.id,
+      auctionId: data.auctionId ?? "",
+      voucherCode: data.voucherCode ?? "",
+      discountApplied: data.discountApplied ?? 0,
+      effectiveFee: data.effectiveFee ?? 0,
+      type: data.type ?? "entry_free",
+      usedAt:
+        data.usedAt instanceof Timestamp
+          ? data.usedAt.toDate()
+          : new Date(data.usedAt ?? Date.now()),
+    } as VoucherUsage;
+  });
+}
+
+// Resolve display name for a user uid
+async function resolveUserName(uid: string): Promise<string> {
+  try {
+    const snap = await getDoc(doc(db, "users", uid));
+    if (!snap.exists()) return uid.slice(0, 8) + "…";
+    const d = snap.data();
+    return d.fullName ?? d.displayName ?? d.firstName ?? uid.slice(0, 8) + "…";
+  } catch {
+    return uid.slice(0, 8) + "…";
+  }
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -112,9 +163,15 @@ export default function VoucherView() {
   const [deleting, setDeleting] = useState(false);
   const [done, setDone] = useState(false);
 
-  // Enriched auction details for the applicable-auctions card
   const [auctionDetails, setAuctionDetails] = useState<AuctionDetail[]>([]);
   const [loadingAuctions, setLoadingAuctions] = useState(false);
+
+  // Usage subcollection state (replaces voucher.usedBy)
+  const [usages, setUsages] = useState<
+    (VoucherUsage & { displayName: string })[]
+  >([]);
+  const [loadingUsages, setLoadingUsages] = useState(false);
+  const [usagesLoaded, setUsagesLoaded] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -123,7 +180,6 @@ export default function VoucherView() {
       const v = await getVoucher(id);
       setVoucher(v);
       setLoading(false);
-      // Fetch auction details once voucher is loaded
       if (v && v.applicableAuctions.length > 0) {
         setLoadingAuctions(true);
         fetchAuctionDetails(v.applicableAuctions)
@@ -133,6 +189,28 @@ export default function VoucherView() {
       }
     })();
   }, [id, getVoucher]);
+
+  // Lazy-load usages when the "Used By" section is first viewed
+  async function loadUsages() {
+    if (!id || usagesLoaded) return;
+    setLoadingUsages(true);
+    try {
+      const raw = await fetchUsages(id);
+      // Resolve display names in parallel
+      const withNames = await Promise.all(
+        raw.map(async (u) => ({
+          ...u,
+          displayName: await resolveUserName(u.userId),
+        })),
+      );
+      setUsages(withNames);
+      setUsagesLoaded(true);
+    } catch {
+      setUsages([]);
+    } finally {
+      setLoadingUsages(false);
+    }
+  }
 
   const handleDelete = async () => {
     if (!voucher) return;
@@ -180,10 +258,11 @@ export default function VoucherView() {
   const statusStyle = getVoucherStatusStyle(statusLabel);
   const typeLabel = getVoucherTypeLabel(voucher.type);
   const typeStyle = getVoucherTypeStyle(voucher.type);
-  const usageCount = getUsageCount(voucher);
+  const usageCount = getUsageCount(voucher); // reads usageCount (atomic counter)
   const usagePct = Math.min((usageCount / voucher.maxUses) * 100, 100);
+  // entry_discount and final_discount both have a discountAmount
   const hasAmount =
-    voucher.type === "discount" || voucher.type === "entry_discount";
+    voucher.type === "entry_discount" || voucher.type === "final_discount";
 
   return (
     <Box
@@ -449,7 +528,7 @@ export default function VoucherView() {
         </Box>
       </Paper>
 
-      {/* ── Details + Applicable Auctions grid ── */}
+      {/* ── Details + Applicable Auctions ── */}
       <Box
         sx={{
           display: "grid",
@@ -458,7 +537,7 @@ export default function VoucherView() {
           mb: 3,
         }}
       >
-        {/* Details Card */}
+        {/* Details */}
         <Paper
           elevation={0}
           sx={{
@@ -684,7 +763,7 @@ export default function VoucherView() {
           </Box>
         </Paper>
 
-        {/* ── Applicable Auctions Card ── */}
+        {/* Applicable Auctions */}
         <Paper
           elevation={0}
           sx={{
@@ -787,13 +866,12 @@ export default function VoucherView() {
                       },
                     }}
                   >
-                    {/* Status dot */}
                     <Box
                       sx={{
                         width: 10,
                         height: 10,
                         borderRadius: "50%",
-                        bgcolor: statusColor(auction.status),
+                        bgcolor: statusDotColor(auction.status),
                         flexShrink: 0,
                       }}
                     />
@@ -821,7 +899,7 @@ export default function VoucherView() {
                         Auction #{auction.auctionNumber} ·{" "}
                         <span
                           style={{
-                            color: statusColor(auction.status),
+                            color: statusDotColor(auction.status),
                             fontWeight: 600,
                             textTransform: "capitalize",
                           }}
@@ -843,7 +921,6 @@ export default function VoucherView() {
                     />
                   </Box>
                 ))}
-                {/* IDs not found in Firestore */}
                 {voucher.applicableAuctions
                   .filter((aid) => !auctionDetails.find((a) => a.id === aid))
                   .map((aid) => (
@@ -873,7 +950,7 @@ export default function VoucherView() {
         </Paper>
       </Box>
 
-      {/* ── Used By ── */}
+      {/* ── Used By — reads from subcollection (no more usedBy array) ── */}
       <Paper
         elevation={0}
         sx={{
@@ -890,29 +967,53 @@ export default function VoucherView() {
             borderBottom: `1px solid ${colors.border}`,
             display: "flex",
             alignItems: "center",
-            gap: 1.5,
+            justifyContent: "space-between",
           }}
         >
-          <Users size={18} style={{ color: colors.primary }} />
-          <span style={{ fontWeight: 700, color: colors.textPrimary }}>
-            Used By
-            <span
-              style={{
-                marginLeft: 8,
-                fontSize: "0.75rem",
-                background: colors.primaryBg,
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+            <Users size={18} style={{ color: colors.primary }} />
+            <span style={{ fontWeight: 700, color: colors.textPrimary }}>
+              Used By
+              <span
+                style={{
+                  marginLeft: 8,
+                  fontSize: "0.75rem",
+                  background: colors.primaryBg,
+                  color: colors.primary,
+                  padding: "2px 8px",
+                  borderRadius: 99,
+                  fontWeight: 700,
+                }}
+              >
+                {usageCount}
+              </span>
+            </span>
+          </Box>
+          {/* Load button — lazy loads the subcollection */}
+          {!usagesLoaded && usageCount > 0 && (
+            <Button
+              size="small"
+              onClick={loadUsages}
+              disabled={loadingUsages}
+              startIcon={
+                loadingUsages ? (
+                  <CircularProgress size={12} />
+                ) : (
+                  <RefreshCw size={14} />
+                )
+              }
+              sx={{
+                textTransform: "none",
                 color: colors.primary,
-                padding: "2px 8px",
-                borderRadius: 99,
-                fontWeight: 700,
+                fontSize: "0.78rem",
               }}
             >
-              {usageCount}
-            </span>
-          </span>
+              {loadingUsages ? "Loading…" : "Load details"}
+            </Button>
+          )}
         </Box>
 
-        {voucher.usedBy.length === 0 ? (
+        {usageCount === 0 ? (
           <Box sx={{ p: 4, textAlign: "center" }}>
             <Users
               size={36}
@@ -941,6 +1042,35 @@ export default function VoucherView() {
               This voucher code hasn't been redeemed by anyone yet.
             </p>
           </Box>
+        ) : !usagesLoaded ? (
+          <Box sx={{ p: 3, textAlign: "center" }}>
+            <p
+              style={{
+                color: colors.textMuted,
+                fontSize: "0.85rem",
+                margin: 0,
+              }}
+            >
+              {usageCount} use{usageCount !== 1 ? "s" : ""} recorded. Click
+              "Load details" to see who used it.
+            </p>
+          </Box>
+        ) : loadingUsages ? (
+          <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+            <CircularProgress size={24} sx={{ color: colors.primary }} />
+          </Box>
+        ) : usages.length === 0 ? (
+          <Box sx={{ p: 3, textAlign: "center" }}>
+            <p
+              style={{
+                color: colors.textMuted,
+                fontSize: "0.85rem",
+                margin: 0,
+              }}
+            >
+              No usage records found in subcollection.
+            </p>
+          </Box>
         ) : (
           <Box sx={{ p: 2 }}>
             <Box
@@ -954,9 +1084,9 @@ export default function VoucherView() {
                 gap: 1.5,
               }}
             >
-              {voucher.usedBy.map((entry, i) => (
+              {usages.map((entry) => (
                 <Box
-                  key={`${entry.userId}-${i}`}
+                  key={entry.userId}
                   sx={{
                     display: "flex",
                     alignItems: "center",
@@ -977,7 +1107,7 @@ export default function VoucherView() {
                       flexShrink: 0,
                     }}
                   >
-                    {entry.userName.charAt(0).toUpperCase()}
+                    {entry.displayName.charAt(0).toUpperCase()}
                   </Avatar>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p
@@ -991,7 +1121,7 @@ export default function VoucherView() {
                         whiteSpace: "nowrap",
                       }}
                     >
-                      {entry.userName}
+                      {entry.displayName}
                     </p>
                     <p
                       style={{
@@ -1005,6 +1135,17 @@ export default function VoucherView() {
                         hour: "2-digit",
                         minute: "2-digit",
                       })}
+                      {entry.discountApplied > 0 && (
+                        <span
+                          style={{
+                            marginLeft: 6,
+                            color: "#4ade80",
+                            fontWeight: 600,
+                          }}
+                        >
+                          -{entry.discountApplied} EGP
+                        </span>
+                      )}
                     </p>
                   </div>
                 </Box>

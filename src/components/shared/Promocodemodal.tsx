@@ -1,16 +1,27 @@
 /**
- * PromoCodeModal.tsx — fully localised (EN/AR)
+ * src/components/shared/Promocodemodal.tsx
+ *
+ * Redesigned voucher flow:
+ *
+ * OLD: validate in client → join → recordVoucherUsage() separately (3 operations, not atomic)
+ *
+ * NEW:
+ *   Step 1: User types code → call validateVoucher CF (read-only, shows preview)
+ *   Step 2: User clicks apply → store voucher in parent state (no write yet)
+ *   Step 3: On checkout submit → call applyVoucher CF (atomic transaction, all writes)
+ *
+ * The modal only calls validateVoucher — a cheap read-only Cloud Function.
+ * applyVoucher is called from AuctionRegisterPage after the user has joined.
+ *
+ * This way:
+ * - No wasted writes if user changes their mind
+ * - The atomic Cloud Function enforces all rules on submit
+ * - The UI shows accurate real-time feedback
  */
 
 import { useState } from "react";
-import {
-  collection,
-  getDocs,
-  query,
-  where,
-  Timestamp,
-} from "firebase/firestore";
-import { db } from "@/firebase/firebase";
+import { getFunctions, httpsCallable } from "firebase/functions";
+import app from "@/firebase/firebase";
 import type { Voucher } from "@/pages/Admin/Voucher/voucher-data";
 import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
@@ -20,42 +31,48 @@ interface SelectedAuction {
   entryType: "free" | "paid";
   entryFee: number;
 }
+
 interface Props {
-  selectedAuctions: SelectedAuction[];
+  // The single auction this voucher will apply to
+  // (modal is opened per-auction in the new flow)
+  auctionId: string;
   userId: string;
-  onApply: (voucher: Voucher) => void;
+  auctionEntryFee: number;
+  auctionEntryType: "free" | "paid";
+  onApply: (voucher: Voucher, preview: VoucherPreview) => void;
   onClose: () => void;
 }
 
-function parseVoucher(id: string, d: Record<string, any>): Voucher {
-  return {
-    id,
-    code: d.code ?? "",
-    type: d.type ?? "join",
-    discountAmount: d.discountAmount ?? null,
-    applicableAuctions: Array.isArray(d.applicableAuctions)
-      ? d.applicableAuctions
-      : Array.isArray(d.applicableProducts)
-        ? d.applicableProducts
-        : [],
-    maxUses: d.maxUses ?? 1,
-    usedBy: Array.isArray(d.usedBy) ? d.usedBy : [],
-    isActive: d.isActive ?? true,
-    expiryDate:
-      d.expiryDate instanceof Timestamp
-        ? d.expiryDate.toDate()
-        : new Date(d.expiryDate ?? Date.now()),
-    createdAt:
-      d.createdAt instanceof Timestamp ? d.createdAt.toDate() : new Date(),
-    updatedAt:
-      d.updatedAt instanceof Timestamp ? d.updatedAt.toDate() : new Date(),
-    createdBy: d.createdBy ?? "",
-  };
+export interface VoucherPreview {
+  voucherId: string;
+  effectiveFee: number;
+  discountApplied: number;
+  type: string;
+  discountAmount: number | null;
 }
 
+interface ValidateResponse {
+  valid: boolean;
+  reason?: string;
+  voucherId?: string;
+  type?: string;
+  discountAmount?: number | null;
+  effectiveFee?: number;
+  discountApplied?: number;
+  remainingUses?: number;
+}
+
+const functions = getFunctions(app);
+const validateVoucherFn = httpsCallable<
+  { voucherCode: string; auctionId: string },
+  ValidateResponse
+>(functions, "validateVoucher");
+
 export default function PromoCodeModal({
-  selectedAuctions,
+  auctionId,
   userId,
+  auctionEntryFee,
+  auctionEntryType,
   onApply,
   onClose,
 }: Props) {
@@ -67,8 +84,7 @@ export default function PromoCodeModal({
   const [error, setError] = useState<{ text: string; isInfo: boolean } | null>(
     null,
   );
-  const [pendingVoucher, setPendingVoucher] = useState<Voucher | null>(null);
-  const [partialWarning, setPartialWarning] = useState<string>("");
+  const [preview, setPreview] = useState<ValidateResponse | null>(null);
 
   const handleValidate = async () => {
     const code = input.trim().toUpperCase();
@@ -79,115 +95,91 @@ export default function PromoCodeModal({
 
     setChecking(true);
     setError(null);
-    setPendingVoucher(null);
-    setPartialWarning("");
+    setPreview(null);
 
     try {
-      const snap = await getDocs(
-        query(collection(db, "vouchers"), where("code", "==", code)),
-      );
-      if (snap.empty) {
-        setError({ text: t("promoModal.errors.notFound"), isInfo: false });
-        return;
-      }
+      // Call the read-only Cloud Function — does NOT write anything
+      const result = await validateVoucherFn({ voucherCode: code, auctionId });
+      const data = result.data;
 
-      const v = parseVoucher(snap.docs[0].id, snap.docs[0].data());
-
-      if (!v.isActive) {
-        setError({ text: t("promoModal.errors.inactive"), isInfo: false });
-        return;
-      }
-      if (new Date() > v.expiryDate) {
+      if (!data.valid) {
         setError({
-          text: t("promoModal.errors.expired", {
-            date: v.expiryDate.toLocaleDateString(),
-          }),
+          text: data.reason ?? t("promoModal.errors.generic"),
           isInfo: false,
         });
         return;
       }
-      if (v.usedBy.length >= v.maxUses) {
-        setError({ text: t("promoModal.errors.maxUses"), isInfo: false });
-        return;
-      }
-      if (userId && v.usedBy.some((u: any) => u.userId === userId)) {
-        setError({ text: t("promoModal.errors.alreadyUsed"), isInfo: false });
-        return;
-      }
 
-      let coveredAuctions = selectedAuctions;
-      if (v.applicableAuctions.length > 0) {
-        coveredAuctions = selectedAuctions.filter((a) =>
-          v.applicableAuctions.includes(a.id),
-        );
-        if (coveredAuctions.length === 0) {
-          setError({
-            text: t("promoModal.errors.notApplicable"),
-            isInfo: false,
-          });
-          return;
-        }
-        if (coveredAuctions.length < selectedAuctions.length) {
-          const uncovered = selectedAuctions.length - coveredAuctions.length;
-          setPartialWarning(
-            t("promoModal.partial", {
-              covered: coveredAuctions.length,
-              total: selectedAuctions.length,
-              uncovered,
-            }),
-          );
-        }
-      }
+      // Show preview
+      setPreview(data);
 
-      if (v.type === "join" || v.type === "entry_discount") {
-        const hasPaidCovered = coveredAuctions.some(
-          (a) => a.entryType === "paid",
-        );
-        if (!hasPaidCovered) {
-          setError({ text: t("promoModal.errors.freeEntry"), isInfo: false });
-          return;
-        }
-      }
-
-      if (v.type === "discount") {
-        setPendingVoucher(v);
+      // For final_discount, show info message before confirming
+      if (data.type === "final_discount") {
         setError({
           text: t("promoModal.discountInfo", {
-            amount: (v.discountAmount ?? 0).toLocaleString(),
+            amount: (data.discountAmount ?? 0).toLocaleString(),
           }),
           isInfo: true,
         });
-        return;
       }
-
-      applyVoucher(v);
-    } catch {
-      setError({ text: t("promoModal.errors.generic"), isInfo: false });
+    } catch (err: any) {
+      // Cloud Function errors have a message property
+      const message =
+        err?.message?.replace("Firebase: ", "").replace(/ \(.+\)/, "") ??
+        t("promoModal.errors.generic");
+      setError({ text: message, isInfo: false });
     } finally {
       setChecking(false);
     }
   };
 
-  function applyVoucher(v: Voucher) {
-    onApply(v);
-    const amount = (v.discountAmount ?? 0).toLocaleString();
+  const handleApply = () => {
+    if (!preview || !preview.voucherId) return;
+
+    // Build a minimal Voucher object for the parent state
+    // The parent will pass this to applyVoucher CF on checkout
+    const voucher: Voucher = {
+      id: preview.voucherId,
+      code: input.trim().toUpperCase(),
+      type: preview.type as any,
+      discountAmount: preview.discountAmount ?? null,
+      applicableAuctions: [],
+      maxUses: 0, // not needed in parent state
+      usageCount: 0, // not needed in parent state
+      isActive: true,
+      expiryDate: new Date(), // not needed in parent state
+      createdAt: new Date(),
+      createdBy: "",
+    };
+
+    const voucherPreview: VoucherPreview = {
+      voucherId: preview.voucherId,
+      effectiveFee: preview.effectiveFee ?? auctionEntryFee,
+      discountApplied: preview.discountApplied ?? 0,
+      type: preview.type ?? "",
+      discountAmount: preview.discountAmount ?? null,
+    };
+
+    onApply(voucher, voucherPreview);
+
+    const amount = (preview.discountAmount ?? 0).toLocaleString();
     const msg =
-      v.type === "join"
+      preview.type === "entry_free"
         ? t("promoModal.toasts.join")
-        : v.type === "entry_discount"
+        : preview.type === "entry_discount"
           ? t("promoModal.toasts.entry_discount", { amount })
           : t("promoModal.toasts.discount", { amount });
     toast.success(msg);
-  }
+  };
 
   return (
     <>
       <style>{`
-        @keyframes pm-fadein { from{opacity:0} to{opacity:1} }
+        @keyframes pm-fadein  { from{opacity:0} to{opacity:1} }
         @keyframes pm-slidein { from{opacity:0;transform:translateY(24px) scale(0.97)} to{opacity:1;transform:translateY(0) scale(1)} }
-        @keyframes pm-spin { to{transform:rotate(360deg)} }
+        @keyframes pm-spin    { to{transform:rotate(360deg)} }
         .pm-overlay { position:fixed;inset:0;z-index:2000;background:rgba(4,8,16,0.82);backdrop-filter:blur(14px);display:flex;align-items:center;justify-content:center;padding:20px;animation:pm-fadein 0.2s ease both; }
-        .pm-modal { background:linear-gradient(160deg,#0f1e2e 0%,#070c18 100%);border:1px solid rgba(201,169,110,0.22);border-radius:26px;width:100%;max-width:420px;padding:36px 30px 28px;box-shadow:0 48px 96px rgba(0,0,0,0.72),0 0 0 1px rgba(201,169,110,0.06);position:relative;animation:pm-slidein 0.32s cubic-bezier(0.22,1,0.36,1) both; }
+        .pm-modal { background:linear-gradient(160deg,#0f1e2e 0%,#070c18 100%);border:1px solid rgba(201,169,110,0.22);border-radius:26px;width:100%;max-width:420px;padding:36px 30px 28px;box-shadow:0 48px 96px rgba(0,0,0,0.72);position:relative;animation:pm-slidein 0.32s cubic-bezier(0.22,1,0.36,1) both; }
         .pm-modal::before { content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(201,169,110,0.65),transparent);border-radius:26px 26px 0 0; }
         .pm-close { position:absolute;top:14px;inset-inline-end:14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:9px;width:34px;height:34px;cursor:pointer;color:rgba(229,224,198,0.35);font-size:16px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;line-height:1; }
         .pm-close:hover { background:rgba(248,113,113,0.1);color:#f87171;border-color:rgba(248,113,113,0.3); }
@@ -201,8 +193,13 @@ export default function PromoCodeModal({
         .pm-input-icon { position:absolute;right:16px;top:50%;transform:translateY(-50%);font-size:20px;pointer-events:none; }
         .pm-msg { font-size:12.5px;padding:10px 14px;border-radius:10px;margin-bottom:14px;line-height:1.6; }
         .pm-msg.error { color:#fca5a5;background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.22); }
-        .pm-msg.info { color:rgba(201,169,110,0.85);background:rgba(201,169,110,0.07);border:1px solid rgba(201,169,110,0.2); }
-        .pm-msg.warn { color:rgba(251,191,36,0.85);background:rgba(251,191,36,0.07);border:1px solid rgba(251,191,36,0.2); }
+        .pm-msg.info  { color:rgba(201,169,110,0.85);background:rgba(201,169,110,0.07);border:1px solid rgba(201,169,110,0.2); }
+        .pm-preview { background:rgba(74,222,128,0.06);border:1px solid rgba(74,222,128,0.25);border-radius:12px;padding:14px 16px;margin-bottom:14px; }
+        .pm-preview-row { display:flex;justify-content:space-between;align-items:center;font-size:13px;margin-bottom:6px; }
+        .pm-preview-row:last-child { margin-bottom:0; }
+        .pm-preview-label { color:rgba(229,224,198,0.45); }
+        .pm-preview-value { font-weight:700;color:#4ade80; }
+        .pm-preview-value.strike { text-decoration:line-through;color:rgba(229,224,198,0.3);font-weight:400; }
         .pm-btn { width:100%;height:52px;border:none;border-radius:13px;background:linear-gradient(135deg,#c9a96e 0%,#b8934a 100%);color:#09111a;font-family:'Outfit',system-ui,sans-serif;font-size:12px;font-weight:800;letter-spacing:0.18em;text-transform:uppercase;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px;transition:all 0.26s cubic-bezier(0.22,1,0.36,1);box-shadow:0 4px 22px rgba(201,169,110,0.22);margin-bottom:4px; }
         .pm-btn:hover:not(:disabled) { transform:translateY(-2px);box-shadow:0 10px 34px rgba(201,169,110,0.35); }
         .pm-btn:disabled { opacity:0.45;cursor:not-allowed;transform:none; }
@@ -239,8 +236,7 @@ export default function PromoCodeModal({
               onChange={(e) => {
                 setInput(e.target.value.toUpperCase());
                 setError(null);
-                setPendingVoucher(null);
-                setPartialWarning("");
+                setPreview(null);
               }}
               onKeyDown={(e) =>
                 e.key === "Enter" && !checking && handleValidate()
@@ -253,9 +249,7 @@ export default function PromoCodeModal({
             <span className="pm-input-icon">🎟️</span>
           </div>
 
-          {partialWarning && (
-            <div className="pm-msg warn">⚠️ {partialWarning}</div>
-          )}
+          {/* Error / info message */}
           {error && (
             <div className={`pm-msg ${error.isInfo ? "info" : "error"}`}>
               {error.isInfo ? "ℹ️ " : "✖ "}
@@ -263,22 +257,67 @@ export default function PromoCodeModal({
             </div>
           )}
 
-          {pendingVoucher ? (
+          {/* Valid voucher preview */}
+          {preview?.valid && (
+            <div className="pm-preview">
+              {preview.type !== "final_discount" ? (
+                <>
+                  <div className="pm-preview-row">
+                    <span className="pm-preview-label">Original fee</span>
+                    <span className="pm-preview-value strike">
+                      {auctionEntryFee.toLocaleString()} EGP
+                    </span>
+                  </div>
+                  <div className="pm-preview-row">
+                    <span className="pm-preview-label">You pay</span>
+                    <span className="pm-preview-value">
+                      {(preview.effectiveFee ?? 0) === 0
+                        ? "FREE ✓"
+                        : `${(preview.effectiveFee ?? 0).toLocaleString()} EGP`}
+                    </span>
+                  </div>
+                  <div className="pm-preview-row">
+                    <span className="pm-preview-label">You save</span>
+                    <span className="pm-preview-value">
+                      {(preview.discountApplied ?? 0).toLocaleString()} EGP
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <div className="pm-preview-row">
+                  <span className="pm-preview-label">Final price discount</span>
+                  <span className="pm-preview-value">
+                    {(preview.discountAmount ?? 0).toLocaleString()} EGP off
+                    winning bid
+                  </span>
+                </div>
+              )}
+              {preview.remainingUses !== undefined && (
+                <div className="pm-preview-row">
+                  <span className="pm-preview-label">Uses left</span>
+                  <span
+                    className="pm-preview-value"
+                    style={{ color: "rgba(201,169,110,0.8)" }}
+                  >
+                    {preview.remainingUses}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Buttons */}
+          {preview?.valid ? (
             <>
-              <button
-                className="pm-btn"
-                onClick={() => {
-                  setChecking(false);
-                  applyVoucher(pendingVoucher);
-                }}
-              >
+              <button className="pm-btn" onClick={handleApply}>
                 {t("promoModal.applyAnyway")}
               </button>
               <button
                 className="pm-btn-ghost"
                 onClick={() => {
-                  setPendingVoucher(null);
+                  setPreview(null);
                   setError(null);
+                  setInput("");
                 }}
               >
                 {t("promoModal.differentCode")}

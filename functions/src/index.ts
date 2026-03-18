@@ -39,3 +39,8 @@ export { onUserWritten, onProductWritten, onAuctionWritten,
         
 export { onTransactionCreated, onTransactionDeleted, rebuildFinanceStats } from "./Finance/finance";
 
+
+// ── Vouchers ──────────────────────────────────────────────────────────────────
+// applyVoucher  — atomic transaction: validates + applies voucher in one shot
+// validateVoucher — read-only pre-flight check for UI feedback
+export { applyVoucher, validateVoucher } from "./Vouchers/voucherService";

@@ -55,7 +55,7 @@ import {
 import { useVouchers } from "@/store/AdminContext/VoucherContext/VoucherContext";
 import { usePermissions } from "@/permissions/usePermissions";
 
-// ─── Auction cache (loaded once for display in the list) ─────────────────────
+// ─── Auction meta cache ───────────────────────────────────────────────────────
 
 interface AuctionMeta {
   id: string;
@@ -112,7 +112,6 @@ export default function VouchersList() {
   const [voucherToDelete, setVoucherToDelete] = useState<Voucher | null>(null);
   const [loadingDelete, setLoadingDelete] = useState(false);
 
-  // Auction meta cache
   const [auctionMeta, setAuctionMeta] = useState<Record<string, AuctionMeta>>(
     {},
   );
@@ -146,17 +145,19 @@ export default function VouchersList() {
     }
   };
 
-  // Stats
+  // Stats — updated to use new type names
   const activeCount = vouchers.filter(
     (v) => getVoucherStatusLabel(v) === "active",
   ).length;
   const expiredCount = vouchers.filter(
     (v) => getVoucherStatusLabel(v) === "expired",
   ).length;
-  const joinCount = vouchers.filter((v) => v.type === "join").length;
-  const discountCount = vouchers.filter((v) => v.type === "discount").length;
+  const freeEntryCount = vouchers.filter((v) => v.type === "entry_free").length;
   const entryDiscountCount = vouchers.filter(
     (v) => v.type === "entry_discount",
+  ).length;
+  const finalDiscountCount = vouchers.filter(
+    (v) => v.type === "final_discount",
   ).length;
 
   const paginated = filtered.slice(
@@ -289,7 +290,7 @@ export default function VouchersList() {
         </Box>
       </Box>
 
-      {/* Stats */}
+      {/* Stats — updated labels */}
       <Box
         sx={{
           display: "grid",
@@ -314,15 +315,19 @@ export default function VouchersList() {
             icon: <CheckCircle2 size={20} />,
           },
           { label: "Expired", value: expiredCount, icon: <Clock size={20} /> },
-          { label: "Join / Entry", value: joinCount, icon: <Tag size={20} /> },
           {
-            label: "Final Discount",
-            value: discountCount,
+            label: "Free Entry",
+            value: freeEntryCount,
             icon: <Tag size={20} />,
           },
           {
             label: "Entry Discount",
             value: entryDiscountCount,
+            icon: <Tag size={20} />,
+          },
+          {
+            label: "Final Discount",
+            value: finalDiscountCount,
             icon: <Tag size={20} />,
           },
         ].map(({ label, value, icon }) => (
@@ -502,6 +507,7 @@ export default function VouchersList() {
                   const statusLabel = getVoucherStatusLabel(voucher);
                   const statusStyle = getVoucherStatusStyle(statusLabel);
                   const typeStyle = getVoucherTypeStyle(voucher.type);
+                  // usageCount replaces usedBy.length
                   const usageCount = getUsageCount(voucher);
 
                   return (
@@ -544,10 +550,10 @@ export default function VouchersList() {
                         />
                       </TableCell>
 
-                      {/* Discount */}
+                      {/* Discount — only entry_discount and final_discount have amounts */}
                       <TableCell>
-                        {(voucher.type === "discount" ||
-                          voucher.type === "entry_discount") &&
+                        {(voucher.type === "entry_discount" ||
+                          voucher.type === "final_discount") &&
                         voucher.discountAmount != null ? (
                           <span
                             style={{
@@ -628,7 +634,7 @@ export default function VouchersList() {
                         )}
                       </TableCell>
 
-                      {/* Usage */}
+                      {/* Usage — reads from usageCount (atomic counter) */}
                       <TableCell>
                         <Box
                           sx={{

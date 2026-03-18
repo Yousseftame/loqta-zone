@@ -8,7 +8,6 @@ import {
   FormControlLabel,
   CircularProgress,
   Checkbox,
-  ListItemText,
   OutlinedInput,
   InputLabel,
   FormControl,
@@ -63,25 +62,27 @@ function generateCode(): string {
   ).join("");
 }
 
+// ─── Updated voucher types using new canonical names ─────────────────────────
+
 const VOUCHER_TYPES: { value: VoucherType; label: string; desc: string }[] = [
   {
-    value: "join",
-    label: "Join / Entry",
-    desc: "Allows the user to enter an auction for free, entry fee is fully waived.",
-  },
-  {
-    value: "discount",
-    label: "Final Price Discount",
-    desc: "Deducts a fixed amount (EGP) from the user's final winning bid price.",
+    value: "entry_free",
+    label: "Free Entry",
+    desc: "Allows the user to enter a paid auction for free — entry fee is fully waived.",
   },
   {
     value: "entry_discount",
     label: "Entry Fee Discount",
     desc: "Deducts a fixed amount (EGP) from the auction entry fee the user pays to join.",
   },
+  {
+    value: "final_discount",
+    label: "Final Price Discount",
+    desc: "Deducts a fixed amount (EGP) from the user's final winning bid price at settlement.",
+  },
 ];
 
-// ─── Auction option (enriched with product title) ─────────────────────────────
+// ─── Auction option ───────────────────────────────────────────────────────────
 
 interface AuctionOption {
   id: string;
@@ -95,14 +96,12 @@ async function loadAuctionOptions(): Promise<AuctionOption[]> {
   const snap = await getDocs(collection(db, "auctions"));
   if (snap.empty) return [];
 
-  // Collect unique productIds
   const productIds = [
     ...new Set(
       snap.docs.map((d) => d.data().productId).filter(Boolean) as string[],
     ),
   ];
 
-  // Batch-fetch product titles
   const titleMap: Record<string, string> = {};
   await Promise.all(
     productIds.map(async (pid) => {
@@ -137,10 +136,9 @@ async function loadAuctionOptions(): Promise<AuctionOption[]> {
         status,
       };
     })
-    .sort((a, b) => b.auctionNumber - a.auctionNumber); // newest first
+    .sort((a, b) => b.auctionNumber - a.auctionNumber);
 }
 
-// Status dot colour
 function statusColor(s: AuctionOption["status"]): string {
   if (s === "live") return "#4ade80";
   if (s === "upcoming") return "#93c5fd";
@@ -160,11 +158,9 @@ export default function VoucherForm() {
   const [saving, setSaving] = useState(false);
   const [loadingVoucher, setLoadingVoucher] = useState(isEdit);
 
-  // Auction options (loaded once)
   const [auctionOptions, setAuctionOptions] = useState<AuctionOption[]>([]);
   const [loadingAuctions, setLoadingAuctions] = useState(true);
 
-  // Load auctions on mount
   useEffect(() => {
     loadAuctionOptions()
       .then(setAuctionOptions)
@@ -172,7 +168,6 @@ export default function VoucherForm() {
       .finally(() => setLoadingAuctions(false));
   }, []);
 
-  // Load existing voucher for edit mode
   useEffect(() => {
     if (!isEdit || !id) return;
     (async () => {
@@ -199,8 +194,9 @@ export default function VoucherForm() {
     setErrors((e) => ({ ...e, [key]: "" }));
   };
 
+  // entry_discount and final_discount need a numeric discount amount
   const needsAmount =
-    form.type === "discount" || form.type === "entry_discount";
+    form.type === "entry_discount" || form.type === "final_discount";
 
   const validate = () => {
     const e: Record<string, string> = {};
@@ -245,7 +241,6 @@ export default function VoucherForm() {
     }
   };
 
-  // Lookup helper — auction label for display
   const auctionLabel = (auctionId: string): string => {
     const opt = auctionOptions.find((a) => a.id === auctionId);
     if (!opt) return auctionId.slice(0, 8) + "…";
@@ -429,7 +424,8 @@ export default function VoucherForm() {
                     key={value}
                     onClick={() => {
                       field("type", value);
-                      if (value === "join") field("discountAmount", "");
+                      // Clear discount amount when switching to entry_free
+                      if (value === "entry_free") field("discountAmount", "");
                     }}
                     sx={{
                       flex: { xs: "1 1 100%", sm: "1 1 calc(33% - 8px)" },
@@ -471,7 +467,7 @@ export default function VoucherForm() {
             </Box>
           </Box>
 
-          {/* Discount Amount */}
+          {/* Discount Amount — only for entry_discount and final_discount */}
           {needsAmount && (
             <Box
               sx={{
@@ -482,7 +478,7 @@ export default function VoucherForm() {
             >
               <TextField
                 label={
-                  form.type === "discount"
+                  form.type === "final_discount"
                     ? "Discount Amount (EGP) *"
                     : "Entry Fee Discount (EGP) *"
                 }
@@ -496,8 +492,8 @@ export default function VoucherForm() {
                 error={!!errors.discountAmount}
                 helperText={
                   errors.discountAmount ||
-                  (form.type === "discount"
-                    ? "Amount deducted from the final auction price"
+                  (form.type === "final_discount"
+                    ? "Amount deducted from the final winning bid price"
                     : "Amount deducted from the auction entry fee")
                 }
                 inputProps={{ inputMode: "decimal" }}
@@ -517,7 +513,7 @@ export default function VoucherForm() {
             </Box>
           )}
 
-          {/* ── Applicable Auctions ───────────────────────────────────────── */}
+          {/* Applicable Auctions */}
           <FormControl
             size="small"
             fullWidth
@@ -568,7 +564,6 @@ export default function VoucherForm() {
                         "&.Mui-checked": { color: colors.primary },
                       }}
                     />
-                    {/* Status dot + product title + auction number */}
                     <Box
                       sx={{
                         display: "flex",
@@ -577,7 +572,6 @@ export default function VoucherForm() {
                         minWidth: 0,
                       }}
                     >
-                      {/* Status indicator */}
                       <Box
                         sx={{
                           width: 8,
@@ -730,12 +724,12 @@ export default function VoucherForm() {
               }}
             >
               <strong>Note:</strong>{" "}
-              {form.type === "join" &&
-                "A Join voucher allows users to enter a paid auction without paying the entry fee."}
-              {form.type === "discount" &&
-                `A Final Price Discount voucher deducts ${form.discountAmount ? form.discountAmount + " EGP" : "the specified amount"} from the user's final winning bid price.`}
+              {form.type === "entry_free" &&
+                "A Free Entry voucher allows users to enter a paid auction without paying the entry fee."}
               {form.type === "entry_discount" &&
-                `An Entry Fee Discount voucher deducts ${form.discountAmount ? form.discountAmount + " EGP" : "the specified amount"} from the auction entry fee when the user joins.`}{" "}
+                `An Entry Fee Discount voucher deducts ${form.discountAmount ? form.discountAmount + " EGP" : "the specified amount"} from the auction entry fee when the user joins.`}
+              {form.type === "final_discount" &&
+                `A Final Price Discount voucher deducts ${form.discountAmount ? form.discountAmount + " EGP" : "the specified amount"} from the user's final winning bid price at settlement.`}{" "}
               {form.applicableAuctions.length === 0
                 ? "This voucher will be valid for all auctions."
                 : `This voucher is restricted to ${form.applicableAuctions.length} selected auction(s).`}

@@ -1,42 +1,53 @@
+// src/pages/Admin/Voucher/voucher-data.ts
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type VoucherType = "join" | "discount" | "entry_discount";
+// New canonical type names (backward-compat mapper in docToVoucher in the service)
+// "join"     → "entry_free"
+// "discount" → "final_discount"
+export type VoucherType = "entry_free" | "entry_discount" | "final_discount";
 
-export interface UsedByEntry {
-  userId: string;
-  userName: string;
-  usedAt: Date;
+// Subcollection: vouchers/{voucherId}/usages/{userId}
+// Replaces the old usedBy array — queried via fetchVoucherUsages()
+export interface VoucherUsage {
+  userId:          string;
+  auctionId:       string;
+  voucherCode:     string;
+  discountApplied: number;
+  effectiveFee:    number;
+  type:            VoucherType;
+  usedAt:          Date;
 }
 
 export interface Voucher {
-  id: string;
-  code: string;
-  type: VoucherType;
-  discountAmount: number | null; // used for "discount" (final price) and "entry_discount"
-  applicableAuctions: string[];  // array of auction IDs — empty means ALL auctions
-  maxUses: number;
-  usedBy: UsedByEntry[];
-  isActive: boolean;
-  expiryDate: Date;
-  createdAt: Date;
-  updatedAt: Date;
-  createdBy: string;
+  id:                 string;
+  code:               string;
+  type:               VoucherType;
+  discountAmount:     number | null;  // null for entry_free
+  applicableAuctions: string[];       // empty = all auctions
+  maxUses:            number;
+  usageCount:         number;         // atomic counter — replaces usedBy array
+  isActive:           boolean;
+  expiryDate:         Date;
+  createdAt:          Date;
+  createdBy:          string;
+  // usedBy[] is REMOVED — use fetchVoucherUsages() to read the subcollection
 }
 
 export interface VoucherFormData {
-  code: string;
-  type: VoucherType;
-  discountAmount: string;        // used for "discount" and "entry_discount"
-  applicableAuctions: string[];  // auction IDs — empty means ALL auctions
-  maxUses: string;
-  isActive: boolean;
-  expiryDate: string;            // ISO string from datetime-local input
+  code:               string;
+  type:               VoucherType;
+  discountAmount:     string;
+  applicableAuctions: string[];
+  maxUses:            string;
+  isActive:           boolean;
+  expiryDate:         string;
 }
 
 // ─── Computed helpers ─────────────────────────────────────────────────────────
 
 export function getUsageCount(voucher: Voucher): number {
-  return voucher.usedBy.length;
+  return voucher.usageCount;
 }
 
 export function isVoucherExpired(voucher: Voucher): boolean {
@@ -48,7 +59,7 @@ export function getVoucherStatusLabel(
 ): "active" | "expired" | "maxed" | "inactive" {
   if (!voucher.isActive) return "inactive";
   if (isVoucherExpired(voucher)) return "expired";
-  if (getUsageCount(voucher) >= voucher.maxUses) return "maxed";
+  if (voucher.usageCount >= voucher.maxUses) return "maxed";
   return "active";
 }
 
@@ -67,33 +78,54 @@ export function getVoucherStatusStyle(
 
 export function getVoucherTypeLabel(type: VoucherType): string {
   switch (type) {
-    case "join":           return "Join / Entry";
-    case "discount":       return "Final Price Discount";
-    case "entry_discount": return "Entry Fee Discount";
+    case "entry_free":      return "Free Entry";
+    case "entry_discount":  return "Entry Fee Discount";
+    case "final_discount":  return "Final Price Discount";
   }
 }
 
 export function getVoucherTypeStyle(type: VoucherType) {
   switch (type) {
-    case "join":           return { bg: "#EFF6FF", color: "#3B82F6" };
-    case "discount":       return { bg: "#F3E8FF", color: "#7C3AED" };
+    case "entry_free":     return { bg: "#EFF6FF", color: "#3B82F6" };
     case "entry_discount": return { bg: "#FFF7ED", color: "#EA580C" };
+    case "final_discount": return { bg: "#F3E8FF", color: "#7C3AED" };
+  }
+}
+
+// ─── Discount computation — mirrors Cloud Function logic for UI preview ────────
+
+export function computeEffectiveFee(
+  type:           VoucherType,
+  originalFee:    number,
+  discountAmount: number | null,
+): { effectiveFee: number; discountApplied: number } {
+  switch (type) {
+    case "entry_free":
+      return { effectiveFee: 0, discountApplied: originalFee };
+
+    case "entry_discount": {
+      const discount  = discountAmount ?? 0;
+      const effective = Math.max(0, originalFee - discount);
+      return { effectiveFee: effective, discountApplied: originalFee - effective };
+    }
+
+    case "final_discount":
+      // Entry fee unchanged — discount hits the winning bid at settlement
+      return { effectiveFee: originalFee, discountApplied: 0 };
   }
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 export const DEFAULT_VOUCHER_FORM: VoucherFormData = {
-  code: "",
-  type: "join",
-  discountAmount: "",
+  code:               "",
+  type:               "entry_free",
+  discountAmount:     "",
   applicableAuctions: [],
-  maxUses: "",
-  isActive: true,
-  expiryDate: "",
+  maxUses:            "",
+  isActive:           true,
+  expiryDate:         "",
 };
-
-// ─── Format datetime-local ───────────────────────────────────────────────────
 
 export function toDatetimeLocal(d: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");

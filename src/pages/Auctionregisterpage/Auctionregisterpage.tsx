@@ -8,17 +8,29 @@ import {
   orderBy,
   doc,
   getDoc,
-  updateDoc,
-  arrayUnion,
   Timestamp,
 } from "firebase/firestore";
+import { getFunctions, httpsCallable } from "firebase/functions";
 import { db } from "@/firebase/firebase";
+import app from "@/firebase/firebase";
 import { joinAuctions } from "@/service/auctions/joinAuctionService";
 import { useAuth } from "@/store/AuthContext/AuthContext";
 import toast from "react-hot-toast";
 import type { Voucher } from "@/pages/Admin/Voucher/voucher-data";
-import PromoCodeModal from "@/components/shared/Promocodemodal";
+import PromoCodeModal, {
+  type VoucherPreview,
+} from "@/components/shared/Promocodemodal";
 import { useTranslation } from "react-i18next";
+
+// ─── applyVoucher Cloud Function callable ────────────────────────────────────
+
+const functions = getFunctions(app);
+const applyVoucherFn = httpsCallable<
+  { voucherCode: string; auctionId: string },
+  { effectiveFee: number; discountApplied: number; message: string }
+>(functions, "applyVoucher");
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Product {
   id: string;
@@ -36,6 +48,7 @@ interface Product {
   thumbnail: string | null;
   totalAuctions: number;
 }
+
 interface Auction {
   id: string;
   productId: string;
@@ -55,6 +68,12 @@ interface Auction {
   lastOfferEnabled: boolean;
 }
 
+// Per-auction voucher state
+interface AppliedVoucherEntry {
+  voucher: Voucher;
+  preview: VoucherPreview;
+}
+
 function fmtDate(d: Date) {
   return d.toLocaleDateString("en-GB", {
     weekday: "short",
@@ -65,6 +84,8 @@ function fmtDate(d: Date) {
 function fmtTime(d: Date) {
   return d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 }
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export default function AuctionRegisterPage() {
   const { productId } = useParams<{ productId: string }>();
@@ -78,16 +99,21 @@ export default function AuctionRegisterPage() {
   const [auctions, setAuctions] = useState<Auction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
   const [selectedAuctions, setSelectedAuctions] = useState<Set<string>>(
     new Set(),
   );
   const [agreed, setAgreed] = useState(false);
   const [checking, setChecking] = useState(false);
-  const [showPromoModal, setShowPromoModal] = useState(false);
-  const [appliedVoucher, setAppliedVoucher] = useState<Voucher | null>(null);
   const [joinedAuctionIds, setJoinedAuctionIds] = useState<Set<string>>(
     new Set(),
   );
+
+  // NEW: per-auction voucher map  { [auctionId]: { voucher, preview } }
+  const [showPromoFor, setShowPromoFor] = useState<string | null>(null);
+  const [appliedVouchers, setAppliedVouchers] = useState<
+    Record<string, AppliedVoucherEntry>
+  >({});
 
   // Gallery
   const [imgIndex, setImgIndex] = useState(0);
@@ -96,6 +122,8 @@ export default function AuctionRegisterPage() {
   const [imgAnimating, setImgAnimating] = useState(false);
   const autoSlideRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const animTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── Data load ──────────────────────────────────────────────────────────────
 
   useEffect(() => {
     if (!productId) return;
@@ -211,6 +239,8 @@ export default function AuctionRegisterPage() {
     };
   }, [productId, user?.uid]);
 
+  // ── Gallery ────────────────────────────────────────────────────────────────
+
   const allImages = product
     ? [
         ...new Set([
@@ -265,6 +295,8 @@ export default function AuctionRegisterPage() {
     startAutoSlide();
   }
 
+  // ── Selection ──────────────────────────────────────────────────────────────
+
   const toggleAuction = useCallback(
     (id: string) => {
       if (joinedAuctionIds.has(id)) {
@@ -273,7 +305,17 @@ export default function AuctionRegisterPage() {
       }
       setSelectedAuctions((prev) => {
         const next = new Set(prev);
-        next.has(id) ? next.delete(id) : next.add(id);
+        if (next.has(id)) {
+          next.delete(id);
+          // Clear any voucher applied to this auction when deselected
+          setAppliedVouchers((v) => {
+            const updated = { ...v };
+            delete updated[id];
+            return updated;
+          });
+        } else {
+          next.add(id);
+        }
         return next;
       });
     },
@@ -283,56 +325,57 @@ export default function AuctionRegisterPage() {
   const selectedList = auctions.filter(
     (a) => selectedAuctions.has(a.id) && !joinedAuctionIds.has(a.id),
   );
+
+  // ── Fee helpers ────────────────────────────────────────────────────────────
+
+  function getDisplayFee(auction: Auction): number {
+    if (auction.entryType !== "paid") return 0;
+    const applied = appliedVouchers[auction.id];
+    if (!applied) return auction.entryFee;
+    return applied.preview.effectiveFee;
+  }
+
   const rawTotal = selectedList.reduce(
-    (sum, a) => sum + (a.entryType === "paid" ? a.entryFee : 0),
+    (s, a) => s + (a.entryType === "paid" ? a.entryFee : 0),
     0,
   );
+  const discountedTotal = selectedList.reduce(
+    (s, a) => s + getDisplayFee(a),
+    0,
+  );
+  const totalSavings = rawTotal - discountedTotal;
 
-  function voucherApplicableAuctions(v: Voucher) {
-    if (v.applicableAuctions.length === 0) return selectedList;
-    return selectedList.filter((a) => v.applicableAuctions.includes(a.id));
-  }
+  // Paid auctions in selection without a voucher yet
+  const paidWithoutVoucher = selectedList.filter(
+    (a) => a.entryType === "paid" && !appliedVouchers[a.id],
+  );
 
-  function getDiscountedTotal(): number {
-    if (!appliedVoucher) return rawTotal;
-    const applicable = voucherApplicableAuctions(appliedVoucher);
-    const notApplicable = selectedList.filter(
-      (a) => !applicable.find((x) => x.id === a.id),
-    );
-    const baseOther = notApplicable.reduce(
-      (sum, a) => sum + (a.entryType === "paid" ? a.entryFee : 0),
-      0,
-    );
-    const baseApplicable = applicable.reduce(
-      (sum, a) => sum + (a.entryType === "paid" ? a.entryFee : 0),
-      0,
-    );
-    if (appliedVoucher.type === "join") return baseOther;
-    if (appliedVoucher.type === "entry_discount")
-      return (
-        baseOther +
-        Math.max(0, baseApplicable - (appliedVoucher.discountAmount ?? 0))
-      );
-    return rawTotal;
-  }
-
-  const total = getDiscountedTotal();
   const canCheckout = selectedList.length > 0 && agreed;
 
-  async function recordVoucherUsage(voucherId: string) {
-    if (!user) return;
-    try {
-      const userSnap = await getDoc(doc(db, "users", user.uid));
-      const userName = userSnap.exists()
-        ? (userSnap.data().fullName ?? userSnap.data().firstName ?? "Unknown")
-        : "Unknown";
-      await updateDoc(doc(db, "vouchers", voucherId), {
-        usedBy: arrayUnion({ userId: user.uid, userName, usedAt: new Date() }),
-      });
-    } catch {
-      console.warn("[promo] Failed to record voucher usage");
-    }
+  // ── Voucher helpers ────────────────────────────────────────────────────────
+
+  function removeVoucher(auctionId: string) {
+    setAppliedVouchers((v) => {
+      const updated = { ...v };
+      delete updated[auctionId];
+      return updated;
+    });
   }
+
+  function getVoucherDesc(entry: AppliedVoucherEntry): string {
+    const { voucher, preview } = entry;
+    if (voucher.type === "entry_free")
+      return t("auctionRegister.promoEntryWaived");
+    if (voucher.type === "entry_discount")
+      return t("auctionRegister.promoEntryDiscount", {
+        amount: preview.discountApplied.toLocaleString(),
+      });
+    return t("auctionRegister.promoFinalDiscount", {
+      amount: (voucher.discountAmount ?? 0).toLocaleString(),
+    });
+  }
+
+  // ── Checkout ───────────────────────────────────────────────────────────────
 
   const handleCheckout = async () => {
     if (!user) {
@@ -343,59 +386,73 @@ export default function AuctionRegisterPage() {
     }
     if (!canCheckout) return;
     setChecking(true);
+
     try {
-      const applicableIds = appliedVoucher
-        ? appliedVoucher.applicableAuctions.length > 0
-          ? new Set(appliedVoucher.applicableAuctions)
-          : null
-        : null;
-      const auctionsToJoin = selectedList.map((a) => {
-        if (!appliedVoucher)
-          return { id: a.id, entryType: a.entryType, entryFee: a.entryFee };
-        const isCovered = applicableIds === null || applicableIds.has(a.id);
-        if (!isCovered)
-          return { id: a.id, entryType: a.entryType, entryFee: a.entryFee };
-        if (appliedVoucher.type === "join")
-          return { id: a.id, entryType: "free" as const, entryFee: 0 };
-        if (
-          appliedVoucher.type === "entry_discount" &&
-          a.entryType === "paid"
-        ) {
-          const discounted = Math.max(
-            0,
-            a.entryFee - (appliedVoucher.discountAmount ?? 0),
-          );
-          return {
-            id: a.id,
-            entryType: (discounted === 0 ? "free" : "paid") as "free" | "paid",
-            entryFee: discounted,
-          };
-        }
-        return { id: a.id, entryType: a.entryType, entryFee: a.entryFee };
-      });
+      // STEP 1: Join auctions — clean, no voucher logic
+      const auctionsToJoin = selectedList.map((a) => ({
+        id: a.id,
+        entryType: a.entryType,
+        entryFee: a.entryFee,
+      }));
       const result = await joinAuctions(user.uid, auctionsToJoin);
+
       if (result.errors.length > 0)
         toast.error(
           isRtl
             ? `${result.errors.length} مزاد(ات) لم تُعالج.`
             : `${result.errors.length} auction(s) could not be processed.`,
         );
+
       if (result.skipped.length > 0)
         setJoinedAuctionIds((prev) => {
           const next = new Set(prev);
           result.skipped.forEach((id) => next.add(id));
           return next;
         });
+
       if (result.joined.length > 0) {
-        if (appliedVoucher) {
-          await recordVoucherUsage(appliedVoucher.id);
-          setAppliedVoucher(null);
-        }
+        // Update joined UI immediately
         setJoinedAuctionIds((prev) => {
           const next = new Set(prev);
           result.joined.forEach((id) => next.add(id));
           return next;
         });
+
+        // STEP 2: Apply vouchers via Cloud Function — atomic Firestore transaction
+        const voucherAuctions = result.joined.filter(
+          (id) => appliedVouchers[id],
+        );
+
+        if (voucherAuctions.length > 0) {
+          const voucherResults = await Promise.allSettled(
+            voucherAuctions.map((auctionId) =>
+              applyVoucherFn({
+                voucherCode: appliedVouchers[auctionId].voucher.code,
+                auctionId,
+              }),
+            ),
+          );
+
+          const failed = voucherResults.filter((r) => r.status === "rejected");
+          if (failed.length > 0) {
+            // Join succeeded but voucher failed — user registered at full price
+            toast.error(
+              isRtl
+                ? "تم التسجيل ولكن فشل تطبيق القسيمة — ستدفع السعر الكامل."
+                : "Registered successfully, but voucher could not be applied. Full price charged.",
+            );
+          } else {
+            toast.success(
+              isRtl
+                ? "تم تطبيق القسيمة بنجاح! ✓"
+                : "Voucher applied successfully! ✓",
+            );
+          }
+        }
+
+        // Clear voucher state
+        setAppliedVouchers({});
+
         toast.success(
           isRtl
             ? `تم التسجيل في ${result.joined.length} مزاد(ات) بنجاح!`
@@ -414,6 +471,8 @@ export default function AuctionRegisterPage() {
       setChecking(false);
     }
   };
+
+  // ── Loading / error ────────────────────────────────────────────────────────
 
   if (loading)
     return (
@@ -497,6 +556,8 @@ export default function AuctionRegisterPage() {
         </div>
       </div>
     );
+
+  // ── Main render ────────────────────────────────────────────────────────────
 
   return (
     <>
@@ -633,15 +694,18 @@ export default function AuctionRegisterPage() {
         .lz-cta.go:hover .lz-shine { transform:translateX(200%); }
         .lz-spinner { width:15px; height:15px; border:2px solid rgba(9,17,26,0.2); border-top-color:#09111a; border-radius:50%; animation:lz-spin 0.8s linear infinite; }
         .lz-secure { text-align:center; font-size:10px; color:rgba(229,224,198,0.18); margin-top:12px; letter-spacing:0.1em; }
-        .lz-promo-btn { width:100%; height:44px; border:1px dashed rgba(201,169,110,0.35); border-radius:12px; background:transparent; color:rgba(201,169,110,0.7); font-family:'Outfit',system-ui,sans-serif; font-size:11px; font-weight:700; letter-spacing:0.16em; text-transform:uppercase; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; transition:all 0.25s cubic-bezier(0.22,1,0.36,1); margin-bottom:14px; }
+        .lz-promo-btn { width:100%; height:40px; border:1px dashed rgba(201,169,110,0.35); border-radius:10px; background:transparent; color:rgba(201,169,110,0.7); font-family:'Outfit',system-ui,sans-serif; font-size:10px; font-weight:700; letter-spacing:0.14em; text-transform:uppercase; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:7px; transition:all 0.25s cubic-bezier(0.22,1,0.36,1); margin-top:10px; }
         .lz-promo-btn:hover { border-color:rgba(201,169,110,0.65); color:#c9a96e; background:rgba(201,169,110,0.05); }
-        .lz-promo-applied { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; border-radius:10px; background:rgba(74,222,128,0.07); border:1px solid rgba(74,222,128,0.28); margin-bottom:14px; }
-        .lz-promo-applied-left { display:flex; align-items:center; gap:8px; }
-        .lz-promo-tag { font-family:monospace; font-size:13px; font-weight:700; color:#4ade80; letter-spacing:0.06em; }
-        .lz-promo-desc { font-size:11px; color:rgba(74,222,128,0.7); font-weight:500; }
-        .lz-promo-remove { background:none; border:none; cursor:pointer; color:rgba(229,224,198,0.25); font-size:16px; padding:0 2px; transition:color 0.2s; line-height:1; }
+        .lz-promo-applied { display:flex; align-items:center; justify-content:space-between; padding:8px 12px; border-radius:9px; background:rgba(74,222,128,0.07); border:1px solid rgba(74,222,128,0.28); margin-top:10px; }
+        .lz-promo-applied-left { display:flex; align-items:center; gap:7px; }
+        .lz-promo-tag { font-family:monospace; font-size:12px; font-weight:700; color:#4ade80; letter-spacing:0.06em; }
+        .lz-promo-desc { font-size:10px; color:rgba(74,222,128,0.7); font-weight:500; }
+        .lz-promo-remove { background:none; border:none; cursor:pointer; color:rgba(229,224,198,0.25); font-size:14px; padding:0 2px; transition:color 0.2s; line-height:1; }
         .lz-promo-remove:hover { color:#f87171; }
         .lz-promo-info { font-size:11px; color:rgba(201,169,110,0.6); padding:8px 12px; border-radius:8px; background:rgba(201,169,110,0.06); border:1px solid rgba(201,169,110,0.14); margin-bottom:14px; line-height:1.5; }
+        .lz-savings-row { display:flex; align-items:center; justify-content:space-between; padding:8px 12px; border-radius:8px; background:rgba(74,222,128,0.06); border:1px solid rgba(74,222,128,0.18); margin-bottom:14px; }
+        .lz-savings-label { font-size:11px; color:rgba(74,222,128,0.7); font-weight:600; letter-spacing:0.06em; }
+        .lz-savings-value { font-size:13px; font-weight:700; color:#4ade80; }
       `}</style>
 
       <div className="lz" dir={isRtl ? "rtl" : "ltr"}>
@@ -810,6 +874,8 @@ export default function AuctionRegisterPage() {
               auctions.map((a) => {
                 const isJoined = joinedAuctionIds.has(a.id);
                 const sel = !isJoined && selectedAuctions.has(a.id);
+                const applied = appliedVouchers[a.id];
+
                 return (
                   <div
                     key={a.id}
@@ -876,6 +942,50 @@ export default function AuctionRegisterPage() {
                           >
                             {t("auctionRegister.paidCheck")}
                           </div>
+                        ) : applied && a.entryType === "paid" ? (
+                          // Show discounted fee inline on the card
+                          <div
+                            style={{
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: 1,
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "baseline",
+                                gap: 3,
+                              }}
+                            >
+                              <span
+                                className="lz-mval"
+                                style={{
+                                  color: "#4ade80",
+                                  fontSize:
+                                    applied.preview.effectiveFee === 0
+                                      ? 15
+                                      : 20,
+                                }}
+                              >
+                                {applied.preview.effectiveFee === 0
+                                  ? t("auctionRegister.free")
+                                  : applied.preview.effectiveFee.toLocaleString()}
+                              </span>
+                              {applied.preview.effectiveFee > 0 && (
+                                <span className="lz-mcur">{cur}</span>
+                              )}
+                            </div>
+                            <span
+                              style={{
+                                fontSize: 10,
+                                color: "rgba(229,224,198,0.3)",
+                                textDecoration: "line-through",
+                              }}
+                            >
+                              {a.entryFee.toLocaleString()} {cur}
+                            </span>
+                          </div>
                         ) : (
                           <>
                             <span className="lz-mval">
@@ -900,14 +1010,58 @@ export default function AuctionRegisterPage() {
                           {isRtl ? "←" : "→"}
                         </span>
                       </button>
+                    ) : sel ? (
+                      <>
+                        <div className="lz-afoot">
+                          <span className="lz-afoot-t">
+                            {t("auctionRegister.tapRemove")}
+                          </span>
+                          <div className="lz-radio on">
+                            <div className="lz-rdot" />
+                          </div>
+                        </div>
+
+                        {/* Voucher button — only on paid auctions, only when selected */}
+                        {a.entryType === "paid" && (
+                          <div onClick={(e) => e.stopPropagation()}>
+                            {!applied ? (
+                              <button
+                                className="lz-promo-btn"
+                                onClick={() => setShowPromoFor(a.id)}
+                              >
+                                🏷️ {t("auctionRegister.promoBtn")}
+                              </button>
+                            ) : (
+                              <div className="lz-promo-applied">
+                                <div className="lz-promo-applied-left">
+                                  <span style={{ fontSize: 13 }}>✅</span>
+                                  <div>
+                                    <div className="lz-promo-tag">
+                                      {applied.voucher.code}
+                                    </div>
+                                    <div className="lz-promo-desc">
+                                      {getVoucherDesc(applied)}
+                                    </div>
+                                  </div>
+                                </div>
+                                <button
+                                  className="lz-promo-remove"
+                                  onClick={() => removeVoucher(a.id)}
+                                  title="Remove voucher"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </>
                     ) : (
                       <div className="lz-afoot">
                         <span className="lz-afoot-t">
-                          {sel
-                            ? t("auctionRegister.tapRemove")
-                            : t("auctionRegister.tapSelect")}
+                          {t("auctionRegister.tapSelect")}
                         </span>
-                        <div className={`lz-radio ${sel ? "on" : ""}`}>
+                        <div className="lz-radio">
                           <div className="lz-rdot" />
                         </div>
                       </div>
@@ -970,98 +1124,36 @@ export default function AuctionRegisterPage() {
                     </div>
                   </div>
 
-                  {/* Promo section */}
-                  {!appliedVoucher ? (
-                    <button
-                      className="lz-promo-btn"
-                      onClick={() => setShowPromoModal(true)}
-                    >
-                      {t("auctionRegister.promoBtn")}
-                    </button>
-                  ) : (
-                    <>
-                      <div className="lz-promo-applied">
-                        <div className="lz-promo-applied-left">
-                          <span style={{ fontSize: 16 }}>✅</span>
-                          <div>
-                            <div className="lz-promo-tag">
-                              {appliedVoucher.code}
-                            </div>
-                            <div className="lz-promo-desc">
-                              {appliedVoucher.type === "join"
-                                ? t("auctionRegister.promoEntryWaived")
-                                : appliedVoucher.type === "entry_discount"
-                                  ? t("auctionRegister.promoEntryDiscount", {
-                                      amount: (
-                                        appliedVoucher.discountAmount ?? 0
-                                      ).toLocaleString(),
-                                    })
-                                  : t("auctionRegister.promoFinalDiscount", {
-                                      amount: (
-                                        appliedVoucher.discountAmount ?? 0
-                                      ).toLocaleString(),
-                                    })}
-                              {appliedVoucher.applicableAuctions.length > 0 &&
-                                (() => {
-                                  const covered = selectedList.filter((a) =>
-                                    appliedVoucher.applicableAuctions.includes(
-                                      a.id,
-                                    ),
-                                  ).length;
-                                  if (covered < selectedList.length)
-                                    return (
-                                      <span
-                                        style={{
-                                          color: "rgba(201,169,110,0.7)",
-                                          marginInlineStart: 6,
-                                        }}
-                                      >
-                                        {t("auctionRegister.promoPartialNote", {
-                                          covered,
-                                          total: selectedList.length,
-                                        })}
-                                      </span>
-                                    );
-                                  return null;
-                                })()}
-                            </div>
-                          </div>
-                        </div>
-                        <button
-                          className="lz-promo-remove"
-                          onClick={() => setAppliedVoucher(null)}
-                          title="Remove"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                      {appliedVoucher.applicableAuctions.length > 0 &&
-                        selectedList.some(
-                          (a) =>
-                            !appliedVoucher.applicableAuctions.includes(a.id),
-                        ) && (
-                          <div className="lz-promo-info">
-                            {t("auctionRegister.promoPartialInfo", {
-                              covered: selectedList.filter((a) =>
-                                appliedVoucher.applicableAuctions.includes(
-                                  a.id,
-                                ),
-                              ).length,
-                              rest: selectedList.filter(
-                                (a) =>
-                                  !appliedVoucher.applicableAuctions.includes(
-                                    a.id,
-                                  ),
-                              ).length,
-                            })}
-                          </div>
-                        )}
-                      {appliedVoucher.type === "discount" && (
-                        <div className="lz-promo-info">
-                          {t("auctionRegister.promoFinalInfo")}
-                        </div>
-                      )}
-                    </>
+                  {/* Total savings summary */}
+                  {totalSavings > 0 && (
+                    <div className="lz-savings-row">
+                      <span className="lz-savings-label">
+                        🎉 {t("auctionRegister.totalSavings")}
+                      </span>
+                      <span className="lz-savings-value">
+                        -{totalSavings.toLocaleString()} {cur}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Subtle hint if there are paid auctions without a voucher */}
+                  {paidWithoutVoucher.length > 0 && selectedList.length > 0 && (
+                    <div className="lz-promo-info">
+                      🏷️{" "}
+                      {t("auctionRegister.promoHint", {
+                        count: paidWithoutVoucher.length,
+                      })}
+                    </div>
+                  )}
+
+                  {/* final_discount info note */}
+                  {selectedList.some(
+                    (a) =>
+                      appliedVouchers[a.id]?.voucher.type === "final_discount",
+                  ) && (
+                    <div className="lz-promo-info">
+                      {t("auctionRegister.promoFinalInfo")}
+                    </div>
                   )}
 
                   {/* Total */}
@@ -1071,7 +1163,7 @@ export default function AuctionRegisterPage() {
                     </span>
                     {selectedList.length === 0 ? (
                       <span className="lz-tempty">—</span>
-                    ) : total === 0 ? (
+                    ) : discountedTotal === 0 ? (
                       <div
                         style={{
                           display: "flex",
@@ -1083,7 +1175,7 @@ export default function AuctionRegisterPage() {
                         <span className="lz-tfree">
                           {t("auctionRegister.freeEntryLabel")}
                         </span>
-                        {appliedVoucher && rawTotal > 0 && (
+                        {rawTotal > 0 && (
                           <span
                             style={{
                               fontSize: 11,
@@ -1108,26 +1200,23 @@ export default function AuctionRegisterPage() {
                       >
                         <span>
                           <span className="lz-tnum">
-                            {total.toLocaleString()}
+                            {discountedTotal.toLocaleString()}
                           </span>
                           <span className="lz-tcur">{cur}</span>
                         </span>
-                        {appliedVoucher &&
-                          (appliedVoucher.type === "entry_discount" ||
-                            appliedVoucher.type === "join") &&
-                          rawTotal > total && (
-                            <span
-                              style={{
-                                fontSize: 11,
-                                color: "rgba(74,222,128,0.45)",
-                                textDecoration: "line-through",
-                              }}
-                            >
-                              {t("auctionRegister.wasPrice", {
-                                price: rawTotal.toLocaleString(),
-                              })}
-                            </span>
-                          )}
+                        {totalSavings > 0 && (
+                          <span
+                            style={{
+                              fontSize: 11,
+                              color: "rgba(74,222,128,0.45)",
+                              textDecoration: "line-through",
+                            }}
+                          >
+                            {t("auctionRegister.wasPrice", {
+                              price: rawTotal.toLocaleString(),
+                            })}
+                          </span>
+                        )}
                       </div>
                     )}
                   </div>
@@ -1145,11 +1234,11 @@ export default function AuctionRegisterPage() {
                         {t("auctionRegister.processing")}
                       </>
                     ) : canCheckout ? (
-                      total === 0 ? (
+                      discountedTotal === 0 ? (
                         t("auctionRegister.registerFree")
                       ) : (
                         t("auctionRegister.checkoutBtn", {
-                          price: total.toLocaleString(),
+                          price: discountedTotal.toLocaleString(),
                         })
                       )
                     ) : selectedList.length === 0 ? (
@@ -1167,17 +1256,28 @@ export default function AuctionRegisterPage() {
         </div>
       </div>
 
-      {showPromoModal && (
-        <PromoCodeModal
-          selectedAuctions={selectedList}
-          userId={user?.uid ?? ""}
-          onApply={(voucher) => {
-            setAppliedVoucher(voucher);
-            setShowPromoModal(false);
-          }}
-          onClose={() => setShowPromoModal(false)}
-        />
-      )}
+      {/* Per-auction PromoCodeModal */}
+      {showPromoFor &&
+        (() => {
+          const targetAuction = auctions.find((a) => a.id === showPromoFor);
+          if (!targetAuction) return null;
+          return (
+            <PromoCodeModal
+              auctionId={showPromoFor}
+              userId={user?.uid ?? ""}
+              auctionEntryFee={targetAuction.entryFee}
+              auctionEntryType={targetAuction.entryType}
+              onApply={(voucher, preview) => {
+                setAppliedVouchers((v) => ({
+                  ...v,
+                  [showPromoFor]: { voucher, preview },
+                }));
+                setShowPromoFor(null);
+              }}
+              onClose={() => setShowPromoFor(null)}
+            />
+          );
+        })()}
     </>
   );
 }
