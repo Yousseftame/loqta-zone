@@ -67,7 +67,6 @@ async function fetchAuctionDetails(ids: string[]): Promise<AuctionDetail[]> {
     ids.map((id) => getDoc(doc(db, "auctions", id))),
   );
   const results: AuctionDetail[] = [];
-
   for (const snap of snaps) {
     if (!snap.exists()) continue;
     const d = snap.data();
@@ -80,7 +79,6 @@ async function fetchAuctionDetails(ids: string[]): Promise<AuctionDetail[]> {
     const now = new Date();
     const status: AuctionDetail["status"] =
       now < startTime ? "upcoming" : now <= endTime ? "live" : "ended";
-
     let productTitle = "";
     if (d.productId) {
       try {
@@ -90,7 +88,6 @@ async function fetchAuctionDetails(ids: string[]): Promise<AuctionDetail[]> {
         productTitle = "";
       }
     }
-
     results.push({
       id: snap.id,
       auctionNumber: d.auctionNumber ?? 0,
@@ -109,19 +106,28 @@ function statusDotColor(s: AuctionDetail["status"]): string {
   return "#f87171";
 }
 
-// ─── Fetch usages subcollection (replaces usedBy array) ──────────────────────
+// ─── Usage entry with resolved user info ─────────────────────────────────────
 
-async function fetchUsages(
+interface UsageWithUser extends VoucherUsage {
+  displayName: string; // resolved from users/{uid}
+}
+
+// Reads the vouchers/{id}/usages subcollection, then resolves display names.
+// Always runs — does NOT depend on usageCount being accurate (counter may lag on legacy docs).
+async function fetchUsagesWithNames(
   voucherId: string,
-  pageSize = 20,
-): Promise<VoucherUsage[]> {
+  pageSize = 50,
+): Promise<UsageWithUser[]> {
   const q = query(
     collection(db, "vouchers", voucherId, "usages"),
     orderBy("usedAt", "desc"),
     limit(pageSize),
   );
   const snap = await getDocs(q);
-  return snap.docs.map((d) => {
+  if (snap.empty) return [];
+
+  // Build raw usages (doc ID = userId)
+  const raw: VoucherUsage[] = snap.docs.map((d) => {
     const data = d.data();
     return {
       userId: d.id,
@@ -136,18 +142,34 @@ async function fetchUsages(
           : new Date(data.usedAt ?? Date.now()),
     } as VoucherUsage;
   });
-}
 
-// Resolve display name for a user uid
-async function resolveUserName(uid: string): Promise<string> {
-  try {
-    const snap = await getDoc(doc(db, "users", uid));
-    if (!snap.exists()) return uid.slice(0, 8) + "…";
-    const d = snap.data();
-    return d.fullName ?? d.displayName ?? d.firstName ?? uid.slice(0, 8) + "…";
-  } catch {
-    return uid.slice(0, 8) + "…";
-  }
+  // Resolve unique user display names in parallel
+  const uniqueUids = [...new Set(raw.map((u) => u.userId))];
+  const nameMap: Record<string, string> = {};
+  await Promise.all(
+    uniqueUids.map(async (uid) => {
+      try {
+        const userSnap = await getDoc(doc(db, "users", uid));
+        if (userSnap.exists()) {
+          const u = userSnap.data();
+          nameMap[uid] =
+            (u.fullName ??
+              u.displayName ??
+              `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim()) ||
+            uid.slice(0, 8) + "…";
+        } else {
+          nameMap[uid] = uid.slice(0, 8) + "…";
+        }
+      } catch {
+        nameMap[uid] = uid.slice(0, 8) + "…";
+      }
+    }),
+  );
+
+  return raw.map((u) => ({
+    ...u,
+    displayName: nameMap[u.userId] ?? u.userId.slice(0, 8) + "…",
+  }));
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -166,13 +188,12 @@ export default function VoucherView() {
   const [auctionDetails, setAuctionDetails] = useState<AuctionDetail[]>([]);
   const [loadingAuctions, setLoadingAuctions] = useState(false);
 
-  // Usage subcollection state (replaces voucher.usedBy)
-  const [usages, setUsages] = useState<
-    (VoucherUsage & { displayName: string })[]
-  >([]);
+  // Usages state — loaded automatically on mount
+  const [usages, setUsages] = useState<UsageWithUser[]>([]);
   const [loadingUsages, setLoadingUsages] = useState(false);
-  const [usagesLoaded, setUsagesLoaded] = useState(false);
+  const [usagesError, setUsagesError] = useState<string | null>(null);
 
+  // Load voucher + kick off usages fetch together
   useEffect(() => {
     if (!id) return;
     (async () => {
@@ -180,33 +201,33 @@ export default function VoucherView() {
       const v = await getVoucher(id);
       setVoucher(v);
       setLoading(false);
-      if (v && v.applicableAuctions.length > 0) {
+
+      if (!v) return;
+
+      // Fetch applicable auction details
+      if (v.applicableAuctions.length > 0) {
         setLoadingAuctions(true);
         fetchAuctionDetails(v.applicableAuctions)
           .then(setAuctionDetails)
           .catch(() => setAuctionDetails([]))
           .finally(() => setLoadingAuctions(false));
       }
+
+      // Always load usages immediately — don't wait for a button click.
+      // Works even when usageCount is stale on legacy docs.
+      loadUsagesForVoucher(id);
     })();
   }, [id, getVoucher]);
 
-  // Lazy-load usages when the "Used By" section is first viewed
-  async function loadUsages() {
-    if (!id || usagesLoaded) return;
+  async function loadUsagesForVoucher(voucherId: string) {
     setLoadingUsages(true);
+    setUsagesError(null);
     try {
-      const raw = await fetchUsages(id);
-      // Resolve display names in parallel
-      const withNames = await Promise.all(
-        raw.map(async (u) => ({
-          ...u,
-          displayName: await resolveUserName(u.userId),
-        })),
-      );
-      setUsages(withNames);
-      setUsagesLoaded(true);
-    } catch {
-      setUsages([]);
+      const result = await fetchUsagesWithNames(voucherId);
+      setUsages(result);
+    } catch (err: any) {
+      console.error("[VoucherView] fetchUsages failed:", err);
+      setUsagesError("Failed to load usage records. Click retry to try again.");
     } finally {
       setLoadingUsages(false);
     }
@@ -258,9 +279,8 @@ export default function VoucherView() {
   const statusStyle = getVoucherStatusStyle(statusLabel);
   const typeLabel = getVoucherTypeLabel(voucher.type);
   const typeStyle = getVoucherTypeStyle(voucher.type);
-  const usageCount = getUsageCount(voucher); // reads usageCount (atomic counter)
+  const usageCount = getUsageCount(voucher);
   const usagePct = Math.min((usageCount / voucher.maxUses) * 100, 100);
-  // entry_discount and final_discount both have a discountAmount
   const hasAmount =
     voucher.type === "entry_discount" || voucher.type === "final_discount";
 
@@ -330,7 +350,6 @@ export default function VoucherView() {
           >
             <Ticket size={32} color="#fff" />
           </Box>
-
           <Box sx={{ flex: 1 }}>
             <Box
               sx={{
@@ -388,7 +407,6 @@ export default function VoucherView() {
               ))}
             </Box>
           </Box>
-
           <Box sx={{ display: "flex", gap: 1.5, flexShrink: 0 }}>
             <Button
               startIcon={<Edit size={16} />}
@@ -692,7 +710,6 @@ export default function VoucherView() {
                 {value}
               </Box>
             ))}
-
             {/* Usage progress bar */}
             <Box>
               <p
@@ -950,7 +967,7 @@ export default function VoucherView() {
         </Paper>
       </Box>
 
-      {/* ── Used By — reads from subcollection (no more usedBy array) ── */}
+      {/* ── Used By — reads from usages subcollection ── */}
       <Paper
         elevation={0}
         sx={{
@@ -974,6 +991,7 @@ export default function VoucherView() {
             <Users size={18} style={{ color: colors.primary }} />
             <span style={{ fontWeight: 700, color: colors.textPrimary }}>
               Used By
+              {/* Show actual subcollection count once loaded, otherwise show counter */}
               <span
                 style={{
                   marginLeft: 8,
@@ -985,35 +1003,55 @@ export default function VoucherView() {
                   fontWeight: 700,
                 }}
               >
-                {usageCount}
+                {loadingUsages
+                  ? "…"
+                  : usages.length > 0
+                    ? usages.length
+                    : usageCount}
               </span>
             </span>
           </Box>
-          {/* Load button — lazy loads the subcollection */}
-          {!usagesLoaded && usageCount > 0 && (
-            <Button
-              size="small"
-              onClick={loadUsages}
-              disabled={loadingUsages}
-              startIcon={
-                loadingUsages ? (
-                  <CircularProgress size={12} />
-                ) : (
-                  <RefreshCw size={14} />
-                )
-              }
-              sx={{
-                textTransform: "none",
-                color: colors.primary,
-                fontSize: "0.78rem",
-              }}
-            >
-              {loadingUsages ? "Loading…" : "Load details"}
-            </Button>
-          )}
+          {/* Retry button — always visible so admin can force a re-fetch */}
+          <Button
+            size="small"
+            onClick={() => id && loadUsagesForVoucher(id)}
+            disabled={loadingUsages}
+            startIcon={
+              loadingUsages ? (
+                <CircularProgress size={12} />
+              ) : (
+                <RefreshCw size={14} />
+              )
+            }
+            sx={{
+              textTransform: "none",
+              color: colors.primary,
+              fontSize: "0.78rem",
+            }}
+          >
+            {loadingUsages ? "Loading…" : "Refresh"}
+          </Button>
         </Box>
 
-        {usageCount === 0 ? (
+        {loadingUsages ? (
+          <Box sx={{ display: "flex", justifyContent: "center", py: 5 }}>
+            <CircularProgress sx={{ color: colors.primary }} />
+          </Box>
+        ) : usagesError ? (
+          <Box sx={{ p: 3, textAlign: "center" }}>
+            <p style={{ color: colors.error, margin: "0 0 12px" }}>
+              {usagesError}
+            </p>
+            <Button
+              size="small"
+              onClick={() => id && loadUsagesForVoucher(id)}
+              startIcon={<RefreshCw size={14} />}
+              sx={{ textTransform: "none", color: colors.primary }}
+            >
+              Retry
+            </Button>
+          </Box>
+        ) : usages.length === 0 ? (
           <Box sx={{ p: 4, textAlign: "center" }}>
             <Users
               size={36}
@@ -1042,35 +1080,6 @@ export default function VoucherView() {
               This voucher code hasn't been redeemed by anyone yet.
             </p>
           </Box>
-        ) : !usagesLoaded ? (
-          <Box sx={{ p: 3, textAlign: "center" }}>
-            <p
-              style={{
-                color: colors.textMuted,
-                fontSize: "0.85rem",
-                margin: 0,
-              }}
-            >
-              {usageCount} use{usageCount !== 1 ? "s" : ""} recorded. Click
-              "Load details" to see who used it.
-            </p>
-          </Box>
-        ) : loadingUsages ? (
-          <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-            <CircularProgress size={24} sx={{ color: colors.primary }} />
-          </Box>
-        ) : usages.length === 0 ? (
-          <Box sx={{ p: 3, textAlign: "center" }}>
-            <p
-              style={{
-                color: colors.textMuted,
-                fontSize: "0.85rem",
-                margin: 0,
-              }}
-            >
-              No usage records found in subcollection.
-            </p>
-          </Box>
         ) : (
           <Box sx={{ p: 2 }}>
             <Box
@@ -1089,7 +1098,7 @@ export default function VoucherView() {
                   key={entry.userId}
                   sx={{
                     display: "flex",
-                    alignItems: "center",
+                    alignItems: "flex-start",
                     gap: 1.5,
                     p: 1.5,
                     borderRadius: 2,
@@ -1099,8 +1108,8 @@ export default function VoucherView() {
                 >
                   <Avatar
                     sx={{
-                      width: 36,
-                      height: 36,
+                      width: 38,
+                      height: 38,
                       bgcolor: colors.primary,
                       fontSize: "0.875rem",
                       fontWeight: 700,
@@ -1110,6 +1119,7 @@ export default function VoucherView() {
                     {entry.displayName.charAt(0).toUpperCase()}
                   </Avatar>
                   <div style={{ flex: 1, minWidth: 0 }}>
+                    {/* Display name */}
                     <p
                       style={{
                         margin: 0,
@@ -1123,9 +1133,24 @@ export default function VoucherView() {
                     >
                       {entry.displayName}
                     </p>
+                    {/* Raw user ID — always visible */}
                     <p
                       style={{
-                        margin: "2px 0 0",
+                        margin: "1px 0 0",
+                        fontFamily: "monospace",
+                        fontSize: "0.68rem",
+                        color: colors.textMuted,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {entry.userId}
+                    </p>
+                    {/* Date + discount */}
+                    <p
+                      style={{
+                        margin: "3px 0 0",
                         fontSize: "0.72rem",
                         color: colors.textMuted,
                       }}
@@ -1140,13 +1165,38 @@ export default function VoucherView() {
                           style={{
                             marginLeft: 6,
                             color: "#4ade80",
-                            fontWeight: 600,
+                            fontWeight: 700,
                           }}
                         >
-                          -{entry.discountApplied} EGP
+                          −{entry.discountApplied.toLocaleString()} EGP
                         </span>
                       )}
                     </p>
+                    {/* Auction ID if present */}
+                    {entry.auctionId && (
+                      <p
+                        style={{
+                          margin: "2px 0 0",
+                          fontSize: "0.68rem",
+                          color: colors.textMuted,
+                        }}
+                      >
+                        Auction:{" "}
+                        <span
+                          style={{
+                            color: colors.primary,
+                            cursor: "pointer",
+                            textDecoration: "underline",
+                            textUnderlineOffset: 2,
+                          }}
+                          onClick={() =>
+                            navigate(`/admin/auctions/${entry.auctionId}`)
+                          }
+                        >
+                          {entry.auctionId.slice(0, 12)}…
+                        </span>
+                      </p>
+                    )}
                   </div>
                 </Box>
               ))}

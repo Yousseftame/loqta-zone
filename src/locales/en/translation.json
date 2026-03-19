@@ -38,7 +38,7 @@
     "season": "2026 — Season I",
     "scroll": "Scroll"
   },
- "auctionSwiper": {
+  "auctionSwiper": {
     "eyebrow": "· Live Auctions ·",
     "titleLine1": "Upcoming",
     "titleLine2": "Auctions.",
@@ -643,7 +643,6 @@
       "eyebrow": "· Vision & Mission ·",
       "titleWord1": "Vision",
       "titleWord2": "Mission",
-
       "visionLabel": "Our Vision",
       "visionHeading": "To Lead the Digital Auction Space",
       "visionBody": "To become a leading digital auction marketplace where users enjoy the thrill of bidding while accessing genuine products at competitive prices.",
@@ -687,7 +686,6 @@
       }
     }
   },
-
   "termsPage": {
     "brand": "Loqta Zone",
     "pageTitle": "Terms & Conditions",
@@ -765,14 +763,8 @@
       {
         "title": "Auction Rules",
         "content": [
-          {
-            "type": "subheading",
-            "text": "4.1 Item Listings"
-          },
-          {
-            "type": "text",
-            "text": "All auction items are:"
-          },
+          { "type": "subheading", "text": "4.1 Item Listings" },
+          { "type": "text", "text": "All auction items are:" },
           {
             "type": "bullets",
             "items": [
@@ -785,10 +777,7 @@
             "type": "text",
             "text": "Loqta Zone reserves the right to modify auction details, remove items, or cancel auctions if necessary."
           },
-          {
-            "type": "subheading",
-            "text": "4.2 Bidding"
-          },
+          { "type": "subheading", "text": "4.2 Bidding" },
           {
             "type": "bullets",
             "items": [
@@ -798,14 +787,8 @@
               "The platform may use automatic bid increments."
             ]
           },
-          {
-            "type": "subheading",
-            "text": "4.3 Auction Completion"
-          },
-          {
-            "type": "text",
-            "text": "At the end of the auction:"
-          },
+          { "type": "subheading", "text": "4.3 Auction Completion" },
+          { "type": "text", "text": "At the end of the auction:" },
           {
             "type": "bullets",
             "items": [
@@ -823,10 +806,7 @@
             "type": "text",
             "text": "The winning bidder must complete payment within 24–48 hours of auction completion."
           },
-          {
-            "type": "text",
-            "text": "Accepted payment methods include:"
-          },
+          { "type": "text", "text": "Accepted payment methods include:" },
           {
             "type": "bullets",
             "items": [
@@ -845,10 +825,7 @@
       {
         "title": "Delivery & Shipping",
         "content": [
-          {
-            "type": "text",
-            "text": "After payment confirmation:"
-          },
+          { "type": "text", "text": "After payment confirmation:" },
           {
             "type": "bullets",
             "items": [
@@ -970,25 +947,15 @@
           {
             "type": "contact",
             "items": [
-              {
-                "label": "Support Team",
-                "value": "Loqta Zone Support"
-              },
-              {
-                "label": "Email",
-                "value": "support@loqtazone.com"
-              },
-              {
-                "label": "Website",
-                "value": "www.loqtazone.com"
-              }
+              { "label": "Support Team", "value": "Loqta Zone Support" },
+              { "label": "Email", "value": "support@loqtazone.com" },
+              { "label": "Website", "value": "www.loqtazone.com" }
             ]
           }
         ]
       }
     ]
   },
-
   "loginModal": {
     "eyebrow": "Access Required",
     "membersOnly": "Members Only",
@@ -999,7 +966,6 @@
     "cancelBtn": "Maybe Later",
     "trustNote": "Secure & encrypted · Free to join"
   },
-
   "auctionRegister": {
     "back": "Back",
     "breadcrumb": "Auction Registration",
@@ -1041,6 +1007,8 @@
     "promoPartialNote": "· {{covered}}/{{total}} auctions",
     "promoPartialInfo": "⚠️ This code only applies to {{covered}} of your selected auctions. The remaining {{rest}} will be charged at full price.",
     "promoFinalInfo": "ℹ️ This discount applies to your final winning bid price, not the entry fee. It'll be applied at payment time.",
+    "totalSavings": "Total Savings",
+    "promoHint": "{{count}} paid auction(s) selected — add a promo code to save",
     "brand": "Brand",
     "model": "Model",
     "category": "Category",
