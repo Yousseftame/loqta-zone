@@ -57,6 +57,10 @@ const Navbar = () => {
     role === "admin" || role === "superAdmin"
       ? ADMIN_MOBILE_ITEMS
       : USER_MOBILE_ITEMS;
+  
+  const visibleNavLinks = NAV_LINKS.filter(
+    (l) => l.labelKey !== "nav.cantFind" || !!user,
+  );
 
   useEffect(() => {
     const fn = () => {
@@ -186,7 +190,7 @@ const Navbar = () => {
               dir={i18n.language === "ar" ? "rtl" : "ltr"}
               className="flex items-center gap-8"
             >
-              {NAV_LINKS.map((l) => (
+              {visibleNavLinks.map((l) => (
                 <Link
                   key={l.labelKey}
                   to={l.to}
@@ -363,7 +367,7 @@ const Navbar = () => {
             flexShrink: 0,
           }}
         >
-          {NAV_LINKS.map((link, i) => {
+          {visibleNavLinks.map((link, i) => {
             const active = location.pathname === link.to;
             return (
               <Link

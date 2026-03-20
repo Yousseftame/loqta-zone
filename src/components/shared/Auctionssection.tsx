@@ -266,7 +266,6 @@ function CountdownUnit({ value, label }: { value: number; label: string }) {
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        // Desktop: original fixed width
         width: 68,
         gap: 8,
         flexShrink: 0,
@@ -364,8 +363,6 @@ function CountdownBar({ startsAt }: { startsAt: string }) {
   );
 
   return (
-    // Desktop: inline-flex (original — shrink-wraps to content)
-    // Mobile: full-width via .lz-cd-bar CSS class override
     <div
       dir="ltr"
       className="lz-cd-bar"
@@ -443,7 +440,7 @@ const UpcomingCard = memo(function UpcomingCard({
 }: {
   item: UpcomingAuction;
   index: number;
-  isLoggedIn: boolean; // FIX: added prop
+  isLoggedIn: boolean;
   onRegister: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -486,7 +483,6 @@ const UpcomingCard = memo(function UpcomingCard({
           ? "0 24px 64px rgba(0,0,0,0.5),inset 0 1px 0 rgba(255,255,255,0.07)"
           : "0 4px 24px rgba(0,0,0,0.2)",
         transition: `opacity 0.7s ease ${index * 0.1}s,transform 0.7s cubic-bezier(0.22,1,0.36,1) ${index * 0.1}s,background 0.3s ease,border-color 0.3s ease,box-shadow 0.3s ease`,
-        // FIX: prevent card itself from overflowing
         overflow: "hidden",
         minWidth: 0,
       }}
@@ -567,7 +563,6 @@ const UpcomingCard = memo(function UpcomingCard({
 
       <div
         style={{
-          // FIX: clamp padding on mobile, ensure no overflow
           padding: "20px clamp(16px, 4vw, 24px)",
           display: "flex",
           flexDirection: "column",
@@ -587,7 +582,6 @@ const UpcomingCard = memo(function UpcomingCard({
                 color: CREAM,
                 letterSpacing: "-0.01em",
                 lineHeight: 1.2,
-                // FIX: allow wrapping on narrow screens
                 wordBreak: "break-word",
               }}
             >
@@ -604,7 +598,6 @@ const UpcomingCard = memo(function UpcomingCard({
               {item.subtitle}
             </p>
           </div>
-          {/* FIX: button label depends on auth state */}
           <button
             className="ac-btn"
             onClick={onRegister}
@@ -660,7 +653,6 @@ const UpcomingCard = memo(function UpcomingCard({
               alignItems: "center",
               gap: 6,
               color: "rgba(229,224,198,0.5)",
-              // FIX: allow text to wrap instead of overflow
               flexWrap: "wrap",
               wordBreak: "break-word",
             }}
@@ -747,7 +739,6 @@ const UpcomingCard = memo(function UpcomingCard({
           >
             {t("auctionsSection.sessionStartsIn")}
           </div>
-          {/* overflow:hidden clips the bar if it's wider than the container on mobile */}
           <div style={{ overflow: "hidden" }}>
             <CountdownBar startsAt={item.startsAt} />
           </div>
@@ -756,6 +747,124 @@ const UpcomingCard = memo(function UpcomingCard({
     </div>
   );
 });
+
+// ─── Hammer Stamp SVG ────────────────────────────────────────────────────────
+function HammerStamp() {
+  return (
+    <div
+      style={{
+        position: "absolute",
+        bottom: 10,
+        left: "50%",
+        transform: "translateX(-50%) rotate(-12deg)",
+        pointerEvents: "none",
+        zIndex: 10,
+        // Outer stamp ring
+        width: 96,
+        height: 96,
+        borderRadius: "50%",
+        border: "4px solid rgba(200,30,30,0.92)",
+        boxShadow:
+          "0 0 0 2px rgba(200,30,30,0.18), 0 0 28px rgba(200,30,30,0.45), inset 0 0 20px rgba(200,30,30,0.12)",
+        background: "rgba(10,6,6,0.52)",
+        backdropFilter: "blur(4px)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        // Worn stamp feel
+        filter: "contrast(1.08) saturate(1.1)",
+      }}
+    >
+      {/* Inner thin ring */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 5,
+          borderRadius: "50%",
+          border: "1.5px solid rgba(200,30,30,0.45)",
+        }}
+      />
+
+      {/* Gavel SVG — big, red, centered */}
+      <svg
+        width="54"
+        height="54"
+        viewBox="0 0 48 48"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        style={{ position: "relative", zIndex: 1 }}
+      >
+        {/* Gavel head body */}
+        <rect
+          x="4"
+          y="16"
+          width="22"
+          height="9"
+          rx="2.5"
+          fill="rgba(200,30,30,0.22)"
+          stroke="rgba(220,40,40,0.95)"
+          strokeWidth="2.2"
+          transform="rotate(-45 15 20.5)"
+        />
+        {/* Strike face highlight */}
+        <rect
+          x="4"
+          y="16"
+          width="7"
+          height="9"
+          rx="2"
+          fill="rgba(220,40,40,0.38)"
+          stroke="rgba(230,50,50,0.95)"
+          strokeWidth="2"
+          transform="rotate(-45 15 20.5)"
+        />
+        {/* Handle */}
+        <line
+          x1="24"
+          y1="24"
+          x2="42"
+          y2="42"
+          stroke="rgba(220,40,40,0.9)"
+          strokeWidth="4"
+          strokeLinecap="round"
+        />
+        {/* Handle grip band */}
+        <line
+          x1="30"
+          y1="30"
+          x2="34"
+          y2="34"
+          stroke="rgba(200,30,30,0.55)"
+          strokeWidth="5"
+          strokeLinecap="round"
+        />
+        {/* Base / sound block */}
+        <rect
+          x="8"
+          y="42"
+          width="26"
+          height="4"
+          rx="2"
+          fill="rgba(200,30,30,0.35)"
+          stroke="rgba(210,40,40,0.8)"
+          strokeWidth="1.8"
+        />
+      </svg>
+
+      {/* Distress overlay — adds stamp grunge feel */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          borderRadius: "50%",
+          background:
+            "radial-gradient(ellipse at 30% 30%, rgba(255,255,255,0.04) 0%, transparent 60%)",
+          mixBlendMode: "overlay",
+        }}
+      />
+    </div>
+  );
+}
 
 const PastCard = memo(function PastCard({
   item,
@@ -863,29 +972,9 @@ const PastCard = memo(function PastCard({
               "linear-gradient(to right,transparent 40%,rgba(10,10,26,0.55))",
           }}
         />
-        <div
-          style={{
-            position: "absolute",
-            bottom: 12,
-            left: "50%",
-            transform: "translateX(-50%) rotate(-8deg)",
-            border: "3px solid rgba(180,40,40,0.9)",
-            borderRadius: 6,
-            padding: "5px 10px",
-            fontSize: 11,
-            fontWeight: 900,
-            color: "rgba(220,60,60,0.95)",
-            letterSpacing: "0.2em",
-            textTransform: "uppercase",
-            whiteSpace: "nowrap",
-            textShadow: "0 0 12px rgba(220,60,60,0.4)",
-            boxShadow: "inset 0 0 16px rgba(220,60,60,0.15)",
-            background: "rgba(10,10,26,0.5)",
-            fontFamily: "'Jost', sans-serif",
-          }}
-        >
-          {t("auctionsSection.soldOut")}
-        </div>
+
+        {/* ── HAMMER STAMP (replaces SOLD OUT text) ── */}
+        <HammerStamp />
       </div>
 
       <div
@@ -1251,7 +1340,6 @@ export default function AuctionsSection() {
         .tab-in  { animation: tabIn 0.38s cubic-bezier(0.22,1,0.36,1) forwards }
         .tab-out { opacity:0; transform:translateY(-8px); transition:opacity .2s ease,transform .2s ease }
 
-        /* FIX: card layout — side-by-side on ≥640, stacked on mobile */
         .ac { display:grid; grid-template-columns:220px 1fr; overflow:hidden; border-radius:20px; min-width:0; box-sizing:border-box; }
         .ac-img { position:relative; overflow:hidden; background:#0d1520; min-height:220px }
         .ac-top { display:flex; align-items:flex-start; justify-content:space-between; gap:16px }
@@ -1261,7 +1349,6 @@ export default function AuctionsSection() {
           .ac-img { height:200px !important; min-height:200px !important }
           .ac-top { flex-direction:column !important; align-items:stretch !important; gap:10px !important }
           .ac-btn { width:100% !important; padding:13px 0 !important; justify-content:center !important }
-          /* Countdown: on mobile make the bar full-width and units share space equally */
           .lz-cd-bar { display:flex !important; width:100% !important; box-sizing:border-box !important; padding:14px 12px 12px !important; }
           .lz-cd-unit { width:auto !important; flex:1 1 0 !important; min-width:0 !important; }
           .lz-cd-unit span:first-child { font-size:clamp(22px, 9vw, 40px) !important; min-width:0 !important; }
@@ -1486,7 +1573,6 @@ export default function AuctionsSection() {
           gap: 20,
           position: "relative",
           zIndex: 1,
-          // FIX: prevent content from exceeding viewport width
           width: "100%",
           boxSizing: "border-box",
           overflow: "hidden",

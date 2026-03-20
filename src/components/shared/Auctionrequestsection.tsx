@@ -633,7 +633,7 @@ export default function AuctionRequestSection() {
         .ar-section {
           position: relative;
           background: linear-gradient(180deg, #0c1828 0%, #0a0a1a 50%, #060610 100%);
-          padding: 100px 32px 120px;
+  padding: 140px 32px 120px;
           overflow: hidden;
           font-family: 'Jost', sans-serif;
         }
@@ -718,10 +718,10 @@ export default function AuctionRequestSection() {
           text-align: center;
         }
 
-        @media (max-width: 600px) {
-          .ar-urgency-grid { grid-template-columns: 1fr !important; }
-          .ar-section { padding: 70px 20px 90px; }
-        }
+       @media (max-width: 600px) {
+  .ar-urgency-grid { grid-template-columns: 1fr !important; }
+  .ar-section { padding: 110px 16px 80px; }
+}
       `}</style>
 
       <section className="ar-section" ref={sectionRef}>
