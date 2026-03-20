@@ -9,7 +9,9 @@
  *  3. Removes dead tokens automatically
  *  4. Stamps notifiedMatchedAt to prevent duplicate notifications
  *
- * 
+ * Updated: notification doc now stores productName and productId so the
+ * bell component can display the product name and navigate to the correct
+ * register page (/auction/register/{productId}).
  */
 
 import { onDocumentUpdated } from "firebase-functions/v2/firestore";
@@ -63,6 +65,18 @@ export const onAuctionRequestUpdated = onDocumentUpdated(
       return;
     }
 
+    // ── 3b. Fetch productId from the matched auction ──────────────────────────
+    // Needed so the bell can navigate to /auction/register/{productId}
+    let productId = "";
+    try {
+      const auctionSnap = await db.collection("auctions").doc(matchedAuctionId).get();
+      if (auctionSnap.exists) {
+        productId = auctionSnap.data()?.productId ?? "";
+      }
+    } catch (err) {
+      console.warn("[notifications] Could not fetch auction for productId:", err);
+    }
+
     const title = "Your requested item is now available! 🎉";
     const body  = `${productName} is now live in auctions. Place your bid now!`;
 
@@ -75,13 +89,15 @@ export const onAuctionRequestUpdated = onDocumentUpdated(
         .doc();
 
       await notifRef.set({
-        type:      "auction_matched",
+        type:        "auction_matched",
         requestId,
-        auctionId: matchedAuctionId,
+        auctionId:   matchedAuctionId,
+        productId,                        // ← NEW: stored for navigation
+        productName,                      // ← NEW: stored for display in bell
         title,
-        message:   body,
-        isRead:    false,
-        createdAt: FieldValue.serverTimestamp(),
+        message:     body,
+        isRead:      false,
+        createdAt:   FieldValue.serverTimestamp(),
       });
 
       console.log(`[notifications] In-app notification created: uid=${userId} notifId=${notifRef.id}`);
@@ -120,8 +136,11 @@ export const onAuctionRequestUpdated = onDocumentUpdated(
           type:        "auction_matched",
           requestId,
           auctionId:   matchedAuctionId,
+          productId,
           productName,
-          url:         `/auctions/${matchedAuctionId}`,
+          url:         productId
+            ? `/auctions/register/${productId}`
+            : `/auctions/${matchedAuctionId}`,
         },
         webpush: {
           notification: {
@@ -131,7 +150,11 @@ export const onAuctionRequestUpdated = onDocumentUpdated(
             badge:              "/loqta-removebg-preview.png",
             requireInteraction: true,
           },
-          fcmOptions: { link: `/auctions/${matchedAuctionId}` },
+          fcmOptions: {
+            link: productId
+              ? `/auctions/register/${productId}`
+              : `/auctions/${matchedAuctionId}`,
+          },
         },
       });
 

@@ -34,8 +34,18 @@ function timeAgo(date: Date): string {
 
 // ── Localized notification content ───────────────────────────────────────────
 // Reconstructs title + message from stored data fields using i18n.
-// This way, switching language instantly re-renders all notifications correctly
-// without needing server-side changes or re-fetching from Firestore.
+// Uses multiple field-name fallbacks because different Cloud Functions and
+// client-side writers use slightly different field names.
+//
+// Field fallback strategy per type:
+//   bid_selected        → winningBid, productTitle
+//   last_offer_selected → winningBid, productTitle
+//   payment_confirmed   → winningBid | amount | parsed from stored message,
+//                         productTitle | parsed from stored message
+//   auction_matched     → productName | productTitle
+//
+// If structured fields are missing (0 / ""), we parse the stored English
+// message as a last resort so nothing ever shows as "0" or blank.
 function getLocalizedNotif(
   notif: AppNotification,
   t: (key: string, opts?: Record<string, any>) => string,
@@ -43,48 +53,79 @@ function getLocalizedNotif(
   const fmt = (n: number) => n.toLocaleString("en-EG");
   const data = notif as any;
 
+  // ── Helper: extract amount from stored message string ─────────────────────
+  // Matches patterns like "25,700 EGP" or "8,423,000 EGP"
+  function parseAmountFromMessage(msg: string): number {
+    const match = msg.match(/([\d,]+)\s*EGP/i);
+    if (!match) return 0;
+    return parseInt(match[1].replace(/,/g, ""), 10) || 0;
+  }
+
+  // ── Helper: extract product name from stored message string ───────────────
+  // Matches text inside the first pair of double quotes
+  function parseProductFromMessage(msg: string): string {
+    const match = msg.match(/"([^"]+)"/);
+    return match ? match[1] : "";
+  }
+
   switch (notif.type) {
     case "bid_selected": {
-      const amount = data.winningBid ?? 0;
-      const product = data.productTitle ?? "";
+      // Cloud Function stores: winningBid (number), productTitle (string)
+      const amount = data.winningBid ?? data.amount ?? 0;
+      const product = data.productTitle ?? data.productName ?? "";
+      // If still empty, fall back to parsing the stored message
+      const resolvedAmount = amount || parseAmountFromMessage(notif.message);
+      const resolvedProduct = product || parseProductFromMessage(notif.message);
       return {
         title: t("notifications.bidSelected.title"),
         message: t("notifications.bidSelected.message", {
-          product,
-          amount: fmt(amount),
+          product: resolvedProduct,
+          amount: fmt(resolvedAmount),
         }),
       };
     }
 
     case "last_offer_selected": {
-      const amount = data.winningBid ?? 0;
-      const product = data.productTitle ?? "";
+      // Cloud Function stores: winningBid (number), productTitle (string)
+      const amount = data.winningBid ?? data.amount ?? 0;
+      const product = data.productTitle ?? data.productName ?? "";
+      const resolvedAmount = amount || parseAmountFromMessage(notif.message);
+      const resolvedProduct = product || parseProductFromMessage(notif.message);
       return {
         title: t("notifications.lastOfferSelected.title"),
         message: t("notifications.lastOfferSelected.message", {
-          product,
-          amount: fmt(amount),
+          product: resolvedProduct,
+          amount: fmt(resolvedAmount),
         }),
       };
     }
 
     case "payment_confirmed": {
-      const amount = data.winningBid ?? 0;
-      const product = data.productTitle ?? "";
+      // Client-written doc — field names vary. Try every known variant.
+      // Common patterns: amount | winningBid | parsed from message
+      const amount = data.amount ?? data.winningBid ?? data.paymentAmount ?? 0;
+      const product =
+        data.productTitle ?? data.productName ?? data.itemTitle ?? "";
+      const resolvedAmount = amount || parseAmountFromMessage(notif.message);
+      const resolvedProduct = product || parseProductFromMessage(notif.message);
       return {
         title: t("notifications.paymentConfirmed.title"),
         message: t("notifications.paymentConfirmed.message", {
-          product,
-          amount: fmt(amount),
+          product: resolvedProduct,
+          amount: fmt(resolvedAmount),
         }),
       };
     }
 
     case "auction_matched": {
-      const product = data.productName ?? "";
+      // Cloud Function (notifications.ts) stores: productName (not productTitle)
+      const product = data.productName ?? data.productTitle ?? "";
+      const resolvedProduct = product || parseProductFromMessage(notif.message);
       return {
         title: t("notifications.auctionMatched.title"),
-        message: t("notifications.auctionMatched.message", { product }),
+        message: t("notifications.auctionMatched.message", {
+          product: resolvedProduct,
+        }),
       };
     }
 
@@ -216,6 +257,35 @@ function FormattedPaymentMessage({
         }
         return <span key={i}>{part}</span>;
       })}
+    </p>
+  );
+}
+
+// ── Formatted message for auction_matched ────────────────────────────────────
+// Renders the product name in gold so it stands out clearly
+function FormattedMatchedMessage({ message }: { message: string }) {
+  const segments: React.ReactNode[] = [];
+  let remaining = message;
+  let key = 0;
+
+  // Find the product name — it appears at the start of the message before " is now live"
+  // Pattern: "ProductName is now live in auctions."
+  const liveIdx = remaining.search(/ is now live/i);
+  if (liveIdx > 0) {
+    const productName = remaining.slice(0, liveIdx);
+    segments.push(
+      <span key={key++} style={{ color: "#c9a96e", fontWeight: 700 }}>
+        {productName}
+      </span>,
+    );
+    remaining = remaining.slice(liveIdx);
+  }
+
+  if (remaining) segments.push(<span key={key++}>{remaining}</span>);
+
+  return (
+    <p className="nf-item-msg" style={{ marginBottom: 4 }}>
+      {segments.length > 0 ? segments : message}
     </p>
   );
 }
@@ -365,8 +435,14 @@ export const NotificationBell = () => {
       navigate(notif.url);
       return;
     }
-    if (notif.type === "auction_matched" && notif.auctionId) {
-      navigate(`/auctions/${notif.auctionId}`);
+    if (notif.type === "auction_matched") {
+      const data = notif as any;
+      const productId = data.productId ?? "";
+      if (productId) {
+        navigate(`/auctions/register/${productId}`);
+      } else if (notif.auctionId) {
+        navigate(`/auctions/${notif.auctionId}`);
+      }
     }
   };
 
@@ -396,9 +472,9 @@ export const NotificationBell = () => {
   return (
     <>
       <style>{CSS}</style>
-      <div className="nf-root" ref={panelRef} dir={isRTL ? "rtl" : "ltr"}>
+      <div className="nf-root" ref={panelRef}>
         {open && (
-          <div className="nf-panel">
+          <div className="nf-panel" dir={isRTL ? "rtl" : "ltr"}>
             <div className="nf-head">
               <div className="nf-head-left">
                 <span className="nf-head-title">{labelNotifications}</span>
@@ -428,6 +504,7 @@ export const NotificationBell = () => {
                 notifications.map((notif, i) => {
                   const isPaymentConfirmed = notif.type === "payment_confirmed";
                   const isConfirmType = CONFIRM_TYPES.includes(notif.type);
+                  const isMatchedType = notif.type === "auction_matched";
                   const isClickable = !isPaymentConfirmed;
                   const cfg = TYPE_CONFIG[notif.type] ?? TYPE_CONFIG.promo;
 
@@ -485,7 +562,7 @@ export const NotificationBell = () => {
                       <div className="nf-body">
                         <p className="nf-item-title">{localTitle}</p>
 
-                        {/* Message — rich formatting for selection types */}
+                        {/* Message — rich formatting per notification type */}
                         {isConfirmType ? (
                           <FormattedSelectionMessage message={localMessage} />
                         ) : isPaymentConfirmed ? (
@@ -496,6 +573,8 @@ export const NotificationBell = () => {
                               navigate("/contact");
                             }}
                           />
+                        ) : isMatchedType ? (
+                          <FormattedMatchedMessage message={localMessage} />
                         ) : (
                           <p className="nf-item-msg">{localMessage}</p>
                         )}
@@ -641,14 +720,8 @@ const CSS = `
 .nf-foot-btn{font-family:'Jost',sans-serif;font-size:10px;font-weight:800;letter-spacing:0.18em;text-transform:uppercase;color:rgba(201,169,110,0.5);background:none;border:none;cursor:pointer;padding:6px 16px;border-radius:8px;transition:all 0.2s;}
 .nf-foot-btn:hover{color:#c9a96e;background:rgba(201,169,110,0.08);}
 
-/* RTL support */
-[dir="rtl"] .nf-root{right:unset;left:28px;align-items:flex-start;}
-[dir="rtl"] .nf-panel{right:unset;left:0;}
-[dir="rtl"] .nf-label{right:unset;left:calc(100% + 12px);}
-[dir="rtl"] .nf-label::after{right:unset;left:-6px;border-left:none;border-right:6px solid rgba(201,169,110,0.3);}
+/* RTL support — bell always stays bottom-right, only inner layout adjusts */
 [dir="rtl"] .nf-unread-bar{left:unset;right:0;border-radius:3px 0 0 3px;}
 [dir="rtl"] .nf-x{right:unset;left:10px;}
 [dir="rtl"] .nf-item-title{padding-right:0;padding-left:24px;}
-[dir="rtl"] .nf-badge{right:unset;left:-5px;}
-[dir="rtl"] .nf-icon-pulse{right:unset;left:-2px;}
 `;

@@ -1,7 +1,8 @@
 /**
  * src/hooks/useNotifications.ts
  *
- * Updated: added "bid_selected" to NotificationType
+ * Updated: added "bid_selected" to NotificationType, and added productId
+ * and productName fields to AppNotification for auction_matched type.
  */
 
 import { useEffect, useState, useCallback } from "react";
@@ -39,6 +40,10 @@ export interface AppNotification {
   isRead: boolean;
   auctionId?: string;
   requestId?: string;
+  /** Product ID — stored on auction_matched notifications for navigation */
+  productId?: string;
+  /** Product name — stored on auction_matched notifications for display */
+  productName?: string;
   /** Deep-link URL for navigation */
   url?: string;
   createdAt: Date;
@@ -69,14 +74,16 @@ export function useNotifications() {
           snap.docs.map((d) => {
             const data = d.data();
             return {
-              id:        d.id,
-              type:      (data.type as NotificationType) ?? "promo",
-              title:     data.title   ?? "",
-              message:   data.message ?? "",
-              isRead:    data.isRead  ?? false,
-              auctionId: data.auctionId ?? undefined,
-              requestId: data.requestId ?? undefined,
-              url:       data.url       ?? undefined,
+              id:          d.id,
+              type:        (data.type as NotificationType) ?? "promo",
+              title:       data.title       ?? "",
+              message:     data.message     ?? "",
+              isRead:      data.isRead      ?? false,
+              auctionId:   data.auctionId   ?? undefined,
+              requestId:   data.requestId   ?? undefined,
+              productId:   data.productId   ?? undefined,
+              productName: data.productName ?? undefined,
+              url:         data.url         ?? undefined,
               createdAt:
                 data.createdAt instanceof Timestamp
                   ? data.createdAt.toDate()
