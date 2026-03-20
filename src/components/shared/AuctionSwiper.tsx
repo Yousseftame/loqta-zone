@@ -13,7 +13,14 @@ import "swiper/css/navigation";
 import "swiper/css/pagination";
 import { ShinyButton } from "../ui/shiny-button";
 import LoginPromptModal from "./Loginpromptmodal";
-import { collection, getDocs, query, orderBy, where } from "firebase/firestore";
+import {
+  collection,
+  getDocs,
+  query,
+  orderBy,
+  where,
+  Timestamp,
+} from "firebase/firestore";
 import { db } from "@/firebase/firebase";
 
 const NAVY = "#2A4863";
@@ -49,19 +56,25 @@ interface EnrichedProduct {
   images: string[];
   thumbnail: string | null;
   totalAuctions: number;
+  // FIX 1: count of live/upcoming auctions only
+  activeAuctionCount: number;
 }
 
+// FIX 1 & FIX 2: fetch products enriched with live/upcoming auction counts,
+// and return a set of productIds that have at least one active (non-ended) auction
+// the current user is registered in.
 function usePublicProducts() {
   const [products, setProducts] = useState<EnrichedProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
     let cancelled = false;
     async function load() {
       try {
         setLoading(true);
         setError(null);
-        const [catSnap, prodSnap] = await Promise.all([
+        const [catSnap, prodSnap, auctSnap] = await Promise.all([
           getDocs(collection(db, "categories")),
           getDocs(
             query(
@@ -70,12 +83,35 @@ function usePublicProducts() {
               orderBy("createdAt", "desc"),
             ),
           ),
+          // FIX 1: fetch all auctions so we can count live/upcoming per product
+          getDocs(
+            query(collection(db, "auctions"), where("isActive", "==", true)),
+          ),
         ]);
         if (cancelled) return;
+
         const categoryMap: Record<string, string> = {};
         catSnap.docs.forEach((d) => {
           categoryMap[d.id] = d.data().name?.en ?? d.id;
         });
+
+        // Build a map: productId -> count of live/upcoming auctions
+        const now = new Date();
+        const activeCountMap: Record<string, number> = {};
+        auctSnap.docs.forEach((d) => {
+          const data = d.data();
+          const productId: string = data.productId ?? "";
+          if (!productId) return;
+          const endTime: Date =
+            data.endTime instanceof Timestamp
+              ? data.endTime.toDate()
+              : new Date(data.endTime);
+          // live or upcoming = endTime is in the future
+          if (endTime > now) {
+            activeCountMap[productId] = (activeCountMap[productId] ?? 0) + 1;
+          }
+        });
+
         const enriched: EnrichedProduct[] = prodSnap.docs.map((d) => {
           const data = d.data();
           return {
@@ -95,6 +131,8 @@ function usePublicProducts() {
                 ? null
                 : data.thumbnail,
             totalAuctions: data.totalAuctions ?? 0,
+            // FIX 1: use only live/upcoming count
+            activeAuctionCount: activeCountMap[d.id] ?? 0,
           };
         });
         setProducts(enriched);
@@ -529,7 +567,7 @@ const AuctionCard = memo(function AuctionCard({
           </span>
         </div>
 
-        {/* Badge */}
+        {/* Badge — FIX 1: show activeAuctionCount (live/upcoming only) */}
         <div
           className="lz-card-badge"
           style={{
@@ -546,7 +584,7 @@ const AuctionCard = memo(function AuctionCard({
             border: `1px solid rgba(229,224,198,0.2)`,
           }}
         >
-          <span>🔨 {item.totalAuctions}</span>
+          <span>🔨 {item.activeAuctionCount}</span>
         </div>
 
         {/* Category */}
@@ -722,7 +760,8 @@ const AuctionCard = memo(function AuctionCard({
                 </span>
               </div>
             </div>
-            {item.totalAuctions > 0 && (
+            {/* FIX 1: show activeAuctionCount, hide badge if 0 */}
+            {item.activeAuctionCount > 0 && (
               <div style={{ textAlign: "right" }}>
                 <div
                   className="lz-card-bid-label"
@@ -743,7 +782,7 @@ const AuctionCard = memo(function AuctionCard({
                     color: isJoined ? GOLD : NAVY,
                   }}
                 >
-                  ×{item.totalAuctions}
+                  ×{item.activeAuctionCount}
                 </div>
               </div>
             )}

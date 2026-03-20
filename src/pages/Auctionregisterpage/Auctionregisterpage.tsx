@@ -439,17 +439,6 @@ export default function AuctionRegisterPage() {
           );
 
           if (failedAuctionIds.size > 0) {
-            // ── Race condition hit ────────────────────────────────────────────
-            // Another user beat this user to the voucher code (Firestore transaction
-            // inside applyVoucher correctly blocked the second claim).
-            //
-            // Policy: do NOT register the user at full price silently.
-            //   - Mark only the successfully-voucher'd auctions as joined.
-            //   - Clear the failed vouchers from state.
-            //   - Deselect the failed auctions from the selection.
-            //   - Show a descriptive error and keep them on the register page
-            //     so they can decide: try a different code, or proceed without one.
-
             if (successAuctionIds.length > 0) {
               setJoinedAuctionIds((prev) => {
                 const next = new Set(prev);
@@ -481,7 +470,6 @@ export default function AuctionRegisterPage() {
               return next;
             });
 
-            // Tell the user what happened — prominent, long-lived toast
             toast.error(
               isRtl
                 ? "🚫 كود الخصم استُخدم للتو من قِبل شخص آخر. لم يتم تسجيلك في المزاد المتأثر. يمكنك التسجيل بالسعر الكامل أو اختيار كود مختلف."
@@ -966,7 +954,10 @@ export default function AuctionRegisterPage() {
                       )
                     )}
 
-                    <div className="lz-atime">
+                    {/* dir="ltr" on the container keeps chips in the correct
+                        order (date · time) and prevents bidi from reversing
+                        the time string in RTL mode */}
+                    <div className="lz-atime" dir="ltr">
                       <div className="lz-tchip">📅 {fmtDate(a.startTime)}</div>
                       <span className="lz-tsep">·</span>
                       <div className="lz-tchip">
@@ -1086,7 +1077,7 @@ export default function AuctionRegisterPage() {
                                 className="lz-promo-btn"
                                 onClick={() => setShowPromoFor(a.id)}
                               >
-                                 {t("auctionRegister.promoBtn")}
+                                {t("auctionRegister.promoBtn")}
                               </button>
                             ) : (
                               <div className="lz-promo-applied">

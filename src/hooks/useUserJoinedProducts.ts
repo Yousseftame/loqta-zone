@@ -2,12 +2,16 @@
  * useUserJoinedProducts.ts
  *
  * Lightweight hook that returns two sets for the current user:
- *   - joinedProductIds : Set of productIds where the user has joined ≥1 auction
- *   - joinedAuctionIds : Set of auctionIds the user has joined directly
+ *   - joinedProductIds : Set of productIds where the user has joined an auction
+ *                        that is still live or upcoming (endTime in the future).
+ *                        FIX: ended auctions are excluded so the product card
+ *                        reverts to its normal UI once all its auctions finish.
+ *   - joinedAuctionIds : Set of ALL auctionIds the user has joined (including ended).
  *
  * Strategy:
  *   Read users/{uid}/auctions (subcollection) — each doc has an auctionId field.
- *   Then fetch the productId for each joined auction from the auctions collection.
+ *   Then fetch the productId + endTime for each joined auction from the auctions
+ *   collection. Only auctions with endTime > now contribute to joinedProductIds.
  *
  * This is O(joined auctions) reads, which is small for typical users.
  * Results are cached in module-level memory per uid so multiple consumers
@@ -20,6 +24,7 @@ import {
   getDocs,
   doc,
   getDoc,
+  Timestamp,
 } from "firebase/firestore";
 import { db } from "@/firebase/firebase";
 import { useAuth } from "@/store/AuthContext/AuthContext";
@@ -79,7 +84,7 @@ export function useUserJoinedProducts(): JoinedState {
           return;
         }
 
-        // Step 2: fetch productId for each joined auction
+        // Step 2: fetch productId + endTime for each joined auction
         const auctionDocs = await Promise.all(
           Array.from(auctionIds).map((id) =>
             getDoc(doc(db, "auctions", id)).catch(() => null),
@@ -87,11 +92,25 @@ export function useUserJoinedProducts(): JoinedState {
         );
         if (cancelled) return;
 
+        const now = new Date();
+        // FIX 2: only add productId to joinedProductIds when the auction is
+        // still live or upcoming (endTime > now). Ended auctions are excluded
+        // so the product card reverts to its default UI after the auction ends.
         const productIds = new Set<string>();
         auctionDocs.forEach((snap) => {
-          if (snap?.exists()) {
-            const pid = snap.data().productId;
-            if (pid) productIds.add(pid);
+          if (!snap?.exists()) return;
+          const data = snap.data();
+          const pid = data.productId;
+          if (!pid) return;
+
+          const endTime: Date =
+            data.endTime instanceof Timestamp
+              ? data.endTime.toDate()
+              : new Date(data.endTime);
+
+          // Only mark as joined when auction is still active (not ended)
+          if (endTime > now) {
+            productIds.add(pid);
           }
         });
 
