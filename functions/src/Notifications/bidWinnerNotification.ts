@@ -96,11 +96,8 @@ export const onBidSelected = onDocumentUpdated(
     const deepLink = `/last-offer-confirm/${auctionId}?amount=${winningBid}`;
 
     const title = "🎉 Congratulations! You've won the auction!";
-    const body  =
-      `Your bid of ${formattedAmount} EGP for "${productTitle}" has been selected ` +
-        `as the winning bid. Tap to confirm your purchase.
-        ⚠️ Complete your payment within 24 hours or the item will be reassigned to another bidder.
-      `;
+   const body  =
+  `Your bid of ${formattedAmount} EGP for "${productTitle}" has been selected as the winning bid. Tap to confirm your purchase.\n\n⚠️ Complete your payment within 24 hours or the item will be reassigned to another bidder.`;
 
     try {
       // ── 4. Write in-app notification

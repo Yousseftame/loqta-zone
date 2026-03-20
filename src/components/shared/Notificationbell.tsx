@@ -1,15 +1,18 @@
 /**
  * src/components/shared/Notificationbell.tsx
  *
- * Updated: added "bid_selected" notification type
- *  - Trophy icon, gold color — distinct from last_offer_selected (Gift icon)
- *  - Same formatting: product name gold, amount gold+bold
- *  - Same CTA pill: "✦ Confirm purchase →"
- *  - Navigates via notif.url (deep-links to /last-offer-confirm/:auctionId)
+ * Updated:
+ *  - Added i18n localization: notifications are re-rendered in Arabic/English
+ *    based on current language, reconstructed from stored data fields.
+ *  - ⚠️ warning line is now visually separated with a blank line before it.
+ *  - "bid_selected" and "last_offer_selected" types fully localized.
+ *  - "payment_confirmed" and "auction_matched" types fully localized.
+ *  - All other types fall back to stored title/message (unchanged behavior).
  */
 
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "@/store/AuthContext/AuthContext";
 import { X, Gavel, Trophy, Heart, Tag, Clock, Bell, Gift } from "lucide-react";
 import {
@@ -29,50 +32,140 @@ function timeAgo(date: Date): string {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
+// ── Localized notification content ───────────────────────────────────────────
+// Reconstructs title + message from stored data fields using i18n.
+// This way, switching language instantly re-renders all notifications correctly
+// without needing server-side changes or re-fetching from Firestore.
+function getLocalizedNotif(
+  notif: AppNotification,
+  t: (key: string, opts?: Record<string, any>) => string,
+): { title: string; message: string } {
+  const fmt = (n: number) => n.toLocaleString("en-EG");
+  const data = notif as any;
+
+  switch (notif.type) {
+    case "bid_selected": {
+      const amount = data.winningBid ?? 0;
+      const product = data.productTitle ?? "";
+      return {
+        title: t("notifications.bidSelected.title"),
+        message: t("notifications.bidSelected.message", {
+          product,
+          amount: fmt(amount),
+        }),
+      };
+    }
+
+    case "last_offer_selected": {
+      const amount = data.winningBid ?? 0;
+      const product = data.productTitle ?? "";
+      return {
+        title: t("notifications.lastOfferSelected.title"),
+        message: t("notifications.lastOfferSelected.message", {
+          product,
+          amount: fmt(amount),
+        }),
+      };
+    }
+
+    case "payment_confirmed": {
+      const amount = data.winningBid ?? 0;
+      const product = data.productTitle ?? "";
+      return {
+        title: t("notifications.paymentConfirmed.title"),
+        message: t("notifications.paymentConfirmed.message", {
+          product,
+          amount: fmt(amount),
+        }),
+      };
+    }
+
+    case "auction_matched": {
+      const product = data.productName ?? "";
+      return {
+        title: t("notifications.auctionMatched.title"),
+        message: t("notifications.auctionMatched.message", { product }),
+      };
+    }
+
+    default:
+      return { title: notif.title, message: notif.message };
+  }
+}
+
 // ── Formatted message for last_offer_selected / bid_selected ──────────────────
-// Uniform font size — product name gold, amount gold+bold. No size changes.
+// Renders product name in gold, amount in gold+bold, and the ⚠️ warning
+// on its own visually separated line.
 function FormattedSelectionMessage({ message }: { message: string }) {
-  const segments: React.ReactNode[] = [];
-  let text = message;
-  let key = 0;
+  // Split on \n\n to separate the main text from the warning line
+  const parts = message.split(/\n\n/);
+  const mainText = parts[0] ?? message;
+  const warningText = parts[1] ?? null;
 
-  // Product name between quotes → gold
-  const productMatch = text.match(/"([^"]+)"/);
-  if (productMatch) {
-    const fullQuoted = `"${productMatch[1]}"`;
-    const idx = text.indexOf(fullQuoted);
-    if (idx > -1) {
-      if (idx > 0) segments.push(<span key={key++}>{text.slice(0, idx)}</span>);
-      segments.push(
-        <span key={key++} style={{ color: "#c9a96e", fontWeight: 600 }}>
-          {fullQuoted}
-        </span>,
-      );
-      text = text.slice(idx + fullQuoted.length);
+  const renderSegments = (text: string): React.ReactNode[] => {
+    const segments: React.ReactNode[] = [];
+    let remaining = text;
+    let key = 0;
+
+    // Product name between quotes → gold
+    const productMatch = remaining.match(/"([^"]+)"/);
+    if (productMatch) {
+      const fullQuoted = `"${productMatch[1]}"`;
+      const idx = remaining.indexOf(fullQuoted);
+      if (idx > -1) {
+        if (idx > 0)
+          segments.push(<span key={key++}>{remaining.slice(0, idx)}</span>);
+        segments.push(
+          <span key={key++} style={{ color: "#c9a96e", fontWeight: 600 }}>
+            {fullQuoted}
+          </span>,
+        );
+        remaining = remaining.slice(idx + fullQuoted.length);
+      }
     }
-  }
 
-  // Amount (e.g. "25,000 EGP") → gold + bold
-  const amountMatch = text.match(/([\d,]+\s*EGP)/i);
-  if (amountMatch) {
-    const idx = text.indexOf(amountMatch[1]);
-    if (idx > -1) {
-      if (idx > 0) segments.push(<span key={key++}>{text.slice(0, idx)}</span>);
-      segments.push(
-        <span key={key++} style={{ color: "#c9a96e", fontWeight: 700 }}>
-          {amountMatch[1]}
-        </span>,
-      );
-      text = text.slice(idx + amountMatch[1].length);
+    // Amount (e.g. "25,000 EGP") → gold + bold
+    const amountMatch = remaining.match(/([\d,]+\s*(?:EGP|جنيه))/i);
+    if (amountMatch) {
+      const idx = remaining.indexOf(amountMatch[1]);
+      if (idx > -1) {
+        if (idx > 0)
+          segments.push(<span key={key++}>{remaining.slice(0, idx)}</span>);
+        segments.push(
+          <span key={key++} style={{ color: "#c9a96e", fontWeight: 700 }}>
+            {amountMatch[1]}
+          </span>,
+        );
+        remaining = remaining.slice(idx + amountMatch[1].length);
+      }
     }
-  }
 
-  if (text) segments.push(<span key={key++}>{text}</span>);
+    if (remaining) segments.push(<span key={key++}>{remaining}</span>);
+    return segments;
+  };
 
   return (
-    <p className="nf-item-msg" style={{ marginBottom: 4 }}>
-      {segments}
-    </p>
+    <div style={{ marginBottom: 4 }}>
+      <p className="nf-item-msg" style={{ marginBottom: warningText ? 6 : 0 }}>
+        {renderSegments(mainText)}
+      </p>
+      {warningText && (
+        <p
+          className="nf-item-msg"
+          style={{
+            marginBottom: 0,
+            color: "rgba(255,200,100,0.7)",
+            fontSize: "11px",
+            fontWeight: 600,
+            borderLeft: "2px solid rgba(255,180,80,0.4)",
+            paddingLeft: 6,
+            lineHeight: 1.5,
+          }}
+        >
+          {warningText}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -84,11 +177,11 @@ function FormattedPaymentMessage({
   message: string;
   onContactClick: () => void;
 }) {
-  const parts = message.split(/(contact us)/i);
+  const parts = message.split(/(contact us|تواصل معنا)/i);
   return (
     <p className="nf-item-msg" style={{ marginBottom: 4 }}>
       {parts.map((part, i) => {
-        if (/^contact us$/i.test(part)) {
+        if (/^(contact us|تواصل معنا)$/i.test(part)) {
           return (
             <span
               key={i}
@@ -104,11 +197,11 @@ function FormattedPaymentMessage({
                 fontWeight: 600,
               }}
             >
-              contact us
+              {part}
             </span>
           );
         }
-        const amountMatch = part.match(/([\d,]+\s*EGP)/i);
+        const amountMatch = part.match(/([\d,]+\s*(?:EGP|جنيه))/i);
         if (amountMatch) {
           const idx = part.indexOf(amountMatch[1]);
           return (
@@ -227,6 +320,9 @@ const TYPE_CONFIG: Record<
 export const NotificationBell = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
+  const isRTL = i18n.language === "ar";
+
   const [open, setOpen] = useState(false);
   const [attracted, setAttracted] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -282,22 +378,37 @@ export const NotificationBell = () => {
     "bid_selected",
   ];
 
+  // Localized labels
+  const labelMarkAllRead = isRTL ? "قراءة الكل" : "Mark all read";
+  const labelViewAll = isRTL
+    ? "✦ عرض كل الإشعارات"
+    : "✦ View all notifications";
+  const labelCaughtUp = isRTL
+    ? "لا توجد إشعارات جديدة!"
+    : "You're all caught up!";
+  const labelConfirmPurchase = isRTL
+    ? "✦ تأكيد الشراء →"
+    : "✦ Confirm purchase →";
+  const labelNotifications = isRTL ? "الإشعارات" : "Notifications";
+  const labelNewAlerts = (n: number) =>
+    isRTL ? `${n} تنبيهات جديدة` : `${n} new alerts`;
+
   return (
     <>
       <style>{CSS}</style>
-      <div className="nf-root" ref={panelRef}>
+      <div className="nf-root" ref={panelRef} dir={isRTL ? "rtl" : "ltr"}>
         {open && (
           <div className="nf-panel">
             <div className="nf-head">
               <div className="nf-head-left">
-                <span className="nf-head-title">Notifications</span>
+                <span className="nf-head-title">{labelNotifications}</span>
                 {unreadCount > 0 && (
                   <span className="nf-new-pill">{unreadCount} NEW</span>
                 )}
               </div>
               {unreadCount > 0 && (
                 <button className="nf-markall" onClick={markAllRead}>
-                  Mark all read
+                  {labelMarkAllRead}
                 </button>
               )}
             </div>
@@ -311,7 +422,7 @@ export const NotificationBell = () => {
                       style={{ color: "rgba(201,169,110,0.35)" }}
                     />
                   </div>
-                  <p className="nf-empty-txt">You're all caught up!</p>
+                  <p className="nf-empty-txt">{labelCaughtUp}</p>
                 </div>
               ) : (
                 notifications.map((notif, i) => {
@@ -319,6 +430,10 @@ export const NotificationBell = () => {
                   const isConfirmType = CONFIRM_TYPES.includes(notif.type);
                   const isClickable = !isPaymentConfirmed;
                   const cfg = TYPE_CONFIG[notif.type] ?? TYPE_CONFIG.promo;
+
+                  // ── Get localized title + message ───────────────────────
+                  const { title: localTitle, message: localMessage } =
+                    getLocalizedNotif(notif, t);
 
                   return (
                     <div
@@ -368,27 +483,27 @@ export const NotificationBell = () => {
                       )}
 
                       <div className="nf-body">
-                        <p className="nf-item-title">{notif.title}</p>
+                        <p className="nf-item-title">{localTitle}</p>
 
                         {/* Message — rich formatting for selection types */}
                         {isConfirmType ? (
-                          <FormattedSelectionMessage message={notif.message} />
+                          <FormattedSelectionMessage message={localMessage} />
                         ) : isPaymentConfirmed ? (
                           <FormattedPaymentMessage
-                            message={notif.message}
+                            message={localMessage}
                             onContactClick={() => {
                               setOpen(false);
                               navigate("/contact");
                             }}
                           />
                         ) : (
-                          <p className="nf-item-msg">{notif.message}</p>
+                          <p className="nf-item-msg">{localMessage}</p>
                         )}
 
                         {/* Compact CTA pill for both selection types */}
                         {isConfirmType && (
                           <span className="nf-cta-pill">
-                            ✦ Confirm purchase →
+                            {labelConfirmPurchase}
                           </span>
                         )}
 
@@ -414,9 +529,7 @@ export const NotificationBell = () => {
 
             {notifications.length > 0 && (
               <div className="nf-foot">
-                <button className="nf-foot-btn">
-                  ✦ View all notifications
-                </button>
+                <button className="nf-foot-btn">{labelViewAll}</button>
               </div>
             )}
           </div>
@@ -425,7 +538,7 @@ export const NotificationBell = () => {
         {/* FAB */}
         <div className="nf-fab-row">
           <span className="nf-label">
-            {unreadCount > 0 ? `${unreadCount} new alerts` : "Notifications"}
+            {unreadCount > 0 ? labelNewAlerts(unreadCount) : labelNotifications}
           </span>
           <div
             className={`nf-circle${attracted && !open ? " attracted" : ""}`}
@@ -527,4 +640,15 @@ const CSS = `
 .nf-foot{padding:11px 20px;border-top:1px solid rgba(229,224,198,0.05);text-align:center;flex-shrink:0;background:linear-gradient(0deg,rgba(201,169,110,0.03),transparent);}
 .nf-foot-btn{font-family:'Jost',sans-serif;font-size:10px;font-weight:800;letter-spacing:0.18em;text-transform:uppercase;color:rgba(201,169,110,0.5);background:none;border:none;cursor:pointer;padding:6px 16px;border-radius:8px;transition:all 0.2s;}
 .nf-foot-btn:hover{color:#c9a96e;background:rgba(201,169,110,0.08);}
+
+/* RTL support */
+[dir="rtl"] .nf-root{right:unset;left:28px;align-items:flex-start;}
+[dir="rtl"] .nf-panel{right:unset;left:0;}
+[dir="rtl"] .nf-label{right:unset;left:calc(100% + 12px);}
+[dir="rtl"] .nf-label::after{right:unset;left:-6px;border-left:none;border-right:6px solid rgba(201,169,110,0.3);}
+[dir="rtl"] .nf-unread-bar{left:unset;right:0;border-radius:3px 0 0 3px;}
+[dir="rtl"] .nf-x{right:unset;left:10px;}
+[dir="rtl"] .nf-item-title{padding-right:0;padding-left:24px;}
+[dir="rtl"] .nf-badge{right:unset;left:-5px;}
+[dir="rtl"] .nf-icon-pulse{right:unset;left:-2px;}
 `;

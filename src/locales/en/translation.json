@@ -1139,5 +1139,23 @@
     "joinNow": "Join Now",
     "moreSessions": "More Sessions",
     "onlyOne": "Only one live session right now"
+  },
+   "notifications": {
+    "bidSelected": {
+      "title": "🎉 Congratulations! You've won the auction!",
+      "message": "Your bid of {{amount}} EGP for \"{{product}}\" has been selected as the winning bid. Tap to confirm your purchase.\n\n⚠️ Complete your payment within 24 hours or the item will be reassigned to another bidder."
+    },
+    "lastOfferSelected": {
+      "title": "🎉 Congratulations! You've been selected!",
+      "message": "Your last offer for \"{{product}}\" has been accepted. Amount: {{amount}} EGP. Tap to confirm your purchase.\n\n⚠️ Complete your payment within 24 hours or the item will be reassigned to another bidder."
+    },
+    "paymentConfirmed": {
+      "title": "Payment Confirmed ✅",
+      "message": "Your payment of {{amount}} EGP for \"{{product}}\" was successful. Your product will be delivered within a maximum of 10 days. Thank you for choosing Loqta Zone! If you need anything, feel free to contact us."
+    },
+    "auctionMatched": {
+      "title": "Your requested item is now available! 🎉",
+      "message": "{{product}} is now live in auctions. Place your bid now!"
+    }
   }
 }
