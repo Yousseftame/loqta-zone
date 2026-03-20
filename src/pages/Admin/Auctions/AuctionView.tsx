@@ -23,8 +23,11 @@ import {
   Check,
   Radio,
   CheckCircle2,
+  User,
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/firebase/firebase";
 import { colors } from "../Products/products-data";
 import {
   getAuctionStatusStyle,
@@ -43,6 +46,28 @@ const statusIcon = (s: AuctionStatus) =>
     <CheckCircle2 size={14} />
   );
 
+// ─── Lazy winner info — 1 extra getDoc, fires only when a real winner exists ──
+interface WinnerInfo {
+  name: string;
+  email: string;
+}
+
+async function fetchWinnerInfo(uid: string): Promise<WinnerInfo | null> {
+  try {
+    const snap = await getDoc(doc(db, "users", uid));
+    if (!snap.exists()) return null;
+    const d = snap.data();
+    return {
+      name:
+        (d.fullName ?? `${d.firstName ?? ""} ${d.lastName ?? ""}`.trim()) ||
+        "Unknown",
+      email: d.email ?? "",
+    };
+  } catch {
+    return null;
+  }
+}
+
 export default function AuctionView() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
@@ -55,6 +80,9 @@ export default function AuctionView() {
   const [deleting, setDeleting] = useState(false);
   const [done, setDone] = useState(false);
 
+  // Winner identity — resolved lazily after auction loads
+  const [winnerInfo, setWinnerInfo] = useState<WinnerInfo | null>(null);
+
   useEffect(() => {
     if (!id) return;
     (async () => {
@@ -64,6 +92,12 @@ export default function AuctionView() {
       setLoading(false);
     })();
   }, [id, getAuction]);
+
+  // Fire exactly once when winnerId becomes a real UID (not null / "NO_WINNER")
+  useEffect(() => {
+    if (!auction?.winnerId || auction.winnerId === "NO_WINNER") return;
+    fetchWinnerInfo(auction.winnerId).then(setWinnerInfo);
+  }, [auction?.winnerId]);
 
   const handleDelete = async () => {
     if (!auction) return;
@@ -108,7 +142,6 @@ export default function AuctionView() {
   }
 
   const sStyle = getAuctionStatusStyle(auction.status);
-  // Resolve product name from products list
   const linkedProduct = products.find((p) => p.id === auction.productId);
 
   return (
@@ -162,7 +195,6 @@ export default function AuctionView() {
             gap: 3,
           }}
         >
-          {/* Product thumbnail or gavel icon */}
           {linkedProduct?.thumbnail && linkedProduct.thumbnail !== "null" ? (
             <Box
               component="img"
@@ -647,21 +679,86 @@ export default function AuctionView() {
               ),
             },
             {
-              label: "Winner ID",
-              value: auction.winnerId ? (
-                <span
-                  style={{
-                    fontSize: "0.85rem",
-                    fontFamily: "monospace",
-                    color: colors.textPrimary,
-                  }}
-                >
-                  {auction.winnerId}
-                </span>
-              ) : (
+              label: "Winner",
+              value: !auction.winnerId ? (
+                // No winner set yet
                 <span style={{ color: colors.textMuted, fontSize: "0.85rem" }}>
                   —
                 </span>
+              ) : auction.winnerId === "NO_WINNER" ? (
+                <Chip
+                  label="No Winner"
+                  size="small"
+                  sx={{ bgcolor: "#F1F5F9", color: "#64748B", fontWeight: 700 }}
+                />
+              ) : (
+                // ── Real winner: UID pill + resolved name + email ───────────
+                // Cost: 1 extra getDoc, fires once, result cached in winnerInfo state
+                <Box
+                  sx={{ display: "flex", flexDirection: "column", gap: 0.7 }}
+                >
+                  {/* UID — always visible immediately */}
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
+                    <User
+                      size={13}
+                      style={{ color: colors.textMuted, flexShrink: 0 }}
+                    />
+                    <span
+                      style={{
+                        fontSize: "0.78rem",
+                        fontFamily: "monospace",
+                        background: colors.primaryBg,
+                        color: colors.primary,
+                        padding: "2px 8px",
+                        borderRadius: 5,
+                        fontWeight: 600,
+                        wordBreak: "break-all",
+                      }}
+                    >
+                      {auction.winnerId}
+                    </span>
+                  </Box>
+                  {/* Resolved name + email — appear once the single getDoc completes */}
+                  {winnerInfo ? (
+                    <Box
+                      sx={{
+                        pl: 0.2,
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 0.2,
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: "0.88rem",
+                          fontWeight: 700,
+                          color: colors.textPrimary,
+                        }}
+                      >
+                        {winnerInfo.name}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: "0.78rem",
+                          color: colors.textSecondary,
+                        }}
+                      >
+                        {winnerInfo.email}
+                      </span>
+                    </Box>
+                  ) : (
+                    <span
+                      style={{
+                        fontSize: "0.75rem",
+                        color: colors.textMuted,
+                        paddingLeft: 0.2,
+                        fontStyle: "italic",
+                      }}
+                    >
+                      Resolving…
+                    </span>
+                  )}
+                </Box>
               ),
             },
             {

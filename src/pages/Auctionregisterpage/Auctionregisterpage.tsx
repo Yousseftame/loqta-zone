@@ -411,14 +411,8 @@ export default function AuctionRegisterPage() {
         });
 
       if (result.joined.length > 0) {
-        // Update joined UI immediately
-        setJoinedAuctionIds((prev) => {
-          const next = new Set(prev);
-          result.joined.forEach((id) => next.add(id));
-          return next;
-        });
-
-        // STEP 2: Apply vouchers via Cloud Function — atomic Firestore transaction
+        // STEP 2: Apply vouchers via Cloud Function — atomic Firestore transaction.
+        // Run BEFORE updating the joined UI so we can handle race conditions cleanly.
         const voucherAuctions = result.joined.filter(
           (id) => appliedVouchers[id],
         );
@@ -433,24 +427,87 @@ export default function AuctionRegisterPage() {
             ),
           );
 
-          const failed = voucherResults.filter((r) => r.status === "rejected");
-          if (failed.length > 0) {
-            // Join succeeded but voucher failed — user registered at full price
+          // Split into auctions where the voucher succeeded vs failed
+          const failedAuctionIds = new Set(
+            voucherResults
+              .map((r, i) => ({ r, id: voucherAuctions[i] }))
+              .filter(({ r }) => r.status === "rejected")
+              .map(({ id }) => id),
+          );
+          const successAuctionIds = result.joined.filter(
+            (id) => !failedAuctionIds.has(id),
+          );
+
+          if (failedAuctionIds.size > 0) {
+            // ── Race condition hit ────────────────────────────────────────────
+            // Another user beat this user to the voucher code (Firestore transaction
+            // inside applyVoucher correctly blocked the second claim).
+            //
+            // Policy: do NOT register the user at full price silently.
+            //   - Mark only the successfully-voucher'd auctions as joined.
+            //   - Clear the failed vouchers from state.
+            //   - Deselect the failed auctions from the selection.
+            //   - Show a descriptive error and keep them on the register page
+            //     so they can decide: try a different code, or proceed without one.
+
+            if (successAuctionIds.length > 0) {
+              setJoinedAuctionIds((prev) => {
+                const next = new Set(prev);
+                successAuctionIds.forEach((id) => next.add(id));
+                return next;
+              });
+              toast.success(
+                isRtl
+                  ? `تم التسجيل في ${successAuctionIds.length} مزاد(ات) بنجاح!`
+                  : `Successfully registered for ${successAuctionIds.length} auction(s)!`,
+              );
+              setTimeout(
+                () => navigate(`/auctions/${successAuctionIds[0]}`),
+                1200,
+              );
+            }
+
+            // Clear failed vouchers from state
+            setAppliedVouchers((prev) => {
+              const updated = { ...prev };
+              failedAuctionIds.forEach((id) => delete updated[id]);
+              return updated;
+            });
+
+            // Deselect failed auctions so the checkout card resets
+            setSelectedAuctions((prev) => {
+              const next = new Set(prev);
+              failedAuctionIds.forEach((id) => next.delete(id));
+              return next;
+            });
+
+            // Tell the user what happened — prominent, long-lived toast
             toast.error(
               isRtl
-                ? "تم التسجيل ولكن فشل تطبيق القسيمة — ستدفع السعر الكامل."
-                : "Registered successfully, but voucher could not be applied. Full price charged.",
+                ? "🚫 كود الخصم استُخدم للتو من قِبل شخص آخر. لم يتم تسجيلك في المزاد المتأثر. يمكنك التسجيل بالسعر الكامل أو اختيار كود مختلف."
+                : "🚫 This voucher code was just claimed by someone else. Your registration for the affected auction was not completed — you can register at full price or try a different code.",
+              { duration: 8000 },
             );
-          } else {
-            toast.success(
-              isRtl
-                ? "تم تطبيق القسيمة بنجاح! ✓"
-                : "Voucher applied successfully! ✓",
-            );
+
+            setChecking(false);
+            return; // stay on the register page
           }
+
+          // All vouchers applied successfully
+          toast.success(
+            isRtl
+              ? "تم تطبيق القسيمة بنجاح! ✓"
+              : "Voucher applied successfully! ✓",
+          );
         }
 
-        // Clear voucher state
+        // No voucher failures — mark all as joined and navigate
+        setJoinedAuctionIds((prev) => {
+          const next = new Set(prev);
+          result.joined.forEach((id) => next.add(id));
+          return next;
+        });
+
         setAppliedVouchers({});
 
         toast.success(
@@ -1029,7 +1086,7 @@ export default function AuctionRegisterPage() {
                                 className="lz-promo-btn"
                                 onClick={() => setShowPromoFor(a.id)}
                               >
-                                {t("auctionRegister.promoBtn")}
+                                 {t("auctionRegister.promoBtn")}
                               </button>
                             ) : (
                               <div className="lz-promo-applied">

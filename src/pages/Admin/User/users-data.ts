@@ -9,7 +9,11 @@ export interface UserAuction {
   joinedAt: Date;
   paymentId: string;
   totalAmount: number[];
+  // Voucher fields — written by applyVoucher CF; null / 0 when no voucher used
   voucherUsed: boolean;
+  voucherCode: string | null;
+  voucherId: string | null;
+  discountApplied: number;
 }
 
 export interface AppUser {

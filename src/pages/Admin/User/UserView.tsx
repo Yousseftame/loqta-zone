@@ -403,7 +403,6 @@ export default function UserView() {
               ))}
             </Box>
           </Box>
-          {/* Action buttons — ✅ Fix 1: delete visible to all admins, not just superAdmin */}
           <Box
             sx={{ display: "flex", gap: 1.5, flexWrap: "wrap", flexShrink: 0 }}
           >
@@ -435,8 +434,6 @@ export default function UserView() {
             >
               {user.isBlocked ? "Unblock" : "Block"}
             </Button>
-           
-            {/* ✅ Delete now visible to all admins */}
             <Button
               startIcon={<Trash2 size={16} />}
               onClick={() => {
@@ -736,7 +733,7 @@ export default function UserView() {
           </Box>
         </Paper>
 
-        {/* ✅ Fix 3: Joined Auctions — properly mapped with auction details */}
+        {/* Joined Auctions */}
         <Paper
           elevation={0}
           sx={{
@@ -783,7 +780,6 @@ export default function UserView() {
               </Box>
             ) : (
               user.auctions.map((ua, i) => {
-                // Match against the full auctions list loaded from Firestore
                 const auctionDoc = auctions.find((a) => a.id === ua.auctionId);
                 return (
                   <Box
@@ -864,6 +860,50 @@ export default function UserView() {
                             ? `${ua.amount.toLocaleString()} EGP`
                             : "Free"}
                         </p>
+
+                        {/* ── Voucher badge ─────────────────────────────────────────────────
+                            All fields (voucherUsed / voucherCode / discountApplied) are already
+                            on this Firestore doc — written by the applyVoucher Cloud Function.
+                            Zero extra reads: the data comes in with the subcollection load above. */}
+                        {ua.voucherUsed && ua.voucherCode && (
+                          <Box
+                            sx={{
+                              mt: 0.75,
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 0.8,
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            <span
+                              style={{
+                                fontSize: "0.7rem",
+                                fontWeight: 700,
+                                background: "rgba(74,222,128,0.1)",
+                                color: "#22C55E",
+                                padding: "2px 9px",
+                                borderRadius: 99,
+                                border: "1px solid rgba(74,222,128,0.3)",
+                                fontFamily: "monospace",
+                                letterSpacing: "0.04em",
+                              }}
+                            >
+                              🏷️ {ua.voucherCode}
+                            </span>
+                            {ua.discountApplied > 0 && (
+                              <span
+                                style={{
+                                  fontSize: "0.7rem",
+                                  color: "#22C55E",
+                                  fontWeight: 600,
+                                }}
+                              >
+                                −{ua.discountApplied.toLocaleString()} EGP saved
+                              </span>
+                            )}
+                          </Box>
+                        )}
+
                         {ua.totalAmount.length > 0 && (
                           <Box
                             sx={{
@@ -946,7 +986,7 @@ export default function UserView() {
             Internal Notes
           </span>
           <span style={{ fontSize: "0.8rem", color: colors.textSecondary }}>
-             visible to admins only
+            visible to admins only
           </span>
         </Box>
         <Box sx={{ p: 3 }}>
