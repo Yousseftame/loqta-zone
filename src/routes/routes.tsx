@@ -47,6 +47,7 @@ import MyProfile from "@/pages/User/Profile/MyProfile";
 import ChangePassword from "@/pages/User/Settings/ChangePassword";
 import { createBrowserRouter } from "react-router-dom";
 import CantFind from "@/pages/CantFind/CantFind";
+import LastOfferConfirmPage from "@/pages/LastOfferConfirm/LastOfferConfirmPage";
 
 export const routes = createBrowserRouter([
   {
@@ -345,6 +346,11 @@ export const routes = createBrowserRouter([
       { path: "terms", element: <TermsAndConditions /> },
       { path: "contact", element: <Contact /> },
       { path: "cantFind", element: <CantFind /> },
+
+      {
+        path: "/last-offer-confirm/:auctionId",
+        element: <LastOfferConfirmPage />,
+      },
 
       { path: "my-profile", element: <MyProfile /> },
       { path: "my-bids", element: <MyBids /> },

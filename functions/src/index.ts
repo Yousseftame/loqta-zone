@@ -16,14 +16,32 @@ setGlobalOptions({ maxInstances: 10 });
 
 // ── Auth / Role management ───────────────────────────────────────────────────
 export { onUserCreated, setUserRole, blockUser, deleteUser, createAdminAccount } from "./Auth/auth";
+
+
+
 // ── Notifications ────────────────────────────────────────────────────────────
 export { onAuctionRequestUpdated } from "./Notifications/notifications";
+
+
+
+// ── Last Offer — winner selected notification ─────────────────────────────────
+// Fires when admin sets selectedbyAdmin=true + status="accepted" on a lastOffer doc.
+// Sends in-app + FCM push to the selected user with a deep-link to confirm purchase.
+export { onLastOfferSelected } from "./Notifications/lastOfferNotification";
+
+
+// Bid selected by admin as winner → notify user + deep-link to confirm page
+// (fires when selectedbyAdmin=true AND status="accepted" set on a bid doc)
+export { onBidSelected } from "./Notifications/bidWinnerNotification";
+
 
 // ── Auction winner resolution ─────────────────────────────────────────────────
 // triggerResolveAuction — HTTP callable, fired by frontend countdown (PRIMARY path)
 // onBidWritten          — Firestore trigger, handles last-second bid edge case
 // resolveAuctionWinners — Scheduled safety net every 10 min (fallback only)
 export { triggerResolveAuction, onBidWritten, resolveAuctionWinners } from "./Auctions/auctionWinner";
+
+
 
 
 // ── Analytics ────────────────────────────────────────────────────────────

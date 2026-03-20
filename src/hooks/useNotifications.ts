@@ -1,7 +1,7 @@
 /**
  * src/hooks/useNotifications.ts
  *
- * Fixed: better error handling so permission errors don't bubble up as toasts
+ * Updated: added "bid_selected" to NotificationType
  */
 
 import { useEffect, useState, useCallback } from "react";
@@ -26,7 +26,10 @@ export type NotificationType =
   | "win"
   | "watchlist"
   | "promo"
-  | "expiry";
+  | "expiry"
+  | "last_offer_selected"
+  | "bid_selected"
+  | "payment_confirmed";
 
 export interface AppNotification {
   id: string;
@@ -36,6 +39,8 @@ export interface AppNotification {
   isRead: boolean;
   auctionId?: string;
   requestId?: string;
+  /** Deep-link URL for navigation */
+  url?: string;
   createdAt: Date;
 }
 
@@ -64,13 +69,14 @@ export function useNotifications() {
           snap.docs.map((d) => {
             const data = d.data();
             return {
-              id: d.id,
-              type: (data.type as NotificationType) ?? "promo",
-              title: data.title ?? "",
-              message: data.message ?? "",
-              isRead: data.isRead ?? false,
+              id:        d.id,
+              type:      (data.type as NotificationType) ?? "promo",
+              title:     data.title   ?? "",
+              message:   data.message ?? "",
+              isRead:    data.isRead  ?? false,
               auctionId: data.auctionId ?? undefined,
               requestId: data.requestId ?? undefined,
+              url:       data.url       ?? undefined,
               createdAt:
                 data.createdAt instanceof Timestamp
                   ? data.createdAt.toDate()
@@ -81,9 +87,7 @@ export function useNotifications() {
         setLoading(false);
       },
       (err) => {
-        // Silently fail — don't show error toast for permission issues
-        // This happens for users with no notifications subcollection yet
-        console.warn("[useNotifications] Snapshot error (likely no docs yet):", err.code);
+        console.warn("[useNotifications] Snapshot error:", err.code);
         setLoading(false);
       },
     );
@@ -91,40 +95,30 @@ export function useNotifications() {
     return () => unsubscribe();
   }, [user]);
 
-  const markRead = useCallback(
-    async (id: string) => {
-      if (!user) return;
+  const markRead = useCallback(async (id: string) => {
+    if (!user) return;
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)),
+    );
+    try {
+      await updateDoc(doc(db, "users", user.uid, "notifications", id), { isRead: true });
+    } catch (err) {
+      console.error("[useNotifications] markRead failed:", err);
       setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)),
+        prev.map((n) => (n.id === id ? { ...n, isRead: false } : n)),
       );
-      try {
-        await updateDoc(
-          doc(db, "users", user.uid, "notifications", id),
-          { isRead: true },
-        );
-      } catch (err) {
-        console.error("[useNotifications] markRead failed:", err);
-        setNotifications((prev) =>
-          prev.map((n) => (n.id === id ? { ...n, isRead: false } : n)),
-        );
-      }
-    },
-    [user],
-  );
+    }
+  }, [user]);
 
   const markAllRead = useCallback(async () => {
     if (!user) return;
     const unread = notifications.filter((n) => !n.isRead);
     if (unread.length === 0) return;
-
     setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-
     try {
       const batch = writeBatch(db);
       unread.forEach((n) =>
-        batch.update(doc(db, "users", user.uid, "notifications", n.id), {
-          isRead: true,
-        }),
+        batch.update(doc(db, "users", user.uid, "notifications", n.id), { isRead: true }),
       );
       await batch.commit();
     } catch (err) {
@@ -138,18 +132,15 @@ export function useNotifications() {
     }
   }, [user, notifications]);
 
-  const dismiss = useCallback(
-    async (id: string) => {
-      if (!user) return;
-      setNotifications((prev) => prev.filter((n) => n.id !== id));
-      try {
-        await deleteDoc(doc(db, "users", user.uid, "notifications", id));
-      } catch (err) {
-        console.error("[useNotifications] dismiss failed:", err);
-      }
-    },
-    [user],
-  );
+  const dismiss = useCallback(async (id: string) => {
+    if (!user) return;
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+    try {
+      await deleteDoc(doc(db, "users", user.uid, "notifications", id));
+    } catch (err) {
+      console.error("[useNotifications] dismiss failed:", err);
+    }
+  }, [user]);
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 

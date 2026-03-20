@@ -3,6 +3,9 @@
  *
  * ⚠️  Service workers are plain JS files — they CANNOT use import.meta.env.
  *     Config values must be hardcoded. These are NOT secret keys.
+ *
+ * Updated: handles last_offer_selected and payment_confirmed push types
+ * with their correct deep-link URLs.
  */
 
 importScripts("https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js");
@@ -20,20 +23,45 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
+// ── Helper: resolve the navigation URL from push data ────────────────────────
+function resolveUrl(data) {
+  if (!data) return "/";
+
+  // Explicit url field always wins
+  if (data.url) return data.url;
+
+  // Type-based routing
+  switch (data.type) {
+    case "last_offer_selected":
+      return data.auctionId
+        ? `/`
+        : "/";
+
+    case "auction_matched":
+      return data.auctionId ? `/auctions/${data.auctionId}` : "/auctions";
+
+    case "payment_confirmed":
+      return data.auctionId ? `/auctions/${data.auctionId}` : "/";
+
+    default:
+      return data.auctionId ? `/auctions/${data.auctionId}` : "/";
+  }
+}
+
 // ── Background message handler ────────────────────────────────────────────────
 messaging.onBackgroundMessage((payload) => {
   const { title = "Loqta Zone", body = "" } = payload.notification ?? {};
   const data = payload.data ?? {};
 
+  const url = resolveUrl(data);
+
   self.registration.showNotification(title, {
     body,
     icon:               "/loqta-removebg-preview.png",
     badge:              "/loqta-removebg-preview.png",
-    tag:                data.requestId ?? "loqta-notif",
+    tag:                data.offerId ?? data.requestId ?? "loqta-notif",
     requireInteraction: true,
-    data: {
-      url: data.auctionId ? `/auctions/${data.auctionId}` : "/auctions",
-    },
+    data:               { url },
   });
 });
 
