@@ -6,10 +6,11 @@
  * - FormattedVoucherMessage: elegant multi-line layout with:
  *     "Exclusive Voucher" header line
  *     voucherLabel (type + savings)
- *     auctionLine (product names + auction numbers)
- *     code in a bright gold monospace badge
- *     expiry + max uses in a subtle footer line
+ *     auctionLine: each item on its own line as "Product Name · #44"
+ *     CopyableCode: navy pill with gold monospace, "tap to copy" → "✓ copied"
+ *     expiry + max uses as plain muted text below the code pill
  * - No CTA button — message is self-contained
+ * - Not clickable — clicking does nothing (marks read only)
  * - All other notification types unchanged
  */
 
@@ -240,48 +241,179 @@ function FormattedMatchedMessage({ message }: { message: string }) {
   );
 }
 
-// ── FormattedVoucherMessage ───────────────────────────────────────────────────
-// Elegant multi-line layout:
-//   Line 1: "Exclusive Voucher · Save 150 EGP on Entry"   (label)
-//   Line 2: "iPhone 15 Pro (#42) & Samsung S24 (#43)"     (auctions)
-//   Line 3: CODE badge + "· Expires Mar 26, 2026 · 4 uses only"
-//
-// Falls back gracefully to plain message if structured fields are missing
-// (for older notification docs that don't have voucherLabel/auctionLine).
+// ── CopyableCode ──────────────────────────────────────────────────────────────
+function CopyableCode({ code }: { code: string }) {
+  const [copied, setCopied] = useState(false);
 
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard
+      .writeText(code)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      })
+      .catch(() => {
+        // Fallback for browsers that don't support clipboard API
+        const ta = document.createElement("textarea");
+        ta.value = code;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      });
+  };
+
+  return (
+    <div
+      onClick={handleCopy}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 8,
+        background: "rgba(22, 45, 69, 0.7)",
+        border: "1px solid rgba(201,169,110,0.28)",
+        borderRadius: 6,
+        padding: "5px 10px",
+        cursor: "pointer",
+        marginTop: 4,
+        alignSelf: "flex-start",
+        transition: "border-color 0.2s, background 0.2s",
+      }}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLDivElement).style.borderColor =
+          "rgba(201,169,110,0.55)";
+        (e.currentTarget as HTMLDivElement).style.background =
+          "rgba(22,45,69,0.9)";
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLDivElement).style.borderColor =
+          "rgba(201,169,110,0.28)";
+        (e.currentTarget as HTMLDivElement).style.background =
+          "rgba(22,45,69,0.7)";
+      }}
+    >
+    
+      <span
+        style={{
+          fontWeight: 700,
+          fontSize: "13px",
+          color: "#c9a96e",
+          userSelect: "all",
+        }}
+      >
+        {code}
+      </span>
+      <span
+        style={{
+          fontSize: "10px",
+          fontFamily: "'Jost',sans-serif",
+          fontWeight: copied ? 600 : 400,
+          color: copied ? "rgba(94,232,160,0.85)" : "rgba(201,169,110,0.35)",
+          transition: "color 0.2s, font-weight 0.2s",
+          userSelect: "none",
+          minWidth: 52,
+        }}
+      >
+        {copied ? "✓ copied" : "tap to copy"}
+      </span>
+    </div>
+  );
+}
+
+// ── FormattedVoucherMessage ───────────────────────────────────────────────────
 function FormattedVoucherMessage({ notif }: { notif: AppNotification }) {
   const data = notif as any;
-  const code = (data.voucherCode ?? "") as string;
-  const label = (data.voucherLabel ?? "") as string;
-  const expiry = (data.expiry ?? "") as string;
-  const maxUses = (data.maxUses ?? 0) as number;
 
-  // Parse auctionItems JSON array — stored by Cloud Function as JSON string
-  // Falls back to splitting auctionLine for backward compat with older docs
+  // ── Try structured fields first (new notifications) ───────────────────────
+  let code = (data.voucherCode ?? "") as string;
+  let label = (data.voucherLabel ?? "") as string;
+  let expiry = (data.expiry ?? "") as string;
+  let maxUses = (data.maxUses ?? 0) as number;
+
   let auctions: { productTitle: string; auctionNumber: number }[] = [];
+
   try {
     const raw = data.auctionItems ?? "";
     if (raw) auctions = JSON.parse(raw);
   } catch {
-    // Fallback: split the plain auctionLine string
+    /* ignore */
+  }
+
+  // Fallback: auctionLine string
+  if (auctions.length === 0) {
     const line = (data.auctionLine ?? "") as string;
     if (line && line !== "All Auctions") {
-      auctions = line.split(", ").map((part: string) => {
+      const parsed = line.split(", ").map((part: string) => {
         const m = part.match(/^(.+)\s+\(#(\d+)\)$/);
         return m
           ? { productTitle: m[1].trim(), auctionNumber: parseInt(m[2], 10) }
           : { productTitle: part.trim(), auctionNumber: 0 };
       });
+      if (parsed.length > 0) auctions = parsed;
+    }
+  }
+
+  // ── Last-resort: parse from raw message string (old notifications) ────────
+  const msg = notif.message ?? "";
+
+  if (!code) {
+    const m = msg.match(/Use code ([A-Z0-9]+)/i);
+    if (m) code = m[1].toUpperCase();
+  }
+
+  if (!expiry) {
+    const m = msg.match(/Expires?\s+([A-Za-z]+\s+\d+,?\s+\d{4})/i);
+    if (m) expiry = m[1];
+  }
+
+  if (!maxUses) {
+    const m = msg.match(/·\s*(\d+)\s+uses?\s+only/i);
+    if (m) maxUses = parseInt(m[1], 10);
+  }
+
+  // Parse auction items from raw message body
+  if (auctions.length === 0 && code) {
+    const afterCode = msg.replace(/Use code [A-Z0-9]+\s+on\s+/i, "");
+    const beforeExpiry = afterCode.split(/\.\s*Expires/i)[0];
+    if (beforeExpiry) {
+      const parts = beforeExpiry.split(/,\s*/);
+      const parsed = parts
+        .map((part) => {
+          const m = part.trim().match(/^(.+?)\s+\(#(\d+)\)$/);
+          return m
+            ? { productTitle: m[1].trim(), auctionNumber: parseInt(m[2], 10) }
+            : null;
+        })
+        .filter(Boolean) as { productTitle: string; auctionNumber: number }[];
+      if (parsed.length > 0) auctions = parsed;
+    }
+  }
+
+  // Derive label from title if not stored
+  if (!label && notif.title) {
+    const full = notif.title.replace(/^Exclusive Voucher\s*[—-]\s*/i, "");
+    const onIdx = full.search(/\s+on\s+/i);
+    label = onIdx > 0 ? full.slice(0, onIdx).trim() : full.trim();
+    // Avoid setting label to just the product name repeated
+    if (label.toLowerCase() === auctions[0]?.productTitle?.toLowerCase()) {
+      label = "";
     }
   }
 
   const universalVoucher = auctions.length === 0;
+  const hasAnyContent =
+    code || label || expiry || maxUses > 0 || auctions.length > 0;
 
-  // Fallback for very old docs with no structured fields at all
-  if (!label && auctions.length === 0 && !expiry) {
+  // Absolute fallback — plain text
+  if (!hasAnyContent) {
     return (
       <p className="nf-item-msg" style={{ marginBottom: 4 }}>
-        {notif.message}
+        {msg}
       </p>
     );
   }
@@ -291,18 +423,18 @@ function FormattedVoucherMessage({ notif }: { notif: AppNotification }) {
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: 6,
+        gap: 4,
         marginBottom: 4,
       }}
     >
-      {/* Line 1 — type label */}
+      {/* Line 1 — label */}
       {label && (
         <p
           style={{
             fontFamily: "'Jost',sans-serif",
             fontSize: "11.5px",
             fontWeight: 500,
-            color: "rgba(229,224,198,0.72)",
+            color: "rgba(229,224,198,0.68)",
             margin: 0,
             lineHeight: 1.4,
           }}
@@ -315,140 +447,123 @@ function FormattedVoucherMessage({ notif }: { notif: AppNotification }) {
         </p>
       )}
 
-      {/* Lines 2…N — one bullet per auction */}
+      {/* Lines 2…N — auction items */}
       {universalVoucher ? (
-        <p
-          style={{
-            fontFamily: "'Jost',sans-serif",
-            fontSize: "11px",
-            color: "rgba(229,224,198,0.4)",
-            margin: 0,
-            lineHeight: 1.4,
-            display: "flex",
-            alignItems: "center",
-            gap: 5,
-          }}
-        >
+        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
           <span
             style={{
               display: "inline-block",
-              width: 4,
-              height: 4,
+              width: 3,
+              height: 3,
               borderRadius: "50%",
-              background: "rgba(201,169,110,0.45)",
+              background: "rgba(201,169,110,0.4)",
               flexShrink: 0,
             }}
           />
-          Valid on all auctions
-        </p>
+          <span
+            style={{
+              fontFamily: "'Jost',sans-serif",
+              fontSize: "11px",
+              color: "rgba(229,224,198,0.38)",
+            }}
+          >
+            Valid on all auctions
+          </span>
+        </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
           {auctions.map((a, idx) => (
-            <p
+            <div
               key={idx}
-              style={{
-                fontFamily: "'Jost',sans-serif",
-                fontSize: "11px",
-                color: "rgba(229,224,198,0.42)",
-                margin: 0,
-                lineHeight: 1.4,
-                display: "flex",
-                alignItems: "center",
-                gap: 5,
-              }}
+              style={{ display: "flex", alignItems: "center", gap: 5 }}
             >
               <span
                 style={{
                   display: "inline-block",
-                  width: 4,
-                  height: 4,
+                  width: 3,
+                  height: 3,
                   borderRadius: "50%",
-                  background: "rgba(201,169,110,0.45)",
+                  background: "rgba(201,169,110,0.4)",
                   flexShrink: 0,
                 }}
               />
               <span
-                style={{ color: "rgba(229,224,198,0.62)", fontWeight: 500 }}
-              >
-                {a.productTitle}
-              </span>
-              <span
                 style={{
-                  fontFamily: "monospace",
-                  fontSize: "10px",
-                  color: "rgba(201,169,110,0.55)",
-                  background: "rgba(201,169,110,0.08)",
-                  border: "1px solid rgba(201,169,110,0.2)",
-                  borderRadius: 3,
-                  padding: "0px 5px",
-                  flexShrink: 0,
+                  fontFamily: "'Jost',sans-serif",
+                  fontSize: "12px",
+                  color: "rgba(229,224,198,0.52)",
+                  fontWeight: 400,
                 }}
               >
-                #{a.auctionNumber}
+                {a.productTitle}
+                <span
+                  style={{
+                    color: "rgba(201,169,110,0.35)",
+                    margin: "0 4px",
+                  }}
+                >
+                  ·
+                </span>
+                <span
+                  style={{
+                    color: "rgba(201,169,110,0.6)",
+                    fontWeight: 600,
+                  }}
+                >
+                  #{a.auctionNumber}
+                </span>
               </span>
-            </p>
+            </div>
           ))}
         </div>
       )}
 
-      {/* Code badge — large, bright, unmissable */}
-      {code && (
+      {/* Line 3 — copyable code badge */}
+      {code && <CopyableCode code={code} />}
+
+      {/* Line 4 — expiry + uses, plain muted text below the badge */}
+      {(expiry || maxUses > 0) && (
         <div
           style={{
             display: "flex",
             alignItems: "center",
-            gap: 8,
-            marginTop: 2,
+            gap: 5,
+            marginTop: 3,
           }}
         >
-          <span
-            style={{
-              fontFamily: "'Courier New', monospace",
-              fontWeight: 900,
-              fontSize: "13px",
-              letterSpacing: "0.18em",
-              color: "#ffe8a0",
-              background: "rgba(201,169,110,0.15)",
-              border: "1.5px solid rgba(201,169,110,0.6)",
-              borderRadius: 6,
-              padding: "3px 11px",
-              boxShadow:
-                "0 0 10px rgba(201,169,110,0.25), inset 0 1px 0 rgba(255,255,255,0.06)",
-              textShadow:
-                "0 0 16px rgba(255,220,120,0.8), 0 0 4px rgba(255,200,80,0.5)",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-            }}
-          >
-            <span
-              style={{
-                fontSize: 11,
-                opacity: 0.7,
-                letterSpacing: 0,
-                fontWeight: 400,
-                fontFamily: "'Jost',sans-serif",
-              }}
-            >
-              CODE
-            </span>
-            {code}
-          </span>
-
-          {/* Expiry + uses */}
-          {(expiry || maxUses > 0) && (
+          {expiry && (
             <span
               style={{
                 fontFamily: "'Jost',sans-serif",
-                fontSize: "10.5px",
-                color: "rgba(229,224,198,0.32)",
+                fontSize: "11.5px",
+                color: "rgba(229,224,198,0.75)",
                 lineHeight: 1.3,
-                flexShrink: 0,
               }}
             >
-              {expiry ? `Exp. ${expiry}` : ""}
-              {expiry && maxUses > 0 ? " · " : ""}
-              {maxUses > 0 ? `${maxUses} uses` : ""}
+              Exp. {expiry}
+            </span>
+          )}
+          {expiry && maxUses > 0 && (
+            <span
+              style={{
+                color: "rgba(229,224,198,0.15)",
+                fontSize: "9px",
+                userSelect: "none",
+              }}
+            >
+              ·
+            </span>
+          )}
+          {maxUses > 0 && (
+            <span
+              style={{
+                fontFamily: "'Jost',sans-serif",
+                fontSize: "11.5px",
+                color: "rgba(229,224,198,0.75)",
+                lineHeight: 1.3,
+              }}
+            >
+              {maxUses} uses only
             </span>
           )}
         </div>
@@ -488,7 +603,7 @@ function PaymentConfirmedIcon() {
   );
 }
 
-// ── VoucherTicketIcon — 🎟️ emoji in a styled circle ──────────────────────────
+// ── VoucherTicketIcon ─────────────────────────────────────────────────────────
 function VoucherTicketIcon({ isUnread }: { isUnread: boolean }) {
   return (
     <div
@@ -498,17 +613,17 @@ function VoucherTicketIcon({ isUnread }: { isUnread: boolean }) {
         borderRadius: 14,
         flexShrink: 0,
         marginTop: 1,
-        background: isUnread
-          ? "linear-gradient(135deg, rgba(201,169,110,0.22), rgba(201,169,110,0.1))"
-          : "rgba(201,169,110,0.08)",
-        border: `1px solid ${isUnread ? "rgba(201,169,110,0.45)" : "rgba(201,169,110,0.2)"}`,
+        // background: isUnread
+        //   ? "linear-gradient(135deg, rgba(201,169,110,0.22), rgba(201,169,110,0.1))"
+        //   : "rgba(201,169,110,0.08)",
+        // border: `1px solid ${isUnread ? "rgba(201,169,110,0.45)" : "rgba(201,169,110,0.2)"}`,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         position: "relative",
       }}
     >
-      <span style={{ fontSize: 20, lineHeight: 1, userSelect: "none" }}>
+      <span style={{ fontSize: 30, lineHeight: 1, userSelect: "none" }}>
         🎟️
       </span>
       {isUnread && (
@@ -530,7 +645,7 @@ function VoucherTicketIcon({ isUnread }: { isUnread: boolean }) {
   );
 }
 
-// ── TYPE_CONFIG — voucher_created uses VoucherTicketIcon, not this ─────────────
+// ── TYPE_CONFIG ───────────────────────────────────────────────────────────────
 const TYPE_CONFIG: Record<
   NotificationType,
   { Icon: any; color: string; bg: string; border: string }
@@ -636,7 +751,10 @@ export const NotificationBell = () => {
   }, []);
 
   const handleItemClick = (notif: AppNotification) => {
-    if (notif.type === "payment_confirmed") {
+    if (
+      notif.type === "payment_confirmed" ||
+      notif.type === "voucher_created"
+    ) {
       markRead(notif.id);
       return;
     }
@@ -910,8 +1028,8 @@ const CSS = `
 .nf-item.unread{background:rgba(201,169,110,0.03);}
 .nf-item.is-clickable.unread:hover{background:rgba(201,169,110,0.055);}
 .nf-item.payment-confirmed{background:rgba(74,222,128,0.03);cursor:default;}
+.nf-item.voucher-item{cursor:default;}
 .nf-item.voucher-item.unread{background:rgba(201,169,110,0.04);}
-.nf-item.voucher-item.is-clickable.unread:hover{background:rgba(201,169,110,0.07);}
 .nf-unread-bar{position:absolute;left:0;top:12%;bottom:12%;width:3px;border-radius:0 3px 3px 0;background:linear-gradient(180deg,#c9a96e,#b8944e);box-shadow:0 0 8px rgba(201,169,110,0.65);}
 .nf-unread-bar.nf-unread-green{background:linear-gradient(180deg,#4ade80,#22c55e);box-shadow:0 0 8px rgba(74,222,128,0.65);}
 .nf-icon{width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;position:relative;}
