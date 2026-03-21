@@ -1140,6 +1140,10 @@
     "auctionMatched": {
       "title": "المنتج الذي طلبته متاح الآن! 🎉",
       "message": "{{product}} متاح الآن في المزادات. قدّم عرضك الآن!"
+    },
+    "voucherCreated": {
+      "title": "كوبون جديد متاح",
+      "message": "استخدم الكود {{code}} {{product, في المزاد}} قبل انتهاء صلاحيته."
     }
   },
   "profilePage": {

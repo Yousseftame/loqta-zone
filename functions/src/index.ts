@@ -34,6 +34,9 @@ export { onLastOfferSelected } from "./Notifications/lastOfferNotification";
 // (fires when selectedbyAdmin=true AND status="accepted" set on a bid doc)
 export { onBidSelected } from "./Notifications/bidWinnerNotification";
 
+export { onVoucherCreated } from "./Notifications/voucherNotification";
+
+
 
 // ── Auction winner resolution ─────────────────────────────────────────────────
 // triggerResolveAuction — HTTP callable, fired by frontend countdown (PRIMARY path)

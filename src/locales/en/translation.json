@@ -1156,6 +1156,10 @@
     "auctionMatched": {
       "title": "Your requested item is now available! 🎉",
       "message": "{{product}} is now live in auctions. Place your bid now!"
+    },
+    "voucherCreated": {
+      "title": "New Voucher Available",
+      "message": "Use code {{code}} on {{product, your next auction}} before it expires."
     }
   },
   "profilePage": {

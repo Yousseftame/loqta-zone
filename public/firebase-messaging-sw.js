@@ -42,6 +42,10 @@ function resolveUrl(data) {
 
     case "payment_confirmed":
       return data.auctionId ? `/auctions/${data.auctionId}` : "/";
+    
+    
+    case "voucher_created":
+  return "/";
 
     default:
       return data.auctionId ? `/auctions/${data.auctionId}` : "/";

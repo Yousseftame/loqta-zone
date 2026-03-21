@@ -1,14 +1,16 @@
 /**
  * src/components/shared/Notificationbell.tsx
  *
- * Updated:
- *  - Added i18n localization: notifications are re-rendered in Arabic/English
- *    based on current language, reconstructed from stored data fields.
- *  - ⚠️ warning line is now visually separated with a blank line before it.
- *  - "bid_selected" and "last_offer_selected" types fully localized.
- *  - "payment_confirmed" and "auction_matched" types fully localized.
- *  - All other types fall back to stored title/message (unchanged behavior).
- *  - Mobile: panel is viewport-width, anchored to screen edges, not the FAB.
+ * voucher_created changes:
+ * - Icon replaced with 🎟️ emoji rendered in a styled circle
+ * - FormattedVoucherMessage: elegant multi-line layout with:
+ *     "Exclusive Voucher" header line
+ *     voucherLabel (type + savings)
+ *     auctionLine (product names + auction numbers)
+ *     code in a bright gold monospace badge
+ *     expiry + max uses in a subtle footer line
+ * - No CTA button — message is self-contained
+ * - All other notification types unchanged
  */
 
 import { useState, useEffect, useRef } from "react";
@@ -22,7 +24,7 @@ import {
   type NotificationType,
 } from "@/hooks/useNotifications";
 
-// ── Relative time ─────────────────────────────────────────────────────────────
+// ── timeAgo ───────────────────────────────────────────────────────────────────
 function timeAgo(date: Date): string {
   const diff = Date.now() - date.getTime();
   const mins = Math.floor(diff / 60_000);
@@ -33,7 +35,7 @@ function timeAgo(date: Date): string {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-// ── Localized notification content ───────────────────────────────────────────
+// ── getLocalizedNotif ─────────────────────────────────────────────────────────
 function getLocalizedNotif(
   notif: AppNotification,
   t: (key: string, opts?: Record<string, any>) => string,
@@ -46,7 +48,6 @@ function getLocalizedNotif(
     if (!match) return 0;
     return parseInt(match[1].replace(/,/g, ""), 10) || 0;
   }
-
   function parseProductFromMessage(msg: string): string {
     const match = msg.match(/"([^"]+)"/);
     return match ? match[1] : "";
@@ -56,114 +57,100 @@ function getLocalizedNotif(
     case "bid_selected": {
       const amount = data.winningBid ?? data.amount ?? 0;
       const product = data.productTitle ?? data.productName ?? "";
-      const resolvedAmount = amount || parseAmountFromMessage(notif.message);
-      const resolvedProduct = product || parseProductFromMessage(notif.message);
       return {
         title: t("notifications.bidSelected.title"),
         message: t("notifications.bidSelected.message", {
-          product: resolvedProduct,
-          amount: fmt(resolvedAmount),
+          product: product || parseProductFromMessage(notif.message),
+          amount: fmt(amount || parseAmountFromMessage(notif.message)),
         }),
       };
     }
-
     case "last_offer_selected": {
       const amount = data.winningBid ?? data.amount ?? 0;
       const product = data.productTitle ?? data.productName ?? "";
-      const resolvedAmount = amount || parseAmountFromMessage(notif.message);
-      const resolvedProduct = product || parseProductFromMessage(notif.message);
       return {
         title: t("notifications.lastOfferSelected.title"),
         message: t("notifications.lastOfferSelected.message", {
-          product: resolvedProduct,
-          amount: fmt(resolvedAmount),
+          product: product || parseProductFromMessage(notif.message),
+          amount: fmt(amount || parseAmountFromMessage(notif.message)),
         }),
       };
     }
-
     case "payment_confirmed": {
       const amount = data.amount ?? data.winningBid ?? data.paymentAmount ?? 0;
       const product =
         data.productTitle ?? data.productName ?? data.itemTitle ?? "";
-      const resolvedAmount = amount || parseAmountFromMessage(notif.message);
-      const resolvedProduct = product || parseProductFromMessage(notif.message);
       return {
         title: t("notifications.paymentConfirmed.title"),
         message: t("notifications.paymentConfirmed.message", {
-          product: resolvedProduct,
-          amount: fmt(resolvedAmount),
+          product: product || parseProductFromMessage(notif.message),
+          amount: fmt(amount || parseAmountFromMessage(notif.message)),
         }),
       };
     }
-
     case "auction_matched": {
       const product = data.productName ?? data.productTitle ?? "";
-      const resolvedProduct = product || parseProductFromMessage(notif.message);
       return {
         title: t("notifications.auctionMatched.title"),
         message: t("notifications.auctionMatched.message", {
-          product: resolvedProduct,
+          product: product || parseProductFromMessage(notif.message),
         }),
       };
     }
-
+    // voucher_created: plain strings stored by Cloud Function — return as-is
+    case "voucher_created":
     default:
       return { title: notif.title, message: notif.message };
   }
 }
 
-// ── Formatted message for last_offer_selected / bid_selected ──────────────────
+// ── FormattedSelectionMessage ─────────────────────────────────────────────────
 function FormattedSelectionMessage({ message }: { message: string }) {
   const parts = message.split(/\n\n/);
   const mainText = parts[0] ?? message;
-  const warningText = parts[1] ?? null;
+  const warnText = parts[1] ?? null;
 
   const renderSegments = (text: string): React.ReactNode[] => {
-    const segments: React.ReactNode[] = [];
-    let remaining = text;
-    let key = 0;
-
-    const productMatch = remaining.match(/"([^"]+)"/);
-    if (productMatch) {
-      const fullQuoted = `"${productMatch[1]}"`;
-      const idx = remaining.indexOf(fullQuoted);
+    const segs: React.ReactNode[] = [];
+    let rem = text,
+      key = 0;
+    const pm = rem.match(/"([^"]+)"/);
+    if (pm) {
+      const q = `"${pm[1]}"`,
+        idx = rem.indexOf(q);
       if (idx > -1) {
-        if (idx > 0)
-          segments.push(<span key={key++}>{remaining.slice(0, idx)}</span>);
-        segments.push(
+        if (idx > 0) segs.push(<span key={key++}>{rem.slice(0, idx)}</span>);
+        segs.push(
           <span key={key++} style={{ color: "#c9a96e", fontWeight: 600 }}>
-            {fullQuoted}
+            {q}
           </span>,
         );
-        remaining = remaining.slice(idx + fullQuoted.length);
+        rem = rem.slice(idx + q.length);
       }
     }
-
-    const amountMatch = remaining.match(/([\d,]+\s*(?:EGP|جنيه))/i);
-    if (amountMatch) {
-      const idx = remaining.indexOf(amountMatch[1]);
+    const am = rem.match(/([\d,]+\s*(?:EGP|جنيه))/i);
+    if (am) {
+      const idx = rem.indexOf(am[1]);
       if (idx > -1) {
-        if (idx > 0)
-          segments.push(<span key={key++}>{remaining.slice(0, idx)}</span>);
-        segments.push(
+        if (idx > 0) segs.push(<span key={key++}>{rem.slice(0, idx)}</span>);
+        segs.push(
           <span key={key++} style={{ color: "#c9a96e", fontWeight: 700 }}>
-            {amountMatch[1]}
+            {am[1]}
           </span>,
         );
-        remaining = remaining.slice(idx + amountMatch[1].length);
+        rem = rem.slice(idx + am[1].length);
       }
     }
-
-    if (remaining) segments.push(<span key={key++}>{remaining}</span>);
-    return segments;
+    if (rem) segs.push(<span key={key++}>{rem}</span>);
+    return segs;
   };
 
   return (
     <div style={{ marginBottom: 4 }}>
-      <p className="nf-item-msg" style={{ marginBottom: warningText ? 6 : 0 }}>
+      <p className="nf-item-msg" style={{ marginBottom: warnText ? 6 : 0 }}>
         {renderSegments(mainText)}
       </p>
-      {warningText && (
+      {warnText && (
         <p
           className="nf-item-msg"
           style={{
@@ -176,14 +163,14 @@ function FormattedSelectionMessage({ message }: { message: string }) {
             lineHeight: 1.5,
           }}
         >
-          {warningText}
+          {warnText}
         </p>
       )}
     </div>
   );
 }
 
-// ── Formatted message for payment_confirmed with "contact us" link ────────────
+// ── FormattedPaymentMessage ───────────────────────────────────────────────────
 function FormattedPaymentMessage({
   message,
   onContactClick,
@@ -195,7 +182,7 @@ function FormattedPaymentMessage({
   return (
     <p className="nf-item-msg" style={{ marginBottom: 4 }}>
       {parts.map((part, i) => {
-        if (/^(contact us|تواصل معنا)$/i.test(part)) {
+        if (/^(contact us|تواصل معنا)$/i.test(part))
           return (
             <span
               key={i}
@@ -214,17 +201,14 @@ function FormattedPaymentMessage({
               {part}
             </span>
           );
-        }
-        const amountMatch = part.match(/([\d,]+\s*(?:EGP|جنيه))/i);
-        if (amountMatch) {
-          const idx = part.indexOf(amountMatch[1]);
+        const am = part.match(/([\d,]+\s*(?:EGP|جنيه))/i);
+        if (am) {
+          const idx = part.indexOf(am[1]);
           return (
             <span key={i}>
               {part.slice(0, idx)}
-              <span style={{ color: "#c9a96e", fontWeight: 700 }}>
-                {amountMatch[1]}
-              </span>
-              {part.slice(idx + amountMatch[1].length)}
+              <span style={{ color: "#c9a96e", fontWeight: 700 }}>{am[1]}</span>
+              {part.slice(idx + am[1].length)}
             </span>
           );
         }
@@ -234,33 +218,246 @@ function FormattedPaymentMessage({
   );
 }
 
-// ── Formatted message for auction_matched ────────────────────────────────────
+// ── FormattedMatchedMessage ───────────────────────────────────────────────────
 function FormattedMatchedMessage({ message }: { message: string }) {
-  const segments: React.ReactNode[] = [];
-  let remaining = message;
-  let key = 0;
-
-  const liveIdx = remaining.search(/ is now live/i);
-  if (liveIdx > 0) {
-    const productName = remaining.slice(0, liveIdx);
-    segments.push(
+  const segs: React.ReactNode[] = [];
+  let rem = message,
+    key = 0;
+  const idx = rem.search(/ is now live/i);
+  if (idx > 0) {
+    segs.push(
       <span key={key++} style={{ color: "#c9a96e", fontWeight: 700 }}>
-        {productName}
+        {rem.slice(0, idx)}
       </span>,
     );
-    remaining = remaining.slice(liveIdx);
+    rem = rem.slice(idx);
   }
-
-  if (remaining) segments.push(<span key={key++}>{remaining}</span>);
-
+  if (rem) segs.push(<span key={key++}>{rem}</span>);
   return (
     <p className="nf-item-msg" style={{ marginBottom: 4 }}>
-      {segments.length > 0 ? segments : message}
+      {segs.length > 0 ? segs : message}
     </p>
   );
 }
 
-// ── Solid green checkmark circle ──────────────────────────────────────────────
+// ── FormattedVoucherMessage ───────────────────────────────────────────────────
+// Elegant multi-line layout:
+//   Line 1: "Exclusive Voucher · Save 150 EGP on Entry"   (label)
+//   Line 2: "iPhone 15 Pro (#42) & Samsung S24 (#43)"     (auctions)
+//   Line 3: CODE badge + "· Expires Mar 26, 2026 · 4 uses only"
+//
+// Falls back gracefully to plain message if structured fields are missing
+// (for older notification docs that don't have voucherLabel/auctionLine).
+
+function FormattedVoucherMessage({ notif }: { notif: AppNotification }) {
+  const data = notif as any;
+  const code = (data.voucherCode ?? "") as string;
+  const label = (data.voucherLabel ?? "") as string;
+  const expiry = (data.expiry ?? "") as string;
+  const maxUses = (data.maxUses ?? 0) as number;
+
+  // Parse auctionItems JSON array — stored by Cloud Function as JSON string
+  // Falls back to splitting auctionLine for backward compat with older docs
+  let auctions: { productTitle: string; auctionNumber: number }[] = [];
+  try {
+    const raw = data.auctionItems ?? "";
+    if (raw) auctions = JSON.parse(raw);
+  } catch {
+    // Fallback: split the plain auctionLine string
+    const line = (data.auctionLine ?? "") as string;
+    if (line && line !== "All Auctions") {
+      auctions = line.split(", ").map((part: string) => {
+        const m = part.match(/^(.+)\s+\(#(\d+)\)$/);
+        return m
+          ? { productTitle: m[1].trim(), auctionNumber: parseInt(m[2], 10) }
+          : { productTitle: part.trim(), auctionNumber: 0 };
+      });
+    }
+  }
+
+  const universalVoucher = auctions.length === 0;
+
+  // Fallback for very old docs with no structured fields at all
+  if (!label && auctions.length === 0 && !expiry) {
+    return (
+      <p className="nf-item-msg" style={{ marginBottom: 4 }}>
+        {notif.message}
+      </p>
+    );
+  }
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 6,
+        marginBottom: 4,
+      }}
+    >
+      {/* Line 1 — type label */}
+      {label && (
+        <p
+          style={{
+            fontFamily: "'Jost',sans-serif",
+            fontSize: "11.5px",
+            fontWeight: 500,
+            color: "rgba(229,224,198,0.72)",
+            margin: 0,
+            lineHeight: 1.4,
+          }}
+        >
+          <span style={{ color: "#c9a96e", fontWeight: 700 }}>
+            Exclusive Voucher
+          </span>
+          {" · "}
+          {label}
+        </p>
+      )}
+
+      {/* Lines 2…N — one bullet per auction */}
+      {universalVoucher ? (
+        <p
+          style={{
+            fontFamily: "'Jost',sans-serif",
+            fontSize: "11px",
+            color: "rgba(229,224,198,0.4)",
+            margin: 0,
+            lineHeight: 1.4,
+            display: "flex",
+            alignItems: "center",
+            gap: 5,
+          }}
+        >
+          <span
+            style={{
+              display: "inline-block",
+              width: 4,
+              height: 4,
+              borderRadius: "50%",
+              background: "rgba(201,169,110,0.45)",
+              flexShrink: 0,
+            }}
+          />
+          Valid on all auctions
+        </p>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+          {auctions.map((a, idx) => (
+            <p
+              key={idx}
+              style={{
+                fontFamily: "'Jost',sans-serif",
+                fontSize: "11px",
+                color: "rgba(229,224,198,0.42)",
+                margin: 0,
+                lineHeight: 1.4,
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
+              }}
+            >
+              <span
+                style={{
+                  display: "inline-block",
+                  width: 4,
+                  height: 4,
+                  borderRadius: "50%",
+                  background: "rgba(201,169,110,0.45)",
+                  flexShrink: 0,
+                }}
+              />
+              <span
+                style={{ color: "rgba(229,224,198,0.62)", fontWeight: 500 }}
+              >
+                {a.productTitle}
+              </span>
+              <span
+                style={{
+                  fontFamily: "monospace",
+                  fontSize: "10px",
+                  color: "rgba(201,169,110,0.55)",
+                  background: "rgba(201,169,110,0.08)",
+                  border: "1px solid rgba(201,169,110,0.2)",
+                  borderRadius: 3,
+                  padding: "0px 5px",
+                  flexShrink: 0,
+                }}
+              >
+                #{a.auctionNumber}
+              </span>
+            </p>
+          ))}
+        </div>
+      )}
+
+      {/* Code badge — large, bright, unmissable */}
+      {code && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            marginTop: 2,
+          }}
+        >
+          <span
+            style={{
+              fontFamily: "'Courier New', monospace",
+              fontWeight: 900,
+              fontSize: "13px",
+              letterSpacing: "0.18em",
+              color: "#ffe8a0",
+              background: "rgba(201,169,110,0.15)",
+              border: "1.5px solid rgba(201,169,110,0.6)",
+              borderRadius: 6,
+              padding: "3px 11px",
+              boxShadow:
+                "0 0 10px rgba(201,169,110,0.25), inset 0 1px 0 rgba(255,255,255,0.06)",
+              textShadow:
+                "0 0 16px rgba(255,220,120,0.8), 0 0 4px rgba(255,200,80,0.5)",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <span
+              style={{
+                fontSize: 11,
+                opacity: 0.7,
+                letterSpacing: 0,
+                fontWeight: 400,
+                fontFamily: "'Jost',sans-serif",
+              }}
+            >
+              CODE
+            </span>
+            {code}
+          </span>
+
+          {/* Expiry + uses */}
+          {(expiry || maxUses > 0) && (
+            <span
+              style={{
+                fontFamily: "'Jost',sans-serif",
+                fontSize: "10.5px",
+                color: "rgba(229,224,198,0.32)",
+                lineHeight: 1.3,
+                flexShrink: 0,
+              }}
+            >
+              {expiry ? `Exp. ${expiry}` : ""}
+              {expiry && maxUses > 0 ? " · " : ""}
+              {maxUses > 0 ? `${maxUses} uses` : ""}
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── PaymentConfirmedIcon ──────────────────────────────────────────────────────
 function PaymentConfirmedIcon() {
   return (
     <div
@@ -291,7 +488,49 @@ function PaymentConfirmedIcon() {
   );
 }
 
-// ── Icon config ───────────────────────────────────────────────────────────────
+// ── VoucherTicketIcon — 🎟️ emoji in a styled circle ──────────────────────────
+function VoucherTicketIcon({ isUnread }: { isUnread: boolean }) {
+  return (
+    <div
+      style={{
+        width: 44,
+        height: 44,
+        borderRadius: 14,
+        flexShrink: 0,
+        marginTop: 1,
+        background: isUnread
+          ? "linear-gradient(135deg, rgba(201,169,110,0.22), rgba(201,169,110,0.1))"
+          : "rgba(201,169,110,0.08)",
+        border: `1px solid ${isUnread ? "rgba(201,169,110,0.45)" : "rgba(201,169,110,0.2)"}`,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        position: "relative",
+      }}
+    >
+      <span style={{ fontSize: 20, lineHeight: 1, userSelect: "none" }}>
+        🎟️
+      </span>
+      {isUnread && (
+        <span
+          style={{
+            position: "absolute",
+            bottom: -2,
+            right: -2,
+            width: 9,
+            height: 9,
+            borderRadius: "50%",
+            background: "#c9a96e",
+            border: "2px solid #080d1a",
+            animation: "nfDotPulse 1.8s ease-in-out infinite",
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── TYPE_CONFIG — voucher_created uses VoucherTicketIcon, not this ─────────────
 const TYPE_CONFIG: Record<
   NotificationType,
   { Icon: any; color: string; bg: string; border: string }
@@ -350,6 +589,12 @@ const TYPE_CONFIG: Record<
     bg: "rgba(74,222,128,0.1)",
     border: "rgba(74,222,128,0.3)",
   },
+  voucher_created: {
+    Icon: null,
+    color: "#c9a96e",
+    bg: "rgba(201,169,110,0.1)",
+    border: "rgba(201,169,110,0.3)",
+  },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -402,13 +647,10 @@ export const NotificationBell = () => {
       return;
     }
     if (notif.type === "auction_matched") {
-      const data = notif as any;
-      const productId = data.productId ?? "";
-      if (productId) {
-        navigate(`/auctions/register/${productId}`);
-      } else if (notif.auctionId) {
-        navigate(`/auctions/${notif.auctionId}`);
-      }
+      const d = notif as any;
+      const pid = d.productId ?? "";
+      if (pid) navigate(`/auctions/register/${pid}`);
+      else if (notif.auctionId) navigate(`/auctions/${notif.auctionId}`);
     }
   };
 
@@ -469,7 +711,8 @@ export const NotificationBell = () => {
                   const isPaymentConfirmed = notif.type === "payment_confirmed";
                   const isConfirmType = CONFIRM_TYPES.includes(notif.type);
                   const isMatchedType = notif.type === "auction_matched";
-                  const isClickable = !isPaymentConfirmed;
+                  const isVoucherType = notif.type === "voucher_created";
+                  const isClickable = !isPaymentConfirmed && !isVoucherType;
                   const cfg = TYPE_CONFIG[notif.type] ?? TYPE_CONFIG.promo;
 
                   const { title: localTitle, message: localMessage } =
@@ -483,6 +726,7 @@ export const NotificationBell = () => {
                         isClickable ? "is-clickable" : "",
                         !notif.isRead ? "unread" : "",
                         isPaymentConfirmed ? "payment-confirmed" : "",
+                        isVoucherType ? "voucher-item" : "",
                       ]
                         .filter(Boolean)
                         .join(" ")}
@@ -495,8 +739,11 @@ export const NotificationBell = () => {
                         />
                       )}
 
+                      {/* Icon column */}
                       {isPaymentConfirmed ? (
                         <PaymentConfirmedIcon />
+                      ) : isVoucherType ? (
+                        <VoucherTicketIcon isUnread={!notif.isRead} />
                       ) : (
                         <div
                           className="nf-icon"
@@ -521,6 +768,7 @@ export const NotificationBell = () => {
                         </div>
                       )}
 
+                      {/* Body column */}
                       <div className="nf-body">
                         <p className="nf-item-title">{localTitle}</p>
 
@@ -536,6 +784,8 @@ export const NotificationBell = () => {
                           />
                         ) : isMatchedType ? (
                           <FormattedMatchedMessage message={localMessage} />
+                        ) : isVoucherType ? (
+                          <FormattedVoucherMessage notif={notif} />
                         ) : (
                           <p className="nf-item-msg">{localMessage}</p>
                         )}
@@ -574,7 +824,6 @@ export const NotificationBell = () => {
           </div>
         )}
 
-        {/* FAB */}
         <div className="nf-fab-row">
           <span className="nf-label">
             {unreadCount > 0 ? labelNewAlerts(unreadCount) : labelNotifications}
@@ -623,7 +872,6 @@ const CSS = `
 @keyframes nfBreathe{0%,100%{box-shadow:0 0 0 0 rgba(201,169,110,0),0 8px 32px rgba(0,0,0,0.6);}50%{box-shadow:0 0 0 10px rgba(201,169,110,0.14),0 14px 44px rgba(201,169,110,0.2);}}
 @keyframes nfDotPulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:0.3;transform:scale(0.5);}}
 @keyframes nfBadgeGlow{0%,100%{box-shadow:0 3px 10px rgba(255,61,90,0.55);}50%{box-shadow:0 3px 18px rgba(255,61,90,0.9),0 0 0 4px rgba(255,61,90,0.15);}}
-
 .nf-root{position:fixed;bottom:28px;right:28px;z-index:9999;display:flex;flex-direction:column;align-items:flex-end;}
 .nf-fab-row{display:flex;align-items:center;gap:0;position:relative;}
 .nf-label{font-family:'Jost',sans-serif;font-size:11px;font-weight:800;letter-spacing:0.15em;text-transform:uppercase;color:#c9a96e;white-space:nowrap;background:linear-gradient(135deg,#0e1c2e,#0a0a1a);border:1px solid rgba(201,169,110,0.3);border-radius:10px;height:36px;display:flex;align-items:center;padding:0 14px;position:absolute;right:calc(100% + 12px);pointer-events:none;opacity:0;transform:translateX(8px);transition:opacity 0.25s ease,transform 0.25s ease;box-shadow:0 4px 16px rgba(0,0,0,0.4);}
@@ -637,35 +885,15 @@ const CSS = `
 .nf-circle.attracted .nf-ripple:nth-child(1){animation:nfRipple 1.1s ease-out 0.0s forwards;}
 .nf-circle.attracted .nf-ripple:nth-child(2){animation:nfRipple 1.1s ease-out 0.3s forwards;}
 .nf-circle.attracted .nf-ripple:nth-child(3){animation:nfRipple 1.1s ease-out 0.6s forwards;}
-.nf-shine{position:absolute;top:5%;bottom:5%;left:-80%;width:45%;background:linear-gradient(105deg,transparent 20%,rgba(255,255,255,0.22) 50%,transparent 80%);pointer-events:none;z-index:4;border-radius:50%;}
-.nf-circle.attracted .nf-shine{animation:nfShine 0.65s ease-out 0.1s forwards;}
 .nf-logo{width:60px;height:60px;object-fit:contain;filter:drop-shadow(0 3px 10px rgba(201,169,110,0.55));transition:filter 0.3s,transform 0.3s;position:relative;z-index:2;}
 .nf-fab-row:hover .nf-logo{filter:drop-shadow(0 5px 16px rgba(201,169,110,0.8));transform:scale(1.06);}
 .nf-badge{position:absolute;top:-5px;right:-5px;min-width:26px;height:26px;border-radius:999px;background:linear-gradient(135deg,#ff3d5a,#c41e3a);border:3px solid #0a0a1a;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#fff;font-family:'Jost',sans-serif;padding:0 5px;animation:nfBadgePop 0.5s cubic-bezier(0.22,1,0.36,1) both,nfBadgeGlow 2s ease-in-out 0.5s infinite;z-index:10;pointer-events:none;}
-
-/* ── DESKTOP panel (≥ 480px) — unchanged ── */
 .nf-panel{position:absolute;bottom:calc(100% + 18px);right:0;width:365px;background:linear-gradient(160deg,#0f2035 0%,#080d1a 100%);border:1px solid rgba(201,169,110,0.22);border-radius:24px;box-shadow:0 32px 80px rgba(0,0,0,0.82),0 0 0 1px rgba(201,169,110,0.07),inset 0 1px 0 rgba(201,169,110,0.12);overflow:hidden;animation:nfPanelIn 0.42s cubic-bezier(0.22,1,0.36,1) both;max-height:530px;display:flex;flex-direction:column;}
 .nf-panel::before{content:'';position:absolute;top:0;left:0;right:0;height:1.5px;background:linear-gradient(90deg,transparent,rgba(201,169,110,0.7),transparent);}
-
-/* ── MOBILE panel (< 480px) ──
-   Detach from the FAB's relative positioning and instead stretch edge-to-edge
-   at the bottom of the viewport, above the FAB row. */
 @media (max-width: 479px) {
-  .nf-root { right: 16px; bottom: 16px; }
-  .nf-panel {
-    position: fixed;
-    /* sit above the FAB: FAB is ~76px + 16px bottom + 18px gap = ~110px */
-    bottom: 110px;
-    left: 10px;
-    right: 10px;
-    width: auto;
-    /* reset the absolute right:0 that would mis-position it */
-    top: auto;
-    border-radius: 18px;
-    max-height: calc(100dvh - 140px);
-  }
+  .nf-root{right:16px;bottom:16px;}
+  .nf-panel{position:fixed;bottom:110px;left:10px;right:10px;width:auto;top:auto;border-radius:18px;max-height:calc(100dvh - 140px);}
 }
-
 .nf-head{padding:18px 20px 14px;border-bottom:1px solid rgba(229,224,198,0.06);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;background:linear-gradient(135deg,rgba(201,169,110,0.05),transparent);}
 .nf-head-left{display:flex;align-items:center;gap:8px;flex-wrap:nowrap;overflow:hidden;}
 .nf-head-title{font-family:'Jost',sans-serif;font-size:14px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#c9a96e;white-space:nowrap;flex-shrink:0;}
@@ -682,16 +910,18 @@ const CSS = `
 .nf-item.unread{background:rgba(201,169,110,0.03);}
 .nf-item.is-clickable.unread:hover{background:rgba(201,169,110,0.055);}
 .nf-item.payment-confirmed{background:rgba(74,222,128,0.03);cursor:default;}
+.nf-item.voucher-item.unread{background:rgba(201,169,110,0.04);}
+.nf-item.voucher-item.is-clickable.unread:hover{background:rgba(201,169,110,0.07);}
 .nf-unread-bar{position:absolute;left:0;top:12%;bottom:12%;width:3px;border-radius:0 3px 3px 0;background:linear-gradient(180deg,#c9a96e,#b8944e);box-shadow:0 0 8px rgba(201,169,110,0.65);}
 .nf-unread-bar.nf-unread-green{background:linear-gradient(180deg,#4ade80,#22c55e);box-shadow:0 0 8px rgba(74,222,128,0.65);}
 .nf-icon{width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;position:relative;}
 .nf-icon-pulse{position:absolute;bottom:-2px;right:-2px;width:9px;height:9px;border-radius:50%;border:2px solid #080d1a;animation:nfDotPulse 1.8s ease-in-out infinite;}
 .nf-body{flex:1;min-width:0;}
-.nf-item-title{font-family:'Jost',sans-serif;font-size:13px;font-weight:700;color:rgb(229,224,198);margin:0 0 4px;padding-right:24px;line-height:1.3;}
+.nf-item-title{font-family:'Jost',sans-serif;font-size:13px;font-weight:700;color:rgb(229,224,198);margin:0 0 5px;padding-right:24px;line-height:1.3;}
 .nf-item.unread .nf-item-title{color:#fff;}
 .nf-item-msg{font-family:'Jost',sans-serif;font-size:11.5px;color:rgba(229,224,198,0.42);margin:0 0 5px;line-height:1.55;}
 .nf-cta-pill{display:inline-flex;align-items:center;gap:4px;font-family:'Jost',sans-serif;font-size:9px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#c9a96e;background:rgba(201,169,110,0.1);border:1px solid rgba(201,169,110,0.22);border-radius:5px;padding:3px 8px;margin-bottom:4px;}
-.nf-item-time{font-family:'Jost',sans-serif;font-size:10px;font-weight:700;color:rgba(201,169,110,0.45);letter-spacing:0.05em;display:block;}
+.nf-item-time{font-family:'Jost',sans-serif;font-size:10px;font-weight:700;color:rgba(201,169,110,0.45);letter-spacing:0.05em;display:block;margin-top:3px;}
 .nf-x{position:absolute;top:10px;right:10px;width:22px;height:22px;border-radius:7px;background:transparent;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:rgba(229,224,198,0.2);opacity:0;transition:all 0.2s;}
 .nf-item:hover .nf-x{opacity:1;}
 .nf-x:hover{background:rgba(255,61,90,0.13)!important;color:#ff6464!important;}
@@ -701,8 +931,6 @@ const CSS = `
 .nf-foot{padding:11px 20px;border-top:1px solid rgba(229,224,198,0.05);text-align:center;flex-shrink:0;background:linear-gradient(0deg,rgba(201,169,110,0.03),transparent);}
 .nf-foot-btn{font-family:'Jost',sans-serif;font-size:10px;font-weight:800;letter-spacing:0.18em;text-transform:uppercase;color:rgba(201,169,110,0.5);background:none;border:none;cursor:pointer;padding:6px 16px;border-radius:8px;transition:all 0.2s;}
 .nf-foot-btn:hover{color:#c9a96e;background:rgba(201,169,110,0.08);}
-
-/* RTL support */
 [dir="rtl"] .nf-unread-bar{left:unset;right:0;border-radius:3px 0 0 3px;}
 [dir="rtl"] .nf-x{right:unset;left:10px;}
 [dir="rtl"] .nf-item-title{padding-right:0;padding-left:24px;}

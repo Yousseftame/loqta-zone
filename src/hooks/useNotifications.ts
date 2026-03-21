@@ -30,7 +30,8 @@ export type NotificationType =
   | "expiry"
   | "last_offer_selected"
   | "bid_selected"
-  | "payment_confirmed";
+  | "payment_confirmed"
+  | "voucher_created"; 
 
 export interface AppNotification {
   id: string;
