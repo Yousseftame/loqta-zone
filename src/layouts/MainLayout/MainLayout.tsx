@@ -20,7 +20,7 @@ export default function MainLayout() {
         </main>
         <Footer />
       </div>
-      <ScrollToTop />
+      {/* <ScrollToTop /> */}
       <NotificationBell />
 
       {/*

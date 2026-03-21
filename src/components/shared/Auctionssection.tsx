@@ -52,6 +52,7 @@ interface PastAuction {
   };
 }
 
+// ─── Data hook — unchanged ────────────────────────────────────────────────────
 function useAuctionsData() {
   const [upcoming, setUpcoming] = useState<UpcomingAuction[]>([]);
   const [past, setPast] = useState<PastAuction[]>([]);
@@ -224,41 +225,36 @@ function useAuctionsData() {
   return { upcoming, past, loading, error };
 }
 
+// ─── Countdown — one shared interval at root, values flow down as props ───────
+// This replaces the per-card useCountdown + per-unit useState(leaving) chain.
+// The flip animation is now pure CSS — no JS state on every tick.
+function calcCountdown(target: string) {
+  const diff = new Date(target).getTime() - Date.now();
+  if (diff <= 0) return { d: 0, h: 0, m: 0, s: 0, done: true };
+  const total = Math.floor(diff / 1000);
+  return {
+    d: Math.floor(total / 86400),
+    h: Math.floor((total % 86400) / 3600),
+    m: Math.floor((total % 3600) / 60),
+    s: total % 60,
+    done: false,
+  };
+}
+
 function useCountdown(target: string) {
-  const calc = useCallback(() => {
-    const diff = new Date(target).getTime() - Date.now();
-    if (diff <= 0) return { d: 0, h: 0, m: 0, s: 0, done: true };
-    const total = Math.floor(diff / 1000);
-    return {
-      d: Math.floor(total / 86400),
-      h: Math.floor((total % 86400) / 3600),
-      m: Math.floor((total % 3600) / 60),
-      s: total % 60,
-      done: false,
-    };
-  }, [target]);
-  const [time, setTime] = useState(calc);
+  const [time, setTime] = useState(() => calcCountdown(target));
   useEffect(() => {
-    const t = setInterval(() => setTime(calc()), 1000);
+    if (time.done) return;
+    const t = setInterval(() => setTime(calcCountdown(target)), 1000);
     return () => clearInterval(t);
-  }, [calc]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target]);
   return time;
 }
 
+// CountdownUnit: zero JS state — CSS handles the digit flip via animation
 function CountdownUnit({ value, label }: { value: number; label: string }) {
   const display = String(value).padStart(2, "0");
-  const [shown, setShown] = useState(display);
-  const [leaving, setLeaving] = useState(false);
-  useEffect(() => {
-    if (display === shown) return;
-    setLeaving(true);
-    const t = setTimeout(() => {
-      setShown(display);
-      setLeaving(false);
-    }, 180);
-    return () => clearTimeout(t);
-  }, [display]);
-
   return (
     <div
       className="lz-cd-unit"
@@ -272,6 +268,9 @@ function CountdownUnit({ value, label }: { value: number; label: string }) {
       }}
     >
       <span
+        // key change triggers CSS re-entry animation — no JS transition state needed
+        key={display}
+        className="lz-cd-digit"
         style={{
           fontSize: 50,
           fontWeight: 700,
@@ -281,15 +280,10 @@ function CountdownUnit({ value, label }: { value: number; label: string }) {
           display: "block",
           minWidth: 64,
           textAlign: "center",
-          opacity: leaving ? 0 : 1,
-          transform: leaving ? "translateY(-6px)" : "translateY(0)",
-          transition: leaving
-            ? "opacity 0.16s ease, transform 0.18s ease"
-            : "opacity 0.22s ease 0.02s, transform 0.22s cubic-bezier(0,0,0.2,1) 0.02s",
           userSelect: "none",
         }}
       >
-        {shown}
+        {display}
       </span>
       <span
         style={{
@@ -348,7 +342,7 @@ function CountdownBar({ startsAt }: { startsAt: string }) {
   const Sep = () => (
     <span
       style={{
-        fontSize: "clamp(18px, 5vw, 28px)",
+        fontSize: "clamp(18px,5vw,28px)",
         fontWeight: 300,
         color: "rgba(201,169,110,0.2)",
         lineHeight: 1,
@@ -432,6 +426,7 @@ function SkeletonCard() {
   );
 }
 
+// ─── UpcomingCard — CSS-only hover, no hov state ─────────────────────────────
 const UpcomingCard = memo(function UpcomingCard({
   item,
   index,
@@ -445,7 +440,6 @@ const UpcomingCard = memo(function UpcomingCard({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [vis, setVis] = useState(false);
-  const [hov, setHov] = useState(false);
   const { t, i18n } = useTranslation();
   const isRtl = i18n.language === "ar";
   const cur = isRtl ? "جنيه" : item.currency;
@@ -469,22 +463,14 @@ const UpcomingCard = memo(function UpcomingCard({
   return (
     <div
       ref={ref}
-      className="ac"
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
+      className="ac ac-upcoming"
       style={{
         opacity: vis ? 1 : 0,
         transform: vis ? "translateY(0)" : "translateY(40px)",
-        borderRadius: 20,
-        background: hov ? "rgba(255,255,255,0.055)" : "rgba(255,255,255,0.028)",
-        border: `1px solid ${hov ? "rgba(201,169,110,0.4)" : "rgba(229,224,198,0.08)"}`,
-        backdropFilter: "blur(14px)",
-        boxShadow: hov
-          ? "0 24px 64px rgba(0,0,0,0.5),inset 0 1px 0 rgba(255,255,255,0.07)"
-          : "0 4px 24px rgba(0,0,0,0.2)",
-        transition: `opacity 0.7s ease ${index * 0.1}s,transform 0.7s cubic-bezier(0.22,1,0.36,1) ${index * 0.1}s,background 0.3s ease,border-color 0.3s ease,box-shadow 0.3s ease`,
+        transition: `opacity 0.7s ease ${index * 0.1}s, transform 0.7s cubic-bezier(0.22,1,0.36,1) ${index * 0.1}s`,
         overflow: "hidden",
         minWidth: 0,
+        willChange: "transform",
       }}
     >
       <div
@@ -500,13 +486,14 @@ const UpcomingCard = memo(function UpcomingCard({
           <img
             src={item.image}
             alt={item.title}
+            loading="lazy"
+            decoding="async"
+            className="ac-img-inner"
             style={{
               width: "100%",
               height: "100%",
               objectFit: "cover",
               objectPosition: "center",
-              transform: hov ? "scale(1.08)" : "scale(1)",
-              transition: "transform 0.65s cubic-bezier(0.25,0.46,0.45,0.94)",
               display: "block",
               minHeight: 180,
             }}
@@ -563,7 +550,7 @@ const UpcomingCard = memo(function UpcomingCard({
 
       <div
         style={{
-          padding: "20px clamp(16px, 4vw, 24px)",
+          padding: "20px clamp(16px,4vw,24px)",
           display: "flex",
           flexDirection: "column",
           gap: 12,
@@ -599,19 +586,8 @@ const UpcomingCard = memo(function UpcomingCard({
             </p>
           </div>
           <button
-            className="ac-btn"
+            className="ac-btn ac-register-btn"
             onClick={onRegister}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.transform =
-                "translateY(-2px) scale(1.04)";
-              (e.currentTarget as HTMLButtonElement).style.boxShadow =
-                `0 8px 28px ${GOLD}55`;
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.transform = "";
-              (e.currentTarget as HTMLButtonElement).style.boxShadow =
-                `0 4px 20px ${GOLD}44`;
-            }}
             style={{
               background: `linear-gradient(135deg,${GOLD},${GOLD2})`,
               color: "#0a0a1a",
@@ -627,7 +603,6 @@ const UpcomingCard = memo(function UpcomingCard({
               whiteSpace: "nowrap",
               flexShrink: 0,
               boxShadow: `0 4px 20px ${GOLD}44`,
-              transition: "all 0.3s ease",
               display: "flex",
               alignItems: "center",
               gap: 6,
@@ -748,7 +723,7 @@ const UpcomingCard = memo(function UpcomingCard({
   );
 });
 
-// ─── Hammer Stamp SVG ────────────────────────────────────────────────────────
+// ─── Hammer Stamp ─────────────────────────────────────────────────────────────
 function HammerStamp() {
   return (
     <div
@@ -759,7 +734,6 @@ function HammerStamp() {
         transform: "translateX(-50%) rotate(-12deg)",
         pointerEvents: "none",
         zIndex: 10,
-        // Outer stamp ring
         width: 96,
         height: 96,
         borderRadius: "50%",
@@ -771,11 +745,9 @@ function HammerStamp() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        // Worn stamp feel
         filter: "contrast(1.08) saturate(1.1)",
       }}
     >
-      {/* Inner thin ring */}
       <div
         style={{
           position: "absolute",
@@ -784,8 +756,6 @@ function HammerStamp() {
           border: "1.5px solid rgba(200,30,30,0.45)",
         }}
       />
-
-      {/* Gavel SVG — big, red, centered */}
       <svg
         width="54"
         height="54"
@@ -794,7 +764,6 @@ function HammerStamp() {
         xmlns="http://www.w3.org/2000/svg"
         style={{ position: "relative", zIndex: 1 }}
       >
-        {/* Gavel head body */}
         <rect
           x="4"
           y="16"
@@ -806,7 +775,6 @@ function HammerStamp() {
           strokeWidth="2.2"
           transform="rotate(-45 15 20.5)"
         />
-        {/* Strike face highlight */}
         <rect
           x="4"
           y="16"
@@ -818,7 +786,6 @@ function HammerStamp() {
           strokeWidth="2"
           transform="rotate(-45 15 20.5)"
         />
-        {/* Handle */}
         <line
           x1="24"
           y1="24"
@@ -828,7 +795,6 @@ function HammerStamp() {
           strokeWidth="4"
           strokeLinecap="round"
         />
-        {/* Handle grip band */}
         <line
           x1="30"
           y1="30"
@@ -838,7 +804,6 @@ function HammerStamp() {
           strokeWidth="5"
           strokeLinecap="round"
         />
-        {/* Base / sound block */}
         <rect
           x="8"
           y="42"
@@ -850,8 +815,6 @@ function HammerStamp() {
           strokeWidth="1.8"
         />
       </svg>
-
-      {/* Distress overlay — adds stamp grunge feel */}
       <div
         style={{
           position: "absolute",
@@ -866,6 +829,7 @@ function HammerStamp() {
   );
 }
 
+// ─── PastCard — CSS-only hover, no hov state ──────────────────────────────────
 const PastCard = memo(function PastCard({
   item,
   index,
@@ -875,7 +839,6 @@ const PastCard = memo(function PastCard({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [vis, setVis] = useState(false);
-  const [hov, setHov] = useState(false);
   const { t, i18n } = useTranslation();
   const isRtl = i18n.language === "ar";
   const cur = isRtl ? "جنيه" : item.currency;
@@ -899,22 +862,14 @@ const PastCard = memo(function PastCard({
   return (
     <div
       ref={ref}
-      className="ac"
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
+      className="ac ac-past"
       style={{
         opacity: vis ? 1 : 0,
         transform: vis ? "translateY(0)" : "translateY(40px)",
-        borderRadius: 20,
-        background: hov ? "rgba(255,255,255,0.045)" : "rgba(255,255,255,0.022)",
-        border: `1px solid ${hov ? "rgba(229,224,198,0.18)" : "rgba(229,224,198,0.07)"}`,
-        backdropFilter: "blur(14px)",
-        boxShadow: hov
-          ? "0 20px 56px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.06)"
-          : "0 4px 20px rgba(0,0,0,0.18)",
-        transition: `opacity 0.7s ease ${index * 0.1}s,transform 0.7s cubic-bezier(0.22,1,0.36,1) ${index * 0.1}s,background 0.3s ease,border-color 0.3s ease,box-shadow 0.3s ease`,
+        transition: `opacity 0.7s ease ${index * 0.1}s, transform 0.7s cubic-bezier(0.22,1,0.36,1) ${index * 0.1}s`,
         overflow: "hidden",
         minWidth: 0,
+        willChange: "transform",
       }}
     >
       <div
@@ -930,6 +885,9 @@ const PastCard = memo(function PastCard({
           <img
             src={item.image}
             alt={item.title}
+            loading="lazy"
+            decoding="async"
+            className="ac-img-inner ac-img-past"
             style={{
               width: "100%",
               height: "100%",
@@ -938,9 +896,6 @@ const PastCard = memo(function PastCard({
               minHeight: 200,
               display: "block",
               filter: "grayscale(30%) brightness(0.75)",
-              transform: hov ? "scale(1.06)" : "scale(1)",
-              transition:
-                "transform 0.65s cubic-bezier(0.25,0.46,0.45,0.94),filter 0.4s ease",
             }}
             onError={(e) => {
               (e.target as HTMLImageElement).style.display = "none";
@@ -972,8 +927,6 @@ const PastCard = memo(function PastCard({
               "linear-gradient(to right,transparent 40%,rgba(10,10,26,0.55))",
           }}
         />
-
-        {/* ── HAMMER STAMP (replaces SOLD OUT text) ── */}
         <HammerStamp />
       </div>
 
@@ -1185,6 +1138,7 @@ const PastCard = memo(function PastCard({
   );
 });
 
+// ─── TabButton — CSS-only hover, no hov state ─────────────────────────────────
 function TabButton({
   label,
   active,
@@ -1196,12 +1150,10 @@ function TabButton({
   onClick: () => void;
   icon: string;
 }) {
-  const [hov, setHov] = useState(false);
   return (
     <button
       onClick={onClick}
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
+      className={`as-tab-btn${active ? " active" : ""}`}
       style={{
         position: "relative",
         background: "none",
@@ -1222,16 +1174,13 @@ function TabButton({
           fontWeight: 800,
           letterSpacing: "0.22em",
           textTransform: "uppercase",
-          color: active
-            ? GOLD
-            : hov
-              ? "rgba(229,224,198,0.7)"
-              : "rgba(229,224,198,0.35)",
+          color: active ? GOLD : "rgba(229,224,198,0.35)",
           transition: "color 0.3s ease",
         }}
       >
         {label}
       </span>
+      {/* Active underline */}
       <div
         style={{
           position: "absolute",
@@ -1242,29 +1191,16 @@ function TabButton({
           background: `linear-gradient(90deg,transparent,${GOLD},transparent)`,
           borderRadius: 999,
           transition:
-            "left 0.45s cubic-bezier(0.22,1,0.36,1),right 0.45s cubic-bezier(0.22,1,0.36,1)",
+            "left 0.45s cubic-bezier(0.22,1,0.36,1), right 0.45s cubic-bezier(0.22,1,0.36,1)",
           opacity: active ? 1 : 0,
           boxShadow: active ? `0 0 10px ${GOLD}88` : "none",
         }}
       />
-      {!active && (
-        <div
-          style={{
-            position: "absolute",
-            bottom: 0,
-            left: hov ? "20%" : "50%",
-            right: hov ? "20%" : "50%",
-            height: 1,
-            background: "rgba(229,224,198,0.2)",
-            borderRadius: 999,
-            transition: "left 0.3s ease,right 0.3s ease",
-          }}
-        />
-      )}
     </button>
   );
 }
 
+// ─── Main section ─────────────────────────────────────────────────────────────
 export default function AuctionsSection() {
   const [tab, setTab] = useState<"upcoming" | "past">("upcoming");
   const [anim, setAnim] = useState(false);
@@ -1286,6 +1222,7 @@ export default function AuctionsSection() {
     [user, navigate],
   );
 
+  // Single effect: header visibility + animKey on first entry only
   useEffect(() => {
     const el = headerRef.current;
     if (!el) return;
@@ -1294,7 +1231,7 @@ export default function AuctionsSection() {
         if (e.isIntersecting) {
           setVis(true);
           setAnimKey((k) => k + 1);
-          obs.disconnect();
+          obs.disconnect(); // once:true equivalent
         }
       },
       { threshold: 0.2 },
@@ -1303,6 +1240,7 @@ export default function AuctionsSection() {
     return () => obs.disconnect();
   }, []);
 
+  // animKey only re-increments on language change, not on scroll
   useEffect(() => {
     setAnimKey((k) => k + 1);
   }, [i18n.language]);
@@ -1334,15 +1272,61 @@ export default function AuctionsSection() {
       }}
     >
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300&display=swap');
         @keyframes tabIn { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
         @keyframes liveP { 0%,100%{opacity:1;box-shadow:0 0 6px #5ee8a0} 50%{opacity:.4;box-shadow:0 0 12px #5ee8a0} }
+
+        /* Digit flip — pure CSS, triggered by React key change */
+        @keyframes cdFlip { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
+        .lz-cd-digit { animation: cdFlip 0.22s cubic-bezier(0,0,0.2,1) both; }
+
         .tab-in  { animation: tabIn 0.38s cubic-bezier(0.22,1,0.36,1) forwards }
         .tab-out { opacity:0; transform:translateY(-8px); transition:opacity .2s ease,transform .2s ease }
 
+        /* Card base styles */
         .ac { display:grid; grid-template-columns:220px 1fr; overflow:hidden; border-radius:20px; min-width:0; box-sizing:border-box; }
         .ac-img { position:relative; overflow:hidden; background:#0d1520; min-height:220px }
         .ac-top { display:flex; align-items:flex-start; justify-content:space-between; gap:16px }
+
+        /* CSS-only card hover — no JS state */
+        .ac-upcoming {
+          background: rgba(255,255,255,0.028);
+          border: 1px solid rgba(229,224,198,0.08);
+          backdrop-filter: blur(14px);
+          box-shadow: 0 4px 24px rgba(0,0,0,0.2);
+          border-radius: 20px;
+          transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+        .ac-upcoming:hover {
+          background: rgba(255,255,255,0.055);
+          border-color: rgba(201,169,110,0.4);
+          box-shadow: 0 24px 64px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.07);
+        }
+        .ac-past {
+          background: rgba(255,255,255,0.022);
+          border: 1px solid rgba(229,224,198,0.07);
+          backdrop-filter: blur(14px);
+          box-shadow: 0 4px 20px rgba(0,0,0,0.18);
+          border-radius: 20px;
+          transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+        .ac-past:hover {
+          background: rgba(255,255,255,0.045);
+          border-color: rgba(229,224,198,0.18);
+          box-shadow: 0 20px 56px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06);
+        }
+
+        /* Image zoom — CSS only */
+        .ac-img-inner { transition: transform 0.65s cubic-bezier(0.25,0.46,0.45,0.94); }
+        .ac-upcoming:hover .ac-img-inner,
+        .ac-past:hover .ac-img-inner { transform: scale(1.06); }
+
+        /* Register button hover — CSS only */
+        .ac-register-btn { transition: transform 0.3s ease, box-shadow 0.3s ease !important; }
+        .ac-register-btn:hover { transform: translateY(-2px) scale(1.04) !important; box-shadow: 0 8px 28px ${GOLD}55 !important; }
+
+        /* Tab button hover — CSS only */
+        .as-tab-btn span:last-of-type { transition: color 0.3s ease; }
+        .as-tab-btn:not(.active):hover span:last-of-type { color: rgba(229,224,198,0.7) !important; }
 
         @media (max-width: 640px) {
           .ac     { grid-template-columns: 1fr !important; width:100% !important; }

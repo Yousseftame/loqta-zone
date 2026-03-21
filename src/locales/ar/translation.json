@@ -1141,5 +1141,152 @@
       "title": "المنتج الذي طلبته متاح الآن! 🎉",
       "message": "{{product}} متاح الآن في المزادات. قدّم عرضك الآن!"
     }
+  },
+  "profilePage": {
+    "breadcrumb": "ملفي الشخصي",
+    "account": "الحساب",
+    "heading": "ملفك الشخصي",
+    "subheading": "إدارة معلوماتك الشخصية وإعدادات الحساب",
+    "personalInfo": "المعلومات الشخصية",
+    "accountDetails": "تفاصيل الحساب",
+    "editProfile": "تعديل الملف",
+    "saveChanges": "حفظ التغييرات",
+    "saving": "جارٍ الحفظ…",
+    "cancel": "إلغاء",
+    "locked": "مقفل",
+    "emailNote": "لا يمكن تغيير البريد الإلكتروني من هنا. تواصل مع الدعم إذا كنت بحاجة لتغييره.",
+    "memberSince": "عضو منذ {{date}}",
+    "fields": {
+      "firstName": "الاسم الأول",
+      "lastName": "اسم العائلة",
+      "email": "البريد الإلكتروني",
+      "phone": "رقم الهاتف",
+      "phonePlaceholder": "+20 100 000 0000"
+    },
+    "accountInfo": {
+      "role": "دور الحساب",
+      "verification": "حالة التحقق",
+      "status": "حالة الحساب",
+      "memberSince": "عضو منذ",
+      "verified": "موثّق",
+      "unverified": "غير موثّق",
+      "active": "نشط",
+      "blocked": "محظور"
+    },
+    "stats": {
+      "totalBids": "إجمالي العروض",
+      "totalWins": "إجمالي الانتصارات",
+      "walletBalance": "رصيد المحفظة",
+      "accountStatus": "حالة الحساب"
+    },
+    "avatar": {
+      "change": "تغيير"
+    },
+    "toast": {
+      "success": "تم تحديث الملف الشخصي بنجاح ✦",
+      "error": "فشل في حفظ التغييرات",
+      "loadError": "فشل في تحميل الملف الشخصي"
+    }
+  },
+  "myBidsPage": {
+    "breadcrumb": "مزايداتي",
+    "account": "الحساب",
+    "heading": "سجل المزادات",
+    "subheading": "جميع المزادات التي انضممت إليها ونشاط مزايداتك",
+    "auctionsCount_one": "{{count}} مزاد",
+    "auctionsCount_other": "{{count}} مزادات",
+    "summary": {
+      "auctionsJoined": "مزادات منضمة",
+      "totalBids": "إجمالي العروض المقدمة",
+      "paymentsConfirmed": "مدفوعات مؤكدة"
+    },
+    "card": {
+      "auctionNum": "مزاد #{{num}}",
+      "auctionShort": "مزاد {{id}}…",
+      "voucherApplied": "تم تطبيق القسيمة",
+      "viewDetails": "عرض التفاصيل",
+      "hideDetails": "إخفاء التفاصيل",
+      "bidHistory": "سجل العروض",
+      "bidsCount_one": "{{count}} عرض",
+      "bidsCount_other": "{{count}} عروض",
+      "stats": {
+        "entry": "الدخول",
+        "highest": "الأعلى",
+        "bids": "العروض",
+        "payment": "الدفع",
+        "paid": "مدفوع",
+        "pending": "معلّق"
+      },
+      "details": {
+        "paymentId": "رقم الدفع",
+        "joinedAt": "تاريخ الانضمام",
+        "entryAmount": "مبلغ الدخول",
+        "paymentStatus": "حالة الدفع",
+        "confirmed": "مؤكد",
+        "voucherUsed": "استخدام القسيمة"
+      },
+      "status": {
+        "live": "مباشر",
+        "upcoming": "قادم",
+        "ended": "انتهى"
+      }
+    },
+    "empty": {
+      "title": "لا مزادات بعد",
+      "subtitle": "لم تنضم إلى أي مزاد بعد. استكشف السوق للعثور على مزايدتك القادمة.",
+      "cta": "استكشاف المزادات"
+    },
+    "loading": "جارٍ تحميل مزايداتك"
+  },
+  "changePasswordPage": {
+    "breadcrumb": "الأمان",
+    "account": "الحساب",
+    "heading": "تغيير كلمة المرور",
+    "subheading": "حافظ على أمان حسابك بكلمة مرور قوية وفريدة",
+    "sections": {
+      "current": "كلمة المرور الحالية",
+      "new": "كلمة المرور الجديدة",
+      "requirements": "متطلبات كلمة المرور"
+    },
+    "fields": {
+      "currentLabel": "أدخل كلمة مرورك الحالية",
+      "newLabel": "أنشئ كلمة مرور جديدة",
+      "confirmLabel": "تأكيد كلمة المرور الجديدة",
+      "confirmPlaceholder": "أعد إدخال كلمة المرور الجديدة"
+    },
+    "strength": {
+      "tooWeak": "ضعيفة جداً",
+      "weak": "ضعيفة",
+      "fair": "مقبولة",
+      "strong": "قوية"
+    },
+    "requirements": {
+      "length": "٨ أحرف على الأقل",
+      "uppercase": "حرف كبير واحد (A–Z)",
+      "number": "رقم واحد (0–9)",
+      "special": "رمز خاص واحد (!@#…)"
+    },
+    "passwordsMatch": "كلمتا المرور متطابقتان",
+    "submit": "تحديث كلمة المرور",
+    "submitting": "جارٍ التحديث…",
+    "success": {
+      "title": "تم تحديث كلمة المرور بنجاح",
+      "subtitle": "حسابك الآن محمي بكلمة المرور الجديدة."
+    },
+    "tip": "للحصول على أقصى قدر من الأمان، استخدم كلمة مرور فريدة لا تستخدمها في أي موقع آخر. ستُطلب منك كلمة مرورك الحالية للتحقق من هويتك.",
+    "errors": {
+      "currentRequired": "كلمة المرور الحالية مطلوبة.",
+      "confirmRequired": "يرجى تأكيد كلمة المرور الجديدة.",
+      "confirmMismatch": "كلمتا المرور غير متطابقتين.",
+      "wrongPassword": "كلمة المرور الحالية غير صحيحة.",
+      "tooManyRequests": "محاولات كثيرة جداً. يرجى المحاولة لاحقاً.",
+      "requiresRecentLogin": "يرجى تسجيل الخروج وإعادة الدخول قبل تغيير كلمة المرور.",
+      "networkError": "خطأ في الشبكة. تحقق من اتصالك.",
+      "weakPassword": "كلمة المرور الجديدة ضعيفة جداً.",
+      "generic": "فشل في تغيير كلمة المرور. يرجى المحاولة مرة أخرى."
+    },
+    "toast": {
+      "success": "تم تغيير كلمة المرور بنجاح ✦"
+    }
   }
 }

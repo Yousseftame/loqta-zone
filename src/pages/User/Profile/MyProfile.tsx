@@ -1,12 +1,6 @@
 /**
  * src/pages/User/Profile/MyProfile.tsx
- *
- * FIXES:
- *  1. Dark background fills the entire viewport — no white flash
- *  2. paddingTop accounts for fixed navbar height (~80px) + breathing room
- *  3. Fully responsive: mobile-first breakpoints via CSS classes
- *  4. Real-time onSnapshot sync with ProfileDropdown
- *  5. title attribute fix (not in style object)
+ * Localized — uses i18next via useTranslation()
  */
 
 import { useState, useEffect, useRef } from "react";
@@ -36,6 +30,7 @@ import {
   Edit3,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { useTranslation } from "react-i18next";
 import { db, storage } from "@/firebase/firebase";
 import { useAuth } from "@/store/AuthContext/AuthContext";
 
@@ -64,33 +59,30 @@ interface UserProfile {
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
-function formatDate(ts: any): string {
+function formatDate(ts: any, locale: string): string {
   if (!ts) return "—";
   const d = ts?.toDate ? ts.toDate() : new Date(ts);
-  return d.toLocaleDateString("en-US", {
+  return d.toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", {
     month: "long",
     day: "numeric",
     year: "numeric",
   });
 }
 
-function getRoleLabel(role: string) {
+function getRoleColor(role: string) {
   if (role === "superAdmin")
     return {
-      label: "Super Admin",
       color: "#c9a96e",
       bg: "rgba(201,169,110,0.15)",
       border: "rgba(201,169,110,0.3)",
     };
   if (role === "admin")
     return {
-      label: "Admin",
       color: "#64a0ff",
       bg: "rgba(100,160,255,0.1)",
       border: "rgba(100,160,255,0.25)",
     };
   return {
-    label: "Member",
     color: "rgba(229,224,198,0.55)",
     bg: "rgba(255,255,255,0.05)",
     border: "rgba(255,255,255,0.1)",
@@ -194,6 +186,7 @@ const FieldRow = ({
   label,
   value,
   locked,
+  lockedLabel,
   editing,
   inputValue,
   onChange,
@@ -204,6 +197,7 @@ const FieldRow = ({
   label: string;
   value: string;
   locked?: boolean;
+  lockedLabel?: string;
   editing?: boolean;
   inputValue?: string;
   onChange?: (v: string) => void;
@@ -320,7 +314,7 @@ const FieldRow = ({
           flexShrink: 0,
         }}
       >
-        LOCKED
+        {lockedLabel}
       </span>
     )}
   </div>
@@ -329,6 +323,7 @@ const FieldRow = ({
 // ─── Main Component ─────────────────────────────────────────────────────────
 export default function MyProfile() {
   const { user } = useAuth();
+  const { t, i18n } = useTranslation();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -344,6 +339,15 @@ export default function MyProfile() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // ── Role label ──────────────────────────────────────────────────────────
+  const getRoleLabel = (role: string) => {
+    const colors = getRoleColor(role);
+    if (role === "superAdmin")
+      return { label: t("common.superAdmin"), ...colors };
+    if (role === "admin") return { label: t("common.admin"), ...colors };
+    return { label: t("common.member"), ...colors };
+  };
+
   // ── Real-time Firestore subscription ────────────────────────────────────
   useEffect(() => {
     if (!user) return;
@@ -354,7 +358,6 @@ export default function MyProfile() {
         if (snap.exists()) {
           const d = snap.data() as UserProfile;
           setProfile(d);
-          // Don't overwrite in-progress edits
           setFirstName((prev) => (editing ? prev : d.firstName || ""));
           setLastName((prev) => (editing ? prev : d.lastName || ""));
           setPhone((prev) => (editing ? prev : d.phone || ""));
@@ -363,7 +366,7 @@ export default function MyProfile() {
       },
       (err) => {
         console.error("[MyProfile] snapshot error:", err);
-        toast.error("Failed to load profile");
+        toast.error(t("profilePage.toast.loadError"));
         setLoading(false);
       },
     );
@@ -414,9 +417,9 @@ export default function MyProfile() {
       setNewImage(null);
       setPreviewUrl(null);
       setEditing(false);
-      toast.success("Profile updated successfully ✦");
+      toast.success(t("profilePage.toast.success"));
     } catch (err: any) {
-      toast.error("Failed to save changes");
+      toast.error(t("profilePage.toast.error"));
       console.error(err);
     } finally {
       setSaving(false);
@@ -462,7 +465,7 @@ export default function MyProfile() {
               letterSpacing: "0.1em",
             }}
           >
-            LOADING PROFILE
+            {t("common.loading")}
           </p>
           <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
@@ -474,91 +477,36 @@ export default function MyProfile() {
   return (
     <>
       <style>{`
-        /* Force dark background on entire page — eliminates white flash */
         html, body, #root { background: ${DARK} !important; }
-
         @keyframes fadeUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
         @keyframes spin   { to { transform:rotate(360deg); } }
-
         .profile-save-btn:hover   { transform:translateY(-2px) !important; box-shadow:0 8px 28px rgba(201,169,110,0.4) !important; }
         .profile-cancel-btn:hover { background:rgba(255,80,80,0.1) !important; border-color:rgba(255,80,80,0.3) !important; color:#ff6464 !important; }
         .profile-edit-btn:hover   { background:rgba(201,169,110,0.12) !important; border-color:rgba(201,169,110,0.4) !important; color:#c9a96e !important; }
-
         .avatar-upload-overlay { opacity:0; transition:opacity 0.25s; }
         .avatar-wrap:hover .avatar-upload-overlay { opacity:1; }
-
-        /* ── Responsive layouts ── */
-        .profile-header-flex {
-          display: flex;
-          align-items: center;
-          gap: 24px;
-          flex-wrap: wrap;
-        }
-        .profile-name-row {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          flex-wrap: wrap;
-          margin-bottom: 6px;
-        }
-        .profile-name-inputs {
-          display: flex;
-          gap: 10px;
-          flex-wrap: wrap;
-        }
+        .profile-header-flex { display:flex; align-items:center; gap:24px; flex-wrap:wrap; }
+        .profile-name-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:6px; }
+        .profile-name-inputs { display:flex; gap:10px; flex-wrap:wrap; }
         .profile-name-input {
-          background: rgba(255,255,255,0.05);
-          border: 1px solid rgba(201,169,110,0.25);
-          border-radius: 10px;
-          padding: 8px 14px;
-          color: ${CREAM};
-          font-size: 17px;
-          font-weight: 800;
-          font-family: 'Jost', sans-serif;
-          outline: none;
-          width: 130px;
-          min-width: 0;
+          background:rgba(255,255,255,0.05); border:1px solid rgba(201,169,110,0.25);
+          border-radius:10px; padding:8px 14px; color:${CREAM}; font-size:17px;
+          font-weight:800; font-family:'Jost',sans-serif; outline:none; width:130px; min-width:0;
         }
-        .stats-grid {
-          display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 14px;
-          margin-bottom: 18px;
+        .stats-grid   { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:18px; }
+        .account-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
+        @media (max-width:860px) { .stats-grid { grid-template-columns:repeat(2,1fr); } .account-grid { grid-template-columns:repeat(2,1fr); } }
+        @media (max-width:600px) {
+          .profile-header-flex { flex-direction:column; align-items:flex-start; gap:14px; }
+          .profile-name-input  { width:100%; flex:1 1 110px; font-size:15px; }
+          .profile-name-inputs { width:100%; }
+          .stats-grid          { grid-template-columns:repeat(2,1fr); gap:10px; }
+          .account-grid        { grid-template-columns:repeat(2,1fr); gap:10px; }
+          .profile-action-btns { align-self:flex-start; }
         }
-        .account-grid {
-          display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 14px;
-        }
-
-        /* Tablet ≤ 860px */
-        @media (max-width: 860px) {
-          .stats-grid   { grid-template-columns: repeat(2, 1fr); }
-          .account-grid { grid-template-columns: repeat(2, 1fr); }
-        }
-
-        /* Mobile ≤ 600px */
-        @media (max-width: 600px) {
-          .profile-header-flex { flex-direction: column; align-items: flex-start; gap: 14px; }
-          .profile-name-input  { width: 100%; flex: 1 1 110px; font-size: 15px; }
-          .profile-name-inputs { width: 100%; }
-          .stats-grid          { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-          .account-grid        { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-          .profile-action-btns { align-self: flex-start; }
-        }
-
-        /* Very small ≤ 380px */
-        @media (max-width: 380px) {
-          .account-grid { grid-template-columns: 1fr; }
-        }
+        @media (max-width:380px) { .account-grid { grid-template-columns:1fr; } }
       `}</style>
 
-      {/*
-        ── Page shell
-        • minHeight 100vh + dark bg = no white area anywhere
-        • paddingTop 112px = fixed navbar (~80px) + 32px breathing room
-          If your navbar is taller on mobile, adjust here or use CSS @media
-      */}
       <div
         style={{
           minHeight: "100vh",
@@ -595,7 +543,7 @@ export default function MyProfile() {
                   color: "rgba(201,169,110,0.45)",
                 }}
               >
-                Account
+                {t("profilePage.account")}
               </span>
               <span style={{ color: "rgba(229,224,198,0.15)", fontSize: 11 }}>
                 ✦
@@ -609,7 +557,7 @@ export default function MyProfile() {
                   color: GOLD,
                 }}
               >
-                My Profile
+                {t("profilePage.breadcrumb")}
               </span>
             </div>
             <h1
@@ -621,7 +569,7 @@ export default function MyProfile() {
                 letterSpacing: "-0.02em",
               }}
             >
-              Your Profile
+              {t("profilePage.heading")}
             </h1>
             <p
               style={{
@@ -631,7 +579,7 @@ export default function MyProfile() {
                 fontWeight: 500,
               }}
             >
-              Manage your personal information and account settings
+              {t("profilePage.subheading")}
             </p>
           </div>
 
@@ -649,7 +597,6 @@ export default function MyProfile() {
               animation: "fadeUp 0.45s ease 0.07s both",
             }}
           >
-            {/* Gold accent line */}
             <div
               style={{
                 position: "absolute",
@@ -736,16 +683,19 @@ export default function MyProfile() {
                             letterSpacing: "0.08em",
                           }}
                         >
-                          CHANGE
+                          {t("profilePage.avatar.change")}
                         </span>
                       </div>
                     )}
                   </div>
 
-                  {/* Verified dot — title is an HTML attribute, NOT inside style */}
                   {!profile.isBlocked && (
                     <div
-                      title={profile.verified ? "Verified" : "Unverified"}
+                      title={
+                        profile.verified
+                          ? t("profilePage.accountInfo.verified")
+                          : t("profilePage.accountInfo.unverified")
+                      }
                       style={{
                         position: "absolute",
                         bottom: 3,
@@ -792,13 +742,13 @@ export default function MyProfile() {
                           className="profile-name-input"
                           value={firstName}
                           onChange={(e) => setFirstName(e.target.value)}
-                          placeholder="First name"
+                          placeholder={t("profilePage.fields.firstName")}
                         />
                         <input
                           className="profile-name-input"
                           value={lastName}
                           onChange={(e) => setLastName(e.target.value)}
-                          placeholder="Last name"
+                          placeholder={t("profilePage.fields.lastName")}
                         />
                       </div>
                     ) : (
@@ -872,7 +822,9 @@ export default function MyProfile() {
                         fontWeight: 600,
                       }}
                     >
-                      Member since {formatDate(profile.createdAt)}
+                      {t("profilePage.memberSince", {
+                        date: formatDate(profile.createdAt, i18n.language),
+                      })}
                     </span>
                   </div>
                 </div>
@@ -911,7 +863,8 @@ export default function MyProfile() {
                           transition: "all 0.22s",
                         }}
                       >
-                        <X size={12} strokeWidth={2.5} /> Cancel
+                        <X size={12} strokeWidth={2.5} />{" "}
+                        {t("profilePage.cancel")}
                       </button>
                       <button
                         className="profile-save-btn"
@@ -949,12 +902,13 @@ export default function MyProfile() {
                                 borderTopColor: "#0a0a1a",
                                 animation: "spin 0.7s linear infinite",
                               }}
-                            />{" "}
-                            Saving…
+                            />
+                            {t("profilePage.saving")}
                           </>
                         ) : (
                           <>
-                            <Save size={12} strokeWidth={2.5} /> Save Changes
+                            <Save size={12} strokeWidth={2.5} />{" "}
+                            {t("profilePage.saveChanges")}
                           </>
                         )}
                       </button>
@@ -981,7 +935,8 @@ export default function MyProfile() {
                         transition: "all 0.22s",
                       }}
                     >
-                      <Edit3 size={12} strokeWidth={2} /> Edit Profile
+                      <Edit3 size={12} strokeWidth={2} />{" "}
+                      {t("profilePage.editProfile")}
                     </button>
                   )}
                 </div>
@@ -1000,41 +955,42 @@ export default function MyProfile() {
                   color: "rgba(201,169,110,0.4)",
                 }}
               >
-                Personal Information
+                {t("profilePage.personalInfo")}
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
                 <FieldRow
                   icon={User}
-                  label="First Name"
+                  label={t("profilePage.fields.firstName")}
                   value={profile.firstName || "—"}
                   editing={editing}
                   inputValue={firstName}
                   onChange={setFirstName}
-                  placeholder="First name"
+                  placeholder={t("profilePage.fields.firstName")}
                 />
                 <FieldRow
                   icon={User}
-                  label="Last Name"
+                  label={t("profilePage.fields.lastName")}
                   value={profile.lastName || "—"}
                   editing={editing}
                   inputValue={lastName}
                   onChange={setLastName}
-                  placeholder="Last name"
+                  placeholder={t("profilePage.fields.lastName")}
                 />
                 <FieldRow
                   icon={Mail}
-                  label="Email Address"
+                  label={t("profilePage.fields.email")}
                   value={profile.email || user?.email || "—"}
                   locked
+                  lockedLabel={t("profilePage.locked")}
                 />
                 <FieldRow
                   icon={Phone}
-                  label="Phone Number"
+                  label={t("profilePage.fields.phone")}
                   value={profile.phone || "—"}
                   editing={editing}
                   inputValue={phone}
                   onChange={setPhone}
-                  placeholder="+20 100 000 0000"
+                  placeholder={t("profilePage.fields.phonePlaceholder")}
                   type="tel"
                 />
               </div>
@@ -1065,8 +1021,7 @@ export default function MyProfile() {
                       fontWeight: 600,
                     }}
                   >
-                    Email address cannot be changed here. Contact support if you
-                    need to update your email.
+                    {t("profilePage.emailNote")}
                   </p>
                 </div>
               )}
@@ -1080,26 +1035,30 @@ export default function MyProfile() {
           >
             <StatCard
               icon={Gavel}
-              label="Total Bids"
+              label={t("profilePage.stats.totalBids")}
               value={profile.totalBids ?? 0}
               color="#64a0ff"
             />
             <StatCard
               icon={Trophy}
-              label="Total Wins"
+              label={t("profilePage.stats.totalWins")}
               value={profile.totalWins ?? 0}
               color={GOLD}
             />
             <StatCard
               icon={Wallet}
-              label="Wallet Balance"
+              label={t("profilePage.stats.walletBalance")}
               value={`${profile.walletBalance ?? 0} EGP`}
               color="#5ee8a0"
             />
             <StatCard
               icon={Shield}
-              label="Account Status"
-              value={profile.isBlocked ? "Blocked" : "Active"}
+              label={t("profilePage.stats.accountStatus")}
+              value={
+                profile.isBlocked
+                  ? t("profilePage.accountInfo.blocked")
+                  : t("profilePage.accountInfo.active")
+              }
               color={profile.isBlocked ? "#ff6464" : "#5ee8a0"}
             />
           </div>
@@ -1137,31 +1096,35 @@ export default function MyProfile() {
                 color: "rgba(201,169,110,0.4)",
               }}
             >
-              Account Details
+              {t("profilePage.accountDetails")}
             </p>
 
             <div className="account-grid">
               {[
                 {
-                  label: "Account Role",
+                  label: t("profilePage.accountInfo.role"),
                   value: roleInfo.label,
                   color: roleInfo.color,
                 },
                 {
-                  label: "Verification Status",
-                  value: profile.verified ? "Verified" : "Unverified",
+                  label: t("profilePage.accountInfo.verification"),
+                  value: profile.verified
+                    ? t("profilePage.accountInfo.verified")
+                    : t("profilePage.accountInfo.unverified"),
                   color: profile.verified
                     ? "#5ee8a0"
                     : "rgba(229,224,198,0.35)",
                 },
                 {
-                  label: "Account Status",
-                  value: profile.isBlocked ? "Blocked" : "Active",
+                  label: t("profilePage.accountInfo.status"),
+                  value: profile.isBlocked
+                    ? t("profilePage.accountInfo.blocked")
+                    : t("profilePage.accountInfo.active"),
                   color: profile.isBlocked ? "#ff6464" : "#5ee8a0",
                 },
                 {
-                  label: "Member Since",
-                  value: formatDate(profile.createdAt),
+                  label: t("profilePage.accountInfo.memberSince"),
+                  value: formatDate(profile.createdAt, i18n.language),
                   color: CREAM,
                 },
               ].map((item) => (

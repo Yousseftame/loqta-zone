@@ -15,7 +15,7 @@ import { useAuth } from "@/store/AuthContext/AuthContext";
 import { ProfileDropdown } from "./ProfileDropdown";
 import LangSwitcher from "./LangSwitcher";
 
-// ── Design tokens ──────────────────────────────────────────────
+// ── Design tokens ──────────────────────────────────────────────────────────────
 const GOLD = "#c9a96e";
 const GOLD2 = "#b8944e";
 const CREAM = "rgb(229, 224, 198)";
@@ -28,11 +28,12 @@ const NAV_LINKS = [
   { labelKey: "nav.cantFind", to: "/cantFind", icon: "◇" },
 ];
 
+// ── Keep these in EXACT sync with ProfileDropdown.tsx ─────────────────────────
 const USER_MOBILE_ITEMS = [
-  { labelKey: "auth.myProfile", to: "/profile", Icon: User },
+  { labelKey: "auth.myProfile", to: "/my-profile", Icon: User },
   { labelKey: "auth.myBids", to: "/my-bids", Icon: Ticket },
-  { labelKey: "auth.watchlist", to: "/watchlist", Icon: Heart },
-  { labelKey: "auth.settings", to: "/settings", Icon: Settings },
+  // { labelKey: "auth.watchlist", to: "/watchlist", Icon: Heart },
+  { labelKey: "auth.settings", to: "/change-password", Icon: Settings },
 ];
 
 const ADMIN_MOBILE_ITEMS = [
@@ -40,13 +41,12 @@ const ADMIN_MOBILE_ITEMS = [
   { labelKey: "auth.settings", to: "/settings", Icon: Settings },
 ];
 
-// ══════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
 // NAVBAR
-// ══════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
 const Navbar = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  // bgProgress: 0 = fully transparent, 1 = fully opaque dark bg
   const [bgProgress, setBgProgress] = useState(0);
   const location = useLocation();
   const navigate = useNavigate();
@@ -57,7 +57,7 @@ const Navbar = () => {
     role === "admin" || role === "superAdmin"
       ? ADMIN_MOBILE_ITEMS
       : USER_MOBILE_ITEMS;
-  
+
   const visibleNavLinks = NAV_LINKS.filter(
     (l) => l.labelKey !== "nav.cantFind" || !!user,
   );
@@ -66,11 +66,9 @@ const Navbar = () => {
     const fn = () => {
       const y = window.scrollY;
       setScrolled(y > 50);
-      // Smoothly interpolate opacity from 0→1 between scroll 0px and 120px
-      const progress = Math.min(1, y / 120);
-      setBgProgress(progress);
+      setBgProgress(Math.min(1, y / 120));
     };
-    fn(); // run once on mount
+    fn();
     window.addEventListener("scroll", fn, { passive: true });
     return () => window.removeEventListener("scroll", fn);
   }, []);
@@ -130,25 +128,15 @@ const Navbar = () => {
         }
       `}</style>
 
-      {/* ── TOP BAR ──────────────────────────────────────────── */}
-      {/* dir="ltr" locks layout: logo always left, profile+lang always right, regardless of page direction */}
+      {/* ── TOP BAR ─────────────────────────────────────────────────────────── */}
       <nav
         dir="ltr"
         className="fixed top-0 left-0 right-0 z-50"
         style={{
-          // The background layer sits behind everything via a pseudo-approach;
-          // we achieve it with two stacked backgrounds:
-          // 1) The gradient — always present, faded in/out via opacity via bgProgress
-          // 2) Transparent base
-          // We use a CSS custom property trick: set the gradient but control alpha
-          // by multiplying it through rgba on the entire background-color.
-          // Simplest reliable cross-browser approach: absolutely-positioned bg div
-          // that transitions opacity, plus the nav itself stays transparent.
           padding: scrolled ? "4px 0" : "8px 0",
           transition: "padding .5s",
         }}
       >
-        {/* Animated background layer — transitions opacity smoothly */}
         <div
           aria-hidden="true"
           style={{
@@ -161,7 +149,6 @@ const Navbar = () => {
             boxShadow: "0 4px 24px rgba(0,0,0,.4)",
             borderBottom: "1px solid rgba(229,224,198,.07)",
             opacity: bgProgress,
-            // CSS transition handles the smooth fade as bgProgress changes
             transition: "opacity 0.45s cubic-bezier(0.4, 0, 0.2, 1)",
             pointerEvents: "none",
           }}
@@ -185,7 +172,6 @@ const Navbar = () => {
 
           {/* Desktop links + auth */}
           <div className="hidden lg:flex items-center gap-8 ml-auto">
-            {/* Nav links — direction follows the active language */}
             <div
               dir={i18n.language === "ar" ? "rtl" : "ltr"}
               className="flex items-center gap-8"
@@ -201,7 +187,6 @@ const Navbar = () => {
               ))}
             </div>
 
-            {/* Controls — always ltr: profile avatar + lang switcher stay in place */}
             <div dir="ltr" className="flex items-center gap-3 ml-2">
               {user ? (
                 <ProfileDropdown user={user} role={role} onLogout={logout} />
@@ -255,7 +240,7 @@ const Navbar = () => {
         </div>
       </nav>
 
-      {/* ── MOBILE BACKDROP ──────────────────────────────────── */}
+      {/* ── MOBILE BACKDROP ─────────────────────────────────────────────────── */}
       <div
         className="lg:hidden"
         onClick={() => setMenuOpen(false)}
@@ -271,8 +256,7 @@ const Navbar = () => {
         }}
       />
 
-      {/* ── MOBILE PANEL ─────────────────────────────────────── */}
-      {/* dir="ltr" keeps the panel always sliding from the right with consistent internal layout */}
+      {/* ── MOBILE PANEL ────────────────────────────────────────────────────── */}
       <div
         dir="ltr"
         className="lg:hidden"
@@ -439,7 +423,7 @@ const Navbar = () => {
           }}
         />
 
-        {/* Mobile auth */}
+        {/* ── Mobile auth section ──────────────────────────────────────────── */}
         <div
           style={{
             padding: "0 12px",
@@ -454,7 +438,7 @@ const Navbar = () => {
         >
           {user ? (
             <>
-              {/* User info card */}
+              {/* User info card — matches ProfileDropdown header */}
               <div
                 style={{
                   display: "flex",
@@ -532,6 +516,7 @@ const Navbar = () => {
                 </div>
               </div>
 
+              {/* Menu items — identical routes & labels as ProfileDropdown */}
               {mobileItems.map(({ labelKey, to, Icon }) => (
                 <Link
                   key={to}
@@ -581,6 +566,7 @@ const Navbar = () => {
                 </Link>
               ))}
 
+              {/* Sign out */}
               <button
                 onClick={async () => {
                   setMenuOpen(false);
@@ -602,6 +588,8 @@ const Navbar = () => {
                   cursor: "pointer",
                   transition: "all .22s",
                   marginTop: 2,
+                  width: "100%",
+                  textAlign: "left",
                 }}
                 onMouseEnter={(e) => {
                   const el = e.currentTarget as HTMLButtonElement;
@@ -663,7 +651,7 @@ const Navbar = () => {
         </div>
 
         {/* Language */}
-        <div
+        {/* <div
           style={{
             padding: "18px 20px 10px",
             opacity: menuOpen ? 1 : 0,
@@ -684,8 +672,8 @@ const Navbar = () => {
           >
             {t("nav.language")}
           </p>
-          <LangSwitcher mobile />
-        </div>
+          
+        </div> */}
 
         {/* Footer */}
         <div

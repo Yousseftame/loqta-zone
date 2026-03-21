@@ -1140,7 +1140,7 @@
     "moreSessions": "More Sessions",
     "onlyOne": "Only one live session right now"
   },
-   "notifications": {
+  "notifications": {
     "bidSelected": {
       "title": "🎉 Congratulations! You've won the auction!",
       "message": "Your bid of {{amount}} EGP for \"{{product}}\" has been selected as the winning bid. Tap to confirm your purchase.\n\n⚠️ Complete your payment within 24 hours or the item will be reassigned to another bidder."
@@ -1156,6 +1156,153 @@
     "auctionMatched": {
       "title": "Your requested item is now available! 🎉",
       "message": "{{product}} is now live in auctions. Place your bid now!"
+    }
+  },
+  "profilePage": {
+    "breadcrumb": "My Profile",
+    "account": "Account",
+    "heading": "Your Profile",
+    "subheading": "Manage your personal information and account settings",
+    "personalInfo": "Personal Information",
+    "accountDetails": "Account Details",
+    "editProfile": "Edit Profile",
+    "saveChanges": "Save Changes",
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "locked": "LOCKED",
+    "emailNote": "Email address cannot be changed here. Contact support if you need to update your email.",
+    "memberSince": "Member since {{date}}",
+    "fields": {
+      "firstName": "First Name",
+      "lastName": "Last Name",
+      "email": "Email Address",
+      "phone": "Phone Number",
+      "phonePlaceholder": "+20 100 000 0000"
+    },
+    "accountInfo": {
+      "role": "Account Role",
+      "verification": "Verification Status",
+      "status": "Account Status",
+      "memberSince": "Member Since",
+      "verified": "Verified",
+      "unverified": "Unverified",
+      "active": "Active",
+      "blocked": "Blocked"
+    },
+    "stats": {
+      "totalBids": "Total Bids",
+      "totalWins": "Total Wins",
+      "walletBalance": "Wallet Balance",
+      "accountStatus": "Account Status"
+    },
+    "avatar": {
+      "change": "CHANGE"
+    },
+    "toast": {
+      "success": "Profile updated successfully ✦",
+      "error": "Failed to save changes",
+      "loadError": "Failed to load profile"
+    }
+  },
+  "myBidsPage": {
+    "breadcrumb": "My Bids",
+    "account": "Account",
+    "heading": "Auction History",
+    "subheading": "All auctions you've joined and your bidding activity",
+    "auctionsCount_one": "{{count}} auction",
+    "auctionsCount_other": "{{count}} auctions",
+    "summary": {
+      "auctionsJoined": "Auctions Joined",
+      "totalBids": "Total Bids Placed",
+      "paymentsConfirmed": "Payments Confirmed"
+    },
+    "card": {
+      "auctionNum": "Auction #{{num}}",
+      "auctionShort": "Auction {{id}}…",
+      "voucherApplied": "Voucher applied",
+      "viewDetails": "View Details",
+      "hideDetails": "Hide Details",
+      "bidHistory": "Bid History",
+      "bidsCount_one": "{{count}} bid",
+      "bidsCount_other": "{{count}} bids",
+      "stats": {
+        "entry": "Entry",
+        "highest": "Highest",
+        "bids": "Bids",
+        "payment": "Payment",
+        "paid": "Paid",
+        "pending": "Pending"
+      },
+      "details": {
+        "paymentId": "Payment ID",
+        "joinedAt": "Joined At",
+        "entryAmount": "Entry Amount",
+        "paymentStatus": "Payment Status",
+        "confirmed": "Confirmed",
+        "voucherUsed": "Voucher Used"
+      },
+      "status": {
+        "live": "Live",
+        "upcoming": "Upcoming",
+        "ended": "Ended"
+      }
+    },
+    "empty": {
+      "title": "No Auctions Yet",
+      "subtitle": "You haven't joined any auctions yet. Explore the marketplace to find your next bid.",
+      "cta": "Explore Auctions"
+    },
+    "loading": "LOADING YOUR BIDS"
+  },
+  "changePasswordPage": {
+    "breadcrumb": "Security",
+    "account": "Account",
+    "heading": "Change Password",
+    "subheading": "Keep your account secure with a strong, unique password",
+    "sections": {
+      "current": "Current Password",
+      "new": "New Password",
+      "requirements": "Password requirements"
+    },
+    "fields": {
+      "currentLabel": "Enter your current password",
+      "newLabel": "Create a new password",
+      "confirmLabel": "Confirm new password",
+      "confirmPlaceholder": "Re-enter new password"
+    },
+    "strength": {
+      "tooWeak": "Too weak",
+      "weak": "Weak",
+      "fair": "Fair",
+      "strong": "Strong"
+    },
+    "requirements": {
+      "length": "At least 8 characters",
+      "uppercase": "One uppercase letter (A–Z)",
+      "number": "One number (0–9)",
+      "special": "One special character (!@#…)"
+    },
+    "passwordsMatch": "Passwords match",
+    "submit": "Update Password",
+    "submitting": "Updating Password…",
+    "success": {
+      "title": "Password updated successfully",
+      "subtitle": "Your account is now secured with the new password."
+    },
+    "tip": "For maximum security, use a unique password you don't use on any other site. You'll be asked to re-enter your current password to verify your identity.",
+    "errors": {
+      "currentRequired": "Current password is required.",
+      "confirmRequired": "Please confirm your new password.",
+      "confirmMismatch": "Passwords do not match.",
+      "wrongPassword": "Current password is incorrect.",
+      "tooManyRequests": "Too many attempts. Please try again later.",
+      "requiresRecentLogin": "Please sign out and sign back in before changing your password.",
+      "networkError": "Network error. Check your connection.",
+      "weakPassword": "New password is too weak.",
+      "generic": "Failed to change password. Please try again."
+    },
+    "toast": {
+      "success": "Password changed successfully ✦"
     }
   }
 }

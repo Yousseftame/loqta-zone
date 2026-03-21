@@ -1,9 +1,6 @@
 /**
  * src/pages/User/Settings/ChangePassword.tsx
- *
- * Change Password page — Loqta Zone dark luxury aesthetic
- * Validation reuses the same rules from src/types/validation.ts
- * Uses Firebase reauthenticateWithCredential before updating password
+ * Localized — uses i18next via useTranslation()
  */
 
 import { useState } from "react";
@@ -21,6 +18,7 @@ import {
   Check,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "@/store/AuthContext/AuthContext";
 import { validatePassword } from "@/types/validation";
 
@@ -32,37 +30,15 @@ const DARK = "#080d1a";
 const NAVY = "#0e1c2e";
 const NAVY2 = "#112237";
 
-// ─── Password strength (mirrors validation.ts getPasswordStrength) ───────────
-function getStrength(pw: string): {
-  score: number;
-  label: string;
-  color: string;
-} {
+// ─── Password strength ────────────────────────────────────────────────────────
+function getStrengthScore(pw: string): number {
   let score = 0;
   if (pw.length >= 8) score++;
   if (/[A-Z]/.test(pw)) score++;
   if (/[0-9]/.test(pw)) score++;
   if (/[^A-Za-z0-9]/.test(pw)) score++;
-  const levels = [
-    { label: "Too weak", color: "#ef4444" },
-    { label: "Weak", color: "#f97316" },
-    { label: "Fair", color: "#eab308" },
-    { label: "Strong", color: "#22c55e" },
-    { label: "Strong", color: "#22c55e" },
-  ];
-  return { score, ...levels[score] };
+  return score;
 }
-
-// ─── Requirements list ────────────────────────────────────────────────────────
-const requirements = [
-  { label: "At least 8 characters", test: (p: string) => p.length >= 8 },
-  { label: "One uppercase letter (A–Z)", test: (p: string) => /[A-Z]/.test(p) },
-  { label: "One number (0–9)", test: (p: string) => /[0-9]/.test(p) },
-  {
-    label: "One special character (!@#…)",
-    test: (p: string) => /[^A-Za-z0-9]/.test(p),
-  },
-];
 
 // ─── Input component ──────────────────────────────────────────────────────────
 const PasswordInput = ({
@@ -201,6 +177,7 @@ const PasswordInput = ({
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function ChangePassword() {
   const { user } = useAuth();
+  const { t } = useTranslation();
 
   const [currentPw, setCurrentPw] = useState("");
   const [newPw, setNewPw] = useState("");
@@ -218,20 +195,52 @@ export default function ChangePassword() {
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
 
+  // ── Requirements (built from t() so they react to language changes) ────────
+  const requirements = [
+    {
+      label: t("changePasswordPage.requirements.length"),
+      test: (p: string) => p.length >= 8,
+    },
+    {
+      label: t("changePasswordPage.requirements.uppercase"),
+      test: (p: string) => /[A-Z]/.test(p),
+    },
+    {
+      label: t("changePasswordPage.requirements.number"),
+      test: (p: string) => /[0-9]/.test(p),
+    },
+    {
+      label: t("changePasswordPage.requirements.special"),
+      test: (p: string) => /[^A-Za-z0-9]/.test(p),
+    },
+  ];
+
+  // ── Strength label ──────────────────────────────────────────────────────────
+  const strengthLabels = [
+    { label: t("changePasswordPage.strength.tooWeak"), color: "#ef4444" },
+    { label: t("changePasswordPage.strength.weak"), color: "#f97316" },
+    { label: t("changePasswordPage.strength.fair"), color: "#eab308" },
+    { label: t("changePasswordPage.strength.strong"), color: "#22c55e" },
+    { label: t("changePasswordPage.strength.strong"), color: "#22c55e" },
+  ];
+  const strengthScore = getStrengthScore(newPw);
+  const strength = { score: strengthScore, ...strengthLabels[strengthScore] };
+
   // ── Validation ──────────────────────────────────────────────────────────────
   const currentError =
-    touched.current && !currentPw.trim() ? "Current password is required." : "";
+    touched.current && !currentPw.trim()
+      ? t("changePasswordPage.errors.currentRequired")
+      : "";
   const newPwResult = validatePassword(newPw);
   const newError = touched.new ? newPwResult.error : "";
   const confirmError = touched.confirm
     ? !confirmPw
-      ? "Please confirm your new password."
+      ? t("changePasswordPage.errors.confirmRequired")
       : confirmPw !== newPw
-        ? "Passwords do not match."
+        ? t("changePasswordPage.errors.confirmMismatch")
         : ""
     : "";
 
-  const strength = getStrength(newPw);
   const isValid =
     !currentError &&
     !newPwResult.error &&
@@ -248,11 +257,8 @@ export default function ChangePassword() {
 
     setSaving(true);
     try {
-      // Re-authenticate first (Firebase requires recent sign-in for sensitive ops)
       const credential = EmailAuthProvider.credential(user.email, currentPw);
       await reauthenticateWithCredential(user, credential);
-
-      // Update password
       await updatePassword(user, newPw);
 
       setSuccess(true);
@@ -260,20 +266,23 @@ export default function ChangePassword() {
       setNewPw("");
       setConfirmPw("");
       setTouched({ current: false, new: false, confirm: false });
-      toast.success("Password changed successfully ✦");
+      toast.success(t("changePasswordPage.toast.success"));
     } catch (err: any) {
-      const msgs: Record<string, string> = {
-        "auth/wrong-password": "Current password is incorrect.",
-        "auth/invalid-credential": "Current password is incorrect.",
-        "auth/too-many-requests": "Too many attempts. Please try again later.",
-        "auth/requires-recent-login":
-          "Please sign out and sign back in before changing your password.",
-        "auth/network-request-failed": "Network error. Check your connection.",
-        "auth/weak-password": "New password is too weak.",
+      const errorMap: Record<string, string> = {
+        "auth/wrong-password": t("changePasswordPage.errors.wrongPassword"),
+        "auth/invalid-credential": t("changePasswordPage.errors.wrongPassword"),
+        "auth/too-many-requests": t(
+          "changePasswordPage.errors.tooManyRequests",
+        ),
+        "auth/requires-recent-login": t(
+          "changePasswordPage.errors.requiresRecentLogin",
+        ),
+        "auth/network-request-failed": t(
+          "changePasswordPage.errors.networkError",
+        ),
+        "auth/weak-password": t("changePasswordPage.errors.weakPassword"),
       };
-      toast.error(
-        msgs[err.code] || "Failed to change password. Please try again.",
-      );
+      toast.error(errorMap[err.code] || t("changePasswordPage.errors.generic"));
     } finally {
       setSaving(false);
     }
@@ -286,12 +295,8 @@ export default function ChangePassword() {
         @keyframes fadeUp  { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
         @keyframes spin    { to { transform:rotate(360deg); } }
         @keyframes popIn   { from { opacity:0; transform:scale(0.88); } to { opacity:1; transform:scale(1); } }
-
         .pw-save-btn { transition: all 0.25s; }
-        .pw-save-btn:hover:not(:disabled) {
-          transform: translateY(-2px) !important;
-          box-shadow: 0 8px 28px rgba(201,169,110,0.38) !important;
-        }
+        .pw-save-btn:hover:not(:disabled) { transform: translateY(-2px) !important; box-shadow: 0 8px 28px rgba(201,169,110,0.38) !important; }
         .req-item { transition: color 0.2s; }
       `}</style>
 
@@ -330,7 +335,7 @@ export default function ChangePassword() {
                   color: "rgba(201,169,110,0.45)",
                 }}
               >
-                Account
+                {t("changePasswordPage.account")}
               </span>
               <span style={{ color: "rgba(229,224,198,0.15)" }}>✦</span>
               <span
@@ -342,7 +347,7 @@ export default function ChangePassword() {
                   color: GOLD,
                 }}
               >
-                Security
+                {t("changePasswordPage.breadcrumb")}
               </span>
             </div>
             <h1
@@ -354,7 +359,7 @@ export default function ChangePassword() {
                 letterSpacing: "-0.02em",
               }}
             >
-              Change Password
+              {t("changePasswordPage.heading")}
             </h1>
             <p
               style={{
@@ -364,7 +369,7 @@ export default function ChangePassword() {
                 fontWeight: 500,
               }}
             >
-              Keep your account secure with a strong, unique password
+              {t("changePasswordPage.subheading")}
             </p>
           </div>
 
@@ -412,7 +417,7 @@ export default function ChangePassword() {
                     fontFamily: "'Jost',sans-serif",
                   }}
                 >
-                  Password updated successfully
+                  {t("changePasswordPage.success.title")}
                 </p>
                 <p
                   style={{
@@ -422,7 +427,7 @@ export default function ChangePassword() {
                     fontFamily: "'Jost',sans-serif",
                   }}
                 >
-                  Your account is now secured with the new password.
+                  {t("changePasswordPage.success.subtitle")}
                 </p>
               </div>
             </div>
@@ -441,7 +446,6 @@ export default function ChangePassword() {
               animation: "fadeUp 0.4s ease 0.07s both",
             }}
           >
-            {/* Gold top line */}
             <div
               style={{
                 position: "absolute",
@@ -467,11 +471,11 @@ export default function ChangePassword() {
                     color: "rgba(201,169,110,0.4)",
                   }}
                 >
-                  Current Password
+                  {t("changePasswordPage.sections.current")}
                 </p>
                 <PasswordInput
                   id="current"
-                  label="Enter your current password"
+                  label={t("changePasswordPage.fields.currentLabel")}
                   value={currentPw}
                   onChange={setCurrentPw}
                   onBlur={() => setTouched((p) => ({ ...p, current: true }))}
@@ -503,11 +507,11 @@ export default function ChangePassword() {
                     color: "rgba(201,169,110,0.4)",
                   }}
                 >
-                  New Password
+                  {t("changePasswordPage.sections.new")}
                 </p>
                 <PasswordInput
                   id="new"
-                  label="Create a new password"
+                  label={t("changePasswordPage.fields.newLabel")}
                   value={newPw}
                   onChange={setNewPw}
                   onBlur={() => setTouched((p) => ({ ...p, new: true }))}
@@ -553,7 +557,7 @@ export default function ChangePassword() {
                 )}
               </div>
 
-              {/* Requirements checklist */}
+              {/* Requirements */}
               <div
                 style={{
                   marginBottom: 20,
@@ -574,7 +578,7 @@ export default function ChangePassword() {
                     fontFamily: "'Jost',sans-serif",
                   }}
                 >
-                  Password requirements
+                  {t("changePasswordPage.sections.requirements")}
                 </p>
                 <div
                   style={{ display: "flex", flexDirection: "column", gap: 7 }}
@@ -638,17 +642,18 @@ export default function ChangePassword() {
               <div style={{ marginBottom: 28 }}>
                 <PasswordInput
                   id="confirm"
-                  label="Confirm new password"
+                  label={t("changePasswordPage.fields.confirmLabel")}
                   value={confirmPw}
                   onChange={setConfirmPw}
                   onBlur={() => setTouched((p) => ({ ...p, confirm: true }))}
                   error={confirmError}
-                  placeholder="Re-enter new password"
+                  placeholder={t(
+                    "changePasswordPage.fields.confirmPlaceholder",
+                  )}
                   show={showConfirm}
                   onToggle={() => setShowConfirm((v) => !v)}
                   disabled={saving}
                 />
-                {/* Match indicator */}
                 {confirmPw && !confirmError && (
                   <div
                     style={{
@@ -671,7 +676,7 @@ export default function ChangePassword() {
                         fontWeight: 600,
                       }}
                     >
-                      Passwords match
+                      {t("changePasswordPage.passwordsMatch")}
                     </span>
                   </div>
                 )}
@@ -718,12 +723,12 @@ export default function ChangePassword() {
                         animation: "spin 0.7s linear infinite",
                       }}
                     />
-                    Updating Password…
+                    {t("changePasswordPage.submitting")}
                   </>
                 ) : (
                   <>
                     <ShieldCheck size={14} strokeWidth={2.5} />
-                    Update Password
+                    {t("changePasswordPage.submit")}
                   </>
                 )}
               </button>
@@ -763,9 +768,7 @@ export default function ChangePassword() {
                 lineHeight: 1.6,
               }}
             >
-              For maximum security, use a unique password you don't use on any
-              other site. You'll be asked to re-enter your current password to
-              verify your identity.
+              {t("changePasswordPage.tip")}
             </p>
           </div>
         </div>

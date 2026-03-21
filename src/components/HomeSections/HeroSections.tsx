@@ -305,7 +305,7 @@ export default function HeroSections() {
         }
       `}</style>
 
-      <section className="hc-root" dir="ltr">
+      <section className="hc-root" >
         {/* ── Background: placeholder colour + fade-in image ── */}
         <div className="hc-bg">
           <div className={`hc-bg-img${imgLoaded ? " hc-bg-img--loaded" : ""}`} />
@@ -388,7 +388,7 @@ export default function HeroSections() {
         </div>
 
         {/* ── Bottom-right meta ── */}
-        <div className={`hc-meta ${loaded ? "hc-meta--in" : ""}`}>
+        <div  className={`hc-meta ${loaded ? "hc-meta--in" : ""}`}>
           <div className="hc-meta-label">{t("hero.editorialDirection")}</div>
           <div className="hc-meta-date">{t("hero.season")}</div>
           <div className="hc-meta-accent" />

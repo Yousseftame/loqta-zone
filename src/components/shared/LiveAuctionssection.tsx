@@ -27,9 +27,12 @@ interface LiveAuction {
   endsAt: string;
 }
 
+// ─── Data hook: product cache prevents re-fetching on every snapshot tick ─────
 function useLiveAuctions() {
   const [auctions, setAuctions] = useState<LiveAuction[]>([]);
   const [loading, setLoading] = useState(true);
+  // Cache product data so snapshot updates don't re-fetch already-loaded products
+  const productCache = useRef<Record<string, any>>({});
 
   useEffect(() => {
     const q = query(
@@ -37,6 +40,7 @@ function useLiveAuctions() {
       where("isActive", "==", true),
       where("endTime", ">", Timestamp.now()),
     );
+
     const unsub = onSnapshot(
       q,
       async (snap) => {
@@ -50,22 +54,27 @@ function useLiveAuctions() {
           const st = d.data().startTime;
           return (st instanceof Timestamp ? st.toDate() : new Date(st)) <= now;
         });
+
+        // Only fetch products not already in cache
         const pids = [
           ...new Set(live.map((d) => d.data().productId).filter(Boolean)),
         ];
-        const pm: Record<string, any> = {};
-        await Promise.all(
-          pids.map(async (pid) => {
-            try {
-              const s = await getDoc(doc(db, "products", pid));
-              if (s.exists()) pm[pid] = s.data();
-            } catch {}
-          }),
-        );
+        const missing = pids.filter((pid) => !productCache.current[pid]);
+        if (missing.length > 0) {
+          await Promise.all(
+            missing.map(async (pid) => {
+              try {
+                const s = await getDoc(doc(db, "products", pid));
+                if (s.exists()) productCache.current[pid] = s.data();
+              } catch {}
+            }),
+          );
+        }
+
         setAuctions(
           live.map((d) => {
             const data = d.data(),
-              p = pm[data.productId] ?? {};
+              p = productCache.current[data.productId] ?? {};
             const img =
               p.thumbnail && p.thumbnail !== "null"
                 ? p.thumbnail
@@ -95,27 +104,34 @@ function useLiveAuctions() {
   return { auctions, loading };
 }
 
+// ─── Countdown: early-exit when done, memoized calc ───────────────────────────
+function calcCountdown(endsAt: string) {
+  const diff = new Date(endsAt).getTime() - Date.now();
+  if (diff <= 0) return { h: 0, m: 0, s: 0, done: true, urgent: false };
+  const t = Math.floor(diff / 1000);
+  return {
+    h: Math.floor(t / 3600),
+    m: Math.floor((t % 3600) / 60),
+    s: t % 60,
+    done: false,
+    urgent: t < 3600,
+  };
+}
+
 function useCountdown(endsAt: string) {
-  const calc = useCallback(() => {
-    const diff = new Date(endsAt).getTime() - Date.now();
-    if (diff <= 0) return { h: 0, m: 0, s: 0, done: true, urgent: false };
-    const t = Math.floor(diff / 1000);
-    return {
-      h: Math.floor(t / 3600),
-      m: Math.floor((t % 3600) / 60),
-      s: t % 60,
-      done: false,
-      urgent: t < 3600,
-    };
-  }, [endsAt]);
-  const [time, set] = useState(calc);
+  const [time, set] = useState(() => calcCountdown(endsAt));
   useEffect(() => {
-    const id = setInterval(() => set(calc()), 1000);
+    if (time.done) return; // stop ticking when expired
+    const id = setInterval(() => set(calcCountdown(endsAt)), 1000);
     return () => clearInterval(id);
-  }, [calc]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [endsAt]);
   return time;
 }
 
+// ─── FlipDigit: CSS key-swap instead of JS useState(flipping) ─────────────────
+// Changing `key` when value changes triggers CSS re-entry animation.
+// Zero JS state, zero setTimeout chains.
 function FlipDigit({
   value,
   color,
@@ -125,19 +141,6 @@ function FlipDigit({
   color: string;
   size?: number;
 }) {
-  const [displayed, setDisplayed] = useState(value);
-  const [flipping, setFlipping] = useState(false);
-  const prev = useRef(value);
-  useEffect(() => {
-    if (value === prev.current) return;
-    setFlipping(true);
-    const t = setTimeout(() => {
-      setDisplayed(value);
-      prev.current = value;
-      setFlipping(false);
-    }, 220);
-    return () => clearTimeout(t);
-  }, [value]);
   return (
     <div
       style={{
@@ -169,6 +172,8 @@ function FlipDigit({
         }}
       />
       <span
+        key={value}
+        className="la-flip-digit"
         style={{
           fontFamily: "'DM Mono','Courier New',monospace",
           fontSize: size,
@@ -177,18 +182,10 @@ function FlipDigit({
           lineHeight: 1,
           letterSpacing: "-0.04em",
           display: "block",
-          transform: flipping
-            ? "rotateX(90deg) scale(0.85)"
-            : "rotateX(0deg) scale(1)",
-          opacity: flipping ? 0 : 1,
-          transition: flipping
-            ? "transform 0.18s ease-in,opacity 0.18s ease-in"
-            : "transform 0.22s cubic-bezier(0.34,1.56,0.64,1),opacity 0.18s ease-out",
-          transformOrigin: "center center",
           userSelect: "none",
         }}
       >
-        {displayed}
+        {value}
       </span>
     </div>
   );
@@ -324,14 +321,31 @@ function RowCountdown({ endsAt }: { endsAt: string }) {
   return <FlipCountdown endsAt={endsAt} size={18} />;
 }
 
+// ─── useIsMobile: throttled via matchMedia instead of resize listener ─────────
+function useIsMobile(breakpoint = 768) {
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth < breakpoint : false,
+  );
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    setIsMobile(mq.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, [breakpoint]);
+  return isMobile;
+}
+
+// ─── FeaturedCard: CSS-only hover, no hov state ───────────────────────────────
 const FeaturedCard = memo(function FeaturedCard({
   item,
   onJoin,
+  compact = false,
 }: {
   item: LiveAuction;
   onJoin: () => void;
+  compact?: boolean;
 }) {
-  const [hov, setHov] = useState(false);
   const [vis, setVis] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const { t, i18n } = useTranslation();
@@ -354,12 +368,285 @@ const FeaturedCard = memo(function FeaturedCard({
     return () => obs.disconnect();
   }, []);
 
+  // ── MOBILE COMPACT CARD ────────────────────────────────────────────────────
+  if (compact) {
+    return (
+      <div
+        ref={ref}
+        onClick={onJoin}
+        className="la-featured-card"
+        style={{
+          position: "relative",
+          borderRadius: 20,
+          overflow: "hidden",
+          cursor: "pointer",
+          opacity: vis ? 1 : 0,
+          transform: vis ? "translateY(0)" : "translateY(28px)",
+          transition:
+            "opacity 0.65s ease,transform 0.65s cubic-bezier(0.22,1,0.36,1)",
+          background: "#06101e",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <div
+          style={{
+            position: "relative",
+            height: 160,
+            flexShrink: 0,
+            overflow: "hidden",
+          }}
+        >
+          {item.image && (
+            <img
+              src={item.image}
+              alt={item.title}
+              loading="lazy"
+              decoding="async"
+              className="la-feat-img"
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                display: "block",
+              }}
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = "none";
+              }}
+            />
+          )}
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background:
+                "linear-gradient(to bottom,rgba(4,8,16,0.1) 0%,rgba(4,8,16,0.7) 100%)",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              top: 12,
+              left: 12,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              background: "rgba(4,8,16,0.8)",
+              backdropFilter: "blur(10px)",
+              border: "1px solid rgba(74,222,128,0.3)",
+              borderRadius: 999,
+              padding: "5px 11px",
+            }}
+          >
+            <div
+              style={{
+                width: 7,
+                height: 7,
+                borderRadius: "50%",
+                background: "#4ade80",
+                animation: "la-pulse 1.5s infinite",
+              }}
+            />
+            <span
+              style={{
+                fontSize: 9,
+                fontWeight: 900,
+                color: "#4ade80",
+                letterSpacing: "0.22em",
+              }}
+            >
+              LIVE
+            </span>
+          </div>
+          {item.totalBids > 0 && (
+            <div
+              style={{
+                position: "absolute",
+                top: 12,
+                right: 12,
+                background: "rgba(4,8,16,0.8)",
+                backdropFilter: "blur(10px)",
+                border: "1px solid rgba(201,169,110,0.2)",
+                borderRadius: 999,
+                padding: "5px 11px",
+                fontSize: 9,
+                fontWeight: 700,
+                color: GOLD,
+                letterSpacing: "0.1em",
+              }}
+            >
+              🔨 {item.totalBids}
+            </div>
+          )}
+          <div
+            style={{
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              right: 0,
+              padding: "0 16px 12px",
+            }}
+          >
+            <h3
+              style={{
+                margin: 0,
+                fontSize: "clamp(16px,4.5vw,22px)",
+                fontWeight: 900,
+                color: "#ffffff",
+                letterSpacing: "-0.03em",
+                lineHeight: 1.15,
+                display: "-webkit-box",
+                WebkitLineClamp: 1,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+                textShadow: "0 2px 16px rgba(0,0,0,0.9)",
+              }}
+            >
+              {item.title}
+            </h3>
+          </div>
+        </div>
+
+        <div
+          style={{
+            padding: "14px 16px 16px",
+            background:
+              "linear-gradient(180deg,rgba(4,8,16,0.96),rgba(6,14,24,0.99))",
+            display: "flex",
+            flexDirection: "column",
+            gap: 12,
+          }}
+        >
+          <div
+            style={{
+              height: 1,
+              background: `linear-gradient(90deg,${GOLD}55,${GOLD}11,transparent)`,
+            }}
+          />
+          <div>
+            <div
+              style={{
+                fontSize: 7,
+                fontWeight: 800,
+                letterSpacing: "0.3em",
+                color: "rgba(229,224,198,0.3)",
+                textTransform: "uppercase",
+                marginBottom: 8,
+              }}
+            >
+              {t("liveAuctions.closingIn", "Closing in")}
+            </div>
+            <FlipCountdown endsAt={item.endsAt} size={22} />
+          </div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-end",
+              justifyContent: "space-between",
+            }}
+          >
+            <div>
+              <div
+                style={{
+                  fontSize: 7,
+                  fontWeight: 800,
+                  letterSpacing: "0.28em",
+                  color: "rgba(229,224,198,0.28)",
+                  textTransform: "uppercase",
+                  marginBottom: 4,
+                }}
+              >
+                {t("liveAuctions.currentBid", "Current Bid")}
+              </div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
+                <span
+                  style={{
+                    fontFamily: "'DM Mono','Courier New',monospace",
+                    fontSize: "clamp(20px,5vw,26px)",
+                    fontWeight: 700,
+                    color: GOLD,
+                    letterSpacing: "-0.04em",
+                    lineHeight: 1,
+                    textShadow: `0 0 24px ${GOLD}55`,
+                  }}
+                >
+                  {item.currentBid.toLocaleString()}
+                </span>
+                <span
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 700,
+                    color: `${GOLD}55`,
+                    letterSpacing: "0.14em",
+                  }}
+                >
+                  {cur}
+                </span>
+              </div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div
+                style={{
+                  fontSize: 7,
+                  fontWeight: 800,
+                  letterSpacing: "0.28em",
+                  color: "rgba(229,224,198,0.2)",
+                  textTransform: "uppercase",
+                  marginBottom: 4,
+                }}
+              >
+                {t("liveAuctions.bids", "Bids")}
+              </div>
+              <div
+                style={{
+                  fontFamily: "'DM Mono',monospace",
+                  fontSize: 20,
+                  fontWeight: 700,
+                  color: "rgba(229,224,198,0.5)",
+                  letterSpacing: "-0.03em",
+                }}
+              >
+                {item.totalBids}
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onJoin();
+            }}
+            className="la-cta-btn"
+            style={{
+              width: "100%",
+              padding: "13px 0",
+              border: "none",
+              borderRadius: 12,
+              cursor: "pointer",
+              fontSize: 10,
+              fontWeight: 900,
+              letterSpacing: "0.26em",
+              textTransform: "uppercase",
+              color: "#040810",
+              position: "relative",
+              overflow: "hidden",
+            }}
+          >
+            <span style={{ position: "relative", zIndex: 1 }}>
+              {t("liveAuctions.bidNow", "Bid Now — Join Session")}
+            </span>
+            <div className="la-sweep-shine" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── DESKTOP FULL CARD ──────────────────────────────────────────────────────
   return (
     <div
       ref={ref}
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
       onClick={onJoin}
+      className="la-featured-card"
       style={{
         position: "relative",
         borderRadius: 20,
@@ -370,9 +657,6 @@ const FeaturedCard = memo(function FeaturedCard({
         transform: vis ? "translateY(0)" : "translateY(28px)",
         transition:
           "opacity 0.65s ease,transform 0.65s cubic-bezier(0.22,1,0.36,1)",
-        boxShadow: hov
-          ? `0 40px 80px rgba(0,0,0,0.7),0 0 0 1px rgba(201,169,110,0.35)`
-          : `0 16px 56px rgba(0,0,0,0.55),0 0 0 1px rgba(255,255,255,0.06)`,
       }}
     >
       <div style={{ position: "absolute", inset: 0, background: "#06101e" }}>
@@ -380,16 +664,13 @@ const FeaturedCard = memo(function FeaturedCard({
           <img
             src={item.image}
             alt={item.title}
+            loading="lazy"
+            decoding="async"
+            className="la-feat-img"
             style={{
               width: "100%",
               height: "100%",
               objectFit: "cover",
-              transform: hov ? "scale(1.06)" : "scale(1)",
-              filter: hov
-                ? "brightness(0.5) saturate(1.1)"
-                : "brightness(0.38) saturate(0.9)",
-              transition:
-                "transform 1s cubic-bezier(0.25,0.46,0.45,0.94),filter 0.8s ease",
               display: "block",
             }}
             onError={(e) => {
@@ -594,6 +875,7 @@ const FeaturedCard = memo(function FeaturedCard({
             e.stopPropagation();
             onJoin();
           }}
+          className="la-cta-btn"
           style={{
             width: "100%",
             padding: "14px 0",
@@ -605,14 +887,6 @@ const FeaturedCard = memo(function FeaturedCard({
             letterSpacing: "0.26em",
             textTransform: "uppercase",
             color: "#040810",
-            background: hov
-              ? `linear-gradient(120deg,${GOLD2} 0%,${GOLD} 50%,${GOLD2} 100%)`
-              : `linear-gradient(120deg,${GOLD} 0%,${GOLD2}bb 100%)`,
-            boxShadow: hov
-              ? `0 12px 44px rgba(201,169,110,0.45)`
-              : `0 4px 20px rgba(201,169,110,0.18)`,
-            transform: hov ? "scale(1.025)" : "scale(1)",
-            transition: "all 0.38s cubic-bezier(0.34,1.56,0.64,1)",
             position: "relative",
             overflow: "hidden",
           }}
@@ -620,24 +894,14 @@ const FeaturedCard = memo(function FeaturedCard({
           <span style={{ position: "relative", zIndex: 1 }}>
             {t("liveAuctions.bidNow", "Bid Now — Join Session")}
           </span>
-          {hov && (
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                zIndex: 0,
-                background:
-                  "linear-gradient(105deg,transparent 35%,rgba(255,255,255,0.28) 50%,transparent 65%)",
-                animation: "la-sweep 0.55s ease forwards",
-              }}
-            />
-          )}
+          <div className="la-sweep-shine" />
         </button>
       </div>
     </div>
   );
 });
 
+// ─── AuctionRow: CSS-only hover, no hov state ─────────────────────────────────
 const AuctionRow = memo(function AuctionRow({
   item,
   index,
@@ -647,7 +911,6 @@ const AuctionRow = memo(function AuctionRow({
   index: number;
   onJoin: () => void;
 }) {
-  const [hov, setHov] = useState(false);
   const [vis, setVis] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const { t, i18n } = useTranslation();
@@ -673,77 +936,53 @@ const AuctionRow = memo(function AuctionRow({
   return (
     <div
       ref={ref}
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
       onClick={onJoin}
+      className="la-row"
       style={{
         position: "relative",
         cursor: "pointer",
         display: "grid",
-        gridTemplateColumns: "64px 1fr auto auto",
-        gap: "0 22px",
+        gridTemplateColumns: "48px 1fr auto auto",
+        gap: "0 10px",
         alignItems: "center",
-        padding: "20px 28px 20px 22px",
+        padding: "14px",
         opacity: vis ? 1 : 0,
         transform: vis
           ? "translateX(0)"
           : `translateX(${isRtl ? "20px" : "-20px"})`,
-        transition: `opacity 0.5s ease ${index * 0.08}s,transform 0.5s cubic-bezier(0.22,1,0.36,1) ${index * 0.08}s`,
+        transition: `opacity 0.5s ease ${index * 0.08}s, transform 0.5s cubic-bezier(0.22,1,0.36,1) ${index * 0.08}s`,
         overflow: "hidden",
       }}
     >
+      {/* Hover bg — CSS only */}
+      <div className="la-row-bg" />
+      <div className="la-row-accent" />
+
+      {/* Thumbnail */}
       <div
+        className="la-row-thumb"
         style={{
-          position: "absolute",
-          inset: 0,
-          background: hov
-            ? "linear-gradient(90deg,rgba(201,169,110,0.055),rgba(201,169,110,0.015))"
-            : "transparent",
-          transition: "background 0.35s ease",
-          pointerEvents: "none",
-        }}
-      />
-      <div
-        style={{
-          position: "absolute",
-          left: 0,
-          top: "18%",
-          bottom: "18%",
-          width: 2,
-          borderRadius: 2,
-          background: hov
-            ? `linear-gradient(180deg,transparent,${GOLD}cc,transparent)`
-            : "transparent",
-          transition: "all 0.35s ease",
-        }}
-      />
-      <div
-        style={{
-          width: 64,
-          height: 64,
+          width: 48,
+          height: 48,
           borderRadius: 10,
           overflow: "hidden",
           flexShrink: 0,
           position: "relative",
           background: "#0a1525",
-          border: `1px solid ${hov ? "rgba(201,169,110,0.4)" : "rgba(255,255,255,0.07)"}`,
-          boxShadow: hov
-            ? `0 8px 28px rgba(0,0,0,0.5)`
-            : `0 2px 10px rgba(0,0,0,0.3)`,
-          transition: "border-color 0.3s ease,box-shadow 0.3s ease",
         }}
       >
         {item.image ? (
           <img
             src={item.image}
             alt={item.title}
+            loading="lazy"
+            decoding="async"
+            className="la-row-img"
             style={{
               width: "100%",
               height: "100%",
               objectFit: "cover",
               display: "block",
-              transform: hov ? "scale(1.12)" : "scale(1)",
-              transition: "transform 0.7s cubic-bezier(0.25,0.46,0.45,0.94)",
             }}
             onError={(e) => {
               (e.target as HTMLImageElement).style.display = "none";
@@ -807,33 +1046,33 @@ const AuctionRow = memo(function AuctionRow({
           </span>
         </div>
       </div>
+
+      {/* Title + bid */}
       <div style={{ minWidth: 0 }}>
         <div
+          className="la-row-title"
           style={{
-            fontSize: "clamp(13px,1.4vw,15px)",
+            fontSize: "clamp(12px,1.4vw,15px)",
             fontWeight: 900,
-            color: hov ? "#ffffff" : "rgba(229,224,198,0.88)",
             letterSpacing: "-0.025em",
             lineHeight: 1.2,
-            marginBottom: 6,
+            marginBottom: 5,
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
-            transition: "color 0.25s ease",
           }}
         >
           {item.title}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <div style={{ display: "flex", alignItems: "baseline", gap: 3 }}>
             <span
+              className="la-row-bid"
               style={{
                 fontFamily: "'DM Mono',monospace",
-                fontSize: 14,
+                fontSize: 13,
                 fontWeight: 700,
-                color: hov ? GOLD : `${GOLD}99`,
                 letterSpacing: "-0.03em",
-                transition: "color 0.25s ease",
               }}
             >
               {item.currentBid.toLocaleString()}
@@ -861,7 +1100,7 @@ const AuctionRow = memo(function AuctionRow({
             style={{
               fontSize: 9,
               fontWeight: 800,
-              letterSpacing: "0.16em",
+              letterSpacing: "0.12em",
               color: "rgba(229,224,198,0.25)",
               textTransform: "uppercase",
             }}
@@ -871,44 +1110,44 @@ const AuctionRow = memo(function AuctionRow({
           </span>
         </div>
       </div>
-      <div style={{ textAlign: "right", flexShrink: 0 }}>
+
+      {/* Countdown — hidden on mobile via CSS */}
+      <div
+        className="la-row-countdown"
+        style={{ textAlign: "right", flexShrink: 0 }}
+      >
         <div
           style={{
-            fontSize: 10,
+            fontSize: 9,
             fontWeight: 800,
-            letterSpacing: "0.26em",
+            letterSpacing: "0.22em",
             color: "rgba(229,224,198,0.22)",
             textTransform: "uppercase",
-            marginBottom: 8,
+            marginBottom: 6,
           }}
         >
           {t("liveAuctions.endsIn", "Ends in")}
         </div>
         <RowCountdown endsAt={item.endsAt} />
       </div>
+
+      {/* Join button */}
       <button
         onClick={(e) => {
           e.stopPropagation();
           onJoin();
         }}
+        className="la-row-btn"
         style={{
           flexShrink: 0,
-          width: 108,
-          height: 40,
+          width: 76,
+          height: 34,
           borderRadius: 8,
           cursor: "pointer",
-          background: hov
-            ? `linear-gradient(120deg,${GOLD2},${GOLD})`
-            : "transparent",
-          border: `1px solid ${hov ? "transparent" : "rgba(201,169,110,0.32)"}`,
           fontSize: 9,
           fontWeight: 900,
-          letterSpacing: "0.2em",
+          letterSpacing: "0.18em",
           textTransform: "uppercase",
-          color: hov ? "#040810" : GOLD,
-          transform: hov ? "scale(1.05)" : "scale(1)",
-          boxShadow: hov ? `0 6px 28px rgba(201,169,110,0.35)` : "none",
-          transition: "all 0.32s cubic-bezier(0.34,1.56,0.64,1)",
           position: "relative",
           overflow: "hidden",
         }}
@@ -916,30 +1155,18 @@ const AuctionRow = memo(function AuctionRow({
         <span style={{ position: "relative", zIndex: 1 }}>
           {t("liveAuctions.joinNow", "Join Now")}
         </span>
-        {hov && (
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              zIndex: 0,
-              background:
-                "linear-gradient(105deg,transparent 35%,rgba(255,255,255,0.25) 50%,transparent 65%)",
-              animation: "la-sweep 0.5s ease forwards",
-            }}
-          />
-        )}
+        <div className="la-sweep-shine" />
       </button>
+
+      {/* Bottom divider */}
       <div
+        className="la-row-divider"
         style={{
           position: "absolute",
           bottom: 0,
-          left: 22,
-          right: 28,
+          left: 16,
+          right: 18,
           height: 1,
-          background: hov
-            ? "linear-gradient(90deg,rgba(201,169,110,0.18),rgba(201,169,110,0.04))"
-            : "rgba(255,255,255,0.04)",
-          transition: "background 0.35s ease",
         }}
       />
     </div>
@@ -950,12 +1177,14 @@ function Skel({ style }: { style?: React.CSSProperties }) {
   return <div className="la-skel" style={{ borderRadius: 8, ...style }} />;
 }
 
+// ─── Main section ─────────────────────────────────────────────────────────────
 export default function LiveAuctionsSection() {
   const { auctions, loading } = useLiveAuctions();
   const { user } = useAuth();
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   const isRtl = i18n.language === "ar";
+  const isMobile = useIsMobile(768);
   const [modal, setModal] = useState(false);
   const [hdrVis, setHdrVis] = useState(false);
   const hdrRef = useRef<HTMLDivElement>(null);
@@ -989,21 +1218,131 @@ export default function LiveAuctionsSection() {
   const featured = auctions[0];
   const rest = auctions.slice(1);
 
+  const getGridCols = () => {
+    if (loading) return isMobile ? "1fr" : "360px 1fr";
+    if (auctions.length <= 1) return "1fr";
+    if (isMobile) return "1fr";
+    if (auctions.length === 2) return "1fr 1fr";
+    return "minmax(260px,360px) 1fr";
+  };
+
   return (
     <section
       dir={isRtl ? "rtl" : "ltr"}
       style={{
         background: "linear-gradient(180deg,#050810 0%,#06101c 100%)",
-        padding: "88px 0 108px",
+        padding: isMobile ? "60px 0 72px" : "88px 0 108px",
         position: "relative",
         overflow: "hidden",
       }}
     >
       <style>{`
-        @keyframes la-pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.7;transform:scale(1.18)} }
-        @keyframes la-shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
-        @keyframes la-sweep { from{transform:translateX(-120%)} to{transform:translateX(220%)} }
+        @keyframes la-pulse  { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.7;transform:scale(1.18)} }
+        @keyframes la-shimmer{ 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+        @keyframes la-sweep  { from{transform:translateX(-120%)} to{transform:translateX(220%)} }
+
+        /* Digit flip — CSS re-entry on key change, no JS state */
+        @keyframes la-flip-in { from{opacity:0;transform:rotateX(90deg) scale(0.85)} to{opacity:1;transform:rotateX(0deg) scale(1)} }
+        .la-flip-digit { animation: la-flip-in 0.22s cubic-bezier(0.34,1.56,0.64,1) both; }
+
         .la-skel { background:linear-gradient(90deg,rgba(255,255,255,0.03) 25%,rgba(255,255,255,0.07) 50%,rgba(255,255,255,0.03) 75%); background-size:200% 100%; animation:la-shimmer 1.8s infinite; }
+
+        /* ── Featured card — CSS hover ────────────────────────────────────── */
+        .la-featured-card {
+          box-shadow: 0 16px 56px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.06);
+          transition: box-shadow 0.4s ease;
+          will-change: transform;
+        }
+        .la-featured-card:hover {
+          box-shadow: 0 40px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(201,169,110,0.35);
+        }
+        .la-feat-img {
+          filter: brightness(0.38) saturate(0.9);
+          transition: transform 1s cubic-bezier(0.25,0.46,0.45,0.94), filter 0.8s ease;
+        }
+        .la-featured-card:hover .la-feat-img {
+          transform: scale(1.06);
+          filter: brightness(0.5) saturate(1.1);
+        }
+
+        /* ── CTA button — CSS hover ───────────────────────────────────────── */
+        .la-cta-btn {
+          background: linear-gradient(120deg,${GOLD} 0%,${GOLD2}bb 100%);
+          box-shadow: 0 4px 20px rgba(201,169,110,0.18);
+          transform: scale(1);
+          transition: background 0.38s ease, box-shadow 0.38s ease, transform 0.38s cubic-bezier(0.34,1.56,0.64,1);
+        }
+        .la-cta-btn:hover {
+          background: linear-gradient(120deg,${GOLD2} 0%,${GOLD} 50%,${GOLD2} 100%);
+          box-shadow: 0 12px 44px rgba(201,169,110,0.45);
+          transform: scale(1.025);
+        }
+        .la-cta-btn:hover .la-sweep-shine { animation: la-sweep 0.55s ease forwards; }
+        .la-sweep-shine {
+          position: absolute; inset: 0; z-index: 0;
+          background: linear-gradient(105deg,transparent 35%,rgba(255,255,255,0.28) 50%,transparent 65%);
+          transform: translateX(-120%);
+        }
+
+        /* ── Row — CSS hover ──────────────────────────────────────────────── */
+        .la-row { transition: none; }
+        .la-row-bg {
+          position: absolute; inset: 0; pointer-events: none;
+          background: transparent;
+          transition: background 0.35s ease;
+        }
+        .la-row:hover .la-row-bg {
+          background: linear-gradient(90deg,rgba(201,169,110,0.055),rgba(201,169,110,0.015));
+        }
+        .la-row-accent {
+          position: absolute; left: 0; top: 18%; bottom: 18%;
+          width: 2px; border-radius: 2px;
+          background: transparent;
+          transition: background 0.35s ease;
+        }
+        .la-row:hover .la-row-accent {
+          background: linear-gradient(180deg,transparent,${GOLD}cc,transparent);
+        }
+        .la-row-thumb {
+          border: 1px solid rgba(255,255,255,0.07);
+          box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+          transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+        .la-row:hover .la-row-thumb {
+          border-color: rgba(201,169,110,0.4);
+          box-shadow: 0 8px 28px rgba(0,0,0,0.5);
+        }
+        .la-row-img { transform: scale(1); transition: transform 0.7s cubic-bezier(0.25,0.46,0.45,0.94); }
+        .la-row:hover .la-row-img { transform: scale(1.12); }
+        .la-row-title { color: rgba(229,224,198,0.88); transition: color 0.25s ease; }
+        .la-row:hover .la-row-title { color: #ffffff; }
+        .la-row-bid { color: ${GOLD}99; transition: color 0.25s ease; }
+        .la-row:hover .la-row-bid { color: ${GOLD}; }
+        .la-row-divider { background: rgba(255,255,255,0.04); transition: background 0.35s ease; }
+        .la-row:hover .la-row-divider { background: linear-gradient(90deg,rgba(201,169,110,0.18),rgba(201,169,110,0.04)); }
+
+        /* ── Row join button — CSS hover ─────────────────────────────────── */
+        .la-row-btn {
+          background: transparent;
+          border: 1px solid rgba(201,169,110,0.32);
+          color: ${GOLD};
+          box-shadow: none;
+          transform: scale(1);
+          transition: all 0.32s cubic-bezier(0.34,1.56,0.64,1);
+        }
+        .la-row:hover .la-row-btn {
+          background: linear-gradient(120deg,${GOLD2},${GOLD});
+          border-color: transparent;
+          color: #040810;
+          transform: scale(1.05);
+          box-shadow: 0 6px 28px rgba(201,169,110,0.35);
+        }
+        .la-row:hover .la-row-btn .la-sweep-shine { animation: la-sweep 0.5s ease forwards; }
+
+        /* Hide countdown on mobile */
+        @media (max-width: 767px) {
+          .la-row-countdown { display: none !important; }
+        }
       `}</style>
 
       <LoginPromptModal
@@ -1035,8 +1374,8 @@ export default function LiveAuctionsSection() {
         ref={hdrRef}
         style={{
           maxWidth: 1200,
-          margin: "0 auto 60px",
-          padding: "0 48px",
+          margin: isMobile ? "0 auto 36px" : "0 auto 60px",
+          padding: isMobile ? "0 20px" : "0 48px",
           display: "flex",
           alignItems: "flex-end",
           justifyContent: "space-between",
@@ -1106,7 +1445,9 @@ export default function LiveAuctionsSection() {
           </div>
           <div
             style={{
-              fontSize: "clamp(28px,4vw,46px)",
+              fontSize: isMobile
+                ? "clamp(26px,7vw,36px)"
+                : "clamp(28px,4vw,46px)",
               fontWeight: 900,
               letterSpacing: "-0.03em",
               lineHeight: 1.05,
@@ -1127,54 +1468,51 @@ export default function LiveAuctionsSection() {
             </span>
           </div>
         </div>
-        <p
-          style={{
-            fontSize: 13,
-            color: "rgba(229,224,198,0.28)",
-            lineHeight: 1.8,
-            maxWidth: 280,
-            marginBottom: 6,
-            opacity: hdrVis ? 1 : 0,
-            transform: hdrVis ? "translateY(0)" : "translateY(14px)",
-            transition: "opacity 0.7s ease 0.15s,transform 0.7s ease 0.15s",
-          }}
-        >
-          {t(
-            "liveAuctions.subtitle",
-            "These sessions are live. Every bid raises the stakes, place yours before the clock runs out.",
-          )}
-        </p>
+        {!isMobile && (
+          <p
+            style={{
+              fontSize: 13,
+              color: "rgba(229,224,198,0.28)",
+              lineHeight: 1.8,
+              maxWidth: 280,
+              marginBottom: 6,
+              opacity: hdrVis ? 1 : 0,
+              transform: hdrVis ? "translateY(0)" : "translateY(14px)",
+              transition: "opacity 0.7s ease 0.15s,transform 0.7s ease 0.15s",
+            }}
+          >
+            {t(
+              "liveAuctions.subtitle",
+              "These sessions are live. Every bid raises the stakes, place yours before the clock runs out.",
+            )}
+          </p>
+        )}
       </div>
 
-      {/* Content grid */}
+      {/* Content */}
       <div
         style={{
           maxWidth: 1200,
           margin: "0 auto",
-          padding: "0 48px",
+          padding: isMobile ? "0 16px" : "0 48px",
           display: "grid",
-          gridTemplateColumns:
-            loading || auctions.length <= 1
-              ? "1fr"
-              : auctions.length === 2
-                ? "1fr 1fr"
-                : "minmax(260px,360px) 1fr",
-          gap: 3,
+          gridTemplateColumns: getGridCols(),
+          gap: isMobile ? 16 : 3,
         }}
       >
         {loading ? (
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "360px 1fr",
-              gap: 3,
+              gridTemplateColumns: isMobile ? "1fr" : "360px 1fr",
+              gap: isMobile ? 16 : 3,
             }}
           >
             <div
               style={{
                 borderRadius: 20,
                 overflow: "hidden",
-                aspectRatio: "4/5",
+                aspectRatio: isMobile ? "16/10" : "4/5",
               }}
             >
               <div
@@ -1192,7 +1530,7 @@ export default function LiveAuctionsSection() {
             >
               <div
                 style={{
-                  padding: "18px 28px 14px 22px",
+                  padding: "18px 18px 14px",
                   borderBottom: "1px solid rgba(255,255,255,0.05)",
                   display: "flex",
                   justifyContent: "space-between",
@@ -1205,34 +1543,48 @@ export default function LiveAuctionsSection() {
                 <div
                   key={i}
                   style={{
-                    padding: "20px 28px 20px 22px",
+                    padding: "14px",
                     borderBottom: "1px solid rgba(255,255,255,0.04)",
                     display: "grid",
-                    gridTemplateColumns: "64px 1fr auto auto",
-                    gap: "0 22px",
+                    gridTemplateColumns: "48px 1fr auto auto",
+                    gap: "0 10px",
                     alignItems: "center",
                   }}
                 >
-                  <Skel style={{ width: 64, height: 64, borderRadius: 10 }} />
+                  <Skel style={{ width: 48, height: 48, borderRadius: 10 }} />
                   <div
                     style={{ display: "flex", flexDirection: "column", gap: 8 }}
                   >
-                    <Skel style={{ height: 13, width: "60%" }} />
+                    <Skel style={{ height: 12, width: "60%" }} />
                     <Skel style={{ height: 8, width: "38%" }} />
                   </div>
-                  <Skel style={{ width: 72, height: 28 }} />
-                  <Skel style={{ width: 108, height: 40, borderRadius: 8 }} />
+                  <Skel style={{ width: 52, height: 22 }} />
+                  <Skel style={{ width: 76, height: 34, borderRadius: 8 }} />
                 </div>
               ))}
             </div>
           </div>
         ) : auctions.length === 1 ? (
-          <div style={{ maxWidth: 400, margin: "0 auto", width: "100%" }}>
-            <FeaturedCard item={featured} onJoin={() => handleJoin(featured)} />
+          <div
+            style={{
+              maxWidth: isMobile ? "100%" : 400,
+              margin: "0 auto",
+              width: "100%",
+            }}
+          >
+            <FeaturedCard
+              item={featured}
+              onJoin={() => handleJoin(featured)}
+              compact={isMobile}
+            />
           </div>
         ) : (
           <>
-            <FeaturedCard item={featured} onJoin={() => handleJoin(featured)} />
+            <FeaturedCard
+              item={featured}
+              onJoin={() => handleJoin(featured)}
+              compact={isMobile}
+            />
             <div
               style={{
                 background: "rgba(255,255,255,0.018)",
@@ -1245,7 +1597,7 @@ export default function LiveAuctionsSection() {
             >
               <div
                 style={{
-                  padding: "18px 28px 14px 22px",
+                  padding: "16px 18px 12px",
                   borderBottom: "1px solid rgba(255,255,255,0.05)",
                   display: "flex",
                   alignItems: "center",

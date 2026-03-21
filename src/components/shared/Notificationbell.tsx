@@ -8,6 +8,7 @@
  *  - "bid_selected" and "last_offer_selected" types fully localized.
  *  - "payment_confirmed" and "auction_matched" types fully localized.
  *  - All other types fall back to stored title/message (unchanged behavior).
+ *  - Mobile: panel is viewport-width, anchored to screen edges, not the FAB.
  */
 
 import { useState, useEffect, useRef } from "react";
@@ -33,19 +34,6 @@ function timeAgo(date: Date): string {
 }
 
 // ── Localized notification content ───────────────────────────────────────────
-// Reconstructs title + message from stored data fields using i18n.
-// Uses multiple field-name fallbacks because different Cloud Functions and
-// client-side writers use slightly different field names.
-//
-// Field fallback strategy per type:
-//   bid_selected        → winningBid, productTitle
-//   last_offer_selected → winningBid, productTitle
-//   payment_confirmed   → winningBid | amount | parsed from stored message,
-//                         productTitle | parsed from stored message
-//   auction_matched     → productName | productTitle
-//
-// If structured fields are missing (0 / ""), we parse the stored English
-// message as a last resort so nothing ever shows as "0" or blank.
 function getLocalizedNotif(
   notif: AppNotification,
   t: (key: string, opts?: Record<string, any>) => string,
@@ -53,16 +41,12 @@ function getLocalizedNotif(
   const fmt = (n: number) => n.toLocaleString("en-EG");
   const data = notif as any;
 
-  // ── Helper: extract amount from stored message string ─────────────────────
-  // Matches patterns like "25,700 EGP" or "8,423,000 EGP"
   function parseAmountFromMessage(msg: string): number {
     const match = msg.match(/([\d,]+)\s*EGP/i);
     if (!match) return 0;
     return parseInt(match[1].replace(/,/g, ""), 10) || 0;
   }
 
-  // ── Helper: extract product name from stored message string ───────────────
-  // Matches text inside the first pair of double quotes
   function parseProductFromMessage(msg: string): string {
     const match = msg.match(/"([^"]+)"/);
     return match ? match[1] : "";
@@ -70,10 +54,8 @@ function getLocalizedNotif(
 
   switch (notif.type) {
     case "bid_selected": {
-      // Cloud Function stores: winningBid (number), productTitle (string)
       const amount = data.winningBid ?? data.amount ?? 0;
       const product = data.productTitle ?? data.productName ?? "";
-      // If still empty, fall back to parsing the stored message
       const resolvedAmount = amount || parseAmountFromMessage(notif.message);
       const resolvedProduct = product || parseProductFromMessage(notif.message);
       return {
@@ -86,7 +68,6 @@ function getLocalizedNotif(
     }
 
     case "last_offer_selected": {
-      // Cloud Function stores: winningBid (number), productTitle (string)
       const amount = data.winningBid ?? data.amount ?? 0;
       const product = data.productTitle ?? data.productName ?? "";
       const resolvedAmount = amount || parseAmountFromMessage(notif.message);
@@ -101,8 +82,6 @@ function getLocalizedNotif(
     }
 
     case "payment_confirmed": {
-      // Client-written doc — field names vary. Try every known variant.
-      // Common patterns: amount | winningBid | parsed from message
       const amount = data.amount ?? data.winningBid ?? data.paymentAmount ?? 0;
       const product =
         data.productTitle ?? data.productName ?? data.itemTitle ?? "";
@@ -118,7 +97,6 @@ function getLocalizedNotif(
     }
 
     case "auction_matched": {
-      // Cloud Function (notifications.ts) stores: productName (not productTitle)
       const product = data.productName ?? data.productTitle ?? "";
       const resolvedProduct = product || parseProductFromMessage(notif.message);
       return {
@@ -135,10 +113,7 @@ function getLocalizedNotif(
 }
 
 // ── Formatted message for last_offer_selected / bid_selected ──────────────────
-// Renders product name in gold, amount in gold+bold, and the ⚠️ warning
-// on its own visually separated line.
 function FormattedSelectionMessage({ message }: { message: string }) {
-  // Split on \n\n to separate the main text from the warning line
   const parts = message.split(/\n\n/);
   const mainText = parts[0] ?? message;
   const warningText = parts[1] ?? null;
@@ -148,7 +123,6 @@ function FormattedSelectionMessage({ message }: { message: string }) {
     let remaining = text;
     let key = 0;
 
-    // Product name between quotes → gold
     const productMatch = remaining.match(/"([^"]+)"/);
     if (productMatch) {
       const fullQuoted = `"${productMatch[1]}"`;
@@ -165,7 +139,6 @@ function FormattedSelectionMessage({ message }: { message: string }) {
       }
     }
 
-    // Amount (e.g. "25,000 EGP") → gold + bold
     const amountMatch = remaining.match(/([\d,]+\s*(?:EGP|جنيه))/i);
     if (amountMatch) {
       const idx = remaining.indexOf(amountMatch[1]);
@@ -262,14 +235,11 @@ function FormattedPaymentMessage({
 }
 
 // ── Formatted message for auction_matched ────────────────────────────────────
-// Renders the product name in gold so it stands out clearly
 function FormattedMatchedMessage({ message }: { message: string }) {
   const segments: React.ReactNode[] = [];
   let remaining = message;
   let key = 0;
 
-  // Find the product name — it appears at the start of the message before " is now live"
-  // Pattern: "ProductName is now live in auctions."
   const liveIdx = remaining.search(/ is now live/i);
   if (liveIdx > 0) {
     const productName = remaining.slice(0, liveIdx);
@@ -290,7 +260,7 @@ function FormattedMatchedMessage({ message }: { message: string }) {
   );
 }
 
-// ── Solid green checkmark circle — unique icon for payment_confirmed ───────────
+// ── Solid green checkmark circle ──────────────────────────────────────────────
 function PaymentConfirmedIcon() {
   return (
     <div
@@ -362,21 +332,18 @@ const TYPE_CONFIG: Record<
     bg: "rgba(255,157,92,0.13)",
     border: "rgba(255,157,92,0.25)",
   },
-  // Gift icon — last offer system
   last_offer_selected: {
     Icon: Gift,
     color: "#c9a96e",
     bg: "rgba(201,169,110,0.12)",
     border: "rgba(201,169,110,0.35)",
   },
-  // Trophy icon — bid system (visually distinct from last_offer_selected)
   bid_selected: {
     Icon: Trophy,
     color: "#c9a96e",
     bg: "rgba(201,169,110,0.12)",
     border: "rgba(201,169,110,0.35)",
   },
-  // Uses custom PaymentConfirmedIcon — values below are fallback only
   payment_confirmed: {
     Icon: null,
     color: "#4ade80",
@@ -424,7 +391,6 @@ export const NotificationBell = () => {
   }, []);
 
   const handleItemClick = (notif: AppNotification) => {
-    // payment_confirmed — informational only, mark read, no navigation
     if (notif.type === "payment_confirmed") {
       markRead(notif.id);
       return;
@@ -448,13 +414,11 @@ export const NotificationBell = () => {
 
   if (!user) return null;
 
-  // Notification types that show the "Confirm purchase" CTA pill
   const CONFIRM_TYPES: NotificationType[] = [
     "last_offer_selected",
     "bid_selected",
   ];
 
-  // Localized labels
   const labelMarkAllRead = isRTL ? "قراءة الكل" : "Mark all read";
   const labelViewAll = isRTL
     ? "✦ عرض كل الإشعارات"
@@ -508,7 +472,6 @@ export const NotificationBell = () => {
                   const isClickable = !isPaymentConfirmed;
                   const cfg = TYPE_CONFIG[notif.type] ?? TYPE_CONFIG.promo;
 
-                  // ── Get localized title + message ───────────────────────
                   const { title: localTitle, message: localMessage } =
                     getLocalizedNotif(notif, t);
 
@@ -532,7 +495,6 @@ export const NotificationBell = () => {
                         />
                       )}
 
-                      {/* Icon */}
                       {isPaymentConfirmed ? (
                         <PaymentConfirmedIcon />
                       ) : (
@@ -562,7 +524,6 @@ export const NotificationBell = () => {
                       <div className="nf-body">
                         <p className="nf-item-title">{localTitle}</p>
 
-                        {/* Message — rich formatting per notification type */}
                         {isConfirmType ? (
                           <FormattedSelectionMessage message={localMessage} />
                         ) : isPaymentConfirmed ? (
@@ -579,7 +540,6 @@ export const NotificationBell = () => {
                           <p className="nf-item-msg">{localMessage}</p>
                         )}
 
-                        {/* Compact CTA pill for both selection types */}
                         {isConfirmType && (
                           <span className="nf-cta-pill">
                             {labelConfirmPurchase}
@@ -682,8 +642,30 @@ const CSS = `
 .nf-logo{width:60px;height:60px;object-fit:contain;filter:drop-shadow(0 3px 10px rgba(201,169,110,0.55));transition:filter 0.3s,transform 0.3s;position:relative;z-index:2;}
 .nf-fab-row:hover .nf-logo{filter:drop-shadow(0 5px 16px rgba(201,169,110,0.8));transform:scale(1.06);}
 .nf-badge{position:absolute;top:-5px;right:-5px;min-width:26px;height:26px;border-radius:999px;background:linear-gradient(135deg,#ff3d5a,#c41e3a);border:3px solid #0a0a1a;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#fff;font-family:'Jost',sans-serif;padding:0 5px;animation:nfBadgePop 0.5s cubic-bezier(0.22,1,0.36,1) both,nfBadgeGlow 2s ease-in-out 0.5s infinite;z-index:10;pointer-events:none;}
+
+/* ── DESKTOP panel (≥ 480px) — unchanged ── */
 .nf-panel{position:absolute;bottom:calc(100% + 18px);right:0;width:365px;background:linear-gradient(160deg,#0f2035 0%,#080d1a 100%);border:1px solid rgba(201,169,110,0.22);border-radius:24px;box-shadow:0 32px 80px rgba(0,0,0,0.82),0 0 0 1px rgba(201,169,110,0.07),inset 0 1px 0 rgba(201,169,110,0.12);overflow:hidden;animation:nfPanelIn 0.42s cubic-bezier(0.22,1,0.36,1) both;max-height:530px;display:flex;flex-direction:column;}
 .nf-panel::before{content:'';position:absolute;top:0;left:0;right:0;height:1.5px;background:linear-gradient(90deg,transparent,rgba(201,169,110,0.7),transparent);}
+
+/* ── MOBILE panel (< 480px) ──
+   Detach from the FAB's relative positioning and instead stretch edge-to-edge
+   at the bottom of the viewport, above the FAB row. */
+@media (max-width: 479px) {
+  .nf-root { right: 16px; bottom: 16px; }
+  .nf-panel {
+    position: fixed;
+    /* sit above the FAB: FAB is ~76px + 16px bottom + 18px gap = ~110px */
+    bottom: 110px;
+    left: 10px;
+    right: 10px;
+    width: auto;
+    /* reset the absolute right:0 that would mis-position it */
+    top: auto;
+    border-radius: 18px;
+    max-height: calc(100dvh - 140px);
+  }
+}
+
 .nf-head{padding:18px 20px 14px;border-bottom:1px solid rgba(229,224,198,0.06);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;background:linear-gradient(135deg,rgba(201,169,110,0.05),transparent);}
 .nf-head-left{display:flex;align-items:center;gap:8px;flex-wrap:nowrap;overflow:hidden;}
 .nf-head-title{font-family:'Jost',sans-serif;font-size:14px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#c9a96e;white-space:nowrap;flex-shrink:0;}
@@ -720,7 +702,7 @@ const CSS = `
 .nf-foot-btn{font-family:'Jost',sans-serif;font-size:10px;font-weight:800;letter-spacing:0.18em;text-transform:uppercase;color:rgba(201,169,110,0.5);background:none;border:none;cursor:pointer;padding:6px 16px;border-radius:8px;transition:all 0.2s;}
 .nf-foot-btn:hover{color:#c9a96e;background:rgba(201,169,110,0.08);}
 
-/* RTL support — bell always stays bottom-right, only inner layout adjusts */
+/* RTL support */
 [dir="rtl"] .nf-unread-bar{left:unset;right:0;border-radius:3px 0 0 3px;}
 [dir="rtl"] .nf-x{right:unset;left:10px;}
 [dir="rtl"] .nf-item-title{padding-right:0;padding-left:24px;}

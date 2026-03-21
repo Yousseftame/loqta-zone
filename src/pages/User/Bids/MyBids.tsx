@@ -1,17 +1,6 @@
 /**
  * src/pages/User/Bids/MyBids.tsx
- *
- * Displays all auctions the user has joined from:
- *   users/{uid}/auctions  (subcollection)
- *
- * Each document contains:
- *   auctionId    string
- *   amount       number
- *   hasPaid      boolean
- *   joinedAt     Timestamp
- *   paymentId    string
- *   totalAmount  number[]
- *   voucherUsed  boolean
+ * Localized — uses i18next via useTranslation()
  */
 
 import { useState, useEffect } from "react";
@@ -38,6 +27,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { db } from "@/firebase/firebase";
 import { useAuth } from "@/store/AuthContext/AuthContext";
 
@@ -62,9 +52,9 @@ interface UserAuctionEntry {
 }
 
 interface AuctionMeta {
-  productName?: string; // resolved: products/{productId}.title
+  productName?: string;
   productId?: string;
-  auctionNumber?: number; // shown as subtitle "Auction #N"
+  auctionNumber?: number;
   imageUrl?: string;
   status?: string;
   endDate?: Timestamp | null;
@@ -77,56 +67,28 @@ interface EnrichedEntry extends UserAuctionEntry {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function formatDate(ts: Timestamp | null | undefined): string {
+function formatDate(ts: Timestamp | null | undefined, locale: string): string {
   if (!ts) return "—";
   const d = ts?.toDate ? ts.toDate() : new Date(ts as any);
-  return d.toLocaleDateString("en-US", {
+  return d.toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
   });
 }
 
-function formatTime(ts: Timestamp | null | undefined): string {
+function formatTime(ts: Timestamp | null | undefined, locale: string): string {
   if (!ts) return "";
   const d = ts?.toDate ? ts.toDate() : new Date(ts as any);
-  return d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleTimeString(locale === "ar" ? "ar-EG" : "en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function maxBid(arr: number[]): number {
   if (!arr || arr.length === 0) return 0;
   return Math.max(...arr);
-}
-
-function getStatusConfig(status?: string) {
-  switch (status) {
-    case "active":
-      return {
-        label: "Live",
-        color: "#5ee8a0",
-        bg: "rgba(94,232,160,0.1)",
-        border: "rgba(94,232,160,0.25)",
-        pulse: true,
-      };
-    case "upcoming":
-      return {
-        label: "Upcoming",
-        color: "#64a0ff",
-        bg: "rgba(100,160,255,0.1)",
-        border: "rgba(100,160,255,0.25)",
-        pulse: false,
-      };
-    case "ended":
-      return {
-        label: "Ended",
-        color: "rgba(229,224,198,0.35)",
-        bg: "rgba(255,255,255,0.04)",
-        border: "rgba(255,255,255,0.08)",
-        pulse: false,
-      };
-    default:
-      return null;
-  }
 }
 
 // ─── Bid Sparkline ────────────────────────────────────────────────────────────
@@ -231,21 +193,52 @@ const AuctionCard = ({
   entry: EnrichedEntry;
   index: number;
 }) => {
+  const { t, i18n } = useTranslation();
   const [expanded, setExpanded] = useState(false);
+
+  const getStatusConfig = (status?: string) => {
+    switch (status) {
+      case "active":
+        return {
+          label: t("myBidsPage.card.status.live"),
+          color: "#5ee8a0",
+          bg: "rgba(94,232,160,0.1)",
+          border: "rgba(94,232,160,0.25)",
+          pulse: true,
+        };
+      case "upcoming":
+        return {
+          label: t("myBidsPage.card.status.upcoming"),
+          color: "#64a0ff",
+          bg: "rgba(100,160,255,0.1)",
+          border: "rgba(100,160,255,0.25)",
+          pulse: false,
+        };
+      case "ended":
+        return {
+          label: t("myBidsPage.card.status.ended"),
+          color: "rgba(229,224,198,0.35)",
+          bg: "rgba(255,255,255,0.04)",
+          border: "rgba(255,255,255,0.08)",
+          pulse: false,
+        };
+      default:
+        return null;
+    }
+  };
+
   const statusCfg = getStatusConfig(entry.meta.status);
   const highestBid = maxBid(entry.totalAmount);
   const bidCount = entry.totalAmount?.length ?? 0;
 
-  // Display name: product name if resolved, else fallback to "Auction #N" or short ID
   const displayTitle =
     entry.meta.productName ||
     (entry.meta.auctionNumber
-      ? `Auction #${entry.meta.auctionNumber}`
-      : `Auction ${entry.auctionId.slice(0, 8)}…`);
+      ? t("myBidsPage.card.auctionNum", { num: entry.meta.auctionNumber })
+      : t("myBidsPage.card.auctionShort", { id: entry.auctionId.slice(0, 8) }));
 
-  // Subtitle: auction number if we have it
   const displaySubtitle = entry.meta.auctionNumber
-    ? `Auction #${entry.meta.auctionNumber}`
+    ? t("myBidsPage.card.auctionNum", { num: entry.meta.auctionNumber })
     : null;
 
   return (
@@ -270,7 +263,6 @@ const AuctionCard = ({
         (e.currentTarget as HTMLDivElement).style.transform = "translateY(0)";
       }}
     >
-      {/* Gold top line */}
       <div
         style={{
           position: "absolute",
@@ -292,7 +284,7 @@ const AuctionCard = ({
           alignItems: "flex-start",
         }}
       >
-        {/* Image / placeholder */}
+        {/* Image */}
         <div
           style={{
             width: 72,
@@ -350,7 +342,6 @@ const AuctionCard = ({
             }}
           >
             <div style={{ minWidth: 0 }}>
-              {/* ── Product name as title ── */}
               <h3
                 style={{
                   margin: 0,
@@ -366,7 +357,6 @@ const AuctionCard = ({
               >
                 {displayTitle}
               </h3>
-              {/* ── Auction number as subtitle (only shown if available) ── */}
               {displaySubtitle && (
                 <p
                   style={{
@@ -380,8 +370,6 @@ const AuctionCard = ({
                 </p>
               )}
             </div>
-
-            {/* Status badge */}
             {statusCfg && (
               <span
                 style={{
@@ -436,9 +424,8 @@ const AuctionCard = ({
               }}
             >
               <Calendar size={10} style={{ opacity: 0.6 }} />
-              {formatDate(entry.joinedAt)}
+              {formatDate(entry.joinedAt, i18n.language)}
             </span>
-            
             {entry.voucherUsed && (
               <span
                 style={{
@@ -451,7 +438,7 @@ const AuctionCard = ({
                   fontWeight: 700,
                 }}
               >
-                <Ticket size={10} /> Voucher applied
+                <Ticket size={10} /> {t("myBidsPage.card.voucherApplied")}
               </span>
             )}
           </div>
@@ -462,21 +449,30 @@ const AuctionCard = ({
       <div style={{ padding: "0 20px 16px", display: "flex", gap: 8 }}>
         <StatPill
           icon={Wallet}
-          label="Entry"
+          label={t("myBidsPage.card.stats.entry")}
           value={`${entry.amount} EGP`}
           color="#64a0ff"
         />
         <StatPill
           icon={TrendingUp}
-          label="Highest"
+          label={t("myBidsPage.card.stats.highest")}
           value={`${highestBid} EGP`}
           color={GOLD}
         />
-        <StatPill icon={Gavel} label="Bids" value={bidCount} color="#5ee8a0" />
+        <StatPill
+          icon={Gavel}
+          label={t("myBidsPage.card.stats.bids")}
+          value={bidCount}
+          color="#5ee8a0"
+        />
         <StatPill
           icon={entry.hasPaid ? CheckCircle2 : XCircle}
-          label="Payment"
-          value={entry.hasPaid ? "Paid" : "Pending"}
+          label={t("myBidsPage.card.stats.payment")}
+          value={
+            entry.hasPaid
+              ? t("myBidsPage.card.stats.paid")
+              : t("myBidsPage.card.stats.pending")
+          }
           color={entry.hasPaid ? "#5ee8a0" : "#ff6464"}
         />
       </div>
@@ -510,7 +506,9 @@ const AuctionCard = ({
             transition: "color 0.2s",
           }}
         >
-          {expanded ? "Hide Details" : "View Details"}
+          {expanded
+            ? t("myBidsPage.card.hideDetails")
+            : t("myBidsPage.card.viewDetails")}
         </span>
         <ChevronRight
           size={14}
@@ -531,7 +529,6 @@ const AuctionCard = ({
             animation: "expandIn 0.22s ease both",
           }}
         >
-          {/* Bid history */}
           {entry.totalAmount && entry.totalAmount.length > 0 && (
             <div style={{ marginBottom: 18 }}>
               <div
@@ -552,7 +549,7 @@ const AuctionCard = ({
                     color: "rgba(201,169,110,0.45)",
                   }}
                 >
-                  Bid History
+                  {t("myBidsPage.card.bidHistory")}
                 </p>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <BidSparkline data={entry.totalAmount} color={GOLD} />
@@ -563,7 +560,12 @@ const AuctionCard = ({
                       fontFamily: "'Jost',sans-serif",
                     }}
                   >
-                    {bidCount} bid{bidCount !== 1 ? "s" : ""}
+                    {t(
+                      bidCount === 1
+                        ? "myBidsPage.card.bidsCount_one"
+                        : "myBidsPage.card.bidsCount_other",
+                      { count: bidCount },
+                    )}
                   </span>
                 </div>
               </div>
@@ -626,7 +628,6 @@ const AuctionCard = ({
             </div>
           )}
 
-          {/* Detail grid — Auction ID card removed */}
           <div
             style={{
               display: "grid",
@@ -637,32 +638,34 @@ const AuctionCard = ({
             {[
               {
                 icon: CreditCard,
-                label: "Payment ID",
+                label: t("myBidsPage.card.details.paymentId"),
                 value: entry.paymentId || "—",
                 color: CREAM,
               },
               {
                 icon: Calendar,
-                label: "Joined At",
-                value: `${formatDate(entry.joinedAt)} · ${formatTime(entry.joinedAt)}`,
+                label: t("myBidsPage.card.details.joinedAt"),
+                value: `${formatDate(entry.joinedAt, i18n.language)} · ${formatTime(entry.joinedAt, i18n.language)}`,
                 color: CREAM,
               },
               {
                 icon: Wallet,
-                label: "Entry Amount",
+                label: t("myBidsPage.card.details.entryAmount"),
                 value: `${entry.amount} EGP`,
                 color: "#64a0ff",
               },
               {
                 icon: entry.hasPaid ? CheckCircle2 : XCircle,
-                label: "Payment Status",
-                value: entry.hasPaid ? "Confirmed" : "Pending",
+                label: t("myBidsPage.card.details.paymentStatus"),
+                value: entry.hasPaid
+                  ? t("myBidsPage.card.details.confirmed")
+                  : t("myBidsPage.card.stats.pending"),
                 color: entry.hasPaid ? "#5ee8a0" : "#ff9060",
               },
               {
                 icon: Ticket,
-                label: "Voucher Used",
-                value: entry.voucherUsed ? "Yes" : "No",
+                label: t("myBidsPage.card.details.voucherUsed"),
+                value: entry.voucherUsed ? t("common.confirm") : "No",
                 color: entry.voucherUsed ? GOLD : "rgba(229,224,198,0.35)",
               },
             ].map((row) => (
@@ -722,82 +725,85 @@ const AuctionCard = ({
 };
 
 // ─── Empty State ──────────────────────────────────────────────────────────────
-const EmptyState = () => (
-  <div
-    style={{
-      textAlign: "center",
-      padding: "80px 20px",
-      animation: "fadeUp 0.5s ease both",
-    }}
-  >
+const EmptyState = () => {
+  const { t } = useTranslation();
+  return (
     <div
       style={{
-        width: 72,
-        height: 72,
-        borderRadius: "50%",
-        background: "rgba(201,169,110,0.07)",
-        border: "1px solid rgba(201,169,110,0.15)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        margin: "0 auto 20px",
+        textAlign: "center",
+        padding: "80px 20px",
+        animation: "fadeUp 0.5s ease both",
       }}
     >
-      <Gavel
-        size={28}
-        style={{ color: "rgba(201,169,110,0.4)" }}
-        strokeWidth={1.5}
-      />
+      <div
+        style={{
+          width: 72,
+          height: 72,
+          borderRadius: "50%",
+          background: "rgba(201,169,110,0.07)",
+          border: "1px solid rgba(201,169,110,0.15)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          margin: "0 auto 20px",
+        }}
+      >
+        <Gavel
+          size={28}
+          style={{ color: "rgba(201,169,110,0.4)" }}
+          strokeWidth={1.5}
+        />
+      </div>
+      <h3
+        style={{
+          margin: "0 0 8px",
+          fontSize: 18,
+          fontWeight: 800,
+          color: CREAM,
+          fontFamily: "'Jost',sans-serif",
+        }}
+      >
+        {t("myBidsPage.empty.title")}
+      </h3>
+      <p
+        style={{
+          margin: "0 0 24px",
+          fontSize: 13,
+          color: "rgba(229,224,198,0.38)",
+          fontFamily: "'Jost',sans-serif",
+        }}
+      >
+        {t("myBidsPage.empty.subtitle")}
+      </p>
+      <Link
+        to="/"
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 7,
+          padding: "11px 24px",
+          borderRadius: 999,
+          background: `linear-gradient(135deg, ${GOLD}, ${GOLD2})`,
+          color: "#0a0a1a",
+          fontSize: 11,
+          fontWeight: 900,
+          letterSpacing: "0.14em",
+          textTransform: "uppercase",
+          textDecoration: "none",
+          fontFamily: "'Jost',sans-serif",
+          boxShadow: "0 4px 18px rgba(201,169,110,0.3)",
+        }}
+      >
+        <Sparkles size={13} /> {t("myBidsPage.empty.cta")}
+      </Link>
     </div>
-    <h3
-      style={{
-        margin: "0 0 8px",
-        fontSize: 18,
-        fontWeight: 800,
-        color: CREAM,
-        fontFamily: "'Jost',sans-serif",
-      }}
-    >
-      No Auctions Yet
-    </h3>
-    <p
-      style={{
-        margin: "0 0 24px",
-        fontSize: 13,
-        color: "rgba(229,224,198,0.38)",
-        fontFamily: "'Jost',sans-serif",
-      }}
-    >
-      You haven't joined any auctions yet. Explore the marketplace to find your
-      next bid.
-    </p>
-    <Link
-      to="/"
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 7,
-        padding: "11px 24px",
-        borderRadius: 999,
-        background: `linear-gradient(135deg, ${GOLD}, ${GOLD2})`,
-        color: "#0a0a1a",
-        fontSize: 11,
-        fontWeight: 900,
-        letterSpacing: "0.14em",
-        textTransform: "uppercase",
-        textDecoration: "none",
-        fontFamily: "'Jost',sans-serif",
-        boxShadow: "0 4px 18px rgba(201,169,110,0.3)",
-      }}
-    >
-      <Sparkles size={13} /> Explore Auctions
-    </Link>
-  </div>
-);
+  );
+};
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function MyBids() {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [entries, setEntries] = useState<EnrichedEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -823,14 +829,11 @@ export default function MyBids() {
         const enriched: EnrichedEntry[] = await Promise.all(
           raw.map(async (entry) => {
             try {
-              // ── Step 1: fetch auction doc ──────────────────────────────
               const aSnap = await getDoc(doc(db, "auctions", entry.auctionId));
               if (!aSnap.exists()) return { ...entry, meta: {} };
-
               const aData = aSnap.data();
               const productId: string = aData.productId ?? "";
 
-              // ── Step 2: fetch product doc to get the name & image ──────
               let productName: string | undefined;
               let imageUrl: string | undefined;
               let category: string | undefined;
@@ -841,7 +844,6 @@ export default function MyBids() {
                   if (pSnap.exists()) {
                     const pData = pSnap.data();
                     productName = pData.title ?? undefined;
-                    // Use product thumbnail/images as the card image
                     imageUrl =
                       pData.thumbnail && pData.thumbnail !== "null"
                         ? pData.thumbnail
@@ -851,7 +853,7 @@ export default function MyBids() {
                     category = pData.category ?? undefined;
                   }
                 } catch {
-                  // product fetch failed — continue with no name
+                  // continue
                 }
               }
 
@@ -859,7 +861,6 @@ export default function MyBids() {
                 productName,
                 productId,
                 auctionNumber: aData.auctionNumber ?? undefined,
-                // Fall back to auction-level image if product has none
                 imageUrl:
                   imageUrl ?? aData.imageUrl ?? aData.image ?? undefined,
                 status: aData.status ?? undefined,
@@ -925,7 +926,7 @@ export default function MyBids() {
               letterSpacing: "0.1em",
             }}
           >
-            LOADING YOUR BIDS
+            {t("myBidsPage.loading")}
           </p>
           <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
@@ -942,16 +943,11 @@ export default function MyBids() {
         @keyframes spin     { to { transform:rotate(360deg); } }
         .summary-card {
           background: linear-gradient(135deg, ${NAVY2} 0%, ${DARK} 100%);
-          border: 1px solid rgba(201,169,110,0.11);
-          border-radius: 18px; padding: 18px 16px;
-          display: flex; flex-direction: column; gap: 8px;
-          position: relative; overflow: hidden;
+          border: 1px solid rgba(201,169,110,0.11); border-radius: 18px; padding: 18px 16px;
+          display: flex; flex-direction: column; gap: 8px; position: relative; overflow: hidden;
           transition: transform 0.25s, box-shadow 0.25s;
         }
-        .summary-card:hover {
-          transform: translateY(-3px);
-          box-shadow: 0 12px 36px rgba(0,0,0,0.5), 0 0 0 1px rgba(201,169,110,0.16);
-        }
+        .summary-card:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(0,0,0,0.5), 0 0 0 1px rgba(201,169,110,0.16); }
         .summary-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; margin-bottom: 20px; }
         @media (max-width: 600px) { .summary-grid { gap: 10px; } }
         @media (max-width: 420px) { .summary-grid { grid-template-columns: 1fr 1fr; } }
@@ -992,7 +988,7 @@ export default function MyBids() {
                   color: "rgba(201,169,110,0.45)",
                 }}
               >
-                Account
+                {t("myBidsPage.account")}
               </span>
               <span style={{ color: "rgba(229,224,198,0.15)" }}>✦</span>
               <span
@@ -1004,7 +1000,7 @@ export default function MyBids() {
                   color: GOLD,
                 }}
               >
-                My Bids
+                {t("myBidsPage.breadcrumb")}
               </span>
             </div>
             <div
@@ -1026,7 +1022,7 @@ export default function MyBids() {
                     letterSpacing: "-0.02em",
                   }}
                 >
-                  Auction History
+                  {t("myBidsPage.heading")}
                 </h1>
                 <p
                   style={{
@@ -1036,7 +1032,7 @@ export default function MyBids() {
                     fontWeight: 500,
                   }}
                 >
-                  All auctions you've joined and your bidding activity
+                  {t("myBidsPage.subheading")}
                 </p>
               </div>
               <span
@@ -1047,7 +1043,12 @@ export default function MyBids() {
                   fontFamily: "'Jost',sans-serif",
                 }}
               >
-                {entries.length} auction{entries.length !== 1 ? "s" : ""}
+                {t(
+                  entries.length === 1
+                    ? "myBidsPage.auctionsCount_one"
+                    : "myBidsPage.auctionsCount_other",
+                  { count: entries.length },
+                )}
               </span>
             </div>
           </div>
@@ -1061,19 +1062,19 @@ export default function MyBids() {
               {[
                 {
                   icon: Gavel,
-                  label: "Auctions Joined",
+                  label: t("myBidsPage.summary.auctionsJoined"),
                   value: entries.length,
                   color: "#64a0ff",
                 },
                 {
                   icon: Trophy,
-                  label: "Total Bids Placed",
+                  label: t("myBidsPage.summary.totalBids"),
                   value: totalBids,
                   color: GOLD,
                 },
                 {
                   icon: CheckCircle2,
-                  label: "Payments Confirmed",
+                  label: t("myBidsPage.summary.paymentsConfirmed"),
                   value: paidCount,
                   color: "#5ee8a0",
                 },

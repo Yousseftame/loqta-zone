@@ -636,8 +636,8 @@ export default function AuctionRegisterPage() {
         .lz-wrap { max-width:1160px; margin:0 auto; padding:24px 40px 100px; display:grid; grid-template-columns:1fr 1fr; gap:24px; align-items:start; }
         @media(max-width:860px){ .lz-wrap { grid-template-columns:1fr; padding:20px 20px 80px; } }
         .lz-pcard { background:rgba(255,255,255,0.028); border:1px solid rgba(201,169,110,0.13); border-radius:20px; overflow:hidden; }
-        .lz-gallery { position:relative; width:100%; aspect-ratio:16/11; overflow:hidden; background:rgba(255,255,255,0.02); }
-        .lz-gallery-img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+        .lz-gallery { position:relative; width:100%; aspect-ratio:16/11; overflow:hidden; background:#09111a; }
+         .lz-gallery-img { position:absolute; inset:0; width:100%; height:100%; object-fit:contain ; padding:8px; }
         .lz-gallery-ph { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:80px; color:rgba(201,169,110,0.1); }
         .lz-dots { position:absolute; bottom:10px; left:50%; transform:translateX(-50%); display:flex; gap:5px; z-index:10; }
         .lz-dot { width:5px; height:5px; border-radius:50%; background:rgba(229,224,198,0.3); transition:all 0.25s ease; cursor:pointer; }
@@ -647,7 +647,7 @@ export default function AuctionRegisterPage() {
         .lz-t { width:44px; height:44px; flex-shrink:0; border-radius:7px; overflow:hidden; cursor:pointer; border:1.5px solid transparent; transition:all 0.22s cubic-bezier(0.22,1,0.36,1); opacity:0.4; }
         .lz-t:hover { opacity:0.75; transform:translateY(-2px); }
         .lz-t.on { border-color:#c9a96e; opacity:1; }
-        .lz-t img { width:100%; height:100%; object-fit:cover; display:block; }
+       .lz-t img { width:100%; height:100%; object-fit:contain; display:block; background:#09111a; padding:2px; }
         .lz-pinfo { padding:22px 26px 28px; }
         .lz-ptitle { font-size:24px; font-weight:700; color:rgb(229,224,198); letter-spacing:-0.01em; line-height:1.2; }
         .lz-pdesc-top { font-size:13px; line-height:1.75; font-weight:300; color:rgba(229,224,198,0.42); margin-top:10px; margin-bottom:20px; }

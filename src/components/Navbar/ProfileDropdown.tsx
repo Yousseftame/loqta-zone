@@ -20,8 +20,8 @@ const CREAM = "rgb(229,224,198)";
 const USER_ITEMS = [
   { labelKey: "auth.myProfile", to: "/my-profile", Icon: User },
   { labelKey: "auth.myBids", to: "/my-bids", Icon: Ticket },
-  { labelKey: "auth.settings", to: "/change-password", Icon: Settings },
   // { labelKey: "auth.watchlist", to: "/watchlist", Icon: Heart },
+  { labelKey: "auth.settings", to: "/change-password", Icon: Settings },
 ];
 
 const ADMIN_ITEMS = [
@@ -190,6 +190,38 @@ export const ProfileDropdown = ({
     navigate("/");
   };
 
+  // ── Compute safe dropdown positioning ──────────────────────
+  // On mobile the avatar can be very close to the right edge.
+  // We calculate how much space is available to the right of the
+  // dropdown's right edge (0px offset) and clamp accordingly so it
+  // never overflows the viewport.
+  const [dropStyle, setDropStyle] = useState<React.CSSProperties>({});
+
+  useEffect(() => {
+    if (!open || !ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    const dropW = 220;
+    const viewW = window.innerWidth;
+    const safeMargin = 8; // px from viewport edge
+
+    // Default: align right edge of dropdown with right edge of avatar
+    let rightOffset = 0;
+
+    // If the dropdown would go off the left edge of the screen, push it right
+    const leftEdge = rect.right - dropW;
+    if (leftEdge < safeMargin) {
+      // Switch to left-aligned relative to avatar instead
+      rightOffset = -(viewW - rect.right - safeMargin);
+      if (rightOffset > 0) rightOffset = 0; // don't push past right edge
+    }
+
+    setDropStyle({
+      right: rightOffset,
+      // Cap width so it never exceeds available screen width
+      width: Math.min(dropW, viewW - safeMargin * 2),
+    });
+  }, [open]);
+
   return (
     <div ref={ref} style={{ position: "relative" }}>
       {/* ── Avatar button ── */}
@@ -238,7 +270,6 @@ export const ProfileDropdown = ({
       </button>
 
       {/* ── Dropdown panel ── */}
-      {/* dir="ltr" keeps icon-left, text-right layout consistent regardless of page direction */}
       {open && (
         <div
           dir="ltr"
@@ -246,8 +277,9 @@ export const ProfileDropdown = ({
             position: "absolute",
             top: upward ? "auto" : "calc(100% + 12px)",
             bottom: upward ? "calc(100% + 12px)" : "auto",
-            right: 0,
-            width: 220,
+            // right is computed dynamically to avoid viewport overflow
+            ...dropStyle,
+            // Minimum 220px, but capped to viewport on tiny screens
             background: "linear-gradient(160deg, #112237 0%, #0a0f1e 100%)",
             border: "1px solid rgba(201,169,110,0.18)",
             borderRadius: 16,
@@ -257,6 +289,9 @@ export const ProfileDropdown = ({
             backdropFilter: "blur(20px)",
             zIndex: 200,
             animation: "loqDropIn 0.22s cubic-bezier(0.22,1,0.36,1)",
+            // Prevent content from being cut off on small screens
+            maxHeight: "calc(100vh - 80px)",
+            overflowY: "auto",
           }}
         >
           {/* Header */}
