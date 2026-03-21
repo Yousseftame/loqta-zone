@@ -524,7 +524,7 @@ const AuctionCard = memo(function AuctionCard({
           }}
         />
 
-        {/* Stamp */}
+        {/* Stamp — pushed down on registered cards to clear the ribbon */}
         <div
           className="lz-card-stamp"
           style={{
@@ -545,6 +545,7 @@ const AuctionCard = memo(function AuctionCard({
               ? "rotate(10deg) scale(1.08)"
               : "rotate(0deg) scale(1)",
             transition: "transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1)",
+            ...(isJoined && { top: "calc(30px + 8px)" }),
           }}
         >
           <span
@@ -567,7 +568,7 @@ const AuctionCard = memo(function AuctionCard({
           </span>
         </div>
 
-        {/* Badge — FIX 1: show activeAuctionCount (live/upcoming only) */}
+        {/* Badge — pushed down on registered cards to clear the ribbon */}
         <div
           className="lz-card-badge"
           style={{
@@ -582,6 +583,7 @@ const AuctionCard = memo(function AuctionCard({
             color: CREAM2,
             letterSpacing: "0.04em",
             border: `1px solid rgba(229,224,198,0.2)`,
+            ...(isJoined && { top: "calc(30px + 8px)" }),
           }}
         >
           <span>🔨 {item.activeAuctionCount}</span>
