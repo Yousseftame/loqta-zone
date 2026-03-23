@@ -1158,8 +1158,13 @@
       "message": "{{product}} is now live in auctions. Place your bid now!"
     },
     "voucherCreated": {
-      "title": "New Voucher Available",
-      "message": "Use code {{code}} on {{product, your next auction}} before it expires."
+      "title": "🎟️ Exclusive Voucher — {{label}}",
+      "titleGeneric": "🎟️ New Exclusive Voucher",
+      "validOnAll": "Valid on all auctions",
+      "tapToCopy": "tap to copy",
+      "copied": "✓ copied",
+      "exp": "Exp. {{date}}",
+      "usesOnly": "Limited quantity"
     }
   },
   "profilePage": {

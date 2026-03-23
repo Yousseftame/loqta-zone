@@ -369,7 +369,7 @@ const NotFound: React.FC = () => {
           border: 1px solid rgba(201,169,110,0.25);
           border-radius: 999px;
           padding: 14px 36px;
-          font-family: 'Jost', sans-serif;
+         ' font-family': 'Jost', sans-serif;
           font-size: 10px;
           font-weight: 600;
           letter-spacing: 0.28em;
@@ -536,7 +536,7 @@ const NotFound: React.FC = () => {
           {/* Description */}
           <p className="nf-desc">
             The page you're looking for doesn't exist or may have been moved.
-            Perhaps a rare item has already been claimed — let us guide you
+            Perhaps a rare item has already been claimed , let us guide you
             back.
           </p>
 

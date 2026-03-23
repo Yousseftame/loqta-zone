@@ -1142,8 +1142,13 @@
       "message": "{{product}} متاح الآن في المزادات. قدّم عرضك الآن!"
     },
     "voucherCreated": {
-      "title": "كوبون جديد متاح",
-      "message": "استخدم الكود {{code}} {{product, في المزاد}} قبل انتهاء صلاحيته."
+      "title": "🎟️ كوبون حصري — {{label}}",
+      "titleGeneric": "🎟️ كوبون حصري جديد",
+      "validOnAll": "صالح على جميع المزادات",
+      "tapToCopy": "اضغط للنسخ",
+      "copied": "✓ تم النسخ",
+      "exp": "تنتهي {{date}}",
+      "usesOnly": "العدد محدود"
     }
   },
   "profilePage": {

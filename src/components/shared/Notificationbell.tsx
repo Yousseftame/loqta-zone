@@ -1,16 +1,10 @@
 /**
  * src/components/shared/Notificationbell.tsx
  *
- * voucher_created changes:
- * - Icon replaced with 🎟️ emoji rendered in a styled circle
- * - FormattedVoucherMessage: elegant multi-line layout with:
- *     "Exclusive Voucher" header line
- *     voucherLabel (type + savings)
- *     auctionLine: each item on its own line as "Product Name · #44"
- *     CopyableCode: navy pill with gold monospace, "tap to copy" → "✓ copied"
- *     expiry + max uses as plain muted text below the code pill
- * - No CTA button — message is self-contained
- * - Not clickable — clicking does nothing (marks read only)
+ * voucher_created localization:
+ * - getLocalizedNotif now handles voucher_created — title uses t("notifications.voucherCreated.title/titleGeneric")
+ * - FormattedVoucherMessage accepts { notif, t, isRTL } and uses t() for all UI strings
+ * - CopyableCode accepts { code, t } and uses t() for "tap to copy" / "✓ copied"
  * - All other notification types unchanged
  */
 
@@ -98,8 +92,15 @@ function getLocalizedNotif(
         }),
       };
     }
-    // voucher_created: plain strings stored by Cloud Function — return as-is
-    case "voucher_created":
+    // ── voucher_created: title is localized; message body rendered by FormattedVoucherMessage
+    case "voucher_created": {
+      const label = (data.voucherLabel ?? "") as string;
+      const title = label
+        ? t("notifications.voucherCreated.title", { label })
+        : t("notifications.voucherCreated.titleGeneric");
+      // message is not used directly — FormattedVoucherMessage renders the body
+      return { title, message: notif.message };
+    }
     default:
       return { title: notif.title, message: notif.message };
   }
@@ -224,7 +225,7 @@ function FormattedMatchedMessage({ message }: { message: string }) {
   const segs: React.ReactNode[] = [];
   let rem = message,
     key = 0;
-  const idx = rem.search(/ is now live/i);
+  const idx = rem.search(/ is now live| متاح الآن/i);
   if (idx > 0) {
     segs.push(
       <span key={key++} style={{ color: "#c9a96e", fontWeight: 700 }}>
@@ -242,7 +243,13 @@ function FormattedMatchedMessage({ message }: { message: string }) {
 }
 
 // ── CopyableCode ──────────────────────────────────────────────────────────────
-function CopyableCode({ code }: { code: string }) {
+function CopyableCode({
+  code,
+  t,
+}: {
+  code: string;
+  t: (key: string, opts?: Record<string, any>) => string;
+}) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = (e: React.MouseEvent) => {
@@ -254,7 +261,6 @@ function CopyableCode({ code }: { code: string }) {
         setTimeout(() => setCopied(false), 2000);
       })
       .catch(() => {
-        // Fallback for browsers that don't support clipboard API
         const ta = document.createElement("textarea");
         ta.value = code;
         ta.style.position = "fixed";
@@ -297,7 +303,6 @@ function CopyableCode({ code }: { code: string }) {
           "rgba(22,45,69,0.7)";
       }}
     >
-    
       <span
         style={{
           fontWeight: 700,
@@ -319,14 +324,24 @@ function CopyableCode({ code }: { code: string }) {
           minWidth: 52,
         }}
       >
-        {copied ? "✓ copied" : "tap to copy"}
+        {copied
+          ? t("notifications.voucherCreated.copied")
+          : t("notifications.voucherCreated.tapToCopy")}
       </span>
     </div>
   );
 }
 
 // ── FormattedVoucherMessage ───────────────────────────────────────────────────
-function FormattedVoucherMessage({ notif }: { notif: AppNotification }) {
+function FormattedVoucherMessage({
+  notif,
+  t,
+  isRTL,
+}: {
+  notif: AppNotification;
+  t: (key: string, opts?: Record<string, any>) => string;
+  isRTL: boolean;
+}) {
   const data = notif as any;
 
   // ── Try structured fields first (new notifications) ───────────────────────
@@ -347,7 +362,7 @@ function FormattedVoucherMessage({ notif }: { notif: AppNotification }) {
   // Fallback: auctionLine string
   if (auctions.length === 0) {
     const line = (data.auctionLine ?? "") as string;
-    if (line && line !== "All Auctions") {
+    if (line && line !== "All Auctions" && line !== "جميع المزادات") {
       const parsed = line.split(", ").map((part: string) => {
         const m = part.match(/^(.+)\s+\(#(\d+)\)$/);
         return m
@@ -396,10 +411,13 @@ function FormattedVoucherMessage({ notif }: { notif: AppNotification }) {
 
   // Derive label from title if not stored
   if (!label && notif.title) {
-    const full = notif.title.replace(/^Exclusive Voucher\s*[—-]\s*/i, "");
+    // Strip both EN and AR prefixes
+    const full = notif.title
+      .replace(/^🎟️\s*/i, "")
+      .replace(/^Exclusive Voucher\s*[—-]\s*/i, "")
+      .replace(/^كوبون حصري\s*[—-]\s*/i, "");
     const onIdx = full.search(/\s+on\s+/i);
     label = onIdx > 0 ? full.slice(0, onIdx).trim() : full.trim();
-    // Avoid setting label to just the product name repeated
     if (label.toLowerCase() === auctions[0]?.productTitle?.toLowerCase()) {
       label = "";
     }
@@ -437,13 +455,13 @@ function FormattedVoucherMessage({ notif }: { notif: AppNotification }) {
             color: "rgba(229,224,198,0.68)",
             margin: 0,
             lineHeight: 1.4,
+            direction: isRTL ? "rtl" : "ltr",
           }}
         >
           <span style={{ color: "#c9a96e", fontWeight: 700 }}>
-            Exclusive Voucher
+            {/* "Exclusive Voucher" header is part of the title now — just show label here */}
+            {label}
           </span>
-          {" · "}
-          {label}
         </p>
       )}
 
@@ -467,7 +485,7 @@ function FormattedVoucherMessage({ notif }: { notif: AppNotification }) {
               color: "rgba(229,224,198,0.38)",
             }}
           >
-            Valid on all auctions
+            {t("notifications.voucherCreated.validOnAll")}
           </span>
         </div>
       ) : (
@@ -519,7 +537,7 @@ function FormattedVoucherMessage({ notif }: { notif: AppNotification }) {
       )}
 
       {/* Line 3 — copyable code badge */}
-      {code && <CopyableCode code={code} />}
+      {code && <CopyableCode code={code} t={t} />}
 
       {/* Line 4 — expiry + uses, plain muted text below the badge */}
       {(expiry || maxUses > 0) && (
@@ -529,6 +547,7 @@ function FormattedVoucherMessage({ notif }: { notif: AppNotification }) {
             alignItems: "center",
             gap: 5,
             marginTop: 3,
+            direction: isRTL ? "rtl" : "ltr",
           }}
         >
           {expiry && (
@@ -540,7 +559,7 @@ function FormattedVoucherMessage({ notif }: { notif: AppNotification }) {
                 lineHeight: 1.3,
               }}
             >
-              Exp. {expiry}
+              {t("notifications.voucherCreated.exp", { date: expiry })}
             </span>
           )}
           {expiry && maxUses > 0 && (
@@ -563,7 +582,7 @@ function FormattedVoucherMessage({ notif }: { notif: AppNotification }) {
                 lineHeight: 1.3,
               }}
             >
-              {maxUses} uses only
+              {t("notifications.voucherCreated.usesOnly", { count: maxUses })}
             </span>
           )}
         </div>
@@ -613,10 +632,6 @@ function VoucherTicketIcon({ isUnread }: { isUnread: boolean }) {
         borderRadius: 14,
         flexShrink: 0,
         marginTop: 1,
-        // background: isUnread
-        //   ? "linear-gradient(135deg, rgba(201,169,110,0.22), rgba(201,169,110,0.1))"
-        //   : "rgba(201,169,110,0.08)",
-        // border: `1px solid ${isUnread ? "rgba(201,169,110,0.45)" : "rgba(201,169,110,0.2)"}`,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -903,7 +918,12 @@ export const NotificationBell = () => {
                         ) : isMatchedType ? (
                           <FormattedMatchedMessage message={localMessage} />
                         ) : isVoucherType ? (
-                          <FormattedVoucherMessage notif={notif} />
+                          // ↓ pass t and isRTL for full localization
+                          <FormattedVoucherMessage
+                            notif={notif}
+                            t={t}
+                            isRTL={isRTL}
+                          />
                         ) : (
                           <p className="nf-item-msg">{localMessage}</p>
                         )}
