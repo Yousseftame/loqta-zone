@@ -16,6 +16,9 @@ import {
   Timestamp,
 } from "firebase/firestore";
 import { db } from "@/firebase/firebase";
+import { CountdownBar } from "./CountdownBar";
+
+// ─── Reusable countdown stopwatch ─────────────────────────────────────────────
 
 const GOLD = "#c9a96e";
 const GOLD2 = "#b8944e";
@@ -52,7 +55,7 @@ interface PastAuction {
   };
 }
 
-// ─── Data hook — unchanged ────────────────────────────────────────────────────
+// ─── Data hook ────────────────────────────────────────────────────────────────
 function useAuctionsData() {
   const [upcoming, setUpcoming] = useState<UpcomingAuction[]>([]);
   const [past, setPast] = useState<PastAuction[]>([]);
@@ -126,6 +129,7 @@ function useAuctionsData() {
         const uMap: Record<string, any> = Object.fromEntries(
           userEntries.filter(Boolean) as any,
         );
+
         const toDate = (v: any): Date =>
           v instanceof Timestamp ? v.toDate() : new Date(v);
         const fmt = (d: Date, o: Intl.DateTimeFormatOptions) =>
@@ -225,175 +229,7 @@ function useAuctionsData() {
   return { upcoming, past, loading, error };
 }
 
-// ─── Countdown — one shared interval at root, values flow down as props ───────
-// This replaces the per-card useCountdown + per-unit useState(leaving) chain.
-// The flip animation is now pure CSS — no JS state on every tick.
-function calcCountdown(target: string) {
-  const diff = new Date(target).getTime() - Date.now();
-  if (diff <= 0) return { d: 0, h: 0, m: 0, s: 0, done: true };
-  const total = Math.floor(diff / 1000);
-  return {
-    d: Math.floor(total / 86400),
-    h: Math.floor((total % 86400) / 3600),
-    m: Math.floor((total % 3600) / 60),
-    s: total % 60,
-    done: false,
-  };
-}
-
-function useCountdown(target: string) {
-  const [time, setTime] = useState(() => calcCountdown(target));
-  useEffect(() => {
-    if (time.done) return;
-    const t = setInterval(() => setTime(calcCountdown(target)), 1000);
-    return () => clearInterval(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [target]);
-  return time;
-}
-
-// CountdownUnit: zero JS state — CSS handles the digit flip via animation
-function CountdownUnit({ value, label }: { value: number; label: string }) {
-  const display = String(value).padStart(2, "0");
-  return (
-    <div
-      className="lz-cd-unit"
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        width: 68,
-        gap: 8,
-        flexShrink: 0,
-      }}
-    >
-      <span
-        // key change triggers CSS re-entry animation — no JS transition state needed
-        key={display}
-        className="lz-cd-digit"
-        style={{
-          fontSize: 50,
-          fontWeight: 700,
-          color: GOLD,
-          lineHeight: 1,
-          letterSpacing: "0.01em",
-          display: "block",
-          minWidth: 64,
-          textAlign: "center",
-          userSelect: "none",
-        }}
-      >
-        {display}
-      </span>
-      <span
-        style={{
-          fontSize: 13,
-          fontWeight: 700,
-          letterSpacing: 0,
-          textTransform: "uppercase",
-          color: "rgba(201,169,110,0.36)",
-          direction: "ltr",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {label}
-      </span>
-    </div>
-  );
-}
-
-function CountdownBar({ startsAt }: { startsAt: string }) {
-  const { d, h, m, s, done } = useCountdown(startsAt);
-  const { t } = useTranslation();
-
-  if (done) {
-    return (
-      <div
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 8,
-          padding: "10px 18px",
-          border: "1px solid rgba(94,232,160,0.22)",
-          borderRadius: 10,
-          color: "#5ee8a0",
-          fontSize: 14,
-          fontFamily: "'Jost', sans-serif",
-          fontWeight: 700,
-          letterSpacing: "0.14em",
-        }}
-      >
-        <span
-          style={{
-            width: 6,
-            height: 6,
-            borderRadius: "50%",
-            background: "#5ee8a0",
-            boxShadow: "0 0 6px #5ee8a0",
-            animation: "liveP 2s ease infinite",
-            flexShrink: 0,
-          }}
-        />
-        Live Now
-      </div>
-    );
-  }
-
-  const Sep = () => (
-    <span
-      style={{
-        fontSize: "clamp(18px,5vw,28px)",
-        fontWeight: 300,
-        color: "rgba(201,169,110,0.2)",
-        lineHeight: 1,
-        paddingBottom: "1.5em",
-        margin: "0 2px",
-        flexShrink: 0,
-        userSelect: "none",
-      }}
-    >
-      ·
-    </span>
-  );
-
-  return (
-    <div
-      dir="ltr"
-      className="lz-cd-bar"
-      style={{
-        display: "inline-flex",
-        alignItems: "flex-end",
-        padding: "16px 20px 14px",
-        background: "rgba(10,14,28,0.6)",
-        border: "1px solid rgba(201,169,110,0.13)",
-        borderRadius: 14,
-        backdropFilter: "blur(12px)",
-        position: "relative",
-        gap: 0,
-      }}
-    >
-      <CountdownUnit value={d} label={t("auctionsSection.days")} />
-      <Sep />
-      <CountdownUnit value={h} label={t("auctionsSection.hours")} />
-      <Sep />
-      <CountdownUnit value={m} label={t("auctionsSection.mins")} />
-      <Sep />
-      <CountdownUnit value={s} label={t("auctionsSection.secs")} />
-      <div
-        style={{
-          position: "absolute",
-          left: 20,
-          right: 20,
-          bottom: 0,
-          height: 1,
-          background:
-            "linear-gradient(90deg,transparent,rgba(201,169,110,0.15),transparent)",
-        }}
-      />
-    </div>
-  );
-}
-
+// ─── SkeletonCard ─────────────────────────────────────────────────────────────
 function SkeletonCard() {
   return (
     <div
@@ -426,7 +262,7 @@ function SkeletonCard() {
   );
 }
 
-// ─── UpcomingCard — CSS-only hover, no hov state ─────────────────────────────
+// ─── UpcomingCard ─────────────────────────────────────────────────────────────
 const UpcomingCard = memo(function UpcomingCard({
   item,
   index,
@@ -715,6 +551,7 @@ const UpcomingCard = memo(function UpcomingCard({
             {t("auctionsSection.sessionStartsIn")}
           </div>
           <div style={{ overflow: "hidden" }}>
+            {/* ── Reusable stopwatch component ── */}
             <CountdownBar startsAt={item.startsAt} />
           </div>
         </div>
@@ -723,7 +560,7 @@ const UpcomingCard = memo(function UpcomingCard({
   );
 });
 
-// ─── Hammer Stamp ─────────────────────────────────────────────────────────────
+// ─── HammerStamp ──────────────────────────────────────────────────────────────
 function HammerStamp() {
   return (
     <div
@@ -829,7 +666,7 @@ function HammerStamp() {
   );
 }
 
-// ─── PastCard — CSS-only hover, no hov state ──────────────────────────────────
+// ─── PastCard ─────────────────────────────────────────────────────────────────
 const PastCard = memo(function PastCard({
   item,
   index,
@@ -964,7 +801,6 @@ const PastCard = memo(function PastCard({
             {item.subtitle}
           </p>
         </div>
-
         <span
           style={{
             display: "flex",
@@ -978,7 +814,6 @@ const PastCard = memo(function PastCard({
           <span style={{ color: GOLD, fontSize: 13 }}>📅</span>
           {t("auctionsSection.session")}: {item.sessionDate}
         </span>
-
         <div
           style={{
             display: "flex",
@@ -1020,7 +855,6 @@ const PastCard = memo(function PastCard({
             {cur}
           </span>
         </div>
-
         <div
           style={{
             height: 1,
@@ -1028,7 +862,6 @@ const PastCard = memo(function PastCard({
               "linear-gradient(90deg,rgba(229,224,198,0.1),transparent)",
           }}
         />
-
         <div>
           <div
             style={{
@@ -1138,7 +971,7 @@ const PastCard = memo(function PastCard({
   );
 });
 
-// ─── TabButton — CSS-only hover, no hov state ─────────────────────────────────
+// ─── TabButton ────────────────────────────────────────────────────────────────
 function TabButton({
   label,
   active,
@@ -1180,7 +1013,6 @@ function TabButton({
       >
         {label}
       </span>
-      {/* Active underline */}
       <div
         style={{
           position: "absolute",
@@ -1222,7 +1054,6 @@ export default function AuctionsSection() {
     [user, navigate],
   );
 
-  // Single effect: header visibility + animKey on first entry only
   useEffect(() => {
     const el = headerRef.current;
     if (!el) return;
@@ -1231,7 +1062,7 @@ export default function AuctionsSection() {
         if (e.isIntersecting) {
           setVis(true);
           setAnimKey((k) => k + 1);
-          obs.disconnect(); // once:true equivalent
+          obs.disconnect();
         }
       },
       { threshold: 0.2 },
@@ -1240,7 +1071,6 @@ export default function AuctionsSection() {
     return () => obs.disconnect();
   }, []);
 
-  // animKey only re-increments on language change, not on scroll
   useEffect(() => {
     setAnimKey((k) => k + 1);
   }, [i18n.language]);
@@ -1272,69 +1102,29 @@ export default function AuctionsSection() {
     >
       <style>{`
         @keyframes tabIn { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes liveP { 0%,100%{opacity:1;box-shadow:0 0 6px #5ee8a0} 50%{opacity:.4;box-shadow:0 0 12px #5ee8a0} }
-
-        /* Digit flip — pure CSS, triggered by React key change */
+        @keyframes liveP  { 0%,100%{opacity:1;box-shadow:0 0 6px #5ee8a0} 50%{opacity:.4;box-shadow:0 0 12px #5ee8a0} }
         @keyframes cdFlip { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
         .lz-cd-digit { animation: cdFlip 0.22s cubic-bezier(0,0,0.2,1) both; }
-
         .tab-in  { animation: tabIn 0.38s cubic-bezier(0.22,1,0.36,1) forwards }
         .tab-out { opacity:0; transform:translateY(-8px); transition:opacity .2s ease,transform .2s ease }
-
-        /* Card base styles */
         .ac { display:grid; grid-template-columns:220px 1fr; overflow:hidden; border-radius:20px; min-width:0; box-sizing:border-box; }
         .ac-img { position:relative; overflow:hidden; background:#0d1520; min-height:220px }
         .ac-top { display:flex; align-items:flex-start; justify-content:space-between; gap:16px }
-
-        /* CSS-only card hover — no JS state */
-        .ac-upcoming {
-          background: rgba(255,255,255,0.028);
-          border: 1px solid rgba(229,224,198,0.08);
-          backdrop-filter: blur(14px);
-          box-shadow: 0 4px 24px rgba(0,0,0,0.2);
-          border-radius: 20px;
-          transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
-        }
-        .ac-upcoming:hover {
-          background: rgba(255,255,255,0.055);
-          border-color: rgba(201,169,110,0.4);
-          box-shadow: 0 24px 64px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.07);
-        }
-        .ac-past {
-          background: rgba(255,255,255,0.022);
-          border: 1px solid rgba(229,224,198,0.07);
-          backdrop-filter: blur(14px);
-          box-shadow: 0 4px 20px rgba(0,0,0,0.18);
-          border-radius: 20px;
-          transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
-        }
-        .ac-past:hover {
-          background: rgba(255,255,255,0.045);
-          border-color: rgba(229,224,198,0.18);
-          box-shadow: 0 20px 56px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06);
-        }
-
-        /* Image zoom — CSS only */
-        .ac-img-inner { transition: transform 0.65s cubic-bezier(0.25,0.46,0.45,0.94); }
-        .ac-upcoming:hover .ac-img-inner,
-        .ac-past:hover .ac-img-inner { transform: scale(1.06); }
-
-        /* Register button hover — CSS only */
-        .ac-register-btn { transition: transform 0.3s ease, box-shadow 0.3s ease !important; }
-        .ac-register-btn:hover { transform: translateY(-2px) scale(1.04) !important; box-shadow: 0 8px 28px ${GOLD}55 !important; }
-
-        /* Tab button hover — CSS only */
-        .as-tab-btn span:last-of-type { transition: color 0.3s ease; }
-        .as-tab-btn:not(.active):hover span:last-of-type { color: rgba(229,224,198,0.7) !important; }
-
-        @media (max-width: 640px) {
-          .ac     { grid-template-columns: 1fr !important; width:100% !important; }
+        .ac-upcoming { background:rgba(255,255,255,0.028); border:1px solid rgba(229,224,198,0.08); backdrop-filter:blur(14px); box-shadow:0 4px 24px rgba(0,0,0,0.2); border-radius:20px; transition:background .3s ease,border-color .3s ease,box-shadow .3s ease; }
+        .ac-upcoming:hover { background:rgba(255,255,255,0.055); border-color:rgba(201,169,110,0.4); box-shadow:0 24px 64px rgba(0,0,0,0.5),inset 0 1px 0 rgba(255,255,255,0.07); }
+        .ac-past { background:rgba(255,255,255,0.022); border:1px solid rgba(229,224,198,0.07); backdrop-filter:blur(14px); box-shadow:0 4px 20px rgba(0,0,0,0.18); border-radius:20px; transition:background .3s ease,border-color .3s ease,box-shadow .3s ease; }
+        .ac-past:hover { background:rgba(255,255,255,0.045); border-color:rgba(229,224,198,0.18); box-shadow:0 20px 56px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.06); }
+        .ac-img-inner { transition:transform 0.65s cubic-bezier(0.25,0.46,0.45,0.94); }
+        .ac-upcoming:hover .ac-img-inner, .ac-past:hover .ac-img-inner { transform:scale(1.06); }
+        .ac-register-btn { transition:transform 0.3s ease,box-shadow 0.3s ease !important; }
+        .ac-register-btn:hover { transform:translateY(-2px) scale(1.04) !important; box-shadow:0 8px 28px ${GOLD}55 !important; }
+        .as-tab-btn span:last-of-type { transition:color 0.3s ease; }
+        .as-tab-btn:not(.active):hover span:last-of-type { color:rgba(229,224,198,0.7) !important; }
+        @media (max-width:640px) {
+          .ac { grid-template-columns:1fr !important; width:100% !important; }
           .ac-img { height:200px !important; min-height:200px !important }
           .ac-top { flex-direction:column !important; align-items:stretch !important; gap:10px !important }
           .ac-btn { width:100% !important; padding:13px 0 !important; justify-content:center !important }
-          .lz-cd-bar { display:flex !important; width:100% !important; box-sizing:border-box !important; padding:14px 12px 12px !important; }
-          .lz-cd-unit { width:auto !important; flex:1 1 0 !important; min-width:0 !important; }
-          .lz-cd-unit span:first-child { font-size:clamp(22px, 9vw, 40px) !important; min-width:0 !important; }
         }
       `}</style>
 
@@ -1347,7 +1137,7 @@ export default function AuctionsSection() {
         }}
       />
 
-      {/* Blobs */}
+      {/* Background blobs */}
       <div
         style={{
           ...bg,
@@ -1442,7 +1232,6 @@ export default function AuctionsSection() {
             }}
           />
         </div>
-
         <div
           style={{
             fontSize: "clamp(32px,5vw,56px)",
