@@ -523,7 +523,7 @@ const AuctionCard = memo(function AuctionCard({
 
         <div
           className="lz-card-meta"
-          style={{ gap: 10, color: isJoined ? "rgba(201,169,110,0.4)" : "#8fa0b0", fontWeight: 600, alignItems: "center", fontSize: 14, minHeight: 18, flexShrink: 0 }}
+          style={{ gap: 10, color: isJoined ? "rgba(201,169,110,0.4)" : "#8fa0b0", fontWeight: 600, alignItems: "center", fontSize: 12, minHeight: 18, flexShrink: 0 }}
         >
           <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <span style={{ opacity: 0.7 }}>🏷️</span> {item.brand}
