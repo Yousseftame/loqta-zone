@@ -263,10 +263,10 @@ function FeatureTile({
       {/* ── Feature number — italic serif ── */}
       <div
         style={{
-          fontSize: 9,
-          fontWeight: 700,
-          color: lit ? "rgba(201,169,110,0.8)" : "rgba(201,169,110,0.28)",
-          letterSpacing: "0.28em",
+          fontSize: 15,
+          fontWeight: 800,
+          color: lit ? "rgba(201,169,110,0.8)" : "rgba(201,169,110,0.78)",
+          letterSpacing: "0.08em",
           textTransform: "uppercase",
           fontFamily: "'Cormorant Garamond', Georgia, serif",
           fontStyle: "italic",
@@ -322,11 +322,11 @@ function FeatureTile({
         style={{
           margin: 0,
           flex: 1,
-          fontSize: "clamp(12.5px, 1vw, 14px)",
+          fontSize: "clamp(12.5px, 1vw, 20px)",
           fontWeight: 300,
-          color: lit ? "rgba(229,224,198,0.58)" : "rgba(229,224,198,0.36)",
+          color: lit ? "rgba(229,224,198,0.98)" : "rgba(229,224,198,0.96)",
           lineHeight: 1.9,
-          letterSpacing: "0.025em",
+          letterSpacing: "0.005em",
           transition: "color 0.35s ease",
         }}
       >
@@ -442,8 +442,7 @@ export default function AboutFeatures() {
         ref={sectionRef}
         style={{
           position: "relative",
-          background:
-            "linear-gradient(180deg, #0a0a1a 0%, #0b1520 52%, #0a0a1a 100%)",
+          background: "linear-gradient(180deg,#224266 0%,#1f2a3d 100%)",  
           padding: "120px 32px 130px",
           overflow: "hidden",
         }}
@@ -540,10 +539,10 @@ export default function AboutFeatures() {
             />
             <span
               style={{
-                fontSize: 10,
+                fontSize: 15,
                 fontWeight: 800,
                 color: GOLD,
-                letterSpacing: "0.32em",
+                letterSpacing: "0.02em",
                 textTransform: "uppercase",
               }}
             >
@@ -606,9 +605,9 @@ export default function AboutFeatures() {
             style={{
               margin: "0 auto",
               maxWidth: 500,
-              fontSize: "clamp(13px, 1.1vw, 15px)",
+              fontSize: "clamp(13px, 1.1vw, 18px)",
               fontWeight: 300,
-              color: "rgba(229,224,198,0.42)",
+              color: "rgba(229,224,198,0.92)",
               lineHeight: 1.9,
               letterSpacing: "0.03em",
               animation: visible ? "featFadeUp 0.9s ease 0.34s both" : "none",
@@ -707,12 +706,12 @@ export default function AboutFeatures() {
                 />
                 <span
                   style={{
-                    fontSize: 10,
+                    fontSize: 14,
                     fontWeight: 700,
                     color:
                       activeFeature === key
-                        ? "rgba(229,224,198,0.65)"
-                        : "rgba(229,224,198,0.22)",
+                        ? "rgba(229,224,198,0.95)"
+                        : "rgba(229,224,198,0.62)",
                     letterSpacing: "0.1em",
                     textTransform: "uppercase",
                     transition: "color 0.35s ease",

@@ -38,8 +38,8 @@ import { useAuth } from "@/store/AuthContext/AuthContext";
 const GOLD = "#c9a96e";
 const GOLD2 = "#b8944e";
 const CREAM = "rgb(229,224,198)";
-const DARK = "#080d1a";
-const NAVY = "#0e1c2e";
+const DARK = "#1f2a3d";
+const NAVY = "#224266";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 interface UserProfile {
@@ -166,7 +166,7 @@ const StatCard = ({
       <p
         style={{
           margin: "4px 0 0",
-          fontSize: 10,
+          fontSize: 14,
           fontWeight: 700,
           color: "rgba(229,224,198,0.4)",
           fontFamily: "'Jost',sans-serif",
@@ -245,11 +245,11 @@ const FieldRow = ({
       <p
         style={{
           margin: 0,
-          fontSize: 10,
+          fontSize: 14,
           fontWeight: 700,
-          color: "rgba(229,224,198,0.35)",
+          color: "rgba(229,224,198,0.85)",
           fontFamily: "'Jost',sans-serif",
-          letterSpacing: "0.12em",
+          letterSpacing: "0.08em",
           textTransform: "uppercase",
           marginBottom: 3,
         }}
@@ -305,10 +305,10 @@ const FieldRow = ({
     {locked && (
       <span
         style={{
-          fontSize: 9,
+          fontSize: 15,
           fontWeight: 800,
           letterSpacing: "0.1em",
-          color: "rgba(229,224,198,0.2)",
+          color: "rgba(229,224,198,0.7)",
           fontFamily: "'Jost',sans-serif",
           textTransform: "uppercase",
           flexShrink: 0,
@@ -536,9 +536,9 @@ export default function MyProfile() {
             >
               <span
                 style={{
-                  fontSize: 10,
+                  fontSize: 15,
                   fontWeight: 800,
-                  letterSpacing: "0.22em",
+                  letterSpacing: "0.07em",
                   textTransform: "uppercase",
                   color: "rgba(201,169,110,0.45)",
                 }}
@@ -550,7 +550,7 @@ export default function MyProfile() {
               </span>
               <span
                 style={{
-                  fontSize: 10,
+                  fontSize: 14,
                   fontWeight: 800,
                   letterSpacing: "0.22em",
                   textTransform: "uppercase",
@@ -574,8 +574,8 @@ export default function MyProfile() {
             <p
               style={{
                 margin: "4px 0 0",
-                fontSize: 13,
-                color: "rgba(229,224,198,0.36)",
+                fontSize: 15,
+                color: "rgba(229,224,198,0.76)",
                 fontWeight: 500,
               }}
             >
@@ -677,7 +677,7 @@ export default function MyProfile() {
                         <Camera size={18} style={{ color: GOLD }} />
                         <span
                           style={{
-                            fontSize: 8,
+                            fontSize: 12,
                             fontWeight: 800,
                             color: GOLD,
                             letterSpacing: "0.08em",
@@ -773,7 +773,7 @@ export default function MyProfile() {
                         borderRadius: 999,
                         background: roleInfo.bg,
                         border: `1px solid ${roleInfo.border}`,
-                        fontSize: 9,
+                        fontSize: 11,
                         fontWeight: 900,
                         letterSpacing: "0.14em",
                         textTransform: "uppercase",
@@ -796,8 +796,8 @@ export default function MyProfile() {
                   <p
                     style={{
                       margin: 0,
-                      fontSize: 12,
-                      color: "rgba(229,224,198,0.38)",
+                      fontSize: 13,
+                      color: "rgba(229,224,198,0.68)",
                       fontWeight: 500,
                     }}
                   >
@@ -817,8 +817,8 @@ export default function MyProfile() {
                     />
                     <span
                       style={{
-                        fontSize: 10,
-                        color: "rgba(229,224,198,0.28)",
+                        fontSize: 13,
+                        color: "rgba(229,224,198,0.68)",
                         fontWeight: 600,
                       }}
                     >
@@ -854,7 +854,7 @@ export default function MyProfile() {
                           background: "rgba(255,80,80,0.06)",
                           border: "1px solid rgba(255,80,80,0.15)",
                           color: "rgba(255,120,120,0.7)",
-                          fontSize: 10,
+                          fontSize: 14,
                           fontWeight: 800,
                           letterSpacing: "0.12em",
                           textTransform: "uppercase",
@@ -881,7 +881,7 @@ export default function MyProfile() {
                             : `linear-gradient(135deg, ${GOLD}, ${GOLD2})`,
                           border: "none",
                           color: "#0a0a1a",
-                          fontSize: 10,
+                          fontSize: 14,
                           fontWeight: 900,
                           letterSpacing: "0.12em",
                           textTransform: "uppercase",
@@ -926,7 +926,7 @@ export default function MyProfile() {
                         background: "rgba(201,169,110,0.07)",
                         border: "1px solid rgba(201,169,110,0.22)",
                         color: "rgba(201,169,110,0.7)",
-                        fontSize: 10,
+                        fontSize: 14,
                         fontWeight: 800,
                         letterSpacing: "0.12em",
                         textTransform: "uppercase",
@@ -948,11 +948,11 @@ export default function MyProfile() {
               <p
                 style={{
                   margin: "0 0 12px",
-                  fontSize: 9,
+                  fontSize: 13,
                   fontWeight: 800,
-                  letterSpacing: "0.22em",
+                  letterSpacing: "0.09em",
                   textTransform: "uppercase",
-                  color: "rgba(201,169,110,0.4)",
+                  color: "rgba(201,169,110,0.8)",
                 }}
               >
                 {t("profilePage.personalInfo")}
@@ -1015,7 +1015,7 @@ export default function MyProfile() {
                   <p
                     style={{
                       margin: 0,
-                      fontSize: 11,
+                      fontSize: 14,
                       color: "rgba(255,200,60,0.55)",
                       fontFamily: "'Jost',sans-serif",
                       fontWeight: 600,
@@ -1089,11 +1089,11 @@ export default function MyProfile() {
             <p
               style={{
                 margin: "0 0 14px",
-                fontSize: 9,
+                fontSize: 12,
                 fontWeight: 800,
                 letterSpacing: "0.22em",
                 textTransform: "uppercase",
-                color: "rgba(201,169,110,0.4)",
+                color: "rgba(201,169,110,0.7)",
               }}
             >
               {t("profilePage.accountDetails")}
@@ -1140,9 +1140,9 @@ export default function MyProfile() {
                   <p
                     style={{
                       margin: "0 0 4px",
-                      fontSize: 9,
+                      fontSize: 12,
                       fontWeight: 700,
-                      color: "rgba(229,224,198,0.28)",
+                      color: "rgba(229,224,198,0.68)",
                       letterSpacing: "0.12em",
                       textTransform: "uppercase",
                     }}
@@ -1152,7 +1152,7 @@ export default function MyProfile() {
                   <p
                     style={{
                       margin: 0,
-                      fontSize: 13,
+                      fontSize: 14,
                       fontWeight: 700,
                       color: item.color,
                     }}

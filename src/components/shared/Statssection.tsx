@@ -114,10 +114,10 @@ function StatCard({
       {/* Label */}
       <div
         style={{
-          fontSize: 13,
+          fontSize: 20,
           fontWeight: 800,
           color: CREAM,
-          letterSpacing: "0.1em",
+          letterSpacing: "0.01em",
           textTransform: "uppercase",
           marginBottom: 6,
         }}
@@ -128,10 +128,9 @@ function StatCard({
       {/* Description */}
       <div
         style={{
-          fontSize: 12,
-          color: "rgba(229,224,198,0.45)",
+          fontSize: 15,
+          color: "rgba(229,224,198,0.85)",
           fontWeight: 400,
-          letterSpacing: "0.02em",
           lineHeight: 1.5,
           marginBottom: 20,
         }}
@@ -197,8 +196,7 @@ export default function StatsSection() {
     <section
       ref={sectionRef}
       style={{
-        background:
-          "linear-gradient(180deg, #0a0a1a 0%, #0d1b2a 50%, #0a0a1a 100%)",
+        background: "linear-gradient(180deg,#224266 0%,#1f2a3d 100%)",
         padding: "96px 24px 104px",
         position: "relative",
         overflow: "hidden",
@@ -298,10 +296,10 @@ export default function StatsSection() {
           />
           <span
             style={{
-              fontSize: 10,
+              fontSize: 15,
               fontWeight: 800,
               color: GOLD,
-              letterSpacing: "0.3em",
+              letterSpacing: "0.03em",
               textTransform: "uppercase",
             }}
           >
@@ -370,7 +368,7 @@ export default function StatsSection() {
 
         <p
           style={{
-            color: "rgba(229,224,198,0.45)",
+            color: "rgba(229,224,198,0.85)",
             fontSize: 15,
             fontWeight: 400,
             maxWidth: 480,

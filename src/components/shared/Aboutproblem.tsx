@@ -148,10 +148,10 @@ function ProblemCard({ index, visible }: { index: number; visible: boolean }) {
       {/* Eyebrow / label */}
       <div
         style={{
-          fontSize: 9,
+          fontSize: 15,
           fontWeight: 700,
-          color: hovered ? "rgba(201,169,110,0.85)" : "rgba(201,169,110,0.36)",
-          letterSpacing: "0.3em",
+          color: hovered ? "rgba(201,169,110,0.85)" : "rgba(201,169,110,0.76)",
+          letterSpacing: "0.2em",
           textTransform: "uppercase",
           fontFamily: "'Cormorant Garamond', Georgia, serif",
           fontStyle: "italic",
@@ -207,9 +207,9 @@ function ProblemCard({ index, visible }: { index: number; visible: boolean }) {
         style={{
           margin: 0,
           flex: 1,
-          fontSize: "clamp(13px, 1.05vw, 14.5px)",
+          fontSize: "clamp(13px, 1.05vw, 17.5px)",
           fontWeight: 300,
-          color: hovered ? "rgba(229,224,198,0.62)" : "rgba(229,224,198,0.4)",
+          color: hovered ? "rgba(229,224,198,0.62)" : "rgba(229,224,198,0.8)",
           lineHeight: 1.92,
           letterSpacing: "0.025em",
           transition: "color 0.35s ease",
@@ -289,8 +289,7 @@ export default function AboutProblem() {
         ref={sectionRef}
         style={{
           position: "relative",
-          background:
-            "linear-gradient(180deg, #0a0a1a 0%, #060d18 52%, #0a0a1a 100%)",
+          background: "linear-gradient(180deg,#224266 0%,#1f2a3d 100%)",
           padding: "110px 32px 120px",
           overflow: "hidden",
         }}
@@ -384,10 +383,10 @@ export default function AboutProblem() {
             />
             <span
               style={{
-                fontSize: 10,
+                fontSize: 15,
                 fontWeight: 800,
                 color: GOLD,
-                letterSpacing: "0.32em",
+                letterSpacing: "0.1em",
                 textTransform: "uppercase",
               }}
             >
@@ -450,11 +449,11 @@ export default function AboutProblem() {
             style={{
               margin: "0 auto",
               maxWidth: 500,
-              fontSize: "clamp(13px, 1.15vw, 15px)",
+              fontSize: "clamp(13px, 1.15vw, 17px)",
               fontWeight: 300,
-              color: "rgba(229,224,198,0.42)",
+              color: "rgba(229,224,198,0.82)",
               lineHeight: 1.9,
-              letterSpacing: "0.03em",
+              letterSpacing: "0.01em",
               animation: visible ? "probFadeUp 0.9s ease 0.34s both" : "none",
             }}
           >

@@ -218,10 +218,10 @@ function FlipUnit({
       </div>
       <span
         style={{
-          fontSize: 8,
+          fontSize: 13,
           fontWeight: 600,
           letterSpacing: 0,
-          color: `${color}50`,
+          color: `${color}`,
           textTransform: "uppercase",
           direction: "ltr",
         }}
@@ -449,7 +449,7 @@ const FeaturedCard = memo(function FeaturedCard({
             />
             <span
               style={{
-                fontSize: 9,
+                fontSize: 13,
                 fontWeight: 900,
                 color: "#4ade80",
                 letterSpacing: "0.22em",
@@ -526,10 +526,10 @@ const FeaturedCard = memo(function FeaturedCard({
           <div>
             <div
               style={{
-                fontSize: 7,
+                fontSize: 15,
                 fontWeight: 800,
                 letterSpacing: "0.3em",
-                color: "rgba(229,224,198,0.3)",
+                color: "rgba(229,224,198,0.9",
                 textTransform: "uppercase",
                 marginBottom: 8,
               }}
@@ -548,10 +548,10 @@ const FeaturedCard = memo(function FeaturedCard({
             <div>
               <div
                 style={{
-                  fontSize: 7,
+                  fontSize: 14,
                   fontWeight: 800,
                   letterSpacing: "0.28em",
-                  color: "rgba(229,224,198,0.28)",
+                  color: "rgba(229,224,198,0.9)",
                   textTransform: "uppercase",
                   marginBottom: 4,
                 }}
@@ -587,10 +587,10 @@ const FeaturedCard = memo(function FeaturedCard({
             <div style={{ textAlign: "right" }}>
               <div
                 style={{
-                  fontSize: 7,
+                  fontSize: 10,
                   fontWeight: 800,
                   letterSpacing: "0.28em",
-                  color: "rgba(229,224,198,0.2)",
+                  color: "rgba(229,224,198,0.9)",
                   textTransform: "uppercase",
                   marginBottom: 4,
                 }}
@@ -738,7 +738,7 @@ const FeaturedCard = memo(function FeaturedCard({
               border: "1px solid rgba(201,169,110,0.2)",
               borderRadius: 999,
               padding: "5px 11px",
-              fontSize: 9,
+              fontSize: 12,
               fontWeight: 700,
               color: GOLD,
               letterSpacing: "0.1em",
@@ -760,7 +760,7 @@ const FeaturedCard = memo(function FeaturedCard({
         <h3
           style={{
             margin: "0 0 10px",
-            fontSize: "clamp(18px,2.3vw,25px)",
+            fontSize: "30px",
             fontWeight: 900,
             color: "#ffffff",
             letterSpacing: "-0.03em",
@@ -784,10 +784,10 @@ const FeaturedCard = memo(function FeaturedCard({
         <div style={{ marginBottom: 16 }}>
           <div
             style={{
-              fontSize: 8,
+              fontSize: 14,
               fontWeight: 800,
               letterSpacing: "0.3em",
-              color: "rgba(229,224,198,0.3)",
+              color: "rgba(229,224,198,0.9)",
               textTransform: "uppercase",
               marginBottom: 10,
             }}
@@ -807,10 +807,10 @@ const FeaturedCard = memo(function FeaturedCard({
           <div>
             <div
               style={{
-                fontSize: 8,
+                fontSize: 14,
                 fontWeight: 800,
                 letterSpacing: "0.28em",
-                color: "rgba(229,224,198,0.28)",
+                color: "rgba(229,224,198,0.9)",
                 textTransform: "uppercase",
                 marginBottom: 5,
               }}
@@ -847,10 +847,10 @@ const FeaturedCard = memo(function FeaturedCard({
           <div style={{ textAlign: "right" }}>
             <div
               style={{
-                fontSize: 8,
+                fontSize: 13,
                 fontWeight: 800,
-                letterSpacing: "0.28em",
-                color: "rgba(229,224,198,0.2)",
+                letterSpacing: "0.08em",
+                color: "rgba(229,224,198,0.9)",
                 textTransform: "uppercase",
                 marginBottom: 5,
               }}
@@ -882,7 +882,7 @@ const FeaturedCard = memo(function FeaturedCard({
             border: "none",
             borderRadius: 12,
             cursor: "pointer",
-            fontSize: 10,
+            fontSize: 13,
             fontWeight: 900,
             letterSpacing: "0.26em",
             textTransform: "uppercase",
@@ -1052,7 +1052,7 @@ const AuctionRow = memo(function AuctionRow({
         <div
           className="la-row-title"
           style={{
-            fontSize: "clamp(12px,1.4vw,15px)",
+            fontSize: "clamp(19px,1.4vw,15px)",
             fontWeight: 900,
             letterSpacing: "-0.025em",
             lineHeight: 1.2,
@@ -1070,7 +1070,7 @@ const AuctionRow = memo(function AuctionRow({
               className="la-row-bid"
               style={{
                 fontFamily: "'DM Mono',monospace",
-                fontSize: 13,
+                fontSize: 15,
                 fontWeight: 700,
                 letterSpacing: "-0.03em",
               }}
@@ -1079,10 +1079,9 @@ const AuctionRow = memo(function AuctionRow({
             </span>
             <span
               style={{
-                fontSize: 8,
+                fontSize: 10,
                 fontWeight: 800,
                 color: "rgba(229,224,198,0.2)",
-                letterSpacing: "0.14em",
               }}
             >
               {cur}
@@ -1098,10 +1097,10 @@ const AuctionRow = memo(function AuctionRow({
           />
           <span
             style={{
-              fontSize: 9,
+              fontSize: 12,
               fontWeight: 800,
-              letterSpacing: "0.12em",
-              color: "rgba(229,224,198,0.25)",
+              letterSpacing: "0.02em",
+              color: "rgba(229,224,198,0.9)",
               textTransform: "uppercase",
             }}
           >
@@ -1118,10 +1117,10 @@ const AuctionRow = memo(function AuctionRow({
       >
         <div
           style={{
-            fontSize: 9,
+            fontSize: 12,
             fontWeight: 800,
             letterSpacing: "0.22em",
-            color: "rgba(229,224,198,0.22)",
+            color: "rgba(229,224,198,0.62)",
             textTransform: "uppercase",
             marginBottom: 6,
           }}
@@ -1144,9 +1143,8 @@ const AuctionRow = memo(function AuctionRow({
           height: 34,
           borderRadius: 8,
           cursor: "pointer",
-          fontSize: 9,
+          fontSize: 13,
           fontWeight: 900,
-          letterSpacing: "0.18em",
           textTransform: "uppercase",
           position: "relative",
           overflow: "hidden",
@@ -1230,7 +1228,7 @@ export default function LiveAuctionsSection() {
     <section
       dir={isRtl ? "rtl" : "ltr"}
       style={{
-        background: "linear-gradient(180deg,#050810 0%,#06101c 100%)",
+        background: "linear-gradient(180deg,#1f2a3d 0%,#224266 100%)",
         padding: isMobile ? "60px 0 72px" : "88px 0 108px",
         position: "relative",
         overflow: "hidden",
@@ -1420,7 +1418,7 @@ export default function LiveAuctionsSection() {
               />
               <span
                 style={{
-                  fontSize: 9,
+                  fontSize: 13,
                   fontWeight: 900,
                   color: "#4ade80",
                   letterSpacing: "0.28em",
@@ -1433,9 +1431,9 @@ export default function LiveAuctionsSection() {
             {!loading && auctions.length > 0 && (
               <span
                 style={{
-                  fontSize: 9,
+                  fontSize: 13,
                   fontWeight: 700,
-                  color: "rgba(201,169,110,0.45)",
+                  color: "rgba(201,169,110,0.9)",
                   letterSpacing: "0.14em",
                 }}
               >
@@ -1471,8 +1469,9 @@ export default function LiveAuctionsSection() {
         {!isMobile && (
           <p
             style={{
-              fontSize: 13,
-              color: "rgba(229,224,198,0.28)",
+              fontSize: 15,
+              color: "rgba(229,224,198)",
+              fontWeight: 700,
               lineHeight: 1.8,
               maxWidth: 280,
               marginBottom: 6,
@@ -1606,10 +1605,10 @@ export default function LiveAuctionsSection() {
               >
                 <span
                   style={{
-                    fontSize: 9,
+                    fontSize: 15,
                     fontWeight: 800,
                     letterSpacing: "0.22em",
-                    color: "rgba(229,224,198,0.22)",
+                    color: "rgba(229,224,198)",
                     textTransform: "uppercase",
                   }}
                 >
@@ -1617,9 +1616,9 @@ export default function LiveAuctionsSection() {
                 </span>
                 <span
                   style={{
-                    fontSize: 9,
+                    fontSize: 13,
                     fontWeight: 700,
-                    color: "rgba(201,169,110,0.38)",
+                    color: "rgba(201,169,110)",
                     letterSpacing: "0.12em",
                   }}
                 >

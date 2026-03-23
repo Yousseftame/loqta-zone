@@ -124,7 +124,7 @@ function FooterLink({ label, href }: { label: string; href: string }) {
         gap: 8,
         color: hovered ? CREAM : "rgba(229,224,198,0.45)",
         textDecoration: "none",
-        fontSize: 13,
+        fontSize: 15,
         fontWeight: 400,
         letterSpacing: "0.01em",
         transition: "color 0.25s ease",
@@ -171,7 +171,7 @@ function Newsletter() {
           border: "1px solid rgba(126,207,154,0.25)",
           borderRadius: 12,
           color: "#7ecf9a",
-          fontSize: 13,
+          fontSize: 15,
           fontWeight: 600,
           letterSpacing: "0.04em",
           display: "flex",
@@ -215,7 +215,7 @@ function Newsletter() {
             outline: "none",
             padding: "12px 16px",
             color: CREAM,
-            fontSize: 13,
+            fontSize: 15,
             fontFamily: "'Jost', sans-serif",
             letterSpacing: "0.02em",
           }}
@@ -227,7 +227,7 @@ function Newsletter() {
             border: "none",
             color: "#0a0a1a",
             padding: "12px 18px",
-            fontSize: 11,
+            fontSize: 14,
             fontWeight: 800,
             letterSpacing: "0.16em",
             textTransform: "uppercase",
@@ -248,8 +248,8 @@ function Newsletter() {
       <p
         style={{
           margin: 0,
-          fontSize: 10,
-          color: "rgba(229,224,198,0.25)",
+          fontSize: 15,
+          color: "rgba(229,224,198,0.85)",
           letterSpacing: "0.05em",
         }}
       >
@@ -315,7 +315,7 @@ export default function Footer() {
     <footer
       ref={footerRef}
       style={{
-        background: "linear-gradient(180deg, #0a0a1a 0%, #060610 100%)",
+        background: "linear-gradient(180deg,#1f2a3d 0%,#224266 100%)",
         position: "relative",
         overflow: "hidden",
       }}
@@ -457,7 +457,7 @@ export default function Footer() {
                 />
                 <span
                   style={{
-                    fontSize: 9,
+                    fontSize: 12,
                     fontWeight: 800,
                     color: `${GOLD}99`,
                     letterSpacing: "0.28em",
@@ -473,8 +473,8 @@ export default function Footer() {
             <p
               style={{
                 margin: 0,
-                fontSize: 13.5,
-                color: "rgba(229,224,198,0.45)",
+                fontSize: 14.5,
+                color: "rgba(229,224,198,0.65)",
                 lineHeight: 1.8,
                 fontWeight: 400,
                 maxWidth: 280,
@@ -487,9 +487,9 @@ export default function Footer() {
             <div>
               <div
                 style={{
-                  fontSize: 9,
+                  fontSize: 11,
                   fontWeight: 800,
-                  color: "rgba(229,224,198,0.3)",
+                  color: "rgba(229,224,198,0.6)",
                   letterSpacing: "0.22em",
                   textTransform: "uppercase",
                   marginBottom: 12,
@@ -510,9 +510,9 @@ export default function Footer() {
                 <div
                   key={badge}
                   style={{
-                    fontSize: 10,
+                    fontSize: 13,
                     fontWeight: 700,
-                    color: "rgba(229,224,198,0.35)",
+                    color: "rgba(229,224,198,0.65)",
                     letterSpacing: "0.05em",
                     padding: "5px 10px",
                     border: "1px solid rgba(229,224,198,0.08)",
@@ -540,7 +540,7 @@ export default function Footer() {
               <div>
                 <div
                   style={{
-                    fontSize: 10,
+                    fontSize: 15,
                     fontWeight: 800,
                     color: GOLD,
                     letterSpacing: "0.24em",
@@ -573,7 +573,7 @@ export default function Footer() {
               <div>
                 <div
                   style={{
-                    fontSize: 10,
+                    fontSize: 15,
                     fontWeight: 800,
                     color: GOLD,
                     letterSpacing: "0.24em",
@@ -606,7 +606,7 @@ export default function Footer() {
               <div>
                 <div
                   style={{
-                    fontSize: 10,
+                    fontSize: 15,
                     fontWeight: 800,
                     color: GOLD,
                     letterSpacing: "0.24em",
@@ -645,7 +645,7 @@ export default function Footer() {
                       </span>
                       <span
                         style={{
-                          fontSize: 12,
+                          fontSize: 14,
                           color: "rgba(229,224,198,0.45)",
                           lineHeight: 1.6,
                         }}
@@ -681,7 +681,7 @@ export default function Footer() {
               />
               <div
                 style={{
-                  fontSize: 10,
+                  fontSize: 14,
                   fontWeight: 800,
                   color: GOLD,
                   letterSpacing: "0.24em",
@@ -694,8 +694,8 @@ export default function Footer() {
               <p
                 style={{
                   margin: "0 0 14px",
-                  fontSize: 12,
-                  color: "rgba(229,224,198,0.4)",
+                  fontSize: 14,
+                  color: "rgba(229,224,198,0.6)",
                   lineHeight: 1.6,
                 }}
               >
@@ -733,8 +733,8 @@ export default function Footer() {
           {/* Copyright */}
           <div
             style={{
-              fontSize: 11,
-              color: "rgba(229,224,198,0.25)",
+              fontSize: 14,
+              color: "rgba(229,224,198,0.95)",
               fontWeight: 400,
               letterSpacing: "0.04em",
             }}
@@ -752,8 +752,8 @@ export default function Footer() {
                 key={label}
                 href={href}
                 style={{
-                  fontSize: 11,
-                  color: "rgba(229,224,198,0.25)",
+                  fontSize: 14,
+                  color: "rgba(229,224,198,0.95)",
                   textDecoration: "none",
                   letterSpacing: "0.04em",
                   transition: "color 0.2s ease",
@@ -775,8 +775,8 @@ export default function Footer() {
           {/* Made with */}
           <div
             style={{
-              fontSize: 10,
-              color: "rgba(229,224,198,0.18)",
+              fontSize: 14,
+              color: "rgba(229,224,198,0.98)",
               letterSpacing: "0.06em",
               fontWeight: 500,
             }}

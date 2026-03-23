@@ -358,6 +358,7 @@ const AuctionCard = memo(function AuctionCard({
             background: `linear-gradient(90deg, ${NAVY}, #3a5a78)`,
             textAlign: "center",
             fontWeight: 700,
+            fontSize:11,
             color: CREAM,
             textTransform: "uppercase",
             position: "relative",
@@ -379,11 +380,12 @@ const AuctionCard = memo(function AuctionCard({
           overflow: "hidden",
           background: isJoined ? "#0a1420" : "#eef1f4",
           flexShrink: 0,
+         
         }}
       >
         {isJoined && (
           <div className="lz-reg-ribbon">
-            <div className="lz-reg-dot" />
+            <div className="   text-[14px] lz-reg-dot" />
             {t("auctionSwiper.registered") || "Registered"}
           </div>
         )}
@@ -500,6 +502,7 @@ const AuctionCard = memo(function AuctionCard({
             className="lz-card-title"
             style={{
               margin: 0, fontWeight: 800, color: isJoined ? REG_TITLE : NAVY,
+              fontSize:14,
               textTransform: "uppercase", letterSpacing: "0.03em", lineHeight: 1.2,
               display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
             }}
@@ -510,7 +513,7 @@ const AuctionCard = memo(function AuctionCard({
             className="lz-card-subtitle"
             style={{
               margin: "3px 0 0", color: isJoined ? REG_SUBTITLE : "#7a8ea0",
-              fontWeight: 500, lineHeight: 1.3,
+              fontWeight: 500, lineHeight: 1.3,fontSize :11,
               display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical", overflow: "hidden",
             }}
           >
@@ -520,7 +523,7 @@ const AuctionCard = memo(function AuctionCard({
 
         <div
           className="lz-card-meta"
-          style={{ gap: 10, color: isJoined ? "rgba(201,169,110,0.4)" : "#8fa0b0", fontWeight: 600, alignItems: "center", fontSize: 10, minHeight: 18, flexShrink: 0 }}
+          style={{ gap: 10, color: isJoined ? "rgba(201,169,110,0.4)" : "#8fa0b0", fontWeight: 600, alignItems: "center", fontSize: 14, minHeight: 18, flexShrink: 0 }}
         >
           <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <span style={{ opacity: 0.7 }}>🏷️</span> {item.brand}
@@ -542,7 +545,7 @@ const AuctionCard = memo(function AuctionCard({
             <div>
               <div
                 className="lz-card-price-label"
-                style={{ color: isJoined ? "rgba(201,169,110,0.4)" : "#9aabbb", fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 2 }}
+                style={{ color: isJoined ? "rgba(201,169,110,0.4)" : "#9aabbb", fontWeight: 700, fontSize:13 , letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 2 }}
               >
                 {t("auctionSwiper.from")}
               </div>
@@ -573,8 +576,7 @@ const AuctionCard = memo(function AuctionCard({
 
           {isJoined ? (
             <button className="lz-reg-btn" onClick={onRegisterClick}>
-              <span>✓</span>
-              <span>{t("auctionSwiper.viewSessions") || "View My Sessions"}</span>
+              <span   className=" text-[15px]">{t("auctionSwiper.viewSessions") || "View My Sessions"}</span>
               <span className="lz-reg-arrow">→</span>
             </button>
           ) : (
@@ -627,7 +629,7 @@ const AuctionHeader = memo(function AuctionHeader() {
         }}
       >
         <div style={{ width: 32, height: 1, background: `linear-gradient(90deg, transparent, ${GOLD})` }} />
-        <span style={{ fontSize: 10, fontWeight: 800, color: GOLD, letterSpacing: "0.3em", textTransform: "uppercase" }}>
+        <span style={{ fontSize: 15, fontWeight: 800, color: GOLD, letterSpacing: "0.03em", textTransform: "uppercase" }}>
           {t("auctionSwiper.eyebrow")}
         </span>
         <div style={{ width: 32, height: 1, background: `linear-gradient(90deg, ${GOLD}, transparent)` }} />
@@ -662,7 +664,7 @@ const AuctionHeader = memo(function AuctionHeader() {
       </div>
       <p
         style={{
-          margin: "0 auto", color: "rgba(229,224,198,0.45)", fontSize: 14, fontWeight: 400,
+          margin: "0 auto", color: "rgba(229,224,198)", fontSize: 16, fontWeight: 400,
           letterSpacing: "0.01em", maxWidth: 480, lineHeight: 1.7,
           opacity: isInView ? 1 : 0,
           transform: isInView ? "translateY(0)" : "translateY(10px)",
@@ -784,28 +786,96 @@ export default function AuctionSwiper() {
     <section
       dir="ltr"
       style={{
-        background: `linear-gradient(180deg, #0a0a1a 0%, #0d1b2a 50%, #0a0a1a 100%)`,
+        background: "linear-gradient(180deg,#1f2a3d 0%,#224266 100%)",
         padding: "72px 0 88px",
         position: "relative",
         overflow: "hidden",
       }}
     >
       <style>{CARD_CSS}</style>
-      <LoginPromptModal isOpen={modalOpen} onClose={() => setModalOpen(false)} onGoToLogin={() => { setModalOpen(false); navigate("/login"); }} />
-      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, transparent, ${GOLD}, ${CREAM}, ${GOLD}, transparent)`, opacity: 0.5 }} />
-      <div style={{ position: "absolute", top: -120, right: -120, width: 500, height: 500, borderRadius: "50%", border: `1px solid rgba(229,224,198,0.08)`, pointerEvents: "none" }} />
-      <div style={{ position: "absolute", top: -80, right: -80, width: 350, height: 350, borderRadius: "50%", border: `1px solid rgba(229,224,198,0.05)`, pointerEvents: "none" }} />
-      <div style={{ position: "absolute", bottom: -100, left: -100, width: 400, height: 400, borderRadius: "50%", border: `1px solid rgba(201,169,110,0.08)`, pointerEvents: "none" }} />
+      <LoginPromptModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onGoToLogin={() => {
+          setModalOpen(false);
+          navigate("/login");
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 3,
+          background: `linear-gradient(90deg, transparent, ${GOLD}, ${CREAM}, ${GOLD}, transparent)`,
+          opacity: 0.5,
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          top: -120,
+          right: -120,
+          width: 500,
+          height: 500,
+          borderRadius: "50%",
+          border: `1px solid rgba(229,224,198,0.08)`,
+          pointerEvents: "none",
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          top: -80,
+          right: -80,
+          width: 350,
+          height: 350,
+          borderRadius: "50%",
+          border: `1px solid rgba(229,224,198,0.05)`,
+          pointerEvents: "none",
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          bottom: -100,
+          left: -100,
+          width: 400,
+          height: 400,
+          borderRadius: "50%",
+          border: `1px solid rgba(201,169,110,0.08)`,
+          pointerEvents: "none",
+        }}
+      />
       <AuctionHeader />
       <div style={{ padding: "0 12px" }}>
         {error && !loading && (
-          <div style={{ textAlign: "center", padding: "40px 20px", color: "rgba(229,224,198,0.5)", fontSize: 14 }}>{error}</div>
+          <div
+            style={{
+              textAlign: "center",
+              padding: "40px 20px",
+              color: "rgba(229,224,198,0.5)",
+              fontSize: 14,
+            }}
+          >
+            {error}
+          </div>
         )}
         {loading && (
           <div style={{ overflow: "hidden", padding: "8px 4px 4px" }}>
             <style>{`@media(min-width:640px){.lz-skel-grid{grid-template-columns:repeat(3,1fr)!important;gap:14px!important}}@media(min-width:900px){.lz-skel-grid{grid-template-columns:repeat(4,1fr)!important;gap:18px!important}}@media(min-width:1200px){.lz-skel-grid{grid-template-columns:repeat(5,1fr)!important;gap:20px!important}}`}</style>
-            <div className="lz-skel-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
-              {Array.from({ length: 5 }).map((_, i) => <SkeletonCard key={i} />)}
+            <div
+              className="lz-skel-grid"
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(2, 1fr)",
+                gap: 10,
+              }}
+            >
+              {Array.from({ length: 5 }).map((_, i) => (
+                <SkeletonCard key={i} />
+              ))}
             </div>
           </div>
         )}

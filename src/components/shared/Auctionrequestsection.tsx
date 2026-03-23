@@ -82,10 +82,10 @@ function Field({
     <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
       <label
         style={{
-          fontSize: 10,
+          fontSize: 15,
           fontWeight: 800,
-          color: focused ? GOLD : "rgba(229,224,198,0.4)",
-          letterSpacing: "0.22em",
+          color: focused ? GOLD : "rgba(229,224,198,0.9)",
+          letterSpacing: "0.02em",
           textTransform: "uppercase",
           transition: "color 0.3s ease",
           display: "flex",
@@ -166,10 +166,10 @@ function CategoryPicker({
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <label
         style={{
-          fontSize: 10,
+          fontSize: 15,
           fontWeight: 800,
-          color: "rgba(229,224,198,0.4)",
-          letterSpacing: "0.22em",
+          color: "rgba(229,224,198,0.9)",
+          letterSpacing: "0.02em",
           textTransform: "uppercase",
           display: "flex",
           alignItems: "center",
@@ -196,7 +196,7 @@ function CategoryPicker({
                   : "rgba(255,255,255,0.03)",
                 border: `1px solid ${active ? `${GOLD}88` : "rgba(229,224,198,0.09)"}`,
                 color: active ? GOLD : "rgba(229,224,198,0.45)",
-                fontSize: 11.5,
+                fontSize: 13.5,
                 fontWeight: active ? 700 : 500,
                 letterSpacing: "0.04em",
                 cursor: "pointer",
@@ -239,10 +239,10 @@ function UrgencyPicker({
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <label
         style={{
-          fontSize: 10,
+          fontSize: 15,
           fontWeight: 800,
-          color: "rgba(229,224,198,0.4)",
-          letterSpacing: "0.22em",
+          color: "rgba(229,224,198,0.9)",
+          letterSpacing: "0.02em",
           textTransform: "uppercase",
           display: "flex",
           alignItems: "center",
@@ -275,11 +275,11 @@ function UrgencyPicker({
                 boxShadow: active ? `0 4px 16px ${u.color}18` : "none",
               }}
             >
-              <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 3 }}>
+              <div style={{ fontSize: 14.5, fontWeight: 700, marginBottom: 3 }}>
                 {t(`auctionRequest.urgency.${u.val}`)}
               </div>
               <div
-                style={{ fontSize: 10, opacity: 0.6, letterSpacing: "0.04em" }}
+                style={{ fontSize: 13, opacity: 0.6, letterSpacing: "0.04em" }}
               >
                 {t(`auctionRequest.urgency.${u.val}Desc`)}
               </div>
@@ -310,7 +310,7 @@ function SubmitBtn({ label, loading }: { label: string; loading: boolean }) {
         border: "none",
         borderRadius: 12,
         height: 54,
-        fontSize: 11,
+        fontSize: 14,
         fontWeight: 800,
         letterSpacing: "0.22em",
         textTransform: "uppercase",
@@ -438,7 +438,7 @@ function SuccessState({
         <p
           style={{
             margin: 0,
-            fontSize: 12.5,
+            fontSize: 14.5,
             color: "rgba(229,224,198,0.45)",
             lineHeight: 1.7,
             maxWidth: 320,
@@ -481,7 +481,7 @@ function SuccessState({
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  fontSize: step.done ? 12 : 10,
+                  fontSize: step.done ? 14 : 12,
                   color: step.done ? "#0a0a1a" : "rgba(229,224,198,0.25)",
                   fontWeight: 800,
                 }}
@@ -490,11 +490,11 @@ function SuccessState({
               </div>
               <div
                 style={{
-                  fontSize: 9,
+                  fontSize: 13,
                   fontWeight: 700,
                   letterSpacing: "0.1em",
                   textTransform: "uppercase",
-                  color: step.done ? GOLD : "rgba(229,224,198,0.3)",
+                  color: step.done ? GOLD : "rgba(229,224,198,0.7)",
                 }}
               >
                 {t(`auctionRequest.${step.labelKey}`)}
@@ -522,7 +522,7 @@ function SuccessState({
           color: GOLD,
           borderRadius: 999,
           padding: "10px 28px",
-          fontSize: 11,
+          fontSize: 15,
           fontWeight: 700,
           letterSpacing: "0.16em",
           textTransform: "uppercase",
@@ -632,7 +632,7 @@ export default function AuctionRequestSection() {
 
         .ar-section {
           position: relative;
-          background: linear-gradient(180deg, #0c1828 0%, #0a0a1a 50%, #060610 100%);
+          background: linear-gradient(180deg, #224266  0%, #1f2a3d  50%, #1f2a3d  100%);
   padding: 140px 32px 120px;
           overflow: hidden;
           font-family: 'Jost', sans-serif;
@@ -810,10 +810,10 @@ export default function AuctionRequestSection() {
             />
             <span
               style={{
-                fontSize: 10,
+                fontSize: 15,
                 fontWeight: 800,
                 color: GOLD,
-                letterSpacing: "0.32em",
+                letterSpacing: "0.02em",
                 textTransform: "uppercase",
               }}
             >
@@ -870,10 +870,10 @@ export default function AuctionRequestSection() {
 
           <p
             style={{
-              fontSize: "clamp(13px, 1.2vw, 15px)",
+              fontSize: "clamp(13px, 1.2vw, 19px)",
               fontWeight: 300,
               letterSpacing: "0.05em",
-              color: "rgba(229,224,198,0.48)",
+              color: "rgba(229,224,198,0.98)",
               maxWidth: 480,
               margin: "0 auto",
               lineHeight: 1.9,
@@ -913,10 +913,10 @@ export default function AuctionRequestSection() {
             <div>
               <div
                 style={{
-                  fontSize: 9,
+                  fontSize: 14,
                   fontWeight: 800,
-                  color: `${GOLD}99`,
-                  letterSpacing: "0.26em",
+                  color: `${GOLD}`,
+                  letterSpacing: "0.06em",
                   textTransform: "uppercase",
                   marginBottom: 4,
                 }}
@@ -990,7 +990,7 @@ export default function AuctionRequestSection() {
                   color: "#0a0a1a",
                   borderRadius: 12,
                   padding: "13px 32px",
-                  fontSize: 11,
+                  fontSize: 14,
                   fontWeight: 800,
                   letterSpacing: "0.18em",
                   textTransform: "uppercase",

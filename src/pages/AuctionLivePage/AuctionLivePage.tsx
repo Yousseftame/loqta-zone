@@ -757,9 +757,9 @@ const CSS = `
 @keyframes al-fadein { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
 @keyframes al-pulse  { 0%,100% { box-shadow:0 0 0 0 rgba(74,222,128,0.4); } 50% { box-shadow:0 0 0 6px rgba(74,222,128,0); } }
 @keyframes al-urgent { 0%,100% { color:#f87171; } 50% { color:#fca5a5; } }
-.al { background:#09111a; font-family:'Outfit',system-ui,sans-serif; color:rgb(229,224,198); min-height:100vh; padding-top:120px; animation:al-fadein 0.5s ease both; }
+.al { background:linear-gradient(180deg,#1f2a3d 0%,#1f2a3d 100%); font-family:'Outfit',system-ui,sans-serif; color:rgb(229,224,198); min-height:100vh; padding-top:120px; animation:al-fadein 0.5s ease both; }
 @media(max-width:860px){ .al { padding-top:100px; } }
-.al-bar { width:100%; height:50px; background:rgba(9,17,26,0.7); border-bottom:1px solid rgba(201,169,110,0.1); display:flex; align-items:center; padding:0 40px; gap:14px; backdrop-filter:blur(8px); }
+.al-bar { width:100%; height:50px; background:linear-gradient(180deg,#224266 0%,#1f2a3d 100%); border-bottom:1px solid rgba(201,169,110,0.1); display:flex; align-items:center; padding:0 40px; gap:14px; backdrop-filter:blur(8px); }
 @media(max-width:700px){ .al-bar { padding:0 20px; } }
 .al-back { display:flex; align-items:center; gap:7px; background:none; border:none; cursor:pointer; font-family:'Outfit',system-ui,sans-serif; font-size:13px; font-weight:500; color:rgba(229,224,198,0.45); transition:color 0.2s; padding:0; }
 .al-back:hover { color:rgba(229,224,198,0.9); }
@@ -784,27 +784,27 @@ const CSS = `
 .al-live-badge { position:absolute; top:14px; left:14px; background:rgba(74,222,128,0.15); color:#4ade80; border:1px solid rgba(74,222,128,0.3); border-radius:99px; padding:4px 12px; font-size:10px; font-weight:700; letter-spacing:0.14em; backdrop-filter:blur(6px); }
 .al-prodinfo { background:rgba(255,255,255,0.025); border:1px solid rgba(201,169,110,0.1); border-radius:16px; padding:20px 22px; }
 .al-prodtitle { font-size:20px; font-weight:700; color:rgb(229,224,198); margin-bottom:8px; }
-.al-proddesc { font-size:13px; line-height:1.7; color:rgba(229,224,198,0.38); margin-bottom:12px; font-weight:300; }
+.al-proddesc { font-size:15px; line-height:1.7; color:rgba(229,224,198,0.78); margin-bottom:12px; font-weight:300; }
 .al-prodmeta { display:flex; flex-wrap:wrap; gap:6px; }
-.al-metachip { font-size:11px; font-weight:500; color:rgba(201,169,110,0.7); background:rgba(201,169,110,0.07); border:1px solid rgba(201,169,110,0.13); border-radius:99px; padding:3px 12px; }
+.al-metachip { font-size:11px; font-weight:500; color:rgba(201,169,110); background:rgba(201,169,110,0.07); border:1px solid rgba(201,169,110,0.13); border-radius:99px; padding:3px 12px; }
 .al-metarow { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:rgba(201,169,110,0.07); border-radius:16px; overflow:hidden; border:1px solid rgba(201,169,110,0.1); }
 @media(max-width:500px){ .al-metarow { grid-template-columns:repeat(2,1fr); } }
-.al-metablock { background:rgba(9,17,26,0.8); padding:14px 16px; }
+.al-metablock { background:linear-gradient(180deg,#224266 0%,#1f2a3d 100%); padding:14px 16px; }
 .al-metalabel { font-size:9px; font-weight:600; color:rgba(229,224,198,0.25); letter-spacing:0.18em; text-transform:uppercase; margin-bottom:6px; }
 .al-metaval { font-size:18px; font-weight:700; color:rgba(229,224,198,0.85); }
 .al-metaval--sm { font-size:13px; font-weight:500; }
 .al-right { display:flex; flex-direction:column; gap:18px; }
 .al-bidcard { background:rgba(255,255,255,0.028); border:1px solid rgba(201,169,110,0.18); border-radius:20px; padding:24px 26px; }
 .al-bidcard-top { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:18px; padding-bottom:18px; border-bottom:1px solid rgba(201,169,110,0.08); }
-.al-bidlabel { font-size:10px; font-weight:600; color:rgba(229,224,198,0.25); letter-spacing:0.2em; text-transform:uppercase; margin-bottom:6px; }
+.al-bidlabel { font-size:14px; font-weight:600; color:rgba(229,224,198,0.85); letter-spacing:0.2em; text-transform:uppercase; margin-bottom:6px; }
 .al-bidnum { font-size:40px; font-weight:800; color:#c9a96e; letter-spacing:-0.02em; line-height:1; }
 .al-bidcur { font-size:14px; color:rgba(201,169,110,0.5); font-weight:500; margin-inline-start:6px; }
 .al-countdownblock { text-align:end; }
-.al-cdlabel { font-size:10px; font-weight:600; color:rgba(229,224,198,0.25); letter-spacing:0.2em; text-transform:uppercase; margin-bottom:6px; }
+.al-cdlabel { font-size:13px; font-weight:600; color:rgba(229,224,198,0.95); letter-spacing:0.2em; text-transform:uppercase; margin-bottom:6px; }
 .al-cdnum { font-size:28px; font-weight:700; color:rgb(229,224,198); letter-spacing:0.04em; font-variant-numeric:tabular-nums; }
 .al-cdnum.urgent { animation:al-urgent 1s ease-in-out infinite; }
 .al-cdnum.ended { color:rgba(229,224,198,0.3); }
-.al-bidtype { font-size:11px; color:rgba(229,224,198,0.3); margin-bottom:18px; letter-spacing:0.04em; }
+.al-bidtype { font-size:14px; color:rgba(229,224,198,0.9); margin-bottom:18px; letter-spacing:0.04em; }
 .al-freebid { display:flex; flex-direction:column; gap:10px; margin-bottom:10px; }
 .al-inputwrap { position:relative; }
 .al-input { width:100%; height:50px; background:rgba(255,255,255,0.04); border:1px solid rgba(201,169,110,0.2); border-radius:10px; color:rgb(229,224,198); font-family:'Outfit',system-ui,sans-serif; font-size:18px; font-weight:600; padding:0 60px 0 16px; outline:none; transition:border-color 0.2s; -moz-appearance:textfield; }
@@ -820,12 +820,12 @@ const CSS = `
 .al-bidarrow { font-size:16px; transition:transform 0.2s; }
 .al-bidbtn.go:hover .al-bidarrow { transform:translateX(4px); }
 .al-spinner { width:14px; height:14px; border:2px solid rgba(9,17,26,0.2); border-top-color:#09111a; border-radius:50%; animation:lz-spin 0.8s linear infinite; }
-.al-biddesc { margin-top:10px; text-align:center; font-size:11px; color:rgba(229,224,198,0.2); letter-spacing:0.06em; }
+.al-biddesc { margin-top:10px; text-align:center; font-size:14px; color:rgba(229,224,198,0.9); letter-spacing:0.06em; }
 .al-notjoined { text-align:center; padding:16px; font-size:13px; color:rgba(229,224,198,0.3); border:1px dashed rgba(229,224,198,0.08); border-radius:10px; }
 .al-histcard { background:rgba(255,255,255,0.025); border:1px solid rgba(201,169,110,0.1); border-radius:20px; overflow:hidden; }
-.al-histtitle { padding:16px 20px; border-bottom:1px solid rgba(201,169,110,0.08); font-size:12px; font-weight:600; color:rgba(229,224,198,0.35); letter-spacing:0.16em; text-transform:uppercase; display:flex; align-items:center; gap:10px; }
-.al-histcount { background:rgba(201,169,110,0.1); color:rgba(201,169,110,0.7); border-radius:99px; padding:1px 9px; font-size:11px; font-weight:700; }
-.al-histempty { padding:36px 20px; text-align:center; font-size:13px; color:rgba(229,224,198,0.2); }
+.al-histtitle { padding:16px 20px; border-bottom:1px solid rgba(201,169,110,0.08); font-size:14px; font-weight:600; color:rgba(229,224,198,0.85); letter-spacing:0.16em; text-transform:uppercase; display:flex; align-items:center; gap:10px; }
+.al-histcount { background:rgba(201,169,110,0.1); color:rgba(201,169,110); border-radius:99px; padding:1px 9px; font-size:11px; font-weight:700; }
+.al-histempty { padding:36px 20px; text-align:center; font-size:15px; color:rgba(229,224,198,0.9); }
 .al-histlist { max-height:340px; overflow-y:auto; scrollbar-width:thin; scrollbar-color:rgba(201,169,110,0.15) transparent; }
 .al-histlist::-webkit-scrollbar { width:4px; }
 .al-histlist::-webkit-scrollbar-thumb { background:rgba(201,169,110,0.15); border-radius:99px; }

@@ -8,7 +8,7 @@ const GOLD2 = "#b8944e";
 const NAVY = "#2A4863";
 const NAVY2 = "#1e3652";
 const CREAM = "rgb(229, 224, 198)";
-const BG_DARK = "#0a0a1a";
+const BG_DARK = "linear-gradient(180deg,#1f2a3d 0%,#224266 100%)";
 
 // ── Animated counter ──────────────────────────────────────────
 function useCountUp(target: number, duration = 2, started: boolean) {
@@ -170,10 +170,9 @@ function StepCard({
             <div>
               <div
                 style={{
-                  fontSize: 9,
+                  fontSize: 12,
                   fontWeight: 800,
                   color: step.accent,
-                  letterSpacing: "0.28em",
                   textTransform: "uppercase",
                   marginBottom: 3,
                 }}
@@ -282,7 +281,7 @@ function StepCard({
             border: `1px solid ${step.accent}30`,
             borderRadius: 999,
             padding: "6px 16px",
-            fontSize: 10,
+            fontSize: 12,
             fontWeight: 700,
             color: step.accent,
             letterSpacing: "0.14em",
@@ -341,7 +340,7 @@ function FaqItem({ q, a, index }: { q: string; a: string; index: number }) {
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           <span
             style={{
-              fontSize: 10,
+              fontSize: 13,
               fontWeight: 800,
               color: `${GOLD}77`,
               letterSpacing: "0.2em",
@@ -444,7 +443,7 @@ function TrustBadge({
       <div style={{ fontSize: 28 }}>{icon}</div>
       <div
         style={{
-          fontSize: 12,
+          fontSize: 16,
           fontWeight: 800,
           color: CREAM,
           letterSpacing: "0.04em",
@@ -454,8 +453,8 @@ function TrustBadge({
       </div>
       <div
         style={{
-          fontSize: 11,
-          color: "rgba(229,224,198,0.4)",
+          fontSize: 13,
+          color: "rgba(229,224,198,0.7)",
           fontWeight: 400,
           lineHeight: 1.5,
         }}
@@ -745,10 +744,10 @@ export default function HowItWork() {
             />
             <span
               style={{
-                fontSize: 10,
+                fontSize: 16,
                 fontWeight: 800,
                 color: GOLD,
-                letterSpacing: "0.32em",
+                letterSpacing: "0.02em",
                 textTransform: "uppercase",
               }}
             >
@@ -783,7 +782,6 @@ export default function HowItWork() {
                   color: CREAM,
                   letterSpacing: "-0.028em",
                   display: "inline-block",
-                  textShadow: "0 2px 60px rgba(0,0,0,0.5)",
                 }}
               >
                 {t("howItWorkPage.hero.line1")}
@@ -817,7 +815,7 @@ export default function HowItWork() {
               fontSize: "clamp(13px, 1.3vw, 16px)",
               fontWeight: 300,
               letterSpacing: "0.06em",
-              color: "rgba(229,224,198,0.5)",
+              color: "rgba(229,224,198,0.8)",
               textAlign: "center",
               maxWidth: 480,
               lineHeight: 1.8,
@@ -895,9 +893,9 @@ export default function HowItWork() {
                   </div>
                   <div
                     style={{
-                      fontSize: 10,
+                      fontSize: 15,
                       fontWeight: 700,
-                      color: "rgba(229,224,198,0.4)",
+                      color: "rgba(229,224,198,0.8)",
                       letterSpacing: "0.18em",
                       textTransform: "uppercase",
                       marginTop: 4,
@@ -937,11 +935,11 @@ export default function HowItWork() {
             />
             <span
               style={{
-                fontSize: 8.5,
+                fontSize: 10.5,
                 fontWeight: 200,
                 letterSpacing: "0.38em",
                 textTransform: "uppercase",
-                color: "rgba(229,224,198,0.3)",
+                color: "rgba(229,224,198,0.8)",
               }}
             >
               {t("howItWorkPage.hero.scroll")}
@@ -953,7 +951,7 @@ export default function HowItWork() {
         <section
           ref={stepsRef}
           style={{
-            background: `linear-gradient(180deg, #0a0a1a 0%, #0c1828 50%, #0a0a1a 100%)`,
+            background: "linear-gradient(180deg,#1f2a3d 0%,#224266 100%)",
             padding: "100px 32px 120px",
             position: "relative",
             overflow: "hidden",
@@ -1018,10 +1016,10 @@ export default function HowItWork() {
               />
               <span
                 style={{
-                  fontSize: 10,
+                  fontSize: 16,
                   fontWeight: 800,
                   color: GOLD,
-                  letterSpacing: "0.3em",
+                  letterSpacing: "0.1em",
                   textTransform: "uppercase",
                 }}
               >
@@ -1054,8 +1052,8 @@ export default function HowItWork() {
             <p
               style={{
                 marginTop: 16,
-                fontSize: 14,
-                color: "rgba(229,224,198,0.42)",
+                fontSize: 16,
+                color: "rgba(229,224,198,0.72)",
                 fontWeight: 400,
                 maxWidth: 440,
                 marginInline: "auto",
@@ -1132,7 +1130,7 @@ export default function HowItWork() {
         {/* ════════ TRUST BADGES ════════ */}
         <section
           style={{
-            background: `linear-gradient(180deg, #0a0a1a 0%, #060610 100%)`,
+            background: "linear-gradient(180deg,#224266 0%,#1f2a3d 100%)",
             padding: "80px 32px",
             position: "relative",
           }}
@@ -1152,9 +1150,9 @@ export default function HowItWork() {
             <div style={{ textAlign: "center", marginBottom: 48 }}>
               <span
                 style={{
-                  fontSize: 10,
+                  fontSize: 17,
                   fontWeight: 800,
-                  color: `${GOLD}88`,
+                  color: `${GOLD}`,
                   letterSpacing: "0.28em",
                   textTransform: "uppercase",
                 }}
@@ -1186,7 +1184,7 @@ export default function HowItWork() {
         <section
           ref={faqRef}
           style={{
-            background: `linear-gradient(180deg, #060610 0%, #0c1828 60%, #0a0a1a 100%)`,
+            background: "linear-gradient(180deg,#1f2a3d 0%,#224266 100%)",
             padding: "100px 32px 120px",
             position: "relative",
             overflow: "hidden",
@@ -1251,7 +1249,7 @@ export default function HowItWork() {
                 />
                 <span
                   style={{
-                    fontSize: 10,
+                    fontSize: 16,
                     fontWeight: 800,
                     color: GOLD,
                     letterSpacing: "0.3em",
@@ -1286,8 +1284,8 @@ export default function HowItWork() {
               <p
                 style={{
                   marginTop: 14,
-                  fontSize: 14,
-                  color: "rgba(229,224,198,0.4)",
+                  fontSize: 16,
+                  color: "rgba(229,224,198,0.8)",
                   maxWidth: 380,
                   marginInline: "auto",
                   lineHeight: 1.75,
@@ -1321,7 +1319,7 @@ export default function HowItWork() {
         <section
           ref={ctaRef}
           style={{
-            background: `linear-gradient(180deg, #0a0a1a 0%, #060610 100%)`,
+            background: "linear-gradient(180deg,#224266 0%,#1f2a3d 100%)",
             padding: "100px 32px 120px",
             position: "relative",
             overflow: "hidden",
@@ -1408,10 +1406,10 @@ export default function HowItWork() {
               />
               <span
                 style={{
-                  fontSize: 10,
+                  fontSize: 15,
                   fontWeight: 800,
                   color: GOLD,
-                  letterSpacing: "0.3em",
+                  letterSpacing: "0.1em",
                   textTransform: "uppercase",
                 }}
               >
@@ -1447,8 +1445,8 @@ export default function HowItWork() {
 
             <p
               style={{
-                fontSize: 14,
-                color: "rgba(229,224,198,0.45)",
+                fontSize: 15,
+                color: "rgba(229,224,198,0.75)",
                 lineHeight: 1.8,
                 marginBottom: 44,
                 fontWeight: 400,
@@ -1473,7 +1471,7 @@ export default function HowItWork() {
                   border: "none",
                   borderRadius: 999,
                   padding: "16px 52px",
-                  fontSize: 12,
+                  fontSize: 14,
                   fontWeight: 800,
                   letterSpacing: "0.22em",
                   textTransform: "uppercase",
@@ -1503,7 +1501,7 @@ export default function HowItWork() {
                   border: `1px solid ${GOLD}44`,
                   borderRadius: 999,
                   padding: "16px 40px",
-                  fontSize: 12,
+                  fontSize: 14,
                   fontWeight: 800,
                   letterSpacing: "0.22em",
                   textTransform: "uppercase",
@@ -1546,8 +1544,8 @@ export default function HowItWork() {
                 <span
                   key={b}
                   style={{
-                    fontSize: 11,
-                    color: "rgba(229,224,198,0.3)",
+                    fontSize: 14,
+                    color: "rgba(229,224,198,0.8)",
                     fontWeight: 600,
                     letterSpacing: "0.06em",
                   }}

@@ -287,7 +287,7 @@ function CountdownUnit({ value, label }: { value: number; label: string }) {
       </span>
       <span
         style={{
-          fontSize: 8,
+          fontSize: 13,
           fontWeight: 700,
           letterSpacing: 0,
           textTransform: "uppercase",
@@ -317,7 +317,7 @@ function CountdownBar({ startsAt }: { startsAt: string }) {
           border: "1px solid rgba(94,232,160,0.22)",
           borderRadius: 10,
           color: "#5ee8a0",
-          fontSize: 11,
+          fontSize: 14,
           fontFamily: "'Jost', sans-serif",
           fontWeight: 700,
           letterSpacing: "0.14em",
@@ -536,7 +536,7 @@ const UpcomingCard = memo(function UpcomingCard({
               border: "1px solid rgba(255,100,100,0.3)",
               borderRadius: 6,
               padding: "3px 8px",
-              fontSize: 9,
+              fontSize: 11,
               fontWeight: 800,
               color: "#ffb0b0",
               letterSpacing: "0.1em",
@@ -564,7 +564,7 @@ const UpcomingCard = memo(function UpcomingCard({
             <h3
               style={{
                 margin: 0,
-                fontSize: 17,
+                fontSize: 22,
                 fontWeight: 900,
                 color: CREAM,
                 letterSpacing: "-0.01em",
@@ -577,8 +577,8 @@ const UpcomingCard = memo(function UpcomingCard({
             <p
               style={{
                 margin: "3px 0 0",
-                fontSize: 12,
-                color: "rgba(229,224,198,0.45)",
+                fontSize: 14,
+                color: "rgba(229,224,198,0.55)",
                 fontWeight: 400,
               }}
             >
@@ -594,7 +594,7 @@ const UpcomingCard = memo(function UpcomingCard({
               border: "none",
               borderRadius: 999,
               padding: "10px 22px",
-              fontSize: 10,
+              fontSize: 14,
               fontWeight: 800,
               fontFamily: "'Jost', sans-serif",
               letterSpacing: "0.18em",
@@ -619,7 +619,7 @@ const UpcomingCard = memo(function UpcomingCard({
             display: "flex",
             flexWrap: "wrap",
             gap: "8px 16px",
-            fontSize: 11,
+            fontSize: 13,
           }}
         >
           <span
@@ -627,7 +627,7 @@ const UpcomingCard = memo(function UpcomingCard({
               display: "flex",
               alignItems: "center",
               gap: 6,
-              color: "rgba(229,224,198,0.5)",
+              color: "rgba(229,224,198)",
               flexWrap: "wrap",
               wordBreak: "break-word",
             }}
@@ -661,10 +661,10 @@ const UpcomingCard = memo(function UpcomingCard({
         >
           <span
             style={{
-              fontSize: 10,
-              color: "rgba(229,224,198,0.4)",
+              fontSize: 14,
+              color: "rgba(229,224,198,0.8)",
               fontWeight: 700,
-              letterSpacing: "0.14em",
+              letterSpacing: "0.04em",
               textTransform: "uppercase",
               fontFamily: "'Jost', sans-serif",
             }}
@@ -703,10 +703,10 @@ const UpcomingCard = memo(function UpcomingCard({
         <div style={{ minWidth: 0, overflow: "hidden" }}>
           <div
             style={{
-              fontSize: 12,
+              fontSize: 16,
               fontWeight: 800,
-              color: "rgba(229,224,198,0.3)",
-              letterSpacing: "0.24em",
+              color: "rgba(229,224,198,0.8)",
+              letterSpacing: "0.14em",
               textTransform: "uppercase",
               marginBottom: 10,
               fontFamily: "'Jost', sans-serif",
@@ -944,7 +944,7 @@ const PastCard = memo(function PastCard({
           <h3
             style={{
               margin: 0,
-              fontSize: 17,
+              fontSize: 20,
               fontWeight: 900,
               color: CREAM,
               letterSpacing: "-0.01em",
@@ -956,7 +956,7 @@ const PastCard = memo(function PastCard({
           <p
             style={{
               margin: "3px 0 0",
-              fontSize: 12,
+              fontSize: 14,
               color: "rgba(229,224,198,0.4)",
               fontWeight: 400,
             }}
@@ -970,8 +970,8 @@ const PastCard = memo(function PastCard({
             display: "flex",
             alignItems: "center",
             gap: 6,
-            fontSize: 11,
-            color: "rgba(229,224,198,0.45)",
+            fontSize: 14,
+            color: "rgba(229,224,198,0.75)",
             flexWrap: "wrap",
           }}
         >
@@ -989,8 +989,8 @@ const PastCard = memo(function PastCard({
         >
           <span
             style={{
-              fontSize: 10,
-              color: "rgba(229,224,198,0.4)",
+              fontSize: 14,
+              color: "rgba(229,224,198,0.8)",
               fontWeight: 700,
               letterSpacing: "0.14em",
               textTransform: "uppercase",
@@ -1046,10 +1046,10 @@ const PastCard = memo(function PastCard({
               <span
                 key={h}
                 style={{
-                  fontSize: 9,
+                  fontSize: 15,
                   fontWeight: 800,
-                  color: "rgba(229,224,198,0.3)",
-                  letterSpacing: "0.18em",
+                  color: "rgba(229,224,198)",
+                  letterSpacing: "0.08em",
                   textTransform: "uppercase",
                   fontFamily: "'Jost', sans-serif",
                 }}
@@ -1103,7 +1103,7 @@ const PastCard = memo(function PastCard({
             </div>
             <span
               style={{
-                fontSize: 13,
+                fontSize: 16,
                 fontWeight: 700,
                 color: CREAM,
                 fontFamily: "'Jost', sans-serif",
@@ -1123,8 +1123,8 @@ const PastCard = memo(function PastCard({
               <span style={{ fontSize: 22 }}>{item.winner.country}</span>
               <span
                 style={{
-                  fontSize: 11,
-                  color: "rgba(229,224,198,0.45)",
+                  fontSize: 15,
+                  color: "rgba(229,224,198)",
                   fontFamily: "'Jost', sans-serif",
                 }}
               >
@@ -1170,11 +1170,11 @@ function TabButton({
       <span
         style={{
           fontFamily: "'Jost', sans-serif",
-          fontSize: 12,
+          fontSize: 17,
           fontWeight: 800,
-          letterSpacing: "0.22em",
+          letterSpacing: "0.17em",
           textTransform: "uppercase",
-          color: active ? GOLD : "rgba(229,224,198,0.35)",
+          color: active ? GOLD : "rgba(229,224,198,0.8)",
           transition: "color 0.3s ease",
         }}
       >
@@ -1264,8 +1264,7 @@ export default function AuctionsSection() {
     <section
       dir={isAr ? "rtl" : "ltr"}
       style={{
-        background:
-          "linear-gradient(180deg,#0a0a1a 0%,#0c1828 50%,#0a0a1a 100%)",
+        background: "linear-gradient(180deg,#1f2a3d 0%,#224266 100%)",
         padding: "100px 32px 120px",
         position: "relative",
         overflow: "hidden",
@@ -1425,10 +1424,10 @@ export default function AuctionsSection() {
           />
           <span
             style={{
-              fontSize: 10,
+              fontSize: 16,
               fontWeight: 800,
               color: GOLD,
-              letterSpacing: "0.3em",
+              letterSpacing: "0.01em",
               textTransform: "uppercase",
               fontFamily: "'Jost', sans-serif",
             }}
@@ -1493,7 +1492,7 @@ export default function AuctionsSection() {
         <p
           style={{
             color: "rgba(229,224,198,0.42)",
-            fontSize: 14,
+            fontSize: 16,
             maxWidth: 420,
             margin: "0 auto",
             lineHeight: 1.75,
@@ -1604,9 +1603,9 @@ export default function AuctionsSection() {
                 />
                 <span
                   style={{
-                    fontSize: 11,
+                    fontSize: 15,
                     fontWeight: 800,
-                    color: "rgba(229,224,198,0.4)",
+                    color: "rgba(229,224,198,0.9)",
                     letterSpacing: "0.18em",
                     textTransform: "uppercase",
                     fontFamily: "'Jost', sans-serif",
@@ -1632,7 +1631,7 @@ export default function AuctionsSection() {
                     ? "لا توجد مزادات قادمة الآن"
                     : "No upcoming auctions right now"}
                 </p>
-                <p style={{ fontSize: 13, marginTop: 6, opacity: 0.7 }}>
+                <p style={{ fontSize: 15, marginTop: 6, opacity: 0.7 }}>
                   {isAr
                     ? "تحقق قريباً من جلسات جديدة"
                     : "Check back soon for new sessions"}
@@ -1673,9 +1672,9 @@ export default function AuctionsSection() {
                 />
                 <span
                   style={{
-                    fontSize: 11,
+                    fontSize: 15,
                     fontWeight: 800,
-                    color: "rgba(229,224,198,0.4)",
+                    color: "rgba(229,224,198,0.9)",
                     letterSpacing: "0.18em",
                     textTransform: "uppercase",
                     fontFamily: "'Jost', sans-serif",
@@ -1699,7 +1698,7 @@ export default function AuctionsSection() {
                     ? "لا توجد مزادات مكتملة بعد"
                     : "No completed auctions yet"}
                 </p>
-                <p style={{ fontSize: 13, marginTop: 6, opacity: 0.7 }}>
+                <p style={{ fontSize: 15, marginTop: 6, opacity: 0.7 }}>
                   {isAr
                     ? "ستظهر الفائزون هنا بعد انتهاء المزادات"
                     : "Winners will appear here after auctions close"}

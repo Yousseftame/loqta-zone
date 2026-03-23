@@ -26,9 +26,9 @@ import { validatePassword } from "@/types/validation";
 const GOLD = "#c9a96e";
 const GOLD2 = "#b8944e";
 const CREAM = "rgb(229,224,198)";
-const DARK = "#080d1a";
-const NAVY = "#0e1c2e";
-const NAVY2 = "#112237";
+const DARK = "#1f2a3d ";
+const NAVY = "#224266 ";
+const NAVY2 = "#224266  ";
 
 // ─── Password strength ────────────────────────────────────────────────────────
 function getStrengthScore(pw: string): number {
@@ -69,11 +69,11 @@ const PasswordInput = ({
       style={{
         display: "block",
         marginBottom: 6,
-        fontSize: 10,
+        fontSize: 15,
         fontWeight: 800,
-        letterSpacing: "0.16em",
+        letterSpacing: "0.1em",
         textTransform: "uppercase",
-        color: "rgba(229,224,198,0.4)",
+        color: "rgba(229,224,198,0.7)",
         fontFamily: "'Jost',sans-serif",
       }}
     >
@@ -328,11 +328,11 @@ export default function ChangePassword() {
             >
               <span
                 style={{
-                  fontSize: 10,
+                  fontSize: 14,
                   fontWeight: 800,
-                  letterSpacing: "0.22em",
+                  letterSpacing: "0.08em",
                   textTransform: "uppercase",
-                  color: "rgba(201,169,110,0.45)",
+                  color: "rgba(201,169,110,0.75)",
                 }}
               >
                 {t("changePasswordPage.account")}
@@ -340,7 +340,7 @@ export default function ChangePassword() {
               <span style={{ color: "rgba(229,224,198,0.15)" }}>✦</span>
               <span
                 style={{
-                  fontSize: 10,
+                  fontSize: 14,
                   fontWeight: 800,
                   letterSpacing: "0.22em",
                   textTransform: "uppercase",
@@ -364,8 +364,8 @@ export default function ChangePassword() {
             <p
               style={{
                 margin: "4px 0 0",
-                fontSize: 13,
-                color: "rgba(229,224,198,0.36)",
+                fontSize: 15,
+                color: "rgba(229,224,198,0.86)",
                 fontWeight: 500,
               }}
             >
@@ -411,7 +411,7 @@ export default function ChangePassword() {
                 <p
                   style={{
                     margin: 0,
-                    fontSize: 13,
+                    fontSize: 14,
                     fontWeight: 700,
                     color: "#5ee8a0",
                     fontFamily: "'Jost',sans-serif",
@@ -422,7 +422,7 @@ export default function ChangePassword() {
                 <p
                   style={{
                     margin: "2px 0 0",
-                    fontSize: 11,
+                    fontSize: 14,
                     color: "rgba(94,232,160,0.6)",
                     fontFamily: "'Jost',sans-serif",
                   }}
@@ -464,11 +464,11 @@ export default function ChangePassword() {
                 <p
                   style={{
                     margin: "0 0 14px",
-                    fontSize: 9,
+                    fontSize: 11,
                     fontWeight: 800,
-                    letterSpacing: "0.22em",
+                    letterSpacing: "0.18em",
                     textTransform: "uppercase",
-                    color: "rgba(201,169,110,0.4)",
+                    color: "rgba(201,169,110)",
                   }}
                 >
                   {t("changePasswordPage.sections.current")}
@@ -500,11 +500,11 @@ export default function ChangePassword() {
                 <p
                   style={{
                     margin: "0 0 14px",
-                    fontSize: 9,
+                    fontSize: 11,
                     fontWeight: 800,
                     letterSpacing: "0.22em",
                     textTransform: "uppercase",
-                    color: "rgba(201,169,110,0.4)",
+                    color: "rgba(201,169,110)",
                   }}
                 >
                   {t("changePasswordPage.sections.new")}
@@ -544,7 +544,7 @@ export default function ChangePassword() {
                     <p
                       style={{
                         margin: 0,
-                        fontSize: 11,
+                        fontSize: 13,
                         fontWeight: 700,
                         color: strength.color,
                         fontFamily: "'Jost',sans-serif",
@@ -570,11 +570,11 @@ export default function ChangePassword() {
                 <p
                   style={{
                     margin: "0 0 10px",
-                    fontSize: 9,
+                    fontSize: 13,
                     fontWeight: 800,
-                    letterSpacing: "0.16em",
+                    letterSpacing: "0.1em",
                     textTransform: "uppercase",
-                    color: "rgba(229,224,198,0.28)",
+                    color: "rgba(229,224,198,0.78)",
                     fontFamily: "'Jost',sans-serif",
                   }}
                 >
@@ -621,11 +621,11 @@ export default function ChangePassword() {
                         </div>
                         <span
                           style={{
-                            fontSize: 11,
+                            fontSize: 14,
                             fontWeight: 600,
                             color: met
                               ? "rgba(94,232,160,0.85)"
-                              : "rgba(229,224,198,0.35)",
+                              : "rgba(229,224,198,0.55)",
                             fontFamily: "'Jost',sans-serif",
                             transition: "color 0.25s",
                           }}
@@ -696,7 +696,7 @@ export default function ChangePassword() {
                     : `linear-gradient(135deg, ${GOLD}, ${GOLD2})`,
                   border: "none",
                   color: "#0a0a1a",
-                  fontSize: 11,
+                  fontSize: 14,
                   fontWeight: 900,
                   letterSpacing: "0.16em",
                   textTransform: "uppercase",
@@ -761,8 +761,8 @@ export default function ChangePassword() {
             <p
               style={{
                 margin: 0,
-                fontSize: 11,
-                color: "rgba(229,224,198,0.35)",
+                fontSize: 14,
+                color: "rgba(229,224,198,0.65)",
                 fontFamily: "'Jost',sans-serif",
                 fontWeight: 500,
                 lineHeight: 1.6,

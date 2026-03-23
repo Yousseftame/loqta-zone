@@ -93,7 +93,7 @@ const RoleBadge = ({ role }: { role: UserRole }) => {
       />
       <span
         style={{
-          fontSize: 9,
+          fontSize: 13,
           fontWeight: 800,
           letterSpacing: "0.14em",
           textTransform: "uppercase",
@@ -280,7 +280,7 @@ export const ProfileDropdown = ({
             // right is computed dynamically to avoid viewport overflow
             ...dropStyle,
             // Minimum 220px, but capped to viewport on tiny screens
-            background: "linear-gradient(160deg, #112237 0%, #0a0f1e 100%)",
+            background: "linear-gradient(180deg,#224266 0%,#1f2a3d 100%)",
             border: "1px solid rgba(201,169,110,0.18)",
             borderRadius: 16,
             padding: 8,

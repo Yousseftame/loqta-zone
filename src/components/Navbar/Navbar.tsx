@@ -102,11 +102,11 @@ const Navbar = () => {
         .loq-link::after { content:''; position:absolute; bottom:0; left:0; width:0; height:1.5px; background:linear-gradient(90deg,${GOLD},transparent); border-radius:999px; transition:width .35s cubic-bezier(.22,1,.36,1); }
         .loq-link:hover,.loq-link.active { color:${GOLD}; }
         .loq-link:hover::after,.loq-link.active::after { width:100%; }
-        .btn-ghost { font-family:'Jost',sans-serif; font-size:11px; font-weight:800; letter-spacing:.18em; text-transform:uppercase; padding:9px 20px; border-radius:999px; border:1px solid rgba(201,169,110,.45); color:${GOLD}; background:transparent; text-decoration:none; transition:all .3s; display:inline-flex; align-items:center; white-space:nowrap; }
+        .btn-ghost { font-family:'Jost',sans-serif; font-size:13px; font-weight:800; letter-spacing:.18em; text-transform:uppercase; padding:9px 20px; border-radius:999px; border:1px solid rgba(201,169,110,.45); color:${GOLD}; background:transparent; text-decoration:none; transition:all .3s; display:inline-flex; align-items:center; white-space:nowrap; }
         .btn-ghost:hover { background:rgba(201,169,110,.08); border-color:${GOLD}; box-shadow:0 0 18px rgba(201,169,110,.18); }
         .btn-nav-signin {
           font-family: 'Jost', sans-serif;
-          font-size: 11px;
+          font-size: 13px;
           font-weight: 800;
           letter-spacing: 0.18em;
           text-transform: uppercase;
@@ -143,7 +143,7 @@ const Navbar = () => {
             position: "absolute",
             inset: 0,
             zIndex: 0,
-            background: "linear-gradient(90deg,#0a0a1a,#0d1b2a 50%,#0a0a1a)",
+            background: "linear-gradient(180deg,#1f2a3d 0%,#224266 100%)",
             backdropFilter: "blur(12px)",
             WebkitBackdropFilter: "blur(12px)",
             boxShadow: "0 4px 24px rgba(0,0,0,.4)",
@@ -267,7 +267,7 @@ const Navbar = () => {
           bottom: 0,
           width: "min(320px,85vw)",
           zIndex: 60,
-          background: "linear-gradient(160deg,#0e1c2e,#0a0a1a 55%,#060611)",
+          background: "linear-gradient(180deg,#1f2a3d 0%,#224266 100%)",
           borderLeft: "1px solid rgba(201,169,110,.1)",
           boxShadow: "-24px 0 64px rgba(0,0,0,.65)",
           transform: menuOpen ? "translateX(0)" : "translateX(110%)",
@@ -642,6 +642,7 @@ const Navbar = () => {
                   justifyContent: "center",
                   borderRadius: 13,
                   padding: 13,
+                  fontSize:15,
                 }}
               >
                 {t("auth.signIn")}

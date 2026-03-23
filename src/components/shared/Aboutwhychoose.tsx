@@ -325,10 +325,10 @@ function DesktopPanel({
         {/* Eyebrow */}
         <div
           style={{
-            fontSize: 9,
+            fontSize: 18,
             fontWeight: 800,
-            color: isActive ? `${GOLD}cc` : "rgba(201,169,110,0.28)",
-            letterSpacing: "0.3em",
+            color: isActive ? `${GOLD}cc` : "rgba(201,169,110,0.98)",
+            letterSpacing: "0.1em",
             textTransform: "uppercase",
             fontFamily: "'Cormorant Garamond', Georgia, serif",
             fontStyle: "italic",
@@ -367,7 +367,7 @@ function DesktopPanel({
             fontSize: "clamp(20px, 2.2vw, 29px)",
             fontWeight: 700,
             fontStyle: "italic",
-            color: isActive ? CREAM : "rgba(229,224,198,0.56)",
+            color: isActive ? CREAM : "rgba(229,224,198,0.96)",
             letterSpacing: "-0.016em",
             lineHeight: 1.12,
             transition: "color 0.4s ease",
@@ -400,9 +400,9 @@ function DesktopPanel({
           <p
             style={{
               margin: 0,
-              fontSize: "clamp(11.5px, 0.9vw, 13px)",
+              fontSize: "clamp(11.5px, 0.9vw, 19px)",
               fontWeight: 300,
-              color: "rgba(229,224,198,0.52)",
+              color: "rgba(229,224,198,0.92)",
               lineHeight: 1.9,
               letterSpacing: "0.025em",
             }}
@@ -415,9 +415,9 @@ function DesktopPanel({
         {!isActive && (
           <div
             style={{
-              fontSize: 8,
+              fontSize: 14,
               fontWeight: 700,
-              color: "rgba(201,169,110,0.25)",
+              color: "rgba(201,169,110,0.85)",
               letterSpacing: "0.28em",
               textTransform: "uppercase",
               fontFamily: "'Jost', sans-serif",
@@ -560,9 +560,9 @@ function MobileCard({
         <div style={{ flex: 1, minWidth: 0 }}>
           <div
             style={{
-              fontSize: 8,
+              fontSize: 14,
               fontWeight: 800,
-              color: isOpen ? `${GOLD}bb` : "rgba(201,169,110,0.28)",
+              color: isOpen ? `${GOLD}bb` : "rgba(201,169,110,0.98)",
               letterSpacing: "0.28em",
               textTransform: "uppercase",
               fontFamily: "'Cormorant Garamond', Georgia, serif",
@@ -664,7 +664,7 @@ function MobileCard({
           style={{
             margin: 0,
             padding: "18px 24px 24px",
-            fontSize: 13.5,
+            fontSize: 16.5,
             fontWeight: 300,
             color: "rgba(229,224,198,0.6)",
             lineHeight: 1.85,
@@ -806,8 +806,7 @@ export default function AboutWhyChoose() {
         ref={sectionRef}
         style={{
           position: "relative",
-          background:
-            "linear-gradient(180deg, #0a0a1a 0%, #070f1c 52%, #0a0a1a 100%)",
+          background: "linear-gradient(180deg,#224266 0%,#1f2a3d 100%)",
           padding: "120px 24px 130px",
           overflow: "hidden",
         }}
@@ -912,10 +911,10 @@ export default function AboutWhyChoose() {
             />
             <span
               style={{
-                fontSize: 10,
+                fontSize: 16,
                 fontWeight: 800,
                 color: GOLD,
-                letterSpacing: "0.32em",
+                letterSpacing: "0.02em",
                 textTransform: "uppercase",
               }}
             >
@@ -978,9 +977,9 @@ export default function AboutWhyChoose() {
             style={{
               margin: "0 auto",
               maxWidth: 500,
-              fontSize: "clamp(13px, 1.1vw, 15px)",
+              fontSize: "clamp(13px, 1.1vw, 20px)",
               fontWeight: 300,
-              color: "rgba(229,224,198,0.42)",
+              color: "rgba(229,224,198,0.92)",
               lineHeight: 1.9,
               letterSpacing: "0.03em",
               animation: visible ? "whyFadeUp 0.9s ease 0.34s both" : "none",
@@ -1053,7 +1052,6 @@ export default function AboutWhyChoose() {
           ))}
         </div>
 
-       
         {/* ── Bottom ornament ── */}
         <div
           style={{

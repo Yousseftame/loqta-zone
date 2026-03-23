@@ -13,7 +13,7 @@ const GOLD2 = "#b8944e";
 const NAVY = "#2A4863";
 const NAVY2 = "#1e3652";
 const CREAM = "rgb(229, 224, 198)";
-const BG = "#0a0a1a";
+const BG = "linear-gradient(180deg,#224266 0%,#1f2a3d 100%)";
 
 // ── useInView hook ─────────────────────────────────────────────
 function useInView(
@@ -202,10 +202,10 @@ function AboutHero() {
         />
         <span
           style={{
-            fontSize: 10,
+            fontSize: 15,
             fontWeight: 800,
             color: GOLD,
-            letterSpacing: "0.32em",
+            letterSpacing: "0.02em",
             textTransform: "uppercase",
           }}
         >
@@ -241,7 +241,6 @@ function AboutHero() {
               color: CREAM,
               letterSpacing: "-0.028em",
               display: "inline-block",
-              textShadow: "0 4px 80px rgba(0,0,0,0.55)",
             }}
           >
             {t("aboutPage.hero.line1")}
@@ -274,10 +273,10 @@ function AboutHero() {
         style={{
           position: "relative",
           zIndex: 2,
-          fontSize: "clamp(13px, 1.3vw, 16px)",
+          fontSize: "clamp(16px, 1.3vw, 18px)",
           fontWeight: 300,
           letterSpacing: "0.05em",
-          color: "rgba(229,224,198,0.48)",
+          color: "rgba(229,224,198,0.78)",
           textAlign: "center",
           maxWidth: 520,
           lineHeight: 1.9,
@@ -342,9 +341,9 @@ function AboutHero() {
               </div>
               <div
                 style={{
-                  fontSize: 10,
+                  fontSize: 13,
                   fontWeight: 700,
-                  color: "rgba(229,224,198,0.38)",
+                  color: "rgba(229,224,198,0.78)",
                   letterSpacing: "0.2em",
                   textTransform: "uppercase",
                   marginTop: 5,
@@ -381,9 +380,9 @@ function AboutHero() {
                 borderRadius: 999,
                 background: "rgba(255,255,255,0.035)",
                 border: "1px solid rgba(229,224,198,0.1)",
-                fontSize: 11,
+                fontSize: 13,
                 fontWeight: 600,
-                color: "rgba(229,224,198,0.5)",
+                color: "rgba(229,224,198,0.7)",
                 backdropFilter: "blur(8px)",
                 letterSpacing: "0.08em",
               }}
@@ -433,11 +432,11 @@ function AboutHero() {
         />
         <span
           style={{
-            fontSize: 8.5,
+            fontSize: 10.5,
             fontWeight: 200,
             letterSpacing: "0.38em",
             textTransform: "uppercase",
-            color: "rgba(229,224,198,0.28)",
+            color: "rgba(229,224,198,0.78)",
           }}
         >
           {t("aboutPage.hero.scroll")}

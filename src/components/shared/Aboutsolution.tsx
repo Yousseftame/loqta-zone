@@ -165,8 +165,7 @@ export default function AboutSolution() {
         ref={sectionRef}
         style={{
           position: "relative",
-          background:
-            "linear-gradient(180deg, #0a0a1a 0%, #0e1f33 50%, #0a0a1a 100%)",
+          background: "linear-gradient(180deg,#1f2a3d 0%,#224266 100%)",
           padding: "120px 32px 130px",
           overflow: "hidden",
         }}
@@ -267,10 +266,10 @@ export default function AboutSolution() {
             />
             <span
               style={{
-                fontSize: 10,
+                fontSize: 15,
                 fontWeight: 800,
                 color: GOLD,
-                letterSpacing: "0.32em",
+                letterSpacing: "0.1em",
                 textTransform: "uppercase",
               }}
             >
@@ -291,7 +290,7 @@ export default function AboutSolution() {
               style={{
                 margin: 0,
                 fontFamily: "'Cormorant Garamond', Georgia, serif",
-                fontSize: "clamp(13px, 1.1vw, 15px)",
+                fontSize: "clamp(13px, 1.1vw, 17px)",
                 fontWeight: 300,
                 fontStyle: "italic",
                 color: `${GOLD}cc`,
@@ -350,9 +349,9 @@ export default function AboutSolution() {
             style={{
               margin: "0 auto",
               maxWidth: 500,
-              fontSize: "clamp(13px, 1.1vw, 15px)",
+              fontSize: "clamp(13px, 1.1vw, 17px)",
               fontWeight: 300,
-              color: "rgba(229,224,198,0.42)",
+              color: "rgba(229,224,198,0.92)",
               lineHeight: 1.9,
               letterSpacing: "0.03em",
               animation: visible ? "solFadeUp 0.9s ease 0.36s both" : "none",
@@ -360,9 +359,7 @@ export default function AboutSolution() {
           >
             {t("aboutPage.solution.description")}
           </p>
-              </div>
-              
-              
+        </div>
 
         {/* ── MAIN INTERACTIVE LAYOUT ── */}
         <div
@@ -381,8 +378,7 @@ export default function AboutSolution() {
             transition:
               "opacity 0.9s cubic-bezier(0.22,1,0.36,1) 0.3s, transform 0.9s cubic-bezier(0.22,1,0.36,1) 0.3s",
           }}
-              >
-                  
+        >
           {/* ── LEFT: Vertical step selector ── */}
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {SOLUTION_KEYS.map((key, idx) => {
@@ -478,7 +474,7 @@ export default function AboutSolution() {
                         style={{
                           fontFamily: "'Cormorant Garamond', Georgia, serif",
                           fontStyle: "italic",
-                          fontSize: 12,
+                          fontSize: 19,
                           fontWeight: 700,
                           color: isActive ? GOLD : "rgba(229,224,198,0.25)",
                           transition: "color 0.3s ease",
@@ -493,9 +489,9 @@ export default function AboutSolution() {
                     <div style={{ flex: 1 }}>
                       <div
                         style={{
-                          fontSize: "clamp(14px, 1.3vw, 16px)",
+                          fontSize: "clamp(14px, 1.3vw, 19px)",
                           fontWeight: 800,
-                          color: isActive ? CREAM : "rgba(229,224,198,0.35)",
+                          color: isActive ? CREAM : "rgba(229,224,198,0.85)",
                           letterSpacing: "-0.01em",
                           lineHeight: 1.2,
                           transition: "color 0.35s ease",
@@ -506,11 +502,11 @@ export default function AboutSolution() {
                       </div>
                       <div
                         style={{
-                          fontSize: 11,
+                          fontSize: 15,
                           fontWeight: 400,
                           color: isActive
-                            ? "rgba(229,224,198,0.4)"
-                            : "rgba(229,224,198,0.18)",
+                            ? "rgba(229,224,198,0.9)"
+                            : "rgba(229,224,198,0.78)",
                           transition: "color 0.35s ease",
                           letterSpacing: "0.02em",
                           overflow: "hidden",
@@ -526,7 +522,7 @@ export default function AboutSolution() {
                     {/* Arrow indicator */}
                     <div
                       style={{
-                        fontSize: 10,
+                        fontSize: 15,
                         color: isActive ? `${GOLD}88` : "rgba(229,224,198,0.1)",
                         transform: isActive
                           ? "translateX(0)"
@@ -628,10 +624,10 @@ export default function AboutSolution() {
               {/* Eyebrow label */}
               <div
                 style={{
-                  fontSize: 9,
+                  fontSize: 15,
                   fontWeight: 800,
-                  color: `${GOLD}99`,
-                  letterSpacing: "0.32em",
+                  color: `${GOLD}`,
+                  letterSpacing: "0.02em",
                   textTransform: "uppercase",
                   marginBottom: 20,
                   display: "flex",
@@ -685,11 +681,11 @@ export default function AboutSolution() {
               <p
                 style={{
                   margin: "0 0 36px",
-                  fontSize: "clamp(13.5px, 1.1vw, 15.5px)",
+                  fontSize: "clamp(13.5px, 1.1vw, 19.5px)",
                   fontWeight: 300,
-                  color: "rgba(229,224,198,0.58)",
+                  color: "rgba(229,224,198,0.98)",
                   lineHeight: 1.95,
-                  letterSpacing: "0.025em",
+                  letterSpacing: "0.005em",
                   maxWidth: 440,
                   position: "relative",
                   zIndex: 1,
@@ -777,9 +773,9 @@ export default function AboutSolution() {
                   )}
                   <div
                     style={{
-                      fontSize: 9,
+                      fontSize: 13,
                       fontWeight: 700,
-                      color: isAct ? `${GOLD}aa` : "rgba(229,224,198,0.22)",
+                      color: isAct ? `${GOLD}aa` : "rgba(229,224,198,0.82)",
                       letterSpacing: "0.26em",
                       textTransform: "uppercase",
                       marginBottom: 6,
@@ -792,9 +788,9 @@ export default function AboutSolution() {
                   </div>
                   <div
                     style={{
-                      fontSize: "clamp(12px, 1.1vw, 13.5px)",
+                      fontSize: "clamp(12px, 1.1vw, 19.5px)",
                       fontWeight: 700,
-                      color: isAct ? CREAM : "rgba(229,224,198,0.28)",
+                      color: isAct ? CREAM : "rgba(229,224,198,0.68)",
                       letterSpacing: "-0.01em",
                       transition: "color 0.35s ease",
                     }}

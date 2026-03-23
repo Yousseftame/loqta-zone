@@ -94,10 +94,10 @@ function TabPanel({
       {/* Eyebrow label */}
       <div
         style={{
-          fontSize: 9,
+          fontSize: 17,
           fontWeight: 800,
-          color: `${GOLD}99`,
-          letterSpacing: "0.3em",
+          color: `${GOLD}`,
+          letterSpacing: "0.1em",
           textTransform: "uppercase",
           marginBottom: 18,
           display: "flex",
@@ -145,9 +145,9 @@ function TabPanel({
       <p
         style={{
           margin: 0,
-          fontSize: "clamp(13.5px, 1.1vw, 15.5px)",
+          fontSize: "clamp(13.5px, 1.1vw, 17.5px)",
           fontWeight: 300,
-          color: "rgba(229,224,198,0.6)",
+          color: "rgba(229,224,198,0.9)",
           lineHeight: 1.9,
           letterSpacing: "0.025em",
           maxWidth: 460,
@@ -259,8 +259,7 @@ export default function AboutPlatform() {
         ref={sectionRef}
         style={{
           position: "relative",
-          background:
-            "linear-gradient(180deg, #0a0a1a 0%, #0c1828 55%, #0a0a1a 100%)",
+          background: "linear-gradient(180deg,#1f2a3d 0%,#224266 100%)",
           padding: "110px 32px 120px",
           overflow: "hidden",
         }}
@@ -352,10 +351,10 @@ export default function AboutPlatform() {
             />
             <span
               style={{
-                fontSize: 10,
+                fontSize: 15,
                 fontWeight: 800,
                 color: GOLD,
-                letterSpacing: "0.32em",
+                letterSpacing: "0.1em",
                 textTransform: "uppercase",
               }}
             >
@@ -418,9 +417,9 @@ export default function AboutPlatform() {
             style={{
               margin: "0 auto",
               maxWidth: 520,
-              fontSize: "clamp(13px, 1.15vw, 15px)",
+              fontSize: "clamp(13px, 1.15vw, 17px)",
               fontWeight: 300,
-              color: "rgba(229,224,198,0.45)",
+              color: "rgba(229,224,198,0.85)",
               lineHeight: 1.9,
               letterSpacing: "0.03em",
               animation: visible ? "apFadeUp 0.9s ease 0.38s both" : "none",
@@ -515,7 +514,7 @@ export default function AboutPlatform() {
                     {/* Numeral */}
                     <div
                       style={{
-                        fontSize: 9,
+                        fontSize: 11,
                         fontWeight: 700,
                         color: isActive
                           ? `${GOLD}cc`
@@ -533,9 +532,9 @@ export default function AboutPlatform() {
                     {/* Tab title */}
                     <div
                       style={{
-                        fontSize: "clamp(15px, 1.5vw, 18px)",
+                        fontSize: "clamp(15px, 1.5vw, 20px)",
                         fontWeight: 800,
-                        color: isActive ? CREAM : "rgba(229,224,198,0.38)",
+                        color: isActive ? CREAM : "rgba(229,224,198,0.98)",
                         letterSpacing: "-0.01em",
                         lineHeight: 1.2,
                         transition: "color 0.35s ease",
@@ -548,11 +547,11 @@ export default function AboutPlatform() {
                     {/* Short teaser line */}
                     <div
                       style={{
-                        fontSize: 11.5,
+                        fontSize: 14.5,
                         fontWeight: 400,
                         color: isActive
-                          ? "rgba(229,224,198,0.45)"
-                          : "rgba(229,224,198,0.2)",
+                          ? "rgba(229,224,198,0.95)"
+                          : "rgba(229,224,198,0.6)",
                         letterSpacing: "0.02em",
                         marginTop: 5,
                         lineHeight: 1.5,

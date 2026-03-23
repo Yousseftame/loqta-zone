@@ -11,7 +11,7 @@ const GOLD2 = "#b8944e";
 const NAVY = "#2A4863";
 const NAVY2 = "#1e3652";
 const CREAM = "rgb(229, 224, 198)";
-const BG = "#0a0a1a";
+const BG = "linear-gradient(180deg,#224266 0%,#1f2a3d 100%)";
 
 // ── Helpers ───────────────────────────────────────────────────
 function useInView(
@@ -68,7 +68,7 @@ function Field({
     borderRadius: 12,
     padding: textarea ? "14px 16px 14px 44px" : "0 16px 0 44px",
     color: CREAM,
-    fontSize: 13.5,
+    fontSize: 15.5,
     fontFamily: "'Jost', sans-serif",
     letterSpacing: "0.02em",
     outline: "none",
@@ -81,10 +81,10 @@ function Field({
     <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
       <label
         style={{
-          fontSize: 10,
+          fontSize: 16,
           fontWeight: 800,
-          color: focused ? GOLD : "rgba(229,224,198,0.4)",
-          letterSpacing: "0.22em",
+          color: focused ? GOLD : "rgba(229,224,198)",
+          letterSpacing: "0.02em",
           textTransform: "uppercase",
           transition: "color 0.3s ease",
           display: "flex",
@@ -103,7 +103,7 @@ function Field({
             left: 15,
             top: textarea ? 15 : "50%",
             transform: textarea ? "none" : "translateY(-50%)",
-            fontSize: 15,
+            fontSize: 20,
             opacity: focused ? 0.7 : 0.3,
             transition: "opacity 0.3s ease",
             pointerEvents: "none",
@@ -157,10 +157,10 @@ function StarRating({
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <label
         style={{
-          fontSize: 10,
+          fontSize: 13,
           fontWeight: 800,
-          color: "rgba(229,224,198,0.4)",
-          letterSpacing: "0.22em",
+          color: "rgba(229,224,198)",
+          letterSpacing: "0.02em",
           textTransform: "uppercase",
           display: "flex",
           alignItems: "center",
@@ -201,7 +201,7 @@ function StarRating({
         {(hovered || value) > 0 && (
           <span
             style={{
-              fontSize: 11,
+              fontSize: 15,
               fontWeight: 700,
               color: GOLD,
               letterSpacing: "0.1em",
@@ -236,10 +236,10 @@ function SelectField({
     <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
       <label
         style={{
-          fontSize: 10,
+          fontSize: 15,
           fontWeight: 800,
-          color: focused ? GOLD : "rgba(229,224,198,0.4)",
-          letterSpacing: "0.22em",
+          color: focused ? GOLD : "rgba(229,224,198)",
+          letterSpacing: "0.02em",
           textTransform: "uppercase",
           transition: "color 0.3s ease",
           display: "flex",
@@ -308,8 +308,8 @@ function SelectField({
             right: 16,
             top: "50%",
             transform: "translateY(-50%)",
-            fontSize: 10,
-            color: "rgba(229,224,198,0.35)",
+            fontSize: 15,
+            color: "rgba(229,224,198,0.95)",
             pointerEvents: "none",
           }}
         >
@@ -338,7 +338,7 @@ function SubmitBtn({ label, loading }: { label: string; loading: boolean }) {
         border: "none",
         borderRadius: 12,
         height: 54,
-        fontSize: 11,
+        fontSize: 15,
         fontWeight: 800,
         letterSpacing: "0.22em",
         textTransform: "uppercase",
@@ -443,8 +443,8 @@ function SuccessState({
         </div>
         <div
           style={{
-            fontSize: 13,
-            color: "rgba(229,224,198,0.45)",
+            fontSize: 15,
+            color: "rgba(229,224,198,0.95)",
             lineHeight: 1.7,
           }}
         >
@@ -459,7 +459,7 @@ function SuccessState({
           color: GOLD,
           borderRadius: 999,
           padding: "10px 28px",
-          fontSize: 11,
+          fontSize: 15,
           fontWeight: 700,
           letterSpacing: "0.16em",
           textTransform: "uppercase",
@@ -531,7 +531,7 @@ function ContactInfo({
       <div>
         <div
           style={{
-            fontSize: 9,
+            fontSize: 13,
             fontWeight: 800,
             color: `${GOLD}88`,
             letterSpacing: "0.22em",
@@ -655,10 +655,10 @@ function FormCard({
         <div>
           <div
             style={{
-              fontSize: 9,
+              fontSize: 11,
               fontWeight: 800,
-              color: `${accentColor}99`,
-              letterSpacing: "0.26em",
+              color: `${accentColor}`,
+              letterSpacing: "0.06em",
               textTransform: "uppercase",
               marginBottom: 4,
             }}
@@ -832,7 +832,7 @@ function ContactForm({ visible }: { visible: boolean }) {
           <p
             style={{
               margin: 0,
-              fontSize: 12,
+              fontSize: 14,
               color: "#EF4444",
               fontWeight: 600,
             }}
@@ -1031,10 +1031,10 @@ function FeedbackForm({ visible }: { visible: boolean }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <label
             style={{
-              fontSize: 10,
+              fontSize: 15,
               fontWeight: 800,
-              color: "rgba(229,224,198,0.4)",
-              letterSpacing: "0.22em",
+              color: "rgba(229,224,198,0.9)",
+              letterSpacing: "0.02em",
               textTransform: "uppercase",
               display: "flex",
               alignItems: "center",
@@ -1061,8 +1061,8 @@ function FeedbackForm({ visible }: { visible: boolean }) {
                   color:
                     form.recommend === opt
                       ? "#a3c9a8"
-                      : "rgba(229,224,198,0.45)",
-                  fontSize: 11.5,
+                      : "rgba(229,224,198,0.85)",
+                  fontSize: 12.5,
                   fontWeight: 700,
                   letterSpacing: "0.04em",
                   cursor: "pointer",
@@ -1255,10 +1255,10 @@ export default function ContactUs() {
             />
             <span
               style={{
-                fontSize: 10,
+                fontSize: 15,
                 fontWeight: 800,
                 color: GOLD,
-                letterSpacing: "0.32em",
+                letterSpacing: "0.02em",
                 textTransform: "uppercase",
               }}
             >
@@ -1320,10 +1320,10 @@ export default function ContactUs() {
             style={{
               position: "relative",
               zIndex: 2,
-              fontSize: "clamp(13px, 1.3vw, 16px)",
+              fontSize: "clamp(13px, 1.3vw, 18px)",
               fontWeight: 300,
               letterSpacing: "0.05em",
-              color: "rgba(229,224,198,0.48)",
+              color: "rgba(229,224,198,0.98)",
               textAlign: "center",
               maxWidth: 460,
               lineHeight: 1.85,
@@ -1354,9 +1354,9 @@ export default function ContactUs() {
                   borderRadius: 999,
                   background: "rgba(255,255,255,0.04)",
                   border: "1px solid rgba(229,224,198,0.1)",
-                  fontSize: 11.5,
+                  fontSize: 14.5,
                   fontWeight: 600,
-                  color: "rgba(229,224,198,0.55)",
+                  color: "rgba(229,224,198,0.75)",
                   backdropFilter: "blur(8px)",
                 }}
               >
@@ -1391,11 +1391,11 @@ export default function ContactUs() {
             />
             <span
               style={{
-                fontSize: 8.5,
+                fontSize: 9.5,
                 fontWeight: 200,
                 letterSpacing: "0.38em",
                 textTransform: "uppercase",
-                color: "rgba(229,224,198,0.28)",
+                color: "rgba(229,224,198,0.68)",
               }}
             >
               {t("contactPage.hero.scroll")}
@@ -1407,7 +1407,7 @@ export default function ContactUs() {
         <section
           ref={formsRef}
           style={{
-            background: `linear-gradient(180deg, #0a0a1a 0%, #0c1828 50%, #0a0a1a 100%)`,
+            background: "linear-gradient(180deg,#224266 0%,#1f2a3d 100%)",
             padding: "80px 32px 100px",
             position: "relative",
             overflow: "hidden",
@@ -1466,10 +1466,10 @@ export default function ContactUs() {
               />
               <span
                 style={{
-                  fontSize: 10,
+                  fontSize: 16,
                   fontWeight: 800,
                   color: GOLD,
-                  letterSpacing: "0.3em",
+                  letterSpacing: "0.01em",
                   textTransform: "uppercase",
                 }}
               >
@@ -1521,7 +1521,7 @@ export default function ContactUs() {
         <section
           ref={infoRef}
           style={{
-            background: `linear-gradient(180deg, #0a0a1a 0%, #060610 100%)`,
+            background: "linear-gradient(180deg,#1f2a3d 0%,#224266 100%)",
             padding: "80px 32px 100px",
             position: "relative",
           }}
@@ -1548,10 +1548,10 @@ export default function ContactUs() {
             >
               <span
                 style={{
-                  fontSize: 10,
+                  fontSize: 15,
                   fontWeight: 800,
-                  color: `${GOLD}88`,
-                  letterSpacing: "0.28em",
+                  color: `${GOLD}`,
+                  letterSpacing: "0.02em",
                   textTransform: "uppercase",
                 }}
               >
@@ -1635,8 +1635,8 @@ export default function ContactUs() {
               </div>
               <p
                 style={{
-                  fontSize: 12,
-                  color: "rgba(229,224,198,0.28)",
+                  fontSize: 15,
+                  color: "rgba(229,224,198,0.78)",
                   letterSpacing: "0.08em",
                   margin: 0,
                 }}

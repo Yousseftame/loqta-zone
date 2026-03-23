@@ -35,9 +35,9 @@ import { useAuth } from "@/store/AuthContext/AuthContext";
 const GOLD = "#c9a96e";
 const GOLD2 = "#b8944e";
 const CREAM = "rgb(229,224,198)";
-const DARK = "#080d1a";
-const NAVY = "#0e1c2e";
-const NAVY2 = "#112237";
+const DARK = "#1f2a3d ";
+const NAVY = "#224266 ";
+const NAVY2 = "#224266";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface UserAuctionEntry {
@@ -171,9 +171,9 @@ const StatPill = ({
     </span>
     <span
       style={{
-        fontSize: 9,
+        fontSize: 13,
         fontWeight: 700,
-        color: "rgba(229,224,198,0.3)",
+        color: "rgba(229,224,198,0.6)",
         letterSpacing: "0.1em",
         textTransform: "uppercase" as const,
         fontFamily: "'Jost',sans-serif",
@@ -361,8 +361,8 @@ const AuctionCard = ({
                 <p
                   style={{
                     margin: "3px 0 0",
-                    fontSize: 10,
-                    color: "rgba(229,224,198,0.28)",
+                    fontSize: 15,
+                    color: "rgba(229,224,198,0.78)",
                     fontFamily: "'Jost',sans-serif",
                   }}
                 >
@@ -380,7 +380,7 @@ const AuctionCard = ({
                   borderRadius: 999,
                   background: statusCfg.bg,
                   border: `1px solid ${statusCfg.border}`,
-                  fontSize: 9,
+                  fontSize: 12,
                   fontWeight: 900,
                   letterSpacing: "0.14em",
                   textTransform: "uppercase",
@@ -418,8 +418,8 @@ const AuctionCard = ({
                 display: "flex",
                 alignItems: "center",
                 gap: 4,
-                fontSize: 11,
-                color: "rgba(229,224,198,0.38)",
+                fontSize: 14,
+                color: "rgba(229,224,198,0.78)",
                 fontFamily: "'Jost',sans-serif",
               }}
             >
@@ -432,7 +432,7 @@ const AuctionCard = ({
                   display: "flex",
                   alignItems: "center",
                   gap: 4,
-                  fontSize: 10,
+                  fontSize: 14,
                   color: GOLD,
                   fontFamily: "'Jost',sans-serif",
                   fontWeight: 700,
@@ -497,11 +497,11 @@ const AuctionCard = ({
       >
         <span
           style={{
-            fontSize: 10,
+            fontSize: 16,
             fontWeight: 800,
-            letterSpacing: "0.16em",
+            letterSpacing: "0.07em",
             textTransform: "uppercase",
-            color: expanded ? GOLD : "rgba(229,224,198,0.3)",
+            color: expanded ? GOLD : "rgba(229,224,198,0.8)",
             fontFamily: "'Jost',sans-serif",
             transition: "color 0.2s",
           }}
@@ -542,11 +542,11 @@ const AuctionCard = ({
                 <p
                   style={{
                     margin: 0,
-                    fontSize: 9,
+                    fontSize: 15,
                     fontWeight: 800,
-                    letterSpacing: "0.2em",
+                    letterSpacing: "0.17em",
                     textTransform: "uppercase",
-                    color: "rgba(201,169,110,0.45)",
+                    color: "rgba(201,169,110,0.85)",
                   }}
                 >
                   {t("myBidsPage.card.bidHistory")}
@@ -555,8 +555,8 @@ const AuctionCard = ({
                   <BidSparkline data={entry.totalAmount} color={GOLD} />
                   <span
                     style={{
-                      fontSize: 10,
-                      color: "rgba(229,224,198,0.3)",
+                      fontSize: 15,
+                      color: "rgba(229,224,198,0.6)",
                       fontFamily: "'Jost',sans-serif",
                     }}
                   >
@@ -589,10 +589,10 @@ const AuctionCard = ({
                     >
                       <span
                         style={{
-                          fontSize: 9,
+                          fontSize: 15,
                           color: isMax
-                            ? "rgba(201,169,110,0.6)"
-                            : "rgba(229,224,198,0.25)",
+                            ? "rgba(201,169,110,0.9)"
+                            : "rgba(229,224,198,0.45)",
                           fontFamily: "'Jost',sans-serif",
                           fontWeight: 700,
                         }}
@@ -601,9 +601,9 @@ const AuctionCard = ({
                       </span>
                       <span
                         style={{
-                          fontSize: 12,
+                          fontSize: 14,
                           fontWeight: 800,
-                          color: isMax ? GOLD : "rgba(229,224,198,0.6)",
+                          color: isMax ? GOLD : "rgba(229,224,198,0.9)",
                           fontFamily: "'Jost',sans-serif",
                         }}
                       >
@@ -690,9 +690,9 @@ const AuctionCard = ({
                   <p
                     style={{
                       margin: 0,
-                      fontSize: 9,
+                      fontSize: 12,
                       fontWeight: 700,
-                      color: "rgba(229,224,198,0.28)",
+                      color: "rgba(229,224,198,0.68)",
                       letterSpacing: "0.1em",
                       textTransform: "uppercase",
                       fontFamily: "'Jost',sans-serif",
@@ -703,7 +703,7 @@ const AuctionCard = ({
                   <p
                     style={{
                       margin: "2px 0 0",
-                      fontSize: 11,
+                      fontSize: 14,
                       fontWeight: 700,
                       color: row.color,
                       fontFamily: "'Jost',sans-serif",
@@ -768,7 +768,7 @@ const EmptyState = () => {
       <p
         style={{
           margin: "0 0 24px",
-          fontSize: 13,
+          fontSize: 12,
           color: "rgba(229,224,198,0.38)",
           fontFamily: "'Jost',sans-serif",
         }}
@@ -981,11 +981,11 @@ export default function MyBids() {
             >
               <span
                 style={{
-                  fontSize: 10,
+                  fontSize: 15,
                   fontWeight: 800,
                   letterSpacing: "0.22em",
                   textTransform: "uppercase",
-                  color: "rgba(201,169,110,0.45)",
+                  color: "rgba(201,169,110,0.75)",
                 }}
               >
                 {t("myBidsPage.account")}
@@ -993,7 +993,7 @@ export default function MyBids() {
               <span style={{ color: "rgba(229,224,198,0.15)" }}>✦</span>
               <span
                 style={{
-                  fontSize: 10,
+                  fontSize: 15,
                   fontWeight: 800,
                   letterSpacing: "0.22em",
                   textTransform: "uppercase",
@@ -1027,8 +1027,8 @@ export default function MyBids() {
                 <p
                   style={{
                     margin: "4px 0 0",
-                    fontSize: 13,
-                    color: "rgba(229,224,198,0.36)",
+                    fontSize: 14,
+                    color: "rgba(229,224,198,0.76)",
                     fontWeight: 500,
                   }}
                 >
@@ -1037,9 +1037,9 @@ export default function MyBids() {
               </div>
               <span
                 style={{
-                  fontSize: 11,
+                  fontSize: 14,
                   fontWeight: 700,
-                  color: "rgba(229,224,198,0.3)",
+                  color: "rgba(229,224,198)",
                   fontFamily: "'Jost',sans-serif",
                 }}
               >
@@ -1122,9 +1122,9 @@ export default function MyBids() {
                     <p
                       style={{
                         margin: "3px 0 0",
-                        fontSize: 10,
+                        fontSize: 13,
                         fontWeight: 700,
-                        color: "rgba(229,224,198,0.35)",
+                        color: "rgba(229,224,198,0.65)",
                         fontFamily: "'Jost',sans-serif",
                         letterSpacing: "0.08em",
                         textTransform: "uppercase",

@@ -179,8 +179,7 @@ export default function AboutVisionMission() {
         ref={secRef}
         style={{
           position: "relative",
-          background:
-            "linear-gradient(180deg,#0a0a1a 0%,#07101e 50%,#0a0a1a 100%)",
+          background: "linear-gradient(180deg,#1f2a3d 0%,#224266 100%)",
           overflow: "hidden",
         }}
       >
@@ -298,10 +297,10 @@ export default function AboutVisionMission() {
             <span
               style={{
                 fontFamily: "'Jost',sans-serif",
-                fontSize: 10,
+                fontSize: 15,
                 fontWeight: 800,
                 color: GOLD,
-                letterSpacing: ".32em",
+                letterSpacing: ".02em",
                 textTransform: "uppercase",
               }}
             >
@@ -340,8 +339,6 @@ export default function AboutVisionMission() {
               </span>
             </h2>
           </div>
-
-        
         </div>
 
         {/* ══ TWO-COLUMN PANEL ══ */}
@@ -402,10 +399,10 @@ export default function AboutVisionMission() {
                   className="vm-label-text"
                   style={{
                     fontFamily: "'Jost',sans-serif",
-                    fontSize: 13, // ← up from 9px
+                    fontSize: 26, // ← up from 9px
                     fontWeight: 800,
                     color: GOLD,
-                    letterSpacing: ".32em",
+                    letterSpacing: ".12em",
                     textTransform: "uppercase",
                     transition: "letter-spacing .5s cubic-bezier(.22,1,.36,1)",
                   }}
@@ -473,9 +470,9 @@ export default function AboutVisionMission() {
                 style={{
                   margin: 0,
                   fontFamily: "'Jost',sans-serif",
-                  fontSize: "clamp(14px,1.2vw,17px)",
+                  fontSize: "clamp(14px,1.2vw,20px)",
                   fontWeight: 300,
-                  color: "rgba(229,224,198,.55)",
+                  color: "rgba(229,224,198,.95)",
                   lineHeight: 1.95,
                   letterSpacing: ".02em",
                   maxWidth: 520,
@@ -540,10 +537,10 @@ export default function AboutVisionMission() {
                   className="vm-label-text"
                   style={{
                     fontFamily: "'Jost',sans-serif",
-                    fontSize: 13,
+                    fontSize: 26,
                     fontWeight: 800,
                     color: GOLD,
-                    letterSpacing: ".32em",
+                    letterSpacing: ".12em",
                     textTransform: "uppercase",
                     transition: "letter-spacing .5s cubic-bezier(.22,1,.36,1)",
                   }}
@@ -611,9 +608,9 @@ export default function AboutVisionMission() {
                 style={{
                   margin: 0,
                   fontFamily: "'Jost',sans-serif",
-                  fontSize: "clamp(14px,1.2vw,17px)",
+                  fontSize: "clamp(14px,1.2vw,20px)",
                   fontWeight: 300,
-                  color: "rgba(229,224,198,.55)",
+                  color: "rgba(229,224,198,.95)",
                   lineHeight: 1.95,
                   letterSpacing: ".02em",
                   maxWidth: 520,
