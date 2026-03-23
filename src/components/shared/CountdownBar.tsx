@@ -242,12 +242,12 @@ export function CountdownBar({ startsAt }: CountdownBarProps) {
       ctx.restore();
 
       // Label row — Share Tech Mono for consistency
-      const labels = ["DAYS", "HOURS", "MINUTES", "SEC"];
+      const labels = ["DAYS", "HOURS", "MINS", "SECS"];
       const colW = boxW / 4;
       ctx.save();
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.font = '700 12px "Arial Narrow", Helvetica, Arial, sans-serif';
+      ctx.font = '700 14px "Arial Narrow", Helvetica, Arial, sans-serif';
       ctx.fillStyle = "rgba(201,169,110,0.82)";
       labels.forEach((lbl, i) => {
         ctx.fillText(lbl, boxX + colW * i + colW / 2, boxY + 18);

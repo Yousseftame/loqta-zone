@@ -165,7 +165,7 @@ function FlipDigit({
           right: 0,
           top: "50%",
           height: 1,
-          background: "rgba(0,0,0,0.45)",
+background: "rgba(255,255,255,0.1)",
           zIndex: 2,
           pointerEvents: "none",
           transform: "translateY(-50%)",
