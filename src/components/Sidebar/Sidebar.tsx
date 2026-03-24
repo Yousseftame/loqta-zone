@@ -459,7 +459,7 @@ const Sidebar = () => {
         />
       )}
 
-      <div className="flex h-screen">
+      <>
         <div
           className={`relative bg-white border-r border-[#E2E8F0] shadow-sm transition-all duration-500 ease-in-out flex-shrink-0 ${
             collapsed ? "w-20" : "w-72"
@@ -636,7 +636,7 @@ const Sidebar = () => {
             to   { transform: scale(1); opacity: 1; }
           }
         `}</style>
-      </div>
+      </>
     </>
   );
 };

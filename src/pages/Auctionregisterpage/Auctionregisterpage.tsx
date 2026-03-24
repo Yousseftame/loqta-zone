@@ -673,9 +673,9 @@ export default function AuctionRegisterPage() {
         .lz-acard.sel::before { opacity:1; }
         .lz-acard.joined { border-color:rgba(74,222,128,0.28); background:rgba(74,222,128,0.025); }
         .lz-acard.joined:hover { border-color:rgba(74,222,128,0.52); background:rgba(74,222,128,0.05); box-shadow:0 14px 44px rgba(0,0,0,0.32); transform:translateY(-2px); }
-        .lz-joined-badge { display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:99px; background:rgba(74,222,128,0.1); border:1px solid rgba(74,222,128,0.28); color:#4ade80; font-size:9px; font-weight:800; letter-spacing:0.14em; text-transform:uppercase; margin-bottom:11px; animation:lz-joined-in 0.3s ease; }
+        .lz-joined-badge { display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:99px; background:rgba(74,222,128,0.1); border:1px solid rgba(74,222,128,0.28); color:#4ade80; font-size:14px; font-weight:800; letter-spacing:0.14em; text-transform:uppercase; margin-bottom:11px; animation:lz-joined-in 0.3s ease; }
         .lz-joined-dot { width:5px; height:5px; border-radius:50%; background:#4ade80; animation:lz-pulse 1.5s ease-in-out infinite; flex-shrink:0; }
-        .lz-rejoin-btn { width:100%; height:42px; border:1px solid rgba(74,222,128,0.35); border-radius:10px; background:rgba(74,222,128,0.06); color:#4ade80; font-family:'Outfit',system-ui,sans-serif; font-size:10px; font-weight:800; letter-spacing:0.18em; text-transform:uppercase; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; transition:all 0.25s cubic-bezier(0.22,1,0.36,1); margin-top:14px; }
+        .lz-rejoin-btn { width:100%; height:42px; border:1px solid rgba(74,222,128,0.35); border-radius:10px; background:rgba(74,222,128,0.06); color:#4ade80; font-family:'Outfit',system-ui,sans-serif; font-size:14px; font-weight:800; letter-spacing:0.18em; text-transform:uppercase; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; transition:all 0.25s cubic-bezier(0.22,1,0.36,1); margin-top:14px; }
         .lz-rejoin-btn:hover { background:rgba(74,222,128,0.12); border-color:rgba(74,222,128,0.6); transform:translateY(-1px); box-shadow:0 6px 22px rgba(74,222,128,0.12); }
         .lz-rejoin-arrow { font-size:14px; transition:transform 0.2s ease; }
         .lz-rejoin-btn:hover .lz-rejoin-arrow { transform:translateX(4px); }
@@ -828,7 +828,7 @@ export default function AuctionRegisterPage() {
                 <div className="lz-pdesc-top">{product.description}</div>
               )}
               <div className="lz-gold-line" />
-              <div className="lz-pricerow">
+              {/* <div className="lz-pricerow">
                 <span className="lz-plabel">
                   {t("auctionRegister.startingPrice")}
                 </span>
@@ -836,7 +836,7 @@ export default function AuctionRegisterPage() {
                   {product.price.toLocaleString()}
                 </span>
                 <span className="lz-pcur">{cur}</span>
-              </div>
+              </div> */}
               <div className="lz-specs">
                 {product.brand && (
                   <div className="lz-srow">

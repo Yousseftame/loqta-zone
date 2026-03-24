@@ -192,25 +192,27 @@ export default function CategoriesList() {
           >
             <RefreshCw size={18} />
           </IconButton>
-       {can("categories","create")  &&  <Button
-            variant="contained"
-            startIcon={<Plus size={18} />}
-            onClick={() => navigate("/admin/categories/add")}
-            sx={{
-              bgcolor: colors.primary,
-              color: "white",
-              textTransform: "none",
-              px: 3,
-              py: 1.5,
-              borderRadius: 2,
-              fontWeight: 600,
-              boxShadow: "none",
-              width: { xs: "100%", sm: "auto" },
-              "&:hover": { bgcolor: "#111" },
-            }}
-          >
-            Add New Category
-          </Button> }
+          {can("categories", "create") && (
+            <Button
+              variant="contained"
+              startIcon={<Plus size={18} />}
+              onClick={() => navigate("/admin/categories/add")}
+              sx={{
+                bgcolor: colors.primary,
+                color: "white",
+                textTransform: "none",
+                px: 3,
+                py: 1.5,
+                borderRadius: 2,
+                fontWeight: 600,
+                boxShadow: "none",
+                width: { xs: "100%", sm: "auto" },
+                "&:hover": { bgcolor: "#111" },
+              }}
+            >
+              Add New Category
+            </Button>
+          )}
         </Box>
       </Box>
 
@@ -355,7 +357,7 @@ export default function CategoriesList() {
           overflow: "hidden",
         }}
       >
-        <Box sx={{ overflowX: "auto" }}>
+        <div className="overflow-x-auto">
           <Table sx={{ minWidth: 600 }}>
             <TableHead>
               <TableRow sx={{ bgcolor: colors.primaryBg }}>
@@ -511,49 +513,55 @@ export default function CategoriesList() {
                           gap: 0.5,
                         }}
                       >
-                        {can("categories", "read") && <IconButton
-                          size="small"
-                          onClick={() =>
-                            navigate(`/admin/categories/${category.id}`)
-                          }
-                          sx={{
-                            color: colors.primary,
-                            "&:hover": { bgcolor: colors.primaryBg },
-                            borderRadius: 1.5,
-                          }}
-                          title="View"
-                        >
-                          <Eye size={16} />
-                        </IconButton>}
-                        {can("categories", "update") && <IconButton
-                          size="small"
-                          onClick={() =>
-                            navigate(`/admin/categories/${category.id}/edit`)
-                          }
-                          sx={{
-                            color: "#7C3AED",
-                            "&:hover": { bgcolor: "#F3E8FF" },
-                            borderRadius: 1.5,
-                          }}
-                          title="Edit"
-                        >
-                          <Edit size={16} />
-                        </IconButton>}
-                        {can("categories", "delete") && <IconButton
-                          size="small"
-                          onClick={() => {
-                            setCategoryToDelete(category);
-                            setDeleteDialog(true);
-                          }}
-                          sx={{
-                            color: colors.error,
-                            "&:hover": { bgcolor: colors.errorBg },
-                            borderRadius: 1.5,
-                          }}
-                          title="Delete"
-                        >
-                          <Trash2 size={16} />
-                        </IconButton>}
+                        {can("categories", "read") && (
+                          <IconButton
+                            size="small"
+                            onClick={() =>
+                              navigate(`/admin/categories/${category.id}`)
+                            }
+                            sx={{
+                              color: colors.primary,
+                              "&:hover": { bgcolor: colors.primaryBg },
+                              borderRadius: 1.5,
+                            }}
+                            title="View"
+                          >
+                            <Eye size={16} />
+                          </IconButton>
+                        )}
+                        {can("categories", "update") && (
+                          <IconButton
+                            size="small"
+                            onClick={() =>
+                              navigate(`/admin/categories/${category.id}/edit`)
+                            }
+                            sx={{
+                              color: "#7C3AED",
+                              "&:hover": { bgcolor: "#F3E8FF" },
+                              borderRadius: 1.5,
+                            }}
+                            title="Edit"
+                          >
+                            <Edit size={16} />
+                          </IconButton>
+                        )}
+                        {can("categories", "delete") && (
+                          <IconButton
+                            size="small"
+                            onClick={() => {
+                              setCategoryToDelete(category);
+                              setDeleteDialog(true);
+                            }}
+                            sx={{
+                              color: colors.error,
+                              "&:hover": { bgcolor: colors.errorBg },
+                              borderRadius: 1.5,
+                            }}
+                            title="Delete"
+                          >
+                            <Trash2 size={16} />
+                          </IconButton>
+                        )}
                       </Box>
                     </TableCell>
                   </TableRow>
@@ -561,7 +569,7 @@ export default function CategoriesList() {
               )}
             </TableBody>
           </Table>
-        </Box>
+        </div>
         <TablePagination
           component="div"
           count={filtered.length}

@@ -31,7 +31,6 @@ interface LiveAuction {
 function useLiveAuctions() {
   const [auctions, setAuctions] = useState<LiveAuction[]>([]);
   const [loading, setLoading] = useState(true);
-  // Cache product data so snapshot updates don't re-fetch already-loaded products
   const productCache = useRef<Record<string, any>>({});
 
   useEffect(() => {
@@ -55,7 +54,6 @@ function useLiveAuctions() {
           return (st instanceof Timestamp ? st.toDate() : new Date(st)) <= now;
         });
 
-        // Only fetch products not already in cache
         const pids = [
           ...new Set(live.map((d) => d.data().productId).filter(Boolean)),
         ];
@@ -104,7 +102,7 @@ function useLiveAuctions() {
   return { auctions, loading };
 }
 
-// ─── Countdown: early-exit when done, memoized calc ───────────────────────────
+// ─── Countdown ────────────────────────────────────────────────────────────────
 function calcCountdown(endsAt: string) {
   const diff = new Date(endsAt).getTime() - Date.now();
   if (diff <= 0) return { h: 0, m: 0, s: 0, done: true, urgent: false };
@@ -121,7 +119,7 @@ function calcCountdown(endsAt: string) {
 function useCountdown(endsAt: string) {
   const [time, set] = useState(() => calcCountdown(endsAt));
   useEffect(() => {
-    if (time.done) return; // stop ticking when expired
+    if (time.done) return;
     const id = setInterval(() => set(calcCountdown(endsAt)), 1000);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -129,9 +127,6 @@ function useCountdown(endsAt: string) {
   return time;
 }
 
-// ─── FlipDigit: CSS key-swap instead of JS useState(flipping) ─────────────────
-// Changing `key` when value changes triggers CSS re-entry animation.
-// Zero JS state, zero setTimeout chains.
 function FlipDigit({
   value,
   color,
@@ -165,7 +160,7 @@ function FlipDigit({
           right: 0,
           top: "50%",
           height: 1,
-background: "rgba(255,255,255,0.1)",
+          background: "rgba(255,255,255,0.1)",
           zIndex: 2,
           pointerEvents: "none",
           transform: "translateY(-50%)",
@@ -321,7 +316,7 @@ function RowCountdown({ endsAt }: { endsAt: string }) {
   return <FlipCountdown endsAt={endsAt} size={18} />;
 }
 
-// ─── useIsMobile: throttled via matchMedia instead of resize listener ─────────
+// ─── useIsMobile ──────────────────────────────────────────────────────────────
 function useIsMobile(breakpoint = 768) {
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth < breakpoint : false,
@@ -336,7 +331,7 @@ function useIsMobile(breakpoint = 768) {
   return isMobile;
 }
 
-// ─── FeaturedCard: CSS-only hover, no hov state ───────────────────────────────
+// ─── FeaturedCard (unchanged) ─────────────────────────────────────────────────
 const FeaturedCard = memo(function FeaturedCard({
   item,
   onJoin,
@@ -901,7 +896,7 @@ const FeaturedCard = memo(function FeaturedCard({
   );
 });
 
-// ─── AuctionRow: CSS-only hover, no hov state ─────────────────────────────────
+// ─── AuctionRow ───────────────────────────────────────────────────────────────
 const AuctionRow = memo(function AuctionRow({
   item,
   index,
@@ -941,8 +936,13 @@ const AuctionRow = memo(function AuctionRow({
       style={{
         position: "relative",
         cursor: "pointer",
+        /*
+         * DESKTOP: 4-column single-row grid (thumb | info | countdown | btn)
+         * MOBILE:  overridden via CSS to a 2-row layout (see <style> block)
+         */
         display: "grid",
         gridTemplateColumns: "48px 1fr auto auto",
+        gridTemplateRows: "auto auto",
         gap: "0 10px",
         alignItems: "center",
         padding: "14px",
@@ -958,7 +958,7 @@ const AuctionRow = memo(function AuctionRow({
       <div className="la-row-bg" />
       <div className="la-row-accent" />
 
-      {/* Thumbnail */}
+      {/* ── Thumbnail ── */}
       <div
         className="la-row-thumb"
         style={{
@@ -969,6 +969,8 @@ const AuctionRow = memo(function AuctionRow({
           flexShrink: 0,
           position: "relative",
           background: "#0a1525",
+          /* mobile: spans both rows so it sits full-height on the left */
+          gridRow: "1 / 3",
         }}
       >
         {item.image ? (
@@ -1047,8 +1049,10 @@ const AuctionRow = memo(function AuctionRow({
         </div>
       </div>
 
-      {/* Title + bid */}
-      <div style={{ minWidth: 0 }}>
+      {/* ── Title + bid  (row 1, col 2) ── */}
+      <div
+        style={{ minWidth: 0, gridColumn: 2, gridRow: 1, alignSelf: "center" }}
+      >
         <div
           className="la-row-title"
           style={{
@@ -1110,10 +1114,10 @@ const AuctionRow = memo(function AuctionRow({
         </div>
       </div>
 
-      {/* Countdown — hidden on mobile via CSS */}
+      {/* ── Desktop countdown (col 3, row 1) — hidden on mobile via CSS ── */}
       <div
         className="la-row-countdown"
-        style={{ textAlign: "right", flexShrink: 0 }}
+        style={{ textAlign: "right", flexShrink: 0, gridColumn: 3, gridRow: 1 }}
       >
         <div
           style={{
@@ -1130,7 +1134,7 @@ const AuctionRow = memo(function AuctionRow({
         <RowCountdown endsAt={item.endsAt} />
       </div>
 
-      {/* Join button */}
+      {/* ── Join button (col 4, row 1 on desktop / col 3 top-right on mobile) ── */}
       <button
         onClick={(e) => {
           e.stopPropagation();
@@ -1148,6 +1152,9 @@ const AuctionRow = memo(function AuctionRow({
           textTransform: "uppercase",
           position: "relative",
           overflow: "hidden",
+          gridColumn: 4,
+          gridRow: 1,
+          alignSelf: "center",
         }}
       >
         <span style={{ position: "relative", zIndex: 1 }}>
@@ -1155,6 +1162,33 @@ const AuctionRow = memo(function AuctionRow({
         </span>
         <div className="la-sweep-shine" />
       </button>
+
+      {/* ── Mobile-only countdown row (row 2, cols 2-4) ── */}
+      <div
+        className="la-row-countdown-inline"
+        style={{
+          gridColumn: "2 / -1",
+          gridRow: 2,
+          display: "none" /* shown via CSS on mobile */,
+          alignItems: "center",
+          gap: 8,
+          paddingTop: 6,
+        }}
+      >
+        <span
+          style={{
+            fontSize: 10,
+            fontWeight: 800,
+            letterSpacing: "0.2em",
+            color: "rgba(229,224,198,0.5)",
+            textTransform: "uppercase",
+            flexShrink: 0,
+          }}
+        >
+          {t("liveAuctions.endsIn", "Ends in")}
+        </span>
+        <RowCountdown endsAt={item.endsAt} />
+      </div>
 
       {/* Bottom divider */}
       <div
@@ -1239,13 +1273,12 @@ export default function LiveAuctionsSection() {
         @keyframes la-shimmer{ 0%{background-position:200% 0} 100%{background-position:-200% 0} }
         @keyframes la-sweep  { from{transform:translateX(-120%)} to{transform:translateX(220%)} }
 
-        /* Digit flip — CSS re-entry on key change, no JS state */
         @keyframes la-flip-in { from{opacity:0;transform:rotateX(90deg) scale(0.85)} to{opacity:1;transform:rotateX(0deg) scale(1)} }
         .la-flip-digit { animation: la-flip-in 0.22s cubic-bezier(0.34,1.56,0.64,1) both; }
 
         .la-skel { background:linear-gradient(90deg,rgba(255,255,255,0.03) 25%,rgba(255,255,255,0.07) 50%,rgba(255,255,255,0.03) 75%); background-size:200% 100%; animation:la-shimmer 1.8s infinite; }
 
-        /* ── Featured card — CSS hover ────────────────────────────────────── */
+        /* ── Featured card ────────────────────────────────────────────────── */
         .la-featured-card {
           box-shadow: 0 16px 56px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.06);
           transition: box-shadow 0.4s ease;
@@ -1263,7 +1296,7 @@ export default function LiveAuctionsSection() {
           filter: brightness(0.5) saturate(1.1);
         }
 
-        /* ── CTA button — CSS hover ───────────────────────────────────────── */
+        /* ── CTA button ───────────────────────────────────────────────────── */
         .la-cta-btn {
           background: linear-gradient(120deg,${GOLD} 0%,${GOLD2}bb 100%);
           box-shadow: 0 4px 20px rgba(201,169,110,0.18);
@@ -1282,7 +1315,7 @@ export default function LiveAuctionsSection() {
           transform: translateX(-120%);
         }
 
-        /* ── Row — CSS hover ──────────────────────────────────────────────── */
+        /* ── Row ──────────────────────────────────────────────────────────── */
         .la-row { transition: none; }
         .la-row-bg {
           position: absolute; inset: 0; pointer-events: none;
@@ -1319,7 +1352,7 @@ export default function LiveAuctionsSection() {
         .la-row-divider { background: rgba(255,255,255,0.04); transition: background 0.35s ease; }
         .la-row:hover .la-row-divider { background: linear-gradient(90deg,rgba(201,169,110,0.18),rgba(201,169,110,0.04)); }
 
-        /* ── Row join button — CSS hover ─────────────────────────────────── */
+        /* ── Row join button ──────────────────────────────────────────────── */
         .la-row-btn {
           background: transparent;
           border: 1px solid rgba(201,169,110,0.32);
@@ -1337,9 +1370,52 @@ export default function LiveAuctionsSection() {
         }
         .la-row:hover .la-row-btn .la-sweep-shine { animation: la-sweep 0.5s ease forwards; }
 
-        /* Hide countdown on mobile */
+        /* ── Mobile-only row layout overrides ────────────────────────────── */
         @media (max-width: 767px) {
-          .la-row-countdown { display: none !important; }
+          /*
+           * Row 1: thumbnail (spans 2 rows) | title+bid | [gap] | Join Now btn
+           * Row 2: thumbnail (cont.)        | Ends-in countdown (spans cols 2-4)
+           *
+           * Grid columns: 48px thumb | 1fr info | auto btn
+           */
+          .la-row {
+            grid-template-columns: 48px 1fr auto !important;
+            grid-template-rows: auto auto !important;
+          }
+
+          /* Thumbnail — spans both rows */
+          .la-row > .la-row-thumb {
+            grid-column: 1 !important;
+            grid-row: 1 / 3 !important;
+            align-self: stretch !important;
+            height: auto !important;
+            min-height: 48px !important;
+          }
+
+          /* Title + bid — row 1, col 2 */
+          .la-row > div[style*="minWidth: 0"] {
+            grid-column: 2 !important;
+            grid-row: 1 !important;
+          }
+
+          /* Join Now button — row 1, col 3 (top right) */
+          .la-row > .la-row-btn {
+            grid-column: 3 !important;
+            grid-row: 1 !important;
+            align-self: center !important;
+          }
+
+          /* Desktop countdown — hidden */
+          .la-row-countdown {
+            display: none !important;
+          }
+
+          /* Mobile countdown row — row 2, cols 2-3 */
+          .la-row-countdown-inline {
+            display: flex !important;
+            grid-column: 2 / -1 !important;
+            grid-row: 2 !important;
+          }
         }
       `}</style>
 
@@ -1546,6 +1622,7 @@ export default function LiveAuctionsSection() {
                     borderBottom: "1px solid rgba(255,255,255,0.04)",
                     display: "grid",
                     gridTemplateColumns: "48px 1fr auto auto",
+                    gridTemplateRows: "auto auto",
                     gap: "0 10px",
                     alignItems: "center",
                   }}
