@@ -1,11 +1,11 @@
 /**
  * HeroSections.tsx — Premium Slideshow
  *
- * Transition: horizontal slide (same mechanic as AuctionRegisterPage gallery)
- * Dots: pill-style matching lz-dot / lz-dot.on from the register page
- * Initial image load: smooth opacity fade-in (no hard black→image flash)
- * Auto-advance: every 3 s, pauses on hover
- * Keyboard: ArrowLeft / ArrowRight
+ * Fixes applied:
+ *  1. Initial load: dark bg (#09111a) stays visible while first image loads,
+ *     then cross-fades smoothly in (no hard black→image flash)
+ *  2. Slide swap animation slowed from 580ms → 900ms
+ *  3. Dots enlarged and pill widened
  */
 
 import React, { useEffect, useState, useCallback, useRef } from "react";
@@ -14,8 +14,8 @@ import {
   type HeroSlide,
 } from "@/service/heroSlide/heroSlideService";
 
-const SLIDE_INTERVAL_MS = 8000;
-const ANIM_MS = 580; // must match CSS animation duration
+const SLIDE_INTERVAL_MS = 7000;
+const ANIM_MS = 900; // slower swap — was 580ms
 
 export default function HeroSections() {
   const [slides, setSlides] = useState<HeroSlide[]>([]);
@@ -26,6 +26,9 @@ export default function HeroSections() {
   const [mounted, setMounted] = useState(false);
   const [slidesLoading, setSlidesLoading] = useState(true);
   const [paused, setPaused] = useState(false);
+
+  // ── NEW: track whether the first image has finished loading ───────────────
+  const [firstImageReady, setFirstImageReady] = useState(false);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const animTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -41,7 +44,23 @@ export default function HeroSections() {
       .finally(() => setSlidesLoading(false));
   }, []);
 
-  // ── Smooth initial mount (fade in first image) ─────────────────────────────
+  // ── Preload the FIRST slide image as soon as slides arrive ─────────────────
+  // This is the key fix: we keep the dark bg visible until the image is ready,
+  // then fade it in — exactly like Dashboard.tsx does for the single hero image.
+  useEffect(() => {
+    if (slides.length === 0) return;
+    const img = new Image();
+    img.src = slides[0].imageUrl;
+    if (img.complete) {
+      // Already cached
+      setFirstImageReady(true);
+    } else {
+      img.onload = () => setFirstImageReady(true);
+      img.onerror = () => setFirstImageReady(true); // show anyway on error
+    }
+  }, [slides]);
+
+  // ── Smooth initial mount (fade in dots / counter) ─────────────────────────
   useEffect(() => {
     const t = setTimeout(() => setMounted(true), 60);
     return () => clearTimeout(t);
@@ -132,7 +151,7 @@ export default function HeroSections() {
           height: 100vh;
           min-height: 500px;
           overflow: hidden;
-          background: #09111a;          /* matches register-page dark bg */
+          background: #09111a;
         }
 
         /* ─── Slide layer ───────────────────────────────────────────────── */
@@ -153,22 +172,27 @@ export default function HeroSections() {
           display: block;
         }
 
-        /* ── First-load smooth fade-in ── */
-        .hs-img-fade {
+        /*
+         * ── First-image smooth reveal ──────────────────────────────────
+         * The image starts at opacity-0.
+         * Once firstImageReady=true  →  .hs-img-fade--in is added → fades to 1.
+         * The background #09111a shows through until then — no black flash.
+         */
+        .hs-img-initial {
           opacity: 0;
           transition: opacity 1.1s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .hs-img-fade--in {
+        .hs-img-initial--in {
           opacity: 1;
         }
 
-        /* ─── Slide-out animations (current leaving) ────────────────────── */
+        /* ─── Slide-out animations (slower) ────────────────────────────── */
         .hs-cur-next { animation: hs-cur-next ${ANIM_MS}ms cubic-bezier(0.4,0,0.2,1) forwards; }
         .hs-cur-prev { animation: hs-cur-prev ${ANIM_MS}ms cubic-bezier(0.4,0,0.2,1) forwards; }
         @keyframes hs-cur-next { from{transform:translateX(0)} to{transform:translateX(-100%)} }
         @keyframes hs-cur-prev { from{transform:translateX(0)} to{transform:translateX(100%)}  }
 
-        /* ─── Slide-in animations (incoming arriving) ───────────────────── */
+        /* ─── Slide-in animations (slower) ─────────────────────────────── */
         .hs-inc-next { animation: hs-inc-next ${ANIM_MS}ms cubic-bezier(0.4,0,0.2,1) forwards; }
         .hs-inc-prev { animation: hs-inc-prev ${ANIM_MS}ms cubic-bezier(0.4,0,0.2,1) forwards; }
         @keyframes hs-inc-next { from{transform:translateX(100%)} to{transform:translateX(0)} }
@@ -199,7 +223,7 @@ export default function HeroSections() {
           pointer-events: none;
         }
 
-        /* ─── Dots — identical visual language to register page ────────── */
+        /* ─── Dots — bigger ─────────────────────────────────────────────── */
         .hs-dots {
           position: absolute;
           bottom: clamp(18px, 3.5vh, 38px);
@@ -207,37 +231,39 @@ export default function HeroSections() {
           transform: translateX(-50%);
           z-index: 20;
           display: flex;
-          gap: 6px;
+          gap: 8px;
           align-items: center;
           opacity: 0;
           transition: opacity 0.9s ease 0.8s;
         }
         .hs-dots--in { opacity: 1; }
 
+        /* Inactive dot: was 6×6, now 9×9 */
         .hs-dot {
-          width: 6px;
-          height: 6px;
+          width: 9px;
+          height: 9px;
           border-radius: 50%;
-          background: rgba(255,255,255,0.32);
-          transition: all 0.28s cubic-bezier(0.22,1,0.36,1);
+          background: rgba(255,255,255,0.38);
+          transition: all 0.3s cubic-bezier(0.22,1,0.36,1);
           cursor: pointer;
           border: none;
           padding: 0;
           flex-shrink: 0;
         }
         .hs-dot:hover {
-          background: rgba(255,255,255,0.65);
+          background: rgba(255,255,255,0.70);
           transform: scale(1.25);
         }
-        /* Active: widens into pill — same as lz-dot.on */
+        /* Active pill: was 20px wide, now 28px */
         .hs-dot--active {
-          width: 20px;
-          border-radius: 3px;
-          background: rgba(255,255,255,0.90);
+          width: 28px;
+          height: 9px;
+          border-radius: 5px;
+          background: rgba(255,255,255,0.92);
           transform: none;
         }
 
-        /* ─── Slide counter (bottom-right) ─────────────────────────────── */
+        /* ─── Slide counter ─────────────────────────────────────────────── */
         .hs-counter {
           position: absolute;
           bottom: clamp(20px, 3.5vh, 40px);
@@ -273,23 +299,19 @@ export default function HeroSections() {
           background: linear-gradient(110deg, #09111a 30%, #141e2b 50%, #09111a 70%);
           background-size: 200% 100%;
           animation: hs-shimmer 1.8s infinite;
+          /* fades out once slides arrive */
+          transition: opacity 0.8s ease;
         }
+        .hs-skeleton--hidden { opacity: 0; pointer-events: none; }
         @keyframes hs-shimmer {
           0%   { background-position: 200% 0; }
           100% { background-position: -200% 0; }
         }
 
-        /* ─── Fallback ──────────────────────────────────────────────────── */
-        .hs-fallback {
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(135deg, #09111a, #1a2535);
-        }
-
         /* ─── Mobile ────────────────────────────────────────────────────── */
         @media (max-width: 640px) {
           .hs-counter { display: none; }
-          .hs-dot--active { width: 16px; }
+          .hs-dot--active { width: 22px; }
         }
       `}</style>
 
@@ -299,16 +321,29 @@ export default function HeroSections() {
         onMouseLeave={() => setPaused(false)}
         aria-label="Hero image slideshow"
       >
-        {/* ── Loading skeleton ── */}
-        {slidesLoading && <div className="hs-skeleton" />}
+        {/*
+          ── Shimmer skeleton ──────────────────────────────────────────────
+          Shown while Firestore is fetching. Fades out once slides are loaded.
+          This means the user NEVER sees a plain black screen — they always see
+          the animated shimmer or the image.
+        */}
+        <div
+          className={`hs-skeleton ${!slidesLoading ? "hs-skeleton--hidden" : ""}`}
+        />
 
-        {/* ── Fallback ── */}
+        {/* ── Fallback (no slides) ── */}
         {!slidesLoading && slides.length === 0 && (
-          <div className="hs-fallback" />
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: "linear-gradient(135deg, #09111a, #1a2535)",
+            }}
+          />
         )}
 
         {/* ── Slide layers ── */}
-        {!slidesLoading && slides.length > 0 && (
+        {slides.length > 0 && (
           <>
             {/* Previous slide — slides out */}
             {animating && prevIdx !== null && slides[prevIdx] && (
@@ -326,7 +361,15 @@ export default function HeroSections() {
               </div>
             )}
 
-            {/* Current slide — slides in (or fades in on first load) */}
+            {/*
+              Current slide
+              - On very first render (index 0, not animating):
+                  applies hs-img-initial so it starts at opacity-0,
+                  then hs-img-initial--in is added once firstImageReady=true
+                  → smooth dark-bg → image cross-fade, identical to Dashboard.tsx
+              - On subsequent slides (animating):
+                  normal slide-in animation, no opacity trick needed
+            */}
             <div
               key={`cur-${slides[current].id}`}
               className={`hs-slide ${
@@ -342,8 +385,10 @@ export default function HeroSections() {
                 src={slides[current].imageUrl}
                 alt=""
                 aria-hidden="true"
-                className={`hs-img ${!animating ? "hs-img-fade" : ""} ${
-                  !animating && mounted ? "hs-img-fade--in" : ""
+                className={`hs-img${
+                  !animating
+                    ? ` hs-img-initial${firstImageReady ? " hs-img-initial--in" : ""}`
+                    : ""
                 }`}
               />
             </div>

@@ -1,16 +1,12 @@
 /**
  * HeroSlidesList.tsx — Admin panel page
  *
- * Features:
- *  - Upload new slide images (drag & drop or click)
- *  - Drag-to-reorder slides (mouse + touch)
- *  - Toggle active/inactive per slide
- *  - Delete slides
- *  - Live preview count badge
- *  - Consistent visual language with existing admin pages (navy #2A4863, #EFF6FF headers)
+ * Fixes:
+ *  - Mobile-responsive layout (compact cards, hidden non-essential elements)
+ *  - Touch drag-and-drop reorder (replaces HTML5 drag which doesn't work on mobile)
  */
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import {
   Box,
   Button,
@@ -39,7 +35,7 @@ import {
 import { useHeroSlides } from "@/store/AdminContext/HeroSlideContext/HeroSlideContext";
 import type { HeroSlide } from "@/service/heroSlide/heroSlideService";
 
-// ─── Shared colour tokens (same as products-data.ts) ─────────────────────────
+// ─── Shared colour tokens ─────────────────────────────────────────────────────
 const colors = {
   primary: "#2A4863",
   primaryBg: "#EFF6FF",
@@ -56,17 +52,19 @@ const colors = {
   errorBg: "#FEE2E2",
 };
 
-// ─── Drag-and-drop reorder hook ───────────────────────────────────────────────
-
+// ─── Touch + Mouse drag-reorder hook ─────────────────────────────────────────
 function useDragReorder(
   items: HeroSlide[],
   onReorder: (orderedIds: string[]) => Promise<void>,
 ) {
   const draggingId = useRef<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
 
-  const handleDragStart = (id: string) => {
+  // ── Mouse drag (desktop) ────────────────────────────────────────────────
+  const handleDragStart = (id: string, idx: number) => {
     draggingId.current = id;
+    setDraggingIdx(idx);
   };
 
   const handleDragOver = (e: React.DragEvent, id: string) => {
@@ -79,34 +77,133 @@ function useDragReorder(
     setDragOverId(null);
     const sourceId = draggingId.current;
     if (!sourceId || sourceId === targetId) return;
+    await _commitReorder(sourceId, targetId);
+  };
 
+  const handleDragEnd = () => {
+    draggingId.current = null;
+    setDragOverId(null);
+    setDraggingIdx(null);
+  };
+
+  // ── Touch drag (mobile) ─────────────────────────────────────────────────
+  const touchStartPos = useRef<{ x: number; y: number } | null>(null);
+  const touchSourceId = useRef<string | null>(null);
+  const touchClone = useRef<HTMLElement | null>(null);
+  const itemEls = useRef<Map<string, HTMLElement>>(new Map());
+
+  const registerItemEl = (id: string, el: HTMLElement | null) => {
+    if (el) itemEls.current.set(id, el);
+    else itemEls.current.delete(id);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent, id: string) => {
+    const touch = e.touches[0];
+    touchStartPos.current = { x: touch.clientX, y: touch.clientY };
+    touchSourceId.current = id;
+
+    // Create a visual clone that follows the finger
+    const el = itemEls.current.get(id);
+    if (el) {
+      const rect = el.getBoundingClientRect();
+      const clone = el.cloneNode(true) as HTMLElement;
+      clone.style.cssText = `
+        position: fixed;
+        left: ${rect.left}px;
+        top: ${rect.top}px;
+        width: ${rect.width}px;
+        opacity: 0.85;
+        pointer-events: none;
+        z-index: 9999;
+        transform: scale(1.02);
+        box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+        border-radius: 8px;
+        transition: none;
+      `;
+      document.body.appendChild(clone);
+      touchClone.current = clone;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchSourceId.current || !touchClone.current) return;
+    e.preventDefault(); // prevent page scroll while dragging
+
+    const touch = e.touches[0];
+
+    // Move the clone
+    if (touchClone.current && touchStartPos.current) {
+      const el = itemEls.current.get(touchSourceId.current!);
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        touchClone.current.style.left = `${rect.left + (touch.clientX - touchStartPos.current.x)}px`;
+        touchClone.current.style.top = `${rect.top + (touch.clientY - touchStartPos.current.y)}px`;
+      }
+    }
+
+    // Find which item we're hovering over
+    touchClone.current.style.display = "none";
+    const target = document.elementFromPoint(touch.clientX, touch.clientY);
+    touchClone.current.style.display = "";
+
+    let hoveredId: string | null = null;
+    itemEls.current.forEach((el, id) => {
+      if (el.contains(target as Node) && id !== touchSourceId.current) {
+        hoveredId = id;
+      }
+    });
+    setDragOverId(hoveredId);
+  };
+
+  const handleTouchEnd = async () => {
+    // Remove clone
+    if (touchClone.current) {
+      document.body.removeChild(touchClone.current);
+      touchClone.current = null;
+    }
+
+    const sourceId = touchSourceId.current;
+    const targetId = dragOverId;
+
+    setDragOverId(null);
+    touchSourceId.current = null;
+    touchStartPos.current = null;
+
+    if (sourceId && targetId && sourceId !== targetId) {
+      await _commitReorder(sourceId, targetId);
+    }
+  };
+
+  // ── Shared reorder logic ────────────────────────────────────────────────
+  const _commitReorder = async (sourceId: string, targetId: string) => {
     const ids = items.map((s) => s.id);
     const from = ids.indexOf(sourceId);
     const to = ids.indexOf(targetId);
     if (from === -1 || to === -1) return;
-
     const newIds = [...ids];
     newIds.splice(from, 1);
     newIds.splice(to, 0, sourceId);
     await onReorder(newIds);
   };
 
-  const handleDragEnd = () => {
-    draggingId.current = null;
-    setDragOverId(null);
-  };
-
   return {
+    // mouse
     handleDragStart,
     handleDragOver,
     handleDrop,
     handleDragEnd,
+    // touch
+    handleTouchStart,
+    handleTouchMove,
+    handleTouchEnd,
+    registerItemEl,
+    // state
     dragOverId,
+    draggingIdx,
   };
 }
 
-// ─── Upload zone component ────────────────────────────────────────────────────
-
+// ─── Upload zone ──────────────────────────────────────────────────────────────
 function UploadZone({ onUpload }: { onUpload: (file: File) => void }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -134,7 +231,7 @@ function UploadZone({ onUpload }: { onUpload: (file: File) => void }) {
       sx={{
         border: `2px dashed ${dragOver ? colors.primary : colors.border}`,
         borderRadius: 3,
-        p: 4,
+        p: { xs: 3, sm: 4 },
         textAlign: "center",
         cursor: "pointer",
         bgcolor: dragOver ? colors.primaryBg : "#fff",
@@ -182,7 +279,6 @@ function UploadZone({ onUpload }: { onUpload: (file: File) => void }) {
 }
 
 // ─── Main page ────────────────────────────────────────────────────────────────
-
 export default function HeroSlidesList() {
   const {
     slides,
@@ -203,7 +299,6 @@ export default function HeroSlidesList() {
 
   const drag = useDragReorder(slides, reorder);
 
-  // ── Collect files before upload ───────────────────────────────────────────
   const handleFileQueued = useCallback((file: File) => {
     setPendingFiles((prev) => [...prev, file]);
     setPendingPreviews((prev) => [...prev, URL.createObjectURL(file)]);
@@ -215,16 +310,13 @@ export default function HeroSlidesList() {
     setPendingPreviews((prev) => prev.filter((_, idx) => idx !== i));
   };
 
-  // ── Upload all queued files ───────────────────────────────────────────────
   const handleUploadAll = async () => {
     if (!pendingFiles.length) return;
     setUploading(true);
     for (const file of pendingFiles) {
       try {
         await addSlide({ imageFile: file, isActive: true });
-      } catch {
-        // toast already shown
-      }
+      } catch {}
     }
     pendingPreviews.forEach((url) => URL.revokeObjectURL(url));
     setPendingFiles([]);
@@ -232,7 +324,6 @@ export default function HeroSlidesList() {
     setUploading(false);
   };
 
-  // ── Delete ────────────────────────────────────────────────────────────────
   const handleDelete = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
@@ -265,7 +356,7 @@ export default function HeroSlidesList() {
     <Box
       sx={{
         mx: "auto",
-        p: { xs: 2, md: 3 },
+        p: { xs: 1.5, sm: 2, md: 3 },
         bgcolor: "#F8FAFC",
         minHeight: "100vh",
       }}
@@ -273,10 +364,9 @@ export default function HeroSlidesList() {
       {/* ── Header ── */}
       <Box
         sx={{
-          mb: 4,
+          mb: 3,
           display: "flex",
-          flexDirection: { xs: "column", sm: "row" },
-          alignItems: { sm: "center" },
+          alignItems: "center",
           justifyContent: "space-between",
           gap: 2,
         }}
@@ -286,15 +376,15 @@ export default function HeroSlidesList() {
             style={{
               color: colors.primary,
               margin: 0,
-              fontSize: "1.75rem",
+              fontSize: "clamp(1.25rem, 4vw, 1.75rem)",
               fontWeight: 700,
               display: "flex",
               alignItems: "center",
-              gap: 10,
+              gap: 8,
             }}
           >
             <Images
-              size={28}
+              size={24}
               style={{ display: "inline", verticalAlign: "middle" }}
             />
             Hero Slides
@@ -303,10 +393,10 @@ export default function HeroSlidesList() {
             style={{
               color: colors.textSecondary,
               margin: "4px 0 0",
-              fontSize: "0.875rem",
+              fontSize: "0.8rem",
             }}
           >
-            Manage homepage slideshow — drag to reorder, toggle to show/hide
+            Manage homepage slideshow
           </p>
         </div>
         <IconButton
@@ -315,6 +405,7 @@ export default function HeroSlidesList() {
             color: colors.primary,
             border: `1px solid ${colors.border}`,
             borderRadius: 2,
+            flexShrink: 0,
           }}
           title="Refresh"
         >
@@ -324,24 +415,15 @@ export default function HeroSlidesList() {
 
       {/* ── Stat cards ── */}
       <Box
-        sx={{
-          display: "grid",
-          gap: 3,
-          gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
-          mb: 4,
-        }}
+        sx={{ display: "grid", gap: 2,   gridTemplateColumns: { xs: "1fr ", sm: "repeat(2, 1fr)" }, mb: 3 }}
       >
         {[
           {
-            label: "Total Slides",
+            label: "Total ",
             value: slides.length,
-            icon: <ImageIcon size={22} />,
+            icon: <ImageIcon size={20} />,
           },
-          {
-            label: "Active (Visible)",
-            value: activeCount,
-            icon: <Eye size={22} />,
-          },
+          { label: "Active", value: activeCount, icon: <Eye size={20} /> },
         ].map(({ label, value, icon }) => (
           <Paper
             key={label}
@@ -363,7 +445,7 @@ export default function HeroSlidesList() {
               <div>
                 <p
                   style={{
-                    fontSize: "0.7rem",
+                    fontSize: "0.65rem",
                     fontWeight: 600,
                     opacity: 0.8,
                     textTransform: "uppercase",
@@ -375,9 +457,9 @@ export default function HeroSlidesList() {
                 </p>
                 <p
                   style={{
-                    fontSize: "2rem",
+                    fontSize: "1.75rem",
                     fontWeight: 700,
-                    margin: "4px 0 0",
+                    margin: "2px 0 0",
                   }}
                 >
                   {value}
@@ -385,13 +467,14 @@ export default function HeroSlidesList() {
               </div>
               <Box
                 sx={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 12,
+                  width: 40,
+                  height: 40,
+                  borderRadius: "50%",
                   background: "rgba(255,255,255,0.2)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
+                  flexShrink: 0,
                 }}
               >
                 {icon}
@@ -413,8 +496,8 @@ export default function HeroSlidesList() {
       >
         <Box
           sx={{
-            px: 3,
-            py: 2.5,
+            px: 2.5,
+            py: 2,
             borderBottom: `1px solid ${colors.border}`,
             bgcolor: colors.primaryBg,
             display: "flex",
@@ -422,21 +505,20 @@ export default function HeroSlidesList() {
             gap: 1.5,
           }}
         >
-          <Plus size={18} style={{ color: colors.primary }} />
+          <Plus size={16} style={{ color: colors.primary }} />
           <span
             style={{
               fontWeight: 700,
               color: colors.primary,
-              fontSize: "0.95rem",
+              fontSize: "0.9rem",
             }}
           >
             Add New Slides
           </span>
         </Box>
-        <Box sx={{ p: 3 }}>
+        <Box sx={{ p: { xs: 2, sm: 3 } }}>
           <UploadZone onUpload={handleFileQueued} />
 
-          {/* Pending previews */}
           {pendingPreviews.length > 0 && (
             <Box sx={{ mt: 2 }}>
               <p
@@ -453,14 +535,14 @@ export default function HeroSlidesList() {
                 {pendingPreviews.map((url, i) => (
                   <Box
                     key={url}
-                    sx={{ position: "relative", width: 90, height: 60 }}
+                    sx={{ position: "relative", width: 80, height: 54 }}
                   >
                     <Box
                       component="img"
                       src={url}
                       sx={{
-                        width: 90,
-                        height: 60,
+                        width: 80,
+                        height: 54,
                         borderRadius: 2,
                         objectFit: "cover",
                         border: `2px dashed ${colors.primary}`,
@@ -494,11 +576,12 @@ export default function HeroSlidesList() {
                 onClick={handleUploadAll}
                 disabled={uploading}
                 variant="contained"
+                size="small"
                 startIcon={
                   uploading ? (
-                    <CircularProgress size={16} color="inherit" />
+                    <CircularProgress size={14} color="inherit" />
                   ) : (
-                    <Upload size={16} />
+                    <Upload size={14} />
                   )
                 }
                 sx={{
@@ -529,8 +612,8 @@ export default function HeroSlidesList() {
       >
         <Box
           sx={{
-            px: 3,
-            py: 2.5,
+            px: 2.5,
+            py: 2,
             borderBottom: `1px solid ${colors.border}`,
             bgcolor: colors.primaryBg,
             display: "flex",
@@ -538,12 +621,12 @@ export default function HeroSlidesList() {
             gap: 1.5,
           }}
         >
-          <Images size={18} style={{ color: colors.primary }} />
+          <Images size={16} style={{ color: colors.primary }} />
           <span
             style={{
               fontWeight: 700,
               color: colors.primary,
-              fontSize: "0.95rem",
+              fontSize: "0.9rem",
             }}
           >
             Slides ({slides.length})
@@ -551,26 +634,25 @@ export default function HeroSlidesList() {
           <span
             style={{
               marginLeft: "auto",
-              fontSize: "0.75rem",
+              fontSize: "0.72rem",
               color: colors.textMuted,
+              display: "flex",
+              alignItems: "center",
+              gap: 3,
             }}
           >
-            Drag{" "}
-            <GripVertical
-              size={12}
-              style={{ display: "inline", verticalAlign: "middle" }}
-            />{" "}
-            to reorder
+            <GripVertical size={12} style={{ display: "inline" }} /> Hold to
+            reorder
           </span>
         </Box>
 
         {slides.length === 0 ? (
-          <Box sx={{ p: 8, textAlign: "center" }}>
+          <Box sx={{ p: 6, textAlign: "center" }}>
             <ImageIcon
-              size={44}
+              size={40}
               style={{
                 color: colors.textMuted,
-                margin: "0 auto 12px",
+                margin: "0 auto 10px",
                 display: "block",
               }}
             />
@@ -586,7 +668,7 @@ export default function HeroSlidesList() {
             <p
               style={{
                 color: colors.textMuted,
-                fontSize: "0.85rem",
+                fontSize: "0.82rem",
                 margin: "4px 0 0",
               }}
             >
@@ -595,41 +677,60 @@ export default function HeroSlidesList() {
           </Box>
         ) : (
           <Box
-            sx={{ p: 2, display: "flex", flexDirection: "column", gap: 1.5 }}
+            sx={{
+              p: { xs: 1.5, sm: 2 },
+              display: "flex",
+              flexDirection: "column",
+              gap: 1.5,
+            }}
           >
             {slides.map((slide, index) => (
               <Box
                 key={slide.id}
+                ref={(el) =>
+                  drag.registerItemEl(slide.id, el as HTMLElement | null)
+                }
+                // Mouse events (desktop)
                 draggable
-                onDragStart={() => drag.handleDragStart(slide.id)}
+                onDragStart={() => drag.handleDragStart(slide.id, index)}
                 onDragOver={(e) => drag.handleDragOver(e, slide.id)}
                 onDrop={(e) => drag.handleDrop(e, slide.id)}
                 onDragEnd={drag.handleDragEnd}
+                // Touch events (mobile)
+                onTouchStart={(e) => drag.handleTouchStart(e, slide.id)}
+                onTouchMove={drag.handleTouchMove}
+                onTouchEnd={drag.handleTouchEnd}
                 sx={{
                   display: "flex",
                   alignItems: "center",
-                  gap: 2,
-                  p: 1.5,
+                  gap: { xs: 1, sm: 2 },
+                  p: { xs: 1, sm: 1.5 },
                   borderRadius: 2,
                   border: `1px solid ${drag.dragOverId === slide.id ? colors.primary : colors.border}`,
                   bgcolor:
                     drag.dragOverId === slide.id ? colors.primaryBg : "#fff",
                   transition: "all 0.15s",
                   cursor: "grab",
+                  userSelect: "none",
+                  touchAction: "none", // ← critical: disables scroll-interference on mobile
                   "&:active": { cursor: "grabbing" },
                 }}
               >
                 {/* Drag handle */}
                 <GripVertical
                   size={18}
-                  style={{ color: colors.textMuted, flexShrink: 0 }}
+                  style={{
+                    color: colors.textMuted,
+                    flexShrink: 0,
+                    minWidth: 18,
+                  }}
                 />
 
                 {/* Order badge */}
                 <Box
                   sx={{
-                    width: 28,
-                    height: 28,
+                    width: 26,
+                    height: 26,
                     borderRadius: "50%",
                     bgcolor: colors.primaryBg,
                     display: "flex",
@@ -640,7 +741,7 @@ export default function HeroSlidesList() {
                 >
                   <span
                     style={{
-                      fontSize: "0.72rem",
+                      fontSize: "0.7rem",
                       fontWeight: 700,
                       color: colors.primary,
                     }}
@@ -655,9 +756,9 @@ export default function HeroSlidesList() {
                   src={slide.imageUrl}
                   alt={`slide-${index + 1}`}
                   sx={{
-                    width: { xs: 80, sm: 140 },
-                    height: { xs: 50, sm: 80 },
-                    borderRadius: 2,
+                    width: { xs: 64, sm: 110, md: 140 },
+                    height: { xs: 42, sm: 64, md: 80 },
+                    borderRadius: 1.5,
                     objectFit: "cover",
                     border: `1px solid ${colors.border}`,
                     flexShrink: 0,
@@ -670,8 +771,11 @@ export default function HeroSlidesList() {
                     style={{
                       margin: 0,
                       fontWeight: 600,
-                      fontSize: "0.875rem",
+                      fontSize: "0.82rem",
                       color: colors.textPrimary,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
                     }}
                   >
                     Slide {index + 1}
@@ -679,7 +783,7 @@ export default function HeroSlidesList() {
                   <p
                     style={{
                       margin: "2px 0 0",
-                      fontSize: "0.75rem",
+                      fontSize: "0.7rem",
                       color: colors.textMuted,
                     }}
                   >
@@ -692,13 +796,14 @@ export default function HeroSlidesList() {
                   sx={{
                     display: "flex",
                     alignItems: "center",
-                    gap: 1,
+                    gap: { xs: 0, sm: 1 },
                     flexShrink: 0,
                   }}
                 >
+                  {/* Chip — hidden on xs */}
                   <Chip
                     icon={
-                      slide.isActive ? <Eye size={12} /> : <EyeOff size={12} />
+                      slide.isActive ? <Eye size={11} /> : <EyeOff size={11} />
                     }
                     label={slide.isActive ? "Visible" : "Hidden"}
                     size="small"
@@ -706,8 +811,9 @@ export default function HeroSlidesList() {
                       bgcolor: slide.isActive ? colors.successBg : "#F1F5F9",
                       color: slide.isActive ? colors.success : colors.textMuted,
                       fontWeight: 700,
-                      fontSize: "0.68rem",
+                      fontSize: "0.65rem",
                       display: { xs: "none", sm: "flex" },
+                      height: 22,
                     }}
                   />
                   <Switch
@@ -733,10 +839,11 @@ export default function HeroSlidesList() {
                     "&:hover": { bgcolor: colors.errorBg },
                     borderRadius: 1.5,
                     flexShrink: 0,
+                    p: { xs: 0.5, sm: 1 },
                   }}
                   title="Delete slide"
                 >
-                  <Trash2 size={16} />
+                  <Trash2 size={15} />
                 </IconButton>
               </Box>
             ))}
@@ -750,7 +857,7 @@ export default function HeroSlidesList() {
         onClose={() => !deleting && setDeleteTarget(null)}
         maxWidth="sm"
         fullWidth
-        PaperProps={{ sx: { borderRadius: 3 } }}
+        PaperProps={{ sx: { borderRadius: 3, mx: 2 } }}
       >
         <DialogTitle
           sx={{
@@ -758,19 +865,27 @@ export default function HeroSlidesList() {
             alignItems: "center",
             gap: 1.5,
             color: colors.error,
+            fontSize: "1rem",
           }}
         >
-          <AlertTriangle size={22} /> Confirm Deletion
+          <AlertTriangle size={20} /> Confirm Deletion
         </DialogTitle>
         <DialogContent>
           {deleteTarget && (
-            <Box sx={{ display: "flex", gap: 2, alignItems: "flex-start" }}>
+            <Box
+              sx={{
+                display: "flex",
+                gap: 2,
+                alignItems: "flex-start",
+                flexDirection: { xs: "column", sm: "row" },
+              }}
+            >
               <Box
                 component="img"
                 src={deleteTarget.imageUrl}
                 sx={{
-                  width: 120,
-                  height: 75,
+                  width: { xs: "100%", sm: 120 },
+                  height: { xs: 120, sm: 75 },
                   borderRadius: 2,
                   objectFit: "cover",
                   border: `1px solid ${colors.border}`,
@@ -809,12 +924,12 @@ export default function HeroSlidesList() {
               p: 2,
             }}
           >
-            <p style={{ fontSize: "0.875rem", color: colors.error, margin: 0 }}>
+            <p style={{ fontSize: "0.85rem", color: colors.error, margin: 0 }}>
               <strong>Warning:</strong> This action cannot be undone.
             </p>
           </Box>
         </DialogContent>
-        <DialogActions sx={{ p: 3, gap: 1 }}>
+        <DialogActions sx={{ p: { xs: 2, sm: 3 }, gap: 1 }}>
           <Button
             onClick={() => setDeleteTarget(null)}
             disabled={deleting}
@@ -836,7 +951,7 @@ export default function HeroSlidesList() {
               deleting ? (
                 <CircularProgress size={14} color="inherit" />
               ) : (
-                <Trash2 size={16} />
+                <Trash2 size={15} />
               )
             }
             sx={{
@@ -844,7 +959,7 @@ export default function HeroSlidesList() {
               bgcolor: colors.error,
               "&:hover": { bgcolor: "#DC2626" },
               borderRadius: 2,
-              minWidth: 110,
+              minWidth: 100,
             }}
           >
             {deleting ? "Deleting…" : "Delete"}
