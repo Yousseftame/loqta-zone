@@ -835,7 +835,7 @@ export default function ParticipantsList() {
         sx={{
           display: "grid",
           gap: 2,
-          gridTemplateColumns: { xs: "1fr 1fr", sm: "repeat(3, 1fr)" },
+          gridTemplateColumns: { xs: "1fr ", sm: "repeat(3, 1fr)" },
           mb: 4,
         }}
       >

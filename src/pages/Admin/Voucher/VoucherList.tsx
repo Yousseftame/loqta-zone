@@ -296,7 +296,7 @@ export default function VouchersList() {
           display: "grid",
           gap: 2,
           gridTemplateColumns: {
-            xs: "1fr 1fr",
+            xs: "1fr ",
             sm: "repeat(3, 1fr)",
             md: "repeat(6, 1fr)",
           },

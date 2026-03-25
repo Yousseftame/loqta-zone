@@ -246,7 +246,7 @@ export default function UsersList() {
         sx={{
           display: "grid",
           gap: 2,
-          gridTemplateColumns: { xs: "1fr 1fr", sm: "repeat(4, 1fr)" },
+          gridTemplateColumns: { xs: "1fr", sm: "repeat(4, 1fr)" },
           mb: 4,
         }}
       >

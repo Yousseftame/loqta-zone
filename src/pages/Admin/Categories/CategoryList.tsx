@@ -53,8 +53,7 @@ export default function CategoriesList() {
     null,
   );
   const [loadingDelete, setLoadingDelete] = useState(false);
-      const { can } = usePermissions();
-  
+  const { can } = usePermissions();
 
   useEffect(() => {
     let f = categories;
@@ -135,7 +134,7 @@ export default function CategoriesList() {
     <Box
       sx={{
         mx: "auto",
-        p: { xs: 2, md: 3 },
+        p: { xs: 1, md: 3 },
         bgcolor: "#F8FAFC",
         minHeight: "100vh",
       }}
@@ -348,6 +347,7 @@ export default function CategoriesList() {
       </Paper>
 
       {/* ── Table ── */}
+      {/* NOTE: overflow must NOT be "hidden" on the Paper — that clips the horizontal scroll */}
       <Paper
         elevation={0}
         sx={{
@@ -357,7 +357,8 @@ export default function CategoriesList() {
           overflow: "hidden",
         }}
       >
-        <div className="overflow-x-auto">
+        {/* This wrapper provides the horizontal scroll on mobile */}
+        <Box sx={{ overflowX: "auto", width: "100%" }}>
           <Table sx={{ minWidth: 600 }}>
             <TableHead>
               <TableRow sx={{ bgcolor: colors.primaryBg }}>
@@ -569,7 +570,7 @@ export default function CategoriesList() {
               )}
             </TableBody>
           </Table>
-        </div>
+        </Box>
         <TablePagination
           component="div"
           count={filtered.length}

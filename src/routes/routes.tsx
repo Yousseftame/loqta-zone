@@ -48,6 +48,7 @@ import ChangePassword from "@/pages/User/Settings/ChangePassword";
 import { createBrowserRouter } from "react-router-dom";
 import CantFind from "@/pages/CantFind/CantFind";
 import LastOfferConfirmPage from "@/pages/LastOfferConfirm/LastOfferConfirmPage";
+import HeroSlidesList from "@/pages/Admin/HeroSlide/HeroSlidesList";
 
 export const routes = createBrowserRouter([
   {
@@ -77,6 +78,10 @@ export const routes = createBrowserRouter([
     children: [
       // Dashboard — always accessible to any admin
       { index: true, element: <Dashboard /> },
+
+      // ── Hero Slide ───────────────────────────────────────────────────────
+
+      { path: "/admin/hero-slides", element: <HeroSlidesList /> },
 
       // ── Categories ───────────────────────────────────────────────────────
       {

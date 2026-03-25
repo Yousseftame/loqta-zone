@@ -662,7 +662,7 @@ export default function AuctionRegisterPage() {
         .lz-sdot { width:3px; height:3px; border-radius:50%; background:rgba(201,169,110,0.28); flex-shrink:0; margin-inline-end:10px; }
         .lz-sv { font-size:14px; font-weight:500; color:rgba(229,224,198,0.98); }
         .lz-feats { display:flex; flex-wrap:wrap; gap:6px; padding-top:16px; border-top:1px solid rgba(201,169,110,0.07); }
-        .lz-ftag { font-size:11px; font-weight:500; color:rgba(201,169,110,0.7); background:rgba(201,169,110,0.07); border:1px solid rgba(201,169,110,0.13); border-radius:99px; padding:3px 12px; letter-spacing:0.03em; }
+        .lz-ftag { font-size:14px; font-weight:500; color:rgba(201,169,110,0.9); background:rgba(201,169,110,0.07); border:1px solid rgba(201,169,110,0.13); border-radius:99px; padding:3px 12px; letter-spacing:0.03em; }
         .lz-right { display:flex; flex-direction:column; gap:14px; }
         .lz-sec-label { font-size:15px; font-weight:600; color:rgba(229,224,198,0.85); letter-spacing:0.22em; text-transform:uppercase; padding:0 2px 2px; }
         .lz-acard { background:rgba(255,255,255,0.028); border:1px solid rgba(201,169,110,0.1); border-radius:16px; padding:20px 22px; cursor:pointer; user-select:none; position:relative; overflow:hidden; transition:all 0.28s cubic-bezier(0.22,1,0.36,1); }
@@ -709,8 +709,8 @@ export default function AuctionRegisterPage() {
         .lz-acard:active .lz-radio { transform:scale(0.88); }
         .lz-empty { text-align:center; padding:44px 20px; background:rgba(255,255,255,0.02); border:1px solid rgba(201,169,110,0.07); border-radius:16px; }
         .lz-empty-i { font-size:30px; opacity:0.2; margin-bottom:12px; }
-        .lz-empty-t { font-size:14px; font-weight:500; color:rgba(229,224,198,0.4); margin-bottom:4px; }
-        .lz-empty-s { font-size:12px; color:rgba(229,224,198,0.2); }
+        .lz-empty-t { font-size:16px; font-weight:500; color:rgba(229,224,198); margin-bottom:4px; }
+        .lz-empty-s { font-size:14px; color:rgba(229,224,198,0.7); }
         .lz-cocard { background:rgba(255,255,255,0.028); border:1px solid rgba(201,169,110,0.13); border-radius:20px; overflow:hidden; }
         .lz-coinner { padding:22px 24px 24px; }
         .lz-selinfo { font-size:15px; color:rgba(229,224,198,0.78); margin-bottom:16px; letter-spacing:0.04em; }

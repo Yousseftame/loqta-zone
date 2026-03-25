@@ -206,25 +206,27 @@ export default function ProductsList() {
           >
             <RefreshCw size={18} />
           </IconButton>
-          {can("products", "create") && <Button
-            variant="contained"
-            startIcon={<Plus size={18} />}
-            onClick={() => navigate("/admin/products/add")}
-            sx={{
-              bgcolor: colors.primary,
-              color: "white",
-              textTransform: "none",
-              px: 3,
-              py: 1.5,
-              borderRadius: 2,
-              fontWeight: 600,
-              boxShadow: "none",
-              width: { xs: "100%", sm: "auto" },
-              "&:hover": { bgcolor: "#111" },
-            }}
-          >
-            Add New Product
-          </Button>}
+          {can("products", "create") && (
+            <Button
+              variant="contained"
+              startIcon={<Plus size={18} />}
+              onClick={() => navigate("/admin/products/add")}
+              sx={{
+                bgcolor: colors.primary,
+                color: "white",
+                textTransform: "none",
+                px: 3,
+                py: 1.5,
+                borderRadius: 2,
+                fontWeight: 600,
+                boxShadow: "none",
+                width: { xs: "100%", sm: "auto" },
+                "&:hover": { bgcolor: "#111" },
+              }}
+            >
+              Add New Product
+            </Button>
+          )}
         </Box>
       </Box>
 
@@ -369,7 +371,7 @@ export default function ProductsList() {
           overflow: "hidden",
         }}
       >
-        <Box sx={{ overflowX: "auto" }}>
+        <Box sx={{ overflowX: "auto", width: "100%" }}>
           <Table sx={{ minWidth: 650 }}>
             <TableHead>
               <TableRow sx={{ bgcolor: colors.primaryBg }}>
@@ -594,49 +596,55 @@ export default function ProductsList() {
                           gap: 0.5,
                         }}
                       >
-                        {can("products", "read") && <IconButton
-                          size="small"
-                          onClick={() =>
-                            navigate(`/admin/products/${product.id}`)
-                          }
-                          sx={{
-                            color: colors.primary,
-                            "&:hover": { bgcolor: colors.primaryBg },
-                            borderRadius: 1.5,
-                          }}
-                          title="View"
-                        >
-                          <Eye size={16} />
-                        </IconButton>}
-                        {can("products", "update") && <IconButton
-                          size="small"
-                          onClick={() =>
-                            navigate(`/admin/products/${product.id}/edit`)
-                          }
-                          sx={{
-                            color: "#7C3AED",
-                            "&:hover": { bgcolor: "#F3E8FF" },
-                            borderRadius: 1.5,
-                          }}
-                          title="Edit"
-                        >
-                          <Edit size={16} />
-                        </IconButton>}
-                        {can("products", "delete") && <IconButton
-                          size="small"
-                          onClick={() => {
-                            setProductToDelete(product);
-                            setDeleteDialog(true);
-                          }}
-                          sx={{
-                            color: colors.error,
-                            "&:hover": { bgcolor: colors.errorBg },
-                            borderRadius: 1.5,
-                          }}
-                          title="Delete"
-                        >
-                          <Trash2 size={16} />
-                        </IconButton>}
+                        {can("products", "read") && (
+                          <IconButton
+                            size="small"
+                            onClick={() =>
+                              navigate(`/admin/products/${product.id}`)
+                            }
+                            sx={{
+                              color: colors.primary,
+                              "&:hover": { bgcolor: colors.primaryBg },
+                              borderRadius: 1.5,
+                            }}
+                            title="View"
+                          >
+                            <Eye size={16} />
+                          </IconButton>
+                        )}
+                        {can("products", "update") && (
+                          <IconButton
+                            size="small"
+                            onClick={() =>
+                              navigate(`/admin/products/${product.id}/edit`)
+                            }
+                            sx={{
+                              color: "#7C3AED",
+                              "&:hover": { bgcolor: "#F3E8FF" },
+                              borderRadius: 1.5,
+                            }}
+                            title="Edit"
+                          >
+                            <Edit size={16} />
+                          </IconButton>
+                        )}
+                        {can("products", "delete") && (
+                          <IconButton
+                            size="small"
+                            onClick={() => {
+                              setProductToDelete(product);
+                              setDeleteDialog(true);
+                            }}
+                            sx={{
+                              color: colors.error,
+                              "&:hover": { bgcolor: colors.errorBg },
+                              borderRadius: 1.5,
+                            }}
+                            title="Delete"
+                          >
+                            <Trash2 size={16} />
+                          </IconButton>
+                        )}
                       </Box>
                     </TableCell>
                   </TableRow>

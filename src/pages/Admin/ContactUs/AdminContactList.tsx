@@ -382,279 +382,296 @@ export default function AdminContactList() {
           overflow: "hidden",
         }}
       >
-        <Table>
-          <TableHead>
-            <TableRow sx={{ bgcolor: colors.primaryBg }}>
-              {[
-                { label: "Sender" },
-                { label: "Subject" },
-                { label: "Message Preview" },
-                { label: "Status" },
-                { label: "Date" },
-                { label: "Actions", center: true },
-              ].map(({ label, center }) => (
-                <TableCell
-                  key={label}
-                  sx={{
-                    fontWeight: 700,
-                    color: colors.primaryDark,
-                    fontSize: "0.72rem",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.05em",
-                    whiteSpace: "nowrap",
-                    ...(center && { textAlign: "center" }),
-                  }}
-                >
-                  {label}
-                </TableCell>
-              ))}
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {paginated.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 10 }}>
-                  <Mail
-                    size={44}
-                    style={{
-                      color: colors.textMuted,
-                      margin: "0 auto 12px",
-                      display: "block",
-                    }}
-                  />
-                  <p style={{ color: colors.textSecondary, fontWeight: 600 }}>
-                    No messages found
-                  </p>
-                  <p style={{ color: colors.textMuted, fontSize: "0.85rem" }}>
-                    Try adjusting your search
-                  </p>
-                </TableCell>
-              </TableRow>
-            ) : (
-              paginated.map((msg) => {
-                const isUpdating = updatingId === msg.id;
-                return (
-                  <TableRow
-                    key={msg.id}
+        <Box sx={{ overflowX: "auto", width: "100%" }}>
+          <Table>
+            <TableHead>
+              <TableRow sx={{ bgcolor: colors.primaryBg }}>
+                {[
+                  { label: "Sender" },
+                  { label: "Subject" },
+                  { label: "Message Preview" },
+                  { label: "Status" },
+                  { label: "Date" },
+                  { label: "Actions", center: true },
+                ].map(({ label, center }) => (
+                  <TableCell
+                    key={label}
                     sx={{
-                      "&:hover": { bgcolor: colors.muted },
-                      transition: "background 0.15s",
+                      fontWeight: 700,
+                      color: colors.primaryDark,
+                      fontSize: "0.72rem",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                      whiteSpace: "nowrap",
+                      ...(center && { textAlign: "center" }),
                     }}
                   >
-                    {/* Sender */}
-                    <TableCell>
-                      <Box
-                        sx={{ display: "flex", alignItems: "center", gap: 1.5 }}
-                      >
+                    {label}
+                  </TableCell>
+                ))}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {paginated.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} align="center" sx={{ py: 10 }}>
+                    <Mail
+                      size={44}
+                      style={{
+                        color: colors.textMuted,
+                        margin: "0 auto 12px",
+                        display: "block",
+                      }}
+                    />
+                    <p style={{ color: colors.textSecondary, fontWeight: 600 }}>
+                      No messages found
+                    </p>
+                    <p style={{ color: colors.textMuted, fontSize: "0.85rem" }}>
+                      Try adjusting your search
+                    </p>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                paginated.map((msg) => {
+                  const isUpdating = updatingId === msg.id;
+                  return (
+                    <TableRow
+                      key={msg.id}
+                      sx={{
+                        "&:hover": { bgcolor: colors.muted },
+                        transition: "background 0.15s",
+                      }}
+                    >
+                      {/* Sender */}
+                      <TableCell>
                         <Box
                           sx={{
-                            width: 36,
-                            height: 36,
-                            borderRadius: "50%",
-                            bgcolor:
-                              msg.status === "new"
-                                ? "#FEF3C7"
-                                : colors.primaryBg,
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 1.5,
+                          }}
+                        >
+                          <Box
+                            sx={{
+                              width: 36,
+                              height: 36,
+                              borderRadius: "50%",
+                              bgcolor:
+                                msg.status === "new"
+                                  ? "#FEF3C7"
+                                  : colors.primaryBg,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              flexShrink: 0,
+                              fontWeight: 700,
+                              color:
+                                msg.status === "new"
+                                  ? "#D97706"
+                                  : colors.primary,
+                              fontSize: "0.85rem",
+                            }}
+                          >
+                            {msg.name.charAt(0).toUpperCase()}
+                          </Box>
+                          <div>
+                            <p
+                              style={{
+                                margin: 0,
+                                fontWeight: msg.status === "new" ? 700 : 600,
+                                fontSize: "0.875rem",
+                                color: colors.textPrimary,
+                              }}
+                            >
+                              {msg.name}
+                            </p>
+                            <p
+                              style={{
+                                margin: "2px 0 0",
+                                fontSize: "0.72rem",
+                                color: colors.textMuted,
+                              }}
+                            >
+                              {msg.email}
+                            </p>
+                          </div>
+                        </Box>
+                      </TableCell>
+
+                      {/* Subject */}
+                      <TableCell>
+                        <span
+                          style={{
+                            fontSize: "0.78rem",
+                            background: colors.primaryBg,
+                            color: colors.primary,
+                            padding: "3px 10px",
+                            borderRadius: 99,
+                            fontWeight: 600,
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {(SUBJECT_LABELS[msg.subject] ?? msg.subject) || "—"}
+                        </span>
+                      </TableCell>
+
+                      {/* Message Preview */}
+                      <TableCell sx={{ maxWidth: 260 }}>
+                        <p
+                          style={{
+                            margin: 0,
+                            fontSize: "0.82rem",
+                            color: colors.textSecondary,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {msg.message}
+                        </p>
+                      </TableCell>
+
+                      {/* Status — click chip to open dropdown menu */}
+                      <TableCell>
+                        <Tooltip
+                          title="Click to change status"
+                          placement="top"
+                          arrow
+                        >
+                          <Chip
+                            label={
+                              isUpdating
+                                ? "…"
+                                : getContactStatusStyle(msg.status).label
+                            }
+                            size="small"
+                            onClick={(e) =>
+                              setMenuAnchor({ el: e.currentTarget, id: msg.id })
+                            }
+                            icon={<ChevronDown size={11} />}
+                            sx={{
+                              bgcolor: getContactStatusStyle(msg.status).bg,
+                              color: getContactStatusStyle(msg.status).color,
+                              fontWeight: 700,
+                              fontSize: "0.7rem",
+                              cursor: "pointer",
+                              "& .MuiChip-icon": {
+                                color: "inherit",
+                                ml: "6px",
+                              },
+                              "&:hover": { opacity: 0.8 },
+                            }}
+                          />
+                        </Tooltip>
+                        <Menu
+                          anchorEl={
+                            menuAnchor?.id === msg.id ? menuAnchor.el : null
+                          }
+                          open={menuAnchor?.id === msg.id}
+                          onClose={() => setMenuAnchor(null)}
+                          anchorOrigin={{
+                            vertical: "bottom",
+                            horizontal: "left",
+                          }}
+                          transformOrigin={{
+                            vertical: "top",
+                            horizontal: "left",
+                          }}
+                        >
+                          {(["new", "seen", "replied"] as ContactStatus[]).map(
+                            (s) => {
+                              const style = getContactStatusStyle(s);
+                              return (
+                                <MenuItem
+                                  key={s}
+                                  onClick={() => {
+                                    setMenuAnchor(null);
+                                    handleStatusChange(msg.id, s);
+                                  }}
+                                  selected={msg.status === s}
+                                  sx={{ gap: 1 }}
+                                >
+                                  <Chip
+                                    label={style.label}
+                                    size="small"
+                                    sx={{
+                                      bgcolor: style.bg,
+                                      color: style.color,
+                                      fontWeight: 700,
+                                      fontSize: "0.7rem",
+                                      pointerEvents: "none",
+                                    }}
+                                  />
+                                </MenuItem>
+                              );
+                            },
+                          )}
+                        </Menu>
+                      </TableCell>
+
+                      {/* Date */}
+                      <TableCell
+                        sx={{
+                          fontSize: "0.78rem",
+                          color: colors.textMuted,
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {msg.createdAt.toLocaleDateString()}
+                      </TableCell>
+
+                      {/* Actions */}
+                      <TableCell align="center">
+                        <Box
+                          sx={{
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
-                            flexShrink: 0,
-                            fontWeight: 700,
-                            color:
-                              msg.status === "new" ? "#D97706" : colors.primary,
-                            fontSize: "0.85rem",
+                            gap: 0.5,
                           }}
                         >
-                          {msg.name.charAt(0).toUpperCase()}
+                          {can("contacts", "read") && (
+                            <IconButton
+                              size="small"
+                              onClick={() =>
+                                navigate(`/admin/contacts/${msg.id}`)
+                              }
+                              sx={{
+                                color: colors.primary,
+                                "&:hover": { bgcolor: colors.primaryBg },
+                                borderRadius: 1.5,
+                              }}
+                              title="View full message"
+                            >
+                              <Eye size={16} />
+                            </IconButton>
+                          )}
+                          {can("contacts", "delete") && (
+                            <IconButton
+                              size="small"
+                              onClick={() => {
+                                setMsgToDelete(msg);
+                                setDeleteDialog(true);
+                              }}
+                              sx={{
+                                color: colors.error,
+                                "&:hover": { bgcolor: colors.errorBg },
+                                borderRadius: 1.5,
+                              }}
+                              title="Delete message"
+                            >
+                              <Trash2 size={16} />
+                            </IconButton>
+                          )}
                         </Box>
-                        <div>
-                          <p
-                            style={{
-                              margin: 0,
-                              fontWeight: msg.status === "new" ? 700 : 600,
-                              fontSize: "0.875rem",
-                              color: colors.textPrimary,
-                            }}
-                          >
-                            {msg.name}
-                          </p>
-                          <p
-                            style={{
-                              margin: "2px 0 0",
-                              fontSize: "0.72rem",
-                              color: colors.textMuted,
-                            }}
-                          >
-                            {msg.email}
-                          </p>
-                        </div>
-                      </Box>
-                    </TableCell>
-
-                    {/* Subject */}
-                    <TableCell>
-                      <span
-                        style={{
-                          fontSize: "0.78rem",
-                          background: colors.primaryBg,
-                          color: colors.primary,
-                          padding: "3px 10px",
-                          borderRadius: 99,
-                          fontWeight: 600,
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {(SUBJECT_LABELS[msg.subject] ?? msg.subject) || "—"}
-                      </span>
-                    </TableCell>
-
-                    {/* Message Preview */}
-                    <TableCell sx={{ maxWidth: 260 }}>
-                      <p
-                        style={{
-                          margin: 0,
-                          fontSize: "0.82rem",
-                          color: colors.textSecondary,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {msg.message}
-                      </p>
-                    </TableCell>
-
-                    {/* Status — click chip to open dropdown menu */}
-                    <TableCell>
-                      <Tooltip
-                        title="Click to change status"
-                        placement="top"
-                        arrow
-                      >
-                        <Chip
-                          label={
-                            isUpdating
-                              ? "…"
-                              : getContactStatusStyle(msg.status).label
-                          }
-                          size="small"
-                          onClick={(e) =>
-                            setMenuAnchor({ el: e.currentTarget, id: msg.id })
-                          }
-                          icon={<ChevronDown size={11} />}
-                          sx={{
-                            bgcolor: getContactStatusStyle(msg.status).bg,
-                            color: getContactStatusStyle(msg.status).color,
-                            fontWeight: 700,
-                            fontSize: "0.7rem",
-                            cursor: "pointer",
-                            "& .MuiChip-icon": { color: "inherit", ml: "6px" },
-                            "&:hover": { opacity: 0.8 },
-                          }}
-                        />
-                      </Tooltip>
-                      <Menu
-                        anchorEl={
-                          menuAnchor?.id === msg.id ? menuAnchor.el : null
-                        }
-                        open={menuAnchor?.id === msg.id}
-                        onClose={() => setMenuAnchor(null)}
-                        anchorOrigin={{
-                          vertical: "bottom",
-                          horizontal: "left",
-                        }}
-                        transformOrigin={{
-                          vertical: "top",
-                          horizontal: "left",
-                        }}
-                      >
-                        {(["new", "seen", "replied"] as ContactStatus[]).map(
-                          (s) => {
-                            const style = getContactStatusStyle(s);
-                            return (
-                              <MenuItem
-                                key={s}
-                                onClick={() => {
-                                  setMenuAnchor(null);
-                                  handleStatusChange(msg.id, s);
-                                }}
-                                selected={msg.status === s}
-                                sx={{ gap: 1 }}
-                              >
-                                <Chip
-                                  label={style.label}
-                                  size="small"
-                                  sx={{
-                                    bgcolor: style.bg,
-                                    color: style.color,
-                                    fontWeight: 700,
-                                    fontSize: "0.7rem",
-                                    pointerEvents: "none",
-                                  }}
-                                />
-                              </MenuItem>
-                            );
-                          },
-                        )}
-                      </Menu>
-                    </TableCell>
-
-                    {/* Date */}
-                    <TableCell
-                      sx={{
-                        fontSize: "0.78rem",
-                        color: colors.textMuted,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {msg.createdAt.toLocaleDateString()}
-                    </TableCell>
-
-                    {/* Actions */}
-                    <TableCell align="center">
-                      <Box
-                        sx={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          gap: 0.5,
-                        }}
-                      >
-                        {can("contacts", "read") && <IconButton
-                          size="small"
-                          onClick={() => navigate(`/admin/contacts/${msg.id}`)}
-                          sx={{
-                            color: colors.primary,
-                            "&:hover": { bgcolor: colors.primaryBg },
-                            borderRadius: 1.5,
-                          }}
-                          title="View full message"
-                        >
-                          <Eye size={16} />
-                        </IconButton>}
-                        {can("contacts", "delete") && <IconButton
-                          size="small"
-                          onClick={() => {
-                            setMsgToDelete(msg);
-                            setDeleteDialog(true);
-                          }}
-                          sx={{
-                            color: colors.error,
-                            "&:hover": { bgcolor: colors.errorBg },
-                            borderRadius: 1.5,
-                          }}
-                          title="Delete message"
-                        >
-                          <Trash2 size={16} />
-                        </IconButton>}
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </Box>
         <TablePagination
           component="div"
           count={filtered.length}

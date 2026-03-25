@@ -817,9 +817,10 @@ const AdminNavbar = () => {
         <ChangePasswordModal onClose={() => setShowPwModal(false)} />
       )}
 
-      <header className="sticky top-0 z-50 h-20 px-10 flex items-center justify-between bg-white/80 backdrop-blur-md border-b border-[#E2E8F0] shadow-sm">
+      {/* On mobile: pl-16 to make room for the hamburger button (fixed at left-4) */}
+      <header className="sticky top-0 z-30 h-16 md:h-20 pl-16 pr-4 md:px-10 flex items-center justify-between bg-white/80 backdrop-blur-md border-b border-[#E2E8F0] shadow-sm">
         {/* Left — Page Title */}
-        <h1 className="text-xl font-semibold text-[#2A4863] tracking-wide">
+        <h1 className="text-base md:text-xl font-semibold text-[#2A4863] tracking-wide truncate">
           {getPageTitle()}
         </h1>
 

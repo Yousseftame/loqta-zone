@@ -17,6 +17,7 @@ import { ContactFeedbackProvider } from './store/AdminContext/ContactFeedbackCon
 import { BidProvider } from './store/AdminContext/Bidcontext/Bidcontext.tsx';
 import { ParticipantProvider } from './store/AdminContext/Participantcontext/Participantcontext.tsx';
 import { LastOfferProvider } from './store/AdminContext/LastOfferContext/LastOfferContext.tsx';
+import { HeroSlideProvider } from './store/AdminContext/HeroSlideContext/HeroSlideContext.tsx';
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -38,7 +39,9 @@ createRoot(document.getElementById("root")!).render(
                     <BidProvider>
                       <ParticipantProvider>
                         <LastOfferProvider>
-                          <App />
+                          <HeroSlideProvider>
+                            <App />
+                            </HeroSlideProvider>
                         </LastOfferProvider>
                       </ParticipantProvider>
                     </BidProvider>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dashboard, MenuBook, Logout, Home } from "@mui/icons-material";
 import CategoryIcon from "@mui/icons-material/Category";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
@@ -10,7 +10,7 @@ import AttachEmailIcon from "@mui/icons-material/AttachEmail";
 import LocalOfferIcon from "@mui/icons-material/LocalOffer";
 import AddCardIcon from "@mui/icons-material/AddCard";
 import LocalActivityIcon from "@mui/icons-material/LocalActivity";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Images, Menu, X } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { signOut } from "firebase/auth";
 import { auth } from "@/firebase/firebase";
@@ -323,13 +323,21 @@ function LogoutModal({
 // ── Sidebar ───────────────────────────────────────────────────────────────────
 
 const Sidebar = () => {
+  // On mobile: sidebar is hidden by default (mobileOpen=false)
+  // On desktop: sidebar respects the collapsed state
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { user, role } = useAuth();
   const { contactNewCount, feedbackNewCount } = useContactFeedback();
+
+  // Close mobile sidebar on route change
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
 
   const handleLogoutConfirm = async () => {
     setLogoutLoading(true);
@@ -357,6 +365,14 @@ const Sidebar = () => {
       path: "/admin",
       roles: ["admin", "superAdmin"],
     },
+    {
+      id: "Hero Slides",
+      label: "Hero Slides",
+      icon: Images,
+      path: "/admin/hero-slides",
+      roles: ["admin", "superAdmin"],
+    },
+
     {
       id: "Category",
       label: "Category",
@@ -449,6 +465,160 @@ const Sidebar = () => {
     (item) => !role || item.roles.includes(role),
   );
 
+  const SidebarContent = () => (
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Logo */}
+      <div className="h-24 flex items-center justify-center border-b border-[#E2E8F0] flex-shrink-0">
+        <img
+          src="/loqta-removebg-preview.png"
+          alt="loqta zone"
+          className="h-40 object-contain"
+        />
+      </div>
+
+      {/* Scrollable Menu */}
+      <div
+        className="flex-1 overflow-y-auto min-h-0"
+        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+      >
+        <nav className="mt-6 px-3 space-y-2">
+          {menuItems.map((item) => {
+            const Icon = item.icon;
+            const isActive =
+              item.path === "/admin"
+                ? location.pathname === "/admin"
+                : location.pathname.startsWith(item.path);
+            const showBadge = item.badge !== undefined && item.badge > 0;
+
+            return (
+              <button
+                key={item.id}
+                onClick={() => navigate(item.path)}
+                className={`relative w-full flex items-center py-3 rounded-xl transition-all duration-300 group overflow-hidden ${
+                  collapsed ? "justify-center px-0" : "px-4"
+                } ${isActive ? "bg-[#DBEAFE]" : "hover:bg-[#EFF6FF]"}`}
+              >
+                {isActive && !collapsed && (
+                  <div className="absolute left-0 top-2 bottom-2 w-1.5 bg-[#2A4863] rounded-r-full" />
+                )}
+                <div className="relative flex-shrink-0">
+                  <Icon
+                    className={`transition-all duration-300 ${
+                      isActive
+                        ? "text-[#2A4863] scale-110"
+                        : "text-gray-400 group-hover:text-[#2A4863]"
+                    }`}
+                    style={{ fontSize: "22px" }}
+                  />
+                  {showBadge && (
+                    <span
+                      className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center"
+                      style={{
+                        minWidth: 18,
+                        height: 18,
+                        padding: "0 4px",
+                        lineHeight: "18px",
+                        boxShadow: "0 1px 4px rgba(239,68,68,0.5)",
+                        animation:
+                          "badgePop 0.3s cubic-bezier(0.34,1.56,0.64,1)",
+                      }}
+                    >
+                      {item.badge! > 99 ? "99+" : item.badge}
+                    </span>
+                  )}
+                </div>
+                <div
+                  className={`overflow-hidden whitespace-nowrap transition-all duration-500 ease-in-out ${
+                    collapsed
+                      ? "w-0 opacity-0 ml-0"
+                      : "w-auto opacity-100 ml-4 delay-150"
+                  }`}
+                >
+                  <span
+                    className={`text-[15px] font-medium whitespace-nowrap ${
+                      isActive
+                        ? "text-[#1E40AF]"
+                        : "text-gray-600 group-hover:text-[#2A4863]"
+                    }`}
+                  >
+                    {item.label}
+                  </span>
+                </div>
+                {!collapsed && showBadge && (
+                  <span
+                    className="ml-auto text-[10px] font-bold text-red-500 bg-red-50 border border-red-200 rounded-full px-2 py-0.5 flex-shrink-0"
+                    style={{ marginLeft: "auto" }}
+                  >
+                    {item.badge} new
+                  </span>
+                )}
+                {collapsed && (
+                  <span className="absolute left-16 z-50 bg-[#1E40AF] text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-md">
+                    {item.label}
+                    {showBadge && ` (${item.badge} new)`}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* Scroll Hint */}
+        <div className="px-4 py-2 flex items-center gap-2">
+          <div className="flex flex-col gap-[3px]">
+            <div className="w-3.5 h-[2px] bg-[#2A4863] rounded-full opacity-50" />
+            <div className="w-2.5 h-[2px] bg-[#2A4863] rounded-full opacity-30" />
+            <div className="w-1.5 h-[2px] bg-[#2A4863] rounded-full opacity-15" />
+          </div>
+          {!collapsed && (
+            <span className="text-[11px] text-gray-400 italic">
+              Scroll to see more
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Bottom Section */}
+      <div className="border-t border-[#E2E8F0] p-4 space-y-3 flex-shrink-0">
+        <div className="flex items-center gap-3 overflow-hidden">
+          <div className="w-10 h-10 rounded-full bg-[#DBEAFE] flex items-center justify-center text-[#2A4863] font-bold flex-shrink-0">
+            {user?.email?.charAt(0).toUpperCase()}
+          </div>
+          <div
+            className={`overflow-hidden whitespace-nowrap transition-all duration-500 ease-in-out ${
+              collapsed ? "w-0 opacity-0 ml-0" : "w-auto opacity-100 delay-150"
+            }`}
+          >
+            <p className="text-sm text-gray-700 truncate">{user?.email}</p>
+            <p className="text-xs text-gray-400">
+              {role === "superAdmin" ? "Super Admin" : "Administrator"}
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={() => setShowLogoutModal(true)}
+          className={`w-full flex items-center py-2.5 rounded-lg hover:bg-red-50 transition-all duration-300 group overflow-hidden ${
+            collapsed ? "justify-center px-0" : "px-3"
+          }`}
+        >
+          <Logout className="text-gray-400 group-hover:text-red-500 transition-all duration-300 flex-shrink-0" />
+          <div
+            className={`overflow-hidden whitespace-nowrap transition-all duration-500 ease-in-out ${
+              collapsed
+                ? "w-0 opacity-0 ml-0"
+                : "w-auto opacity-100 ml-3 delay-150"
+            }`}
+          >
+            <span className="text-sm text-gray-500 group-hover:text-red-500 whitespace-nowrap">
+              Logout
+            </span>
+          </div>
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <>
       {showLogoutModal && (
@@ -459,184 +629,63 @@ const Sidebar = () => {
         />
       )}
 
-      <>
+      {/* ── Mobile hamburger button (visible only on small screens) ── */}
+      <button
+        onClick={() => setMobileOpen(true)}
+        className="md:hidden fixed top-3 left-3 z-40 bg-white border border-[#2A4863] rounded-xl p-2.5 shadow-md text-[#2A4863]"
+        aria-label="Open menu"
+      >
+        <Menu size={20} />
+      </button>
+
+      {/* ── Mobile overlay backdrop ── */}
+      {mobileOpen && (
         <div
-          className={`relative bg-white border-r border-[#E2E8F0] shadow-sm transition-all duration-500 ease-in-out flex-shrink-0 ${
-            collapsed ? "w-20" : "w-72"
-          }`}
+          className="md:hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* ── Mobile drawer (slides in from left) ── */}
+      <div
+        className={`md:hidden fixed top-0 left-0 z-50 h-full w-72 bg-white border-r border-[#E2E8F0] shadow-xl transition-transform duration-300 ease-in-out ${
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        {/* Close button inside drawer */}
+        <button
+          onClick={() => setMobileOpen(false)}
+          className="absolute top-4 right-4 z-10 bg-[#F1F5F9] hover:bg-[#E2E8F0] rounded-lg p-1.5 text-[#64748B] transition-colors"
+          aria-label="Close menu"
         >
-          <div className="flex flex-col h-full overflow-hidden">
-            {/* Logo */}
-            <div className="h-24 flex items-center justify-center border-b border-[#E2E8F0] flex-shrink-0">
-              <img
-                src="/loqta-removebg-preview.png"
-                alt="loqta zone"
-                className="h-40 object-contain"
-              />
-            </div>
+          <X size={16} />
+        </button>
+        <SidebarContent />
+      </div>
 
-            {/* Scrollable Menu */}
-            <div
-              className="flex-1 overflow-y-auto min-h-0"
-              style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-            >
-              <nav className="mt-6 px-3 space-y-2">
-                {menuItems.map((item) => {
-                  const Icon = item.icon;
-                  const isActive =
-                    item.path === "/admin"
-                      ? location.pathname === "/admin"
-                      : location.pathname.startsWith(item.path);
-                  const showBadge = item.badge !== undefined && item.badge > 0;
+      {/* ── Desktop sidebar (always visible, collapsible) ── */}
+      <div
+        className={`hidden md:block relative bg-white border-r border-[#E2E8F0] shadow-sm transition-all duration-500 ease-in-out flex-shrink-0 ${
+          collapsed ? "w-20" : "w-72"
+        }`}
+      >
+        <SidebarContent />
 
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => navigate(item.path)}
-                      className={`relative w-full flex items-center py-3 rounded-xl transition-all duration-300 group overflow-hidden ${
-                        collapsed ? "justify-center px-0" : "px-4"
-                      } ${isActive ? "bg-[#DBEAFE]" : "hover:bg-[#EFF6FF]"}`}
-                    >
-                      {isActive && !collapsed && (
-                        <div className="absolute left-0 top-2 bottom-2 w-1.5 bg-[#2A4863] rounded-r-full" />
-                      )}
-                      <div className="relative flex-shrink-0">
-                        <Icon
-                          className={`transition-all duration-300 ${
-                            isActive
-                              ? "text-[#2A4863] scale-110"
-                              : "text-gray-400 group-hover:text-[#2A4863]"
-                          }`}
-                          style={{ fontSize: "22px" }}
-                        />
-                        {showBadge && (
-                          <span
-                            className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center"
-                            style={{
-                              minWidth: 18,
-                              height: 18,
-                              padding: "0 4px",
-                              lineHeight: "18px",
-                              boxShadow: "0 1px 4px rgba(239,68,68,0.5)",
-                              animation:
-                                "badgePop 0.3s cubic-bezier(0.34,1.56,0.64,1)",
-                            }}
-                          >
-                            {item.badge! > 99 ? "99+" : item.badge}
-                          </span>
-                        )}
-                      </div>
-                      <div
-                        className={`overflow-hidden whitespace-nowrap transition-all duration-500 ease-in-out ${
-                          collapsed
-                            ? "w-0 opacity-0 ml-0"
-                            : "w-auto opacity-100 ml-4 delay-150"
-                        }`}
-                      >
-                        <span
-                          className={`text-[15px] font-medium whitespace-nowrap ${
-                            isActive
-                              ? "text-[#1E40AF]"
-                              : "text-gray-600 group-hover:text-[#2A4863]"
-                          }`}
-                        >
-                          {item.label}
-                        </span>
-                      </div>
-                      {!collapsed && showBadge && (
-                        <span
-                          className="ml-auto text-[10px] font-bold text-red-500 bg-red-50 border border-red-200 rounded-full px-2 py-0.5 flex-shrink-0"
-                          style={{ marginLeft: "auto" }}
-                        >
-                          {item.badge} new
-                        </span>
-                      )}
-                      {collapsed && (
-                        <span className="absolute left-16 z-50 bg-[#1E40AF] text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-md">
-                          {item.label}
-                          {showBadge && ` (${item.badge} new)`}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </nav>
+        {/* Toggle Button */}
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className="absolute -right-3 top-28 z-10 bg-white border border-[#E2E8F0] rounded-full p-2 text-gray-500 hover:text-[#2A4863] hover:border-[#2A4863] transition-all duration-300 shadow-md"
+        >
+          {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+        </button>
+      </div>
 
-              {/* Scroll Hint */}
-              <div className="px-4 py-2 flex items-center gap-2">
-                <div className="flex flex-col gap-[3px]">
-                  <div className="w-3.5 h-[2px] bg-[#2A4863] rounded-full opacity-50" />
-                  <div className="w-2.5 h-[2px] bg-[#2A4863] rounded-full opacity-30" />
-                  <div className="w-1.5 h-[2px] bg-[#2A4863] rounded-full opacity-15" />
-                </div>
-                {!collapsed && (
-                  <span className="text-[11px] text-gray-400 italic">
-                    Scroll to see more
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Bottom Section */}
-            <div className="border-t border-[#E2E8F0] p-4 space-y-3 flex-shrink-0">
-              <div className="flex items-center gap-3 overflow-hidden">
-                <div className="w-10 h-10 rounded-full bg-[#DBEAFE] flex items-center justify-center text-[#2A4863] font-bold flex-shrink-0">
-                  {user?.email?.charAt(0).toUpperCase()}
-                </div>
-                <div
-                  className={`overflow-hidden whitespace-nowrap transition-all duration-500 ease-in-out ${
-                    collapsed
-                      ? "w-0 opacity-0 ml-0"
-                      : "w-auto opacity-100 delay-150"
-                  }`}
-                >
-                  <p className="text-sm text-gray-700 truncate">
-                    {user?.email}
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    {role === "superAdmin" ? "Super Admin" : "Administrator"}
-                  </p>
-                </div>
-              </div>
-
-              <button
-                onClick={() => setShowLogoutModal(true)}
-                className={`w-full flex items-center py-2.5 rounded-lg hover:bg-red-50 transition-all duration-300 group overflow-hidden ${
-                  collapsed ? "justify-center px-0" : "px-3"
-                }`}
-              >
-                <Logout className="text-gray-400 group-hover:text-red-500 transition-all duration-300 flex-shrink-0" />
-                <div
-                  className={`overflow-hidden whitespace-nowrap transition-all duration-500 ease-in-out ${
-                    collapsed
-                      ? "w-0 opacity-0 ml-0"
-                      : "w-auto opacity-100 ml-3 delay-150"
-                  }`}
-                >
-                  <span className="text-sm text-gray-500 group-hover:text-red-500 whitespace-nowrap">
-                    Logout
-                  </span>
-                </div>
-              </button>
-            </div>
-          </div>
-
-          {/* Toggle Button */}
-          <button
-            onClick={() => setCollapsed(!collapsed)}
-            className="absolute -right-3 top-28 z-10 bg-white border border-[#E2E8F0] rounded-full p-2 text-gray-500 hover:text-[#2A4863] hover:border-[#2A4863] transition-all duration-300 shadow-md"
-          >
-            {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
-          </button>
-        </div>
-
-        <style>{`
-          @keyframes badgePop {
-            from { transform: scale(0); opacity: 0; }
-            to   { transform: scale(1); opacity: 1; }
-          }
-        `}</style>
-      </>
+      <style>{`
+        @keyframes badgePop {
+          from { transform: scale(0); opacity: 0; }
+          to   { transform: scale(1); opacity: 1; }
+        }
+      `}</style>
     </>
   );
 };

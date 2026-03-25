@@ -154,7 +154,7 @@ export default function Dashboard() {
         sx={{
           display: "grid",
           gridTemplateColumns: {
-            xs: "1fr 1fr",
+            xs: "1fr ",
             sm: "repeat(3, 1fr)",
             lg: "repeat(5, 1fr)",
           },
@@ -220,7 +220,7 @@ export default function Dashboard() {
         sx={{
           display: "grid",
           gridTemplateColumns: {
-            xs: "1fr 1fr",
+            xs: "1fr",
             sm: "repeat(3, 1fr)",
             lg: "repeat(4, 1fr)",
           },

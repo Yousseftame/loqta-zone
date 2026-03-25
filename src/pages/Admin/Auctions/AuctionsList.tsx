@@ -219,25 +219,27 @@ export default function AuctionsList() {
           >
             <RefreshCw size={18} />
           </IconButton>
-          {can("auctions", "create") && <Button
-            variant="contained"
-            startIcon={<Plus size={18} />}
-            onClick={() => navigate("/admin/auctions/add")}
-            sx={{
-              bgcolor: colors.primary,
-              color: "white",
-              textTransform: "none",
-              px: 3,
-              py: 1.5,
-              borderRadius: 2,
-              fontWeight: 600,
-              boxShadow: "none",
-              width: { xs: "100%", sm: "auto" },
-              "&:hover": { bgcolor: "#111" },
-            }}
-          >
-            Add New Auction
-          </Button>}
+          {can("auctions", "create") && (
+            <Button
+              variant="contained"
+              startIcon={<Plus size={18} />}
+              onClick={() => navigate("/admin/auctions/add")}
+              sx={{
+                bgcolor: colors.primary,
+                color: "white",
+                textTransform: "none",
+                px: 3,
+                py: 1.5,
+                borderRadius: 2,
+                fontWeight: 600,
+                boxShadow: "none",
+                width: { xs: "100%", sm: "auto" },
+                "&:hover": { bgcolor: "#111" },
+              }}
+            >
+              Add New Auction
+            </Button>
+          )}
         </Box>
       </Box>
 
@@ -246,7 +248,7 @@ export default function AuctionsList() {
         sx={{
           display: "grid",
           gap: 2,
-          gridTemplateColumns: { xs: "1fr 1fr", sm: "repeat(3, 1fr)" },
+          gridTemplateColumns: { xs: "1fr", sm: "repeat(3, 1fr)" },
           mb: 4,
         }}
       >
@@ -467,7 +469,7 @@ export default function AuctionsList() {
           overflow: "hidden",
         }}
       >
-        <Box sx={{ overflowX: "auto" }}>
+        <Box sx={{ overflowX: "auto", width: "100%" }}>
           <Table sx={{ minWidth: 700 }}>
             <TableHead>
               <TableRow sx={{ bgcolor: colors.primaryBg }}>
@@ -796,67 +798,73 @@ export default function AuctionsList() {
                             gap: 0.5,
                           }}
                         >
-                          {can("categories", "read") && <IconButton
-                            size="small"
-                            onClick={() =>
-                              navigate(`/admin/auctions/${auction.id}`)
-                            }
-                            sx={{
-                              color: colors.primary,
-                              "&:hover": { bgcolor: colors.primaryBg },
-                              borderRadius: 1.5,
-                            }}
-                            title="View"
-                          >
-                            <Eye size={16} />
-                          </IconButton>}
-                          {can("categories", "update") && <IconButton
-                            size="small"
-                            onClick={() =>
-                              navigate(`/admin/auctions/${auction.id}/edit`)
-                            }
-                            disabled={auction.status === "ended"}
-                            sx={{
-                              color:
-                                auction.status === "ended"
-                                  ? colors.textMuted
-                                  : "#7C3AED",
-                              "&:hover": {
-                                bgcolor:
+                          {can("categories", "read") && (
+                            <IconButton
+                              size="small"
+                              onClick={() =>
+                                navigate(`/admin/auctions/${auction.id}`)
+                              }
+                              sx={{
+                                color: colors.primary,
+                                "&:hover": { bgcolor: colors.primaryBg },
+                                borderRadius: 1.5,
+                              }}
+                              title="View"
+                            >
+                              <Eye size={16} />
+                            </IconButton>
+                          )}
+                          {can("categories", "update") && (
+                            <IconButton
+                              size="small"
+                              onClick={() =>
+                                navigate(`/admin/auctions/${auction.id}/edit`)
+                              }
+                              disabled={auction.status === "ended"}
+                              sx={{
+                                color:
                                   auction.status === "ended"
-                                    ? "transparent"
-                                    : "#F3E8FF",
-                              },
-                              "&.Mui-disabled": {
-                                opacity: 0.38,
-                                pointerEvents: "all",
-                                cursor: "not-allowed",
-                              },
-                              borderRadius: 1.5,
-                            }}
-                            title={
-                              auction.status === "ended"
-                                ? "Cannot edit an ended auction"
-                                : "Edit"
-                            }
-                          >
-                            <Edit size={16} />
-                          </IconButton>}
-                          {can("categories", "delete") && <IconButton
-                            size="small"
-                            onClick={() => {
-                              setAuctionToDelete(auction);
-                              setDeleteDialog(true);
-                            }}
-                            sx={{
-                              color: colors.error,
-                              "&:hover": { bgcolor: colors.errorBg },
-                              borderRadius: 1.5,
-                            }}
-                            title="Delete"
-                          >
-                            <Trash2 size={16} />
-                          </IconButton>}
+                                    ? colors.textMuted
+                                    : "#7C3AED",
+                                "&:hover": {
+                                  bgcolor:
+                                    auction.status === "ended"
+                                      ? "transparent"
+                                      : "#F3E8FF",
+                                },
+                                "&.Mui-disabled": {
+                                  opacity: 0.38,
+                                  pointerEvents: "all",
+                                  cursor: "not-allowed",
+                                },
+                                borderRadius: 1.5,
+                              }}
+                              title={
+                                auction.status === "ended"
+                                  ? "Cannot edit an ended auction"
+                                  : "Edit"
+                              }
+                            >
+                              <Edit size={16} />
+                            </IconButton>
+                          )}
+                          {can("categories", "delete") && (
+                            <IconButton
+                              size="small"
+                              onClick={() => {
+                                setAuctionToDelete(auction);
+                                setDeleteDialog(true);
+                              }}
+                              sx={{
+                                color: colors.error,
+                                "&:hover": { bgcolor: colors.errorBg },
+                                borderRadius: 1.5,
+                              }}
+                              title="Delete"
+                            >
+                              <Trash2 size={16} />
+                            </IconButton>
+                          )}
                         </Box>
                       </TableCell>
                     </TableRow>

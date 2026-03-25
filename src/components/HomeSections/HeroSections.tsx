@@ -1,36 +1,113 @@
-import React, { useEffect, useState } from "react";
+/**
+ * HeroSections.tsx — Dynamic slideshow version
+ *
+ * Loads active hero slides from Firestore (heroSlides collection).
+ * Falls back to a static dark background if no slides are configured.
+ *
+ * Features:
+ *  - Full-viewport images, object-fit: contain (no cropping)
+ *  - Smooth cross-fade transitions between slides
+ *  - Auto-advance every 5 seconds (pauses on hover)
+ *  - Clickable dot navigation below
+ *  - Keyboard arrow navigation
+ *  - Preloads adjacent images for instant transitions
+ */
+
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import SplitText from "../SplitText";
+import {
+  fetchActiveHeroSlides,
+  type HeroSlide,
+} from "@/service/heroSlide/heroSlideService";
 
-// ── Curated Unsplash hero images — dark luxury editorial palette
-// Each is a real Unsplash photo ID. The component cycles/picks the first on load.
-// All have: dark tones, warm amber/gold light, editorial atmosphere.
-const HERO_IMAGE_URL =
-  "https://images.unsplash.com/photo-1600585154526-990dced4db0d?w=1900&q=90&fm=webp&fit=crop&crop=center";
-
-// Fallback chain (used as CSS background-image list — browser picks first that loads)
-// photo-1536440136628  → dark cinematic room, warm amber glow (perfect match)
-// photo-1578662996442  → luxury dark interior with gold accents
-// photo-1519710164239  → dark moody editorial still life
+const SLIDE_INTERVAL_MS = 5000;
 
 export default function HeroSections() {
+  const [slides, setSlides] = useState<HeroSlide[]>([]);
+  const [current, setCurrent] = useState(0);
+  const [prev, setPrev] = useState<number | null>(null);
+  const [transitioning, setTransitioning] = useState(false);
   const [loaded, setLoaded] = useState(false);
-  const [imgLoaded, setImgLoaded] = useState(false);
+  const [slidesLoading, setSlidesLoading] = useState(true);
+  const [paused, setPaused] = useState(false);
+
   const { t, i18n } = useTranslation();
   const isArabic = i18n.language === "ar";
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // ── Load slides from Firestore ─────────────────────────────────────────────
   useEffect(() => {
-    const timer = setTimeout(() => setLoaded(true), 120);
-    return () => clearTimeout(timer);
+    fetchActiveHeroSlides()
+      .then((data :any) => setSlides(data))
+      .catch((err :any) =>
+        console.error("[HeroSections] Failed to load slides:", err),
+      )
+      .finally(() => setSlidesLoading(false));
   }, []);
 
-  // Preload the hero image so we get a smooth fade-in on ready
+  // ── Mount animation ────────────────────────────────────────────────────────
   useEffect(() => {
+    const t = setTimeout(() => setLoaded(true), 120);
+    return () => clearTimeout(t);
+  }, []);
+
+  // ── Preload adjacent images ────────────────────────────────────────────────
+  useEffect(() => {
+    if (slides.length < 2) return;
+    const nextIdx = (current + 1) % slides.length;
     const img = new Image();
-    img.src = HERO_IMAGE_URL;
-    img.onload = () => setImgLoaded(true);
-    img.onerror = () => setImgLoaded(true); // fail gracefully
-  }, []);
+    img.src = slides[nextIdx].imageUrl;
+  }, [current, slides]);
+
+  // ── Transition to a given index ────────────────────────────────────────────
+  const goTo = useCallback(
+    (index: number) => {
+      if (transitioning || index === current || slides.length < 2) return;
+      setPrev(current);
+      setCurrent(index);
+      setTransitioning(true);
+      setTimeout(() => {
+        setPrev(null);
+        setTransitioning(false);
+      }, 700); // match CSS transition duration
+    },
+    [current, transitioning, slides.length],
+  );
+
+  const goNext = useCallback(
+    () => goTo((current + 1) % slides.length),
+    [goTo, current, slides.length],
+  );
+
+  const goPrev = useCallback(
+    () => goTo((current - 1 + slides.length) % slides.length),
+    [goTo, current, slides.length],
+  );
+
+  // ── Auto-advance ───────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (slides.length < 2 || paused) return;
+    intervalRef.current = setInterval(goNext, SLIDE_INTERVAL_MS);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [slides.length, paused, goNext]);
+
+  // ── Keyboard navigation ────────────────────────────────────────────────────
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "ArrowRight") goNext();
+      if (e.key === "ArrowLeft") goPrev();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [goNext, goPrev]);
+
+  // ── Decide what background to render ──────────────────────────────────────
+  const hasSlides = slides.length > 0;
+  const currentSlide = hasSlides ? slides[current] : null;
+  const prevSlide = prev !== null && hasSlides ? slides[prev] : null;
 
   return (
     <>
@@ -47,73 +124,49 @@ export default function HeroSections() {
           align-items: flex-end;
         }
 
-        /* ── Background image layer with preload fade-in ── */
-        .hc-bg {
+        /* ── Slide layers ── */
+        .hc-slide {
           position: absolute;
           inset: 0;
-          background-color: #0a0806; /* warm dark placeholder shown while image loads */
           z-index: 0;
-        }
-        .hc-bg-img {
-          position: absolute;
-          inset: 0;
-          background-image: url('${HERO_IMAGE_URL}');
-          background-size: cover;
-          background-position: 62% top;
-          background-repeat: no-repeat;
-          opacity: 0;
-          transition: opacity 1.4s cubic-bezier(0.4, 0, 0.2, 1);
-          animation: hc-zoom 22s ease-out forwards;
-          z-index: 1;
-        }
-        .hc-bg-img--loaded {
-          opacity: 1;
-        }
-        @keyframes hc-zoom {
-          from { transform: scale(1.07); }
-          to   { transform: scale(1.00); }
+          background-color: #0a0806;
         }
 
-        /* Warm golden vignette — matches the amber editorial palette */
-        .hc-bg-tint {
+        .hc-slide-img {
           position: absolute;
           inset: 0;
-          background: radial-gradient(
-            ellipse 120% 80% at 70% 30%,
-            rgba(160, 100, 30, 0.18) 0%,
-            transparent 60%
-          );
-          z-index: 2;
+          width: 100%;
+          height: 100%;
+          object-fit: contain;   /* NO cropping — full image always visible */
+          object-position: center;
+          opacity: 0;
+          transition: opacity 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+          will-change: opacity;
+        }
+
+        .hc-slide-img--visible {
+          opacity: 1;
+        }
+
+        /* Subtle dark gradient behind text only (bottom + left) */
+        .hc-overlay {
+          position: absolute;
+          inset: 0;
+          background:
+            linear-gradient(to top,  rgba(0,0,0,0.70) 0%, transparent 45%),
+            linear-gradient(to right, rgba(0,0,0,0.55) 0%, transparent 50%);
+          z-index: 5;
           pointer-events: none;
         }
 
         .hc-grain {
           position: absolute;
           inset: 0;
-          z-index: 3;
-          opacity: 0.048;
+          z-index: 6;
+          opacity: 0.035;
           pointer-events: none;
           background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
           background-size: 200px 200px;
-        }
-        .hc-overlay-left {
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(
-            112deg,
-            rgba(5, 2, 1, 0.90) 0%,
-            rgba(12, 4, 1, 0.68) 38%,
-            rgba(0,0,0,0.14) 62%,
-            transparent 100%
-          );
-          z-index: 4;
-        }
-        .hc-overlay-bottom {
-          position: absolute;
-          bottom: 0; left: 0; right: 0;
-          height: 45%;
-          background: linear-gradient(to top, rgba(3,1,0,0.80) 0%, transparent 100%);
-          z-index: 4;
         }
 
         /* ── Heading ── */
@@ -125,10 +178,7 @@ export default function HeroSections() {
           flex-direction: column;
           line-height: 1;
         }
-        .hc-word {
-          display: block;
-          overflow: visible;
-        }
+        .hc-word { display: block; overflow: visible; }
         .hc-text {
           font-family: 'Cormorant Garamond', 'Didot', Georgia, serif;
           font-weight: 700;
@@ -139,9 +189,7 @@ export default function HeroSections() {
           color: #F3E8D9;
           display: inline-block;
           overflow: visible;
-          text-shadow:
-            0 2px 50px rgba(0,0,0,0.55),
-            0 0 100px rgba(210,80,20,0.10);
+          text-shadow: 0 2px 50px rgba(0,0,0,0.55), 0 0 100px rgba(210,80,20,0.10);
         }
         .hc-text-outline {
           color: transparent;
@@ -209,6 +257,39 @@ export default function HeroSections() {
           margin-top: 4px;
         }
 
+        /* ── Dot navigation ── */
+        .hc-dots {
+          position: absolute;
+          bottom: clamp(20px, 3.5vh, 36px);
+          left: 50%;
+          transform: translateX(-50%);
+          z-index: 10;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          opacity: 0;
+          transition: opacity 1s ease 2.4s;
+        }
+        .hc-dots--in { opacity: 1; }
+
+        .hc-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          border: none;
+          cursor: pointer;
+          padding: 0;
+          background: rgba(243, 232, 217, 0.35);
+          transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+          outline: none;
+        }
+        .hc-dot:hover { background: rgba(243, 232, 217, 0.65); transform: scale(1.2); }
+        .hc-dot--active {
+          width: 24px;
+          border-radius: 4px;
+          background: rgba(243, 232, 217, 0.90);
+        }
+
         /* ── Scroll cue ── */
         .hc-scroll {
           position: absolute;
@@ -244,19 +325,13 @@ export default function HeroSections() {
           color: rgba(243,232,217,0.30);
         }
 
-        /* ── Arabic split-parent fix ── */
-        .hc-ar-word .split-parent {
-          overflow: visible !important;
-          padding-right: 12px;
-        }
+        /* ── Arabic fix ── */
+        .hc-ar-word .split-parent { overflow: visible !important; padding-right: 12px; }
 
-        /* ── Mobile: center heading vertically in viewport middle ── */
+        /* ── Mobile ── */
         @media (max-width: 640px) {
-          .hc-root {
-            align-items: center;
-          }
+          .hc-root { align-items: center; }
           .hc-heading {
-            /* Remove bottom-anchoring, sit at true vertical center */
             position: absolute;
             bottom: unset !important;
             top: 50% !important;
@@ -267,54 +342,63 @@ export default function HeroSections() {
             width: 100%;
             padding: 0 16px;
           }
-          .hc-text {
-            font-size: clamp(76px, 23vw, 110px);
-            text-align: center;
-          }
-          .hc-rule {
-            display: none;
-          }
-          .hc-sub {
-            text-align: center;
-            margin-left: 0;
-            font-size: clamp(9px, 3vw, 11px);
-          }
-          .hc-scroll {
-            display: none;
-          }
+          .hc-text { font-size: clamp(76px, 23vw, 110px); text-align: center; }
+          .hc-rule { display: none; }
+          .hc-sub { text-align: center; margin-left: 0; font-size: clamp(9px, 3vw, 11px); }
+          .hc-scroll { display: none; }
           .hc-meta {
-            /* Keep meta at bottom center on mobile */
             right: 50%;
-            bottom: clamp(28px, 5vh, 48px);
+            bottom: clamp(60px, 8vh, 80px);
             transform: translateX(50%) translateY(18px);
             text-align: center;
             align-items: center;
           }
-          .hc-meta--in {
-            transform: translateX(50%) translateY(0);
-          }
-          /* Overlay adjustments for mobile centering */
-          .hc-overlay-left {
-            background: linear-gradient(
-              180deg,
-              rgba(5, 2, 1, 0.55) 0%,
-              rgba(5, 2, 1, 0.72) 40%,
-              rgba(3, 1, 0, 0.80) 100%
-            );
-          }
+          .hc-meta--in { transform: translateX(50%) translateY(0); }
+          .hc-dots { bottom: clamp(16px, 2.5vh, 28px); }
         }
       `}</style>
 
-      <section className="hc-root" dir="ltr">
-        {/* ── Background: placeholder colour + fade-in image ── */}
-        <div className="hc-bg">
-          <div className={`hc-bg-img${imgLoaded ? " hc-bg-img--loaded" : ""}`} />
-          <div className="hc-bg-tint" />
+      <section
+        className="hc-root"
+        dir="ltr"
+        onMouseEnter={() => setPaused(true)}
+        onMouseLeave={() => setPaused(false)}
+      >
+        {/* ── Slide layers ── */}
+        <div className="hc-slide">
+          {/* Previous slide (fades out) */}
+          {prevSlide && (
+            <img
+              key={`prev-${prevSlide.id}`}
+              src={prevSlide.imageUrl}
+              alt=""
+              className="hc-slide-img"
+              aria-hidden="true"
+            />
+          )}
+
+          {/* Current slide (fades in) */}
+          {currentSlide ? (
+            <img
+              key={`cur-${currentSlide.id}`}
+              src={currentSlide.imageUrl}
+              alt=""
+              className="hc-slide-img hc-slide-img--visible"
+            />
+          ) : (
+            // Fallback dark background when no slides configured
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                background: "linear-gradient(135deg, #0a0806 0%, #1a1008 100%)",
+              }}
+            />
+          )}
         </div>
 
         <div className="hc-grain" />
-        <div className="hc-overlay-left" />
-        <div className="hc-overlay-bottom" />
+        <div className="hc-overlay" />
 
         {/* ── Giant editorial heading ── */}
         <div
@@ -326,13 +410,9 @@ export default function HeroSections() {
                   left: "unset",
                   alignItems: "flex-end",
                 }
-              : {
-                  left: "clamp(28px, 5.5vw, 96px)",
-                  alignItems: "flex-start",
-                }
+              : { left: "clamp(28px, 5.5vw, 96px)", alignItems: "flex-start" }
           }
         >
-          {/* Line 1 */}
           <div className={`hc-word ${isArabic ? "hc-ar-word" : ""}`}>
             <SplitText
               text={t("hero.loqta")}
@@ -350,7 +430,6 @@ export default function HeroSections() {
             />
           </div>
 
-          {/* Line 2 — offset indent, direction-aware */}
           <div
             className={`hc-word ${isArabic ? "hc-ar-word" : ""}`}
             style={
@@ -394,11 +473,33 @@ export default function HeroSections() {
           <div className="hc-meta-accent" />
         </div>
 
-        {/* ── Scroll cue ── */}
-        <div className={`hc-scroll ${loaded ? "hc-scroll--in" : ""}`}>
-          <span className="hc-scroll-line" />
-          <span className="hc-scroll-text">{t("hero.scroll")}</span>
-        </div>
+        {/* ── Dot navigation (only when multiple slides) ── */}
+        {slides.length > 1 && (
+          <div
+            className={`hc-dots ${loaded ? "hc-dots--in" : ""}`}
+            role="tablist"
+            aria-label="Slide navigation"
+          >
+            {slides.map((slide, i) => (
+              <button
+                key={slide.id}
+                className={`hc-dot ${i === current ? "hc-dot--active" : ""}`}
+                onClick={() => goTo(i)}
+                aria-label={`Go to slide ${i + 1}`}
+                aria-selected={i === current}
+                role="tab"
+              />
+            ))}
+          </div>
+        )}
+
+        {/* ── Scroll cue (only when no dots, or move it up) ── */}
+        {slides.length <= 1 && (
+          <div className={`hc-scroll ${loaded ? "hc-scroll--in" : ""}`}>
+            <span className="hc-scroll-line" />
+            <span className="hc-scroll-text">{t("hero.scroll")}</span>
+          </div>
+        )}
       </section>
     </>
   );
