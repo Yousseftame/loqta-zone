@@ -12,35 +12,45 @@
  *   analytics/topAuctions  — ranked top-N auction lists
  *
  * ─── Triggers ────────────────────────────────────────────────────────────────
- * 1. onUserWritten         — updates user / admin counts
- * 2. onProductWritten      — updates product counts, inventory totals
- * 3. onAuctionWritten      — updates auction counts, financial metrics
- * 4. onCategoryWritten     — updates category count
- * 5. onVoucherWritten      — updates voucher count
+ * 1. onUserWritten           — updates user / admin counts
+ * 2. onProductWritten        — updates product counts, inventory totals
+ * 3. onAuctionWritten        — updates auction counts, financial metrics
+ * 4. onCategoryWritten       — updates category count
+ * 5. onVoucherWritten        — updates voucher count
  * 6. onAuctionRequestWritten — updates request count
- * 7. onFeedbackWritten     — updates average rating
- * 8. rebuildAnalytics      — HTTP callable, full rebuild (run once on deploy)
+ * 7. onFeedbackWritten       — updates average rating (incremental, no collection scan)
+ * 8. rebuildAnalytics        — HTTP callable, full rebuild (run once on deploy)
  *
  * ─── Cost model ──────────────────────────────────────────────────────────────
- * Dashboard reads: 2 documents (analytics/dashboard + analytics/topAuctions)
- * Writes: 1-2 documents per mutation event (near zero marginal cost)
+ * Dashboard reads : 2 documents (analytics/dashboard + analytics/topAuctions)
+ * Writes          : 1-2 documents per mutation event (near zero marginal cost)
+ *
+ * ─── Key design decisions ────────────────────────────────────────────────────
+ * • avgWinningBid  — NOT stored; derived client-side as totalRevenue/endedAuctions
+ *                    to eliminate the concurrency race on concurrent resolutions.
+ * • ratingSum      — stored alongside totalRatings so avgRating can be recomputed
+ *                    incrementally without scanning the feedbackMessages collection.
+ * • onAuctionWritten short-circuit — exits after 1 write when only totalBids
+ *                    changed (the most frequent trigger path — every bid placed).
+ * • product read   — fetched exactly once per auction resolution and passed into
+ *                    updateTopAuctions so the doc is never read twice.
  */
 
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
 
-const db = getFirestore();
-const ANALYTICS = "analytics";
-const DASHBOARD = "dashboard";
+const db          = getFirestore();
+const ANALYTICS   = "analytics";
+const DASHBOARD   = "dashboard";
 const TOP_AUCTIONS = "topAuctions";
-const TOP_N = 5;
+const TOP_N       = 5;
 
-// ─── Helper: safe increment/decrement ────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function delta(before: any, after: any, field: string): number {
   const prev = before?.[field] ?? 0;
-  const curr = after?.[field] ?? 0;
+  const curr = after?.[field]  ?? 0;
   return curr - prev;
 }
 
@@ -52,7 +62,7 @@ function wasDeleted(before: any, after: any): boolean {
   return !!before && !after;
 }
 
-// ─── 1. User written ─────────────────────────────────────────────────────────
+// ─── 1. User written ──────────────────────────────────────────────────────────
 
 export const onUserWritten = onDocumentWritten(
   { document: "users/{uid}", memory: "256MiB" },
@@ -60,35 +70,36 @@ export const onUserWritten = onDocumentWritten(
     const before = event.data?.before.data();
     const after  = event.data?.after.data();
 
-    const ref = db.collection(ANALYTICS).doc(DASHBOARD);
+    const ref     = db.collection(ANALYTICS).doc(DASHBOARD);
     const updates: Record<string, any> = { updatedAt: FieldValue.serverTimestamp() };
 
     if (wasCreated(before, after)) {
       const role = after?.role ?? "user";
-      updates.totalUsers = FieldValue.increment(role === "user" ? 1 : 0);
-      updates.totalAdmins = FieldValue.increment(role === "admin" ? 1 : 0);
+      updates.totalUsers       = FieldValue.increment(role === "user"       ? 1 : 0);
+      updates.totalAdmins      = FieldValue.increment(role === "admin"      ? 1 : 0);
       updates.totalSuperAdmins = FieldValue.increment(role === "superAdmin" ? 1 : 0);
-      if (!after?.isBlocked) updates.activeUsers = FieldValue.increment(role === "user" ? 1 : 0);
-      else updates.inactiveUsers = FieldValue.increment(role === "user" ? 1 : 0);
+      if (!after?.isBlocked) updates.activeUsers   = FieldValue.increment(role === "user" ? 1 : 0);
+      else                   updates.inactiveUsers = FieldValue.increment(role === "user" ? 1 : 0);
+
     } else if (wasDeleted(before, after)) {
       const role = before?.role ?? "user";
-      updates.totalUsers = FieldValue.increment(role === "user" ? -1 : 0);
-      updates.totalAdmins = FieldValue.increment(role === "admin" ? -1 : 0);
+      updates.totalUsers       = FieldValue.increment(role === "user"       ? -1 : 0);
+      updates.totalAdmins      = FieldValue.increment(role === "admin"      ? -1 : 0);
       updates.totalSuperAdmins = FieldValue.increment(role === "superAdmin" ? -1 : 0);
-      if (!before?.isBlocked) updates.activeUsers = FieldValue.increment(role === "user" ? -1 : 0);
-      else updates.inactiveUsers = FieldValue.increment(role === "user" ? -1 : 0);
+      if (!before?.isBlocked) updates.activeUsers   = FieldValue.increment(role === "user" ? -1 : 0);
+      else                    updates.inactiveUsers = FieldValue.increment(role === "user" ? -1 : 0);
+
     } else {
-      // Update — handle isBlocked toggle
-      const wasBlocked = before?.isBlocked ?? false;
-      const isBlocked  = after?.isBlocked  ?? false;
+      // Update — only care about isBlocked toggle on regular users
+      const wasBlocked    = before?.isBlocked ?? false;
+      const isBlocked     = after?.isBlocked  ?? false;
       const isRegularUser = (after?.role ?? "user") === "user";
+
       if (wasBlocked !== isBlocked && isRegularUser) {
         if (isBlocked) {
-          // became blocked
           updates.activeUsers   = FieldValue.increment(-1);
           updates.inactiveUsers = FieldValue.increment(1);
         } else {
-          // unblocked
           updates.activeUsers   = FieldValue.increment(1);
           updates.inactiveUsers = FieldValue.increment(-1);
         }
@@ -107,35 +118,37 @@ export const onProductWritten = onDocumentWritten(
     const before = event.data?.before.data();
     const after  = event.data?.after.data();
 
-    const ref = db.collection(ANALYTICS).doc(DASHBOARD);
+    const ref     = db.collection(ANALYTICS).doc(DASHBOARD);
     const updates: Record<string, any> = { updatedAt: FieldValue.serverTimestamp() };
 
     if (wasCreated(before, after)) {
-      updates.totalProducts      = FieldValue.increment(1);
-      updates.activeProducts     = FieldValue.increment(after?.isActive ? 1 : 0);
-      updates.inactiveProducts   = FieldValue.increment(after?.isActive ? 0 : 1);
-      updates.totalInventory     = FieldValue.increment(after?.quantity ?? 0);
+      updates.totalProducts       = FieldValue.increment(1);
+      updates.activeProducts      = FieldValue.increment(after?.isActive ? 1 : 0);
+      updates.inactiveProducts    = FieldValue.increment(after?.isActive ? 0 : 1);
+      updates.totalInventory      = FieldValue.increment(after?.quantity ?? 0);
       updates.totalInventoryValue = FieldValue.increment(
         (after?.actualPrice ?? 0) * (after?.quantity ?? 0),
       );
+
     } else if (wasDeleted(before, after)) {
-      updates.totalProducts      = FieldValue.increment(-1);
-      updates.activeProducts     = FieldValue.increment(before?.isActive ? -1 : 0);
-      updates.inactiveProducts   = FieldValue.increment(before?.isActive ? 0 : -1);
-      updates.totalInventory     = FieldValue.increment(-(before?.quantity ?? 0));
+      updates.totalProducts       = FieldValue.increment(-1);
+      updates.activeProducts      = FieldValue.increment(before?.isActive ? -1 : 0);
+      updates.inactiveProducts    = FieldValue.increment(before?.isActive ?  0 : -1);
+      updates.totalInventory      = FieldValue.increment(-(before?.quantity ?? 0));
       updates.totalInventoryValue = FieldValue.increment(
         -((before?.actualPrice ?? 0) * (before?.quantity ?? 0)),
       );
+
     } else {
-      // Quantity delta
+      // Quantity / price delta
       const qtyDelta = delta(before, after, "quantity");
       if (qtyDelta !== 0) {
-        updates.totalInventory = FieldValue.increment(qtyDelta);
+        updates.totalInventory      = FieldValue.increment(qtyDelta);
         updates.totalInventoryValue = FieldValue.increment(
           (after?.actualPrice ?? 0) * qtyDelta,
         );
       }
-      // Active/inactive flip
+      // isActive flip
       if ((before?.isActive ?? true) !== (after?.isActive ?? true)) {
         if (after?.isActive) {
           updates.activeProducts   = FieldValue.increment(1);
@@ -156,23 +169,47 @@ export const onProductWritten = onDocumentWritten(
 export const onAuctionWritten = onDocumentWritten(
   { document: "auctions/{auctionId}", memory: "512MiB", timeoutSeconds: 60 },
   async (event) => {
-    const before = event.data?.before.data();
-    const after  = event.data?.after.data();
+    const before    = event.data?.before.data();
+    const after     = event.data?.after.data();
     const auctionId = event.params.auctionId;
 
     const ref = db.collection(ANALYTICS).doc(DASHBOARD);
+
+    // ── Short-circuit: only totalBids changed (fires on every bid placed) ─────
+    // Most common trigger path. Skips all branching logic and exits after 1 write.
+    const onlyBidsChanged =
+      before &&
+      after &&
+      (before.totalBids  ?? 0) !== (after.totalBids  ?? 0) &&
+      before.isActive    === after.isActive    &&
+      before.winnerId    === after.winnerId    &&
+      before.winningBid  === after.winningBid;
+
+    if (onlyBidsChanged) {
+      const bidDelta = delta(before, after, "totalBids");
+      await ref.set(
+        { totalBids: FieldValue.increment(bidDelta), updatedAt: FieldValue.serverTimestamp() },
+        { merge: true },
+      );
+      return;
+    }
+
+    // ── Full update path ──────────────────────────────────────────────────────
     const updates: Record<string, any> = { updatedAt: FieldValue.serverTimestamp() };
 
-    // ── Count changes ─────────────────────────────────────────────────────────
+    // Count / active-state changes
     if (wasCreated(before, after)) {
-      updates.totalAuctions  = FieldValue.increment(1);
-      updates.activeAuctions = FieldValue.increment(after?.isActive ? 1 : 0);
+      updates.totalAuctions    = FieldValue.increment(1);
+      updates.activeAuctions   = FieldValue.increment(after?.isActive ? 1 : 0);
       updates.inactiveAuctions = FieldValue.increment(after?.isActive ? 0 : 1);
+
     } else if (wasDeleted(before, after)) {
-      updates.totalAuctions  = FieldValue.increment(-1);
-      updates.activeAuctions = FieldValue.increment(before?.isActive ? -1 : 0);
-      updates.inactiveAuctions = FieldValue.increment(before?.isActive ? 0 : -1);
+      updates.totalAuctions    = FieldValue.increment(-1);
+      updates.activeAuctions   = FieldValue.increment(before?.isActive ? -1 :  0);
+      updates.inactiveAuctions = FieldValue.increment(before?.isActive ?  0 : -1);
+
     } else {
+      // isActive flip
       if ((before?.isActive ?? true) !== (after?.isActive ?? true)) {
         if (after?.isActive) {
           updates.activeAuctions   = FieldValue.increment(1);
@@ -184,11 +221,11 @@ export const onAuctionWritten = onDocumentWritten(
       }
     }
 
-    // Bid count delta
+    // Bid count delta (residual — not caught by short-circuit above)
     const bidDelta = delta(before, after, "totalBids");
     if (bidDelta !== 0) updates.totalBids = FieldValue.increment(bidDelta);
 
-    // ── Winner / financial update (when auction resolves) ─────────────────────
+    // ── Winner / financial update — fires exactly once per auction resolution ─
     const justResolved =
       !before?.winnerId &&
       !!after?.winnerId &&
@@ -196,45 +233,52 @@ export const onAuctionWritten = onDocumentWritten(
 
     if (justResolved && after) {
       const winningBid = after.winningBid ?? 0;
-      updates.totalRevenue = FieldValue.increment(winningBid);
 
-      // Update highestWinningBid if this is a new record
-      const dashSnap = await db.collection(ANALYTICS).doc(DASHBOARD).get();
-      const currentHighest = dashSnap.exists
-        ? (dashSnap.data()?.highestWinningBid ?? 0)
-        : 0;
+      // Atomically increment both — these are the source of truth.
+      // avgWinningBid is derived client-side (totalRevenue / endedAuctions)
+      // so it is intentionally NOT stored here.
+      updates.totalRevenue  = FieldValue.increment(winningBid);
+      updates.endedAuctions = FieldValue.increment(1);
 
+      // Single dashboard read — needed for highestWinningBid and avgMargin only
+      const dashSnap = await ref.get();
+      const dashData  = dashSnap.exists ? (dashSnap.data() ?? {}) : {};
+
+      // highestWinningBid — last-write-wins is acceptable here
+      const currentHighest = dashData.highestWinningBid ?? 0;
       if (winningBid > currentHighest) {
         updates.highestWinningBid = winningBid;
       }
 
-      // Recalculate avgWinningBid
-      const endedCount = (dashSnap.data()?.endedAuctions ?? 0) + 1;
-      const currentRevenue = (dashSnap.data()?.totalRevenue ?? 0) + winningBid;
-      updates.avgWinningBid = endedCount > 0 ? currentRevenue / endedCount : 0;
-      updates.endedAuctions = FieldValue.increment(1);
+      // Fetch product ONCE — passed to updateTopAuctions to avoid a second read
+      const productId = after.productId as string | undefined;
+      let productTitle = "Unknown Product";
+      let actualPrice  = 0;
 
-      // Margin calculation (requires product actualPrice)
-      try {
-        const productId = after.productId;
-        if (productId) {
+      if (productId) {
+        try {
           const productSnap = await db.collection("products").doc(productId).get();
-          const actualPrice = productSnap.data()?.actualPrice ?? 0;
-          if (actualPrice > 0) {
-            const margin = ((winningBid - actualPrice) / actualPrice) * 100;
-            // Update avgMargin (running average)
-            const currentAvgMargin = dashSnap.data()?.avgMargin ?? 0;
-            const newAvgMargin =
-              (currentAvgMargin * (endedCount - 1) + margin) / endedCount;
-            updates.avgMargin = newAvgMargin;
+          if (productSnap.exists) {
+            productTitle = productSnap.data()?.title       ?? "Unknown Product";
+            actualPrice  = productSnap.data()?.actualPrice ?? 0;
           }
+        } catch {
+          // Non-fatal — defaults are already set above
         }
-      } catch {
-        // Non-fatal
       }
 
-      // Update top auctions document
-      await updateTopAuctions(auctionId, after);
+      // avgMargin — running average using pre-read dashboard state
+      // endedCount is +1 because the FieldValue.increment hasn't been committed yet
+      if (actualPrice > 0) {
+        const endedCount       = (dashData.endedAuctions ?? 0) + 1;
+        const margin           = ((winningBid - actualPrice) / actualPrice) * 100;
+        const currentAvgMargin = dashData.avgMargin ?? 0;
+        updates.avgMargin      =
+          (currentAvgMargin * (endedCount - 1) + margin) / endedCount;
+      }
+
+      // Update top-auctions list — product data already fetched, no second read
+      await updateTopAuctions(auctionId, after, productTitle, actualPrice);
     }
 
     await ref.set(updates, { merge: true });
@@ -242,42 +286,45 @@ export const onAuctionWritten = onDocumentWritten(
 );
 
 // ─── Helper: update topAuctions document ─────────────────────────────────────
+// productTitle and actualPrice are passed in from onAuctionWritten so the
+// product document is never read twice for the same auction resolution.
 
-async function updateTopAuctions(auctionId: string, auctionData: any) {
+async function updateTopAuctions(
+  auctionId:    string,
+  auctionData:  any,
+  productTitle: string,
+  actualPrice:  number,
+): Promise<void> {
   try {
-    const productId = auctionData.productId;
-    let productTitle = "Unknown Product";
-    let actualPrice = 0;
-
-    if (productId) {
-      const productSnap = await db.collection("products").doc(productId).get();
-      if (productSnap.exists) {
-        productTitle = productSnap.data()?.title ?? "Unknown Product";
-        actualPrice  = productSnap.data()?.actualPrice ?? 0;
-      }
-    }
-
-    let winnerName = "Unknown";
-    const winnerId = auctionData.winnerId;
-    if (winnerId && winnerId !== "NO_WINNER") {
-      const userSnap = await db.collection("users").doc(winnerId).get();
-      if (userSnap.exists) {
-        const u = userSnap.data()!;
-winnerName =
-  (u.fullName ?? u.displayName ?? `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim()) || "Unknown";
-      }
-    }
-
     const winningBid = auctionData.winningBid ?? 0;
-    const margin = actualPrice > 0
+    const margin     = actualPrice > 0
       ? ((winningBid - actualPrice) / actualPrice) * 100
       : 0;
 
+    // Resolve winner name
+    let winnerName = "Unknown";
+    const winnerId = auctionData.winnerId as string | undefined;
+    if (winnerId && winnerId !== "NO_WINNER") {
+      try {
+        const userSnap = await db.collection("users").doc(winnerId).get();
+        if (userSnap.exists) {
+          const u = userSnap.data()!;
+          winnerName =
+            (u.fullName ??
+              u.displayName ??
+              `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim()) ||
+            "Unknown";
+        }
+      } catch {
+        // Non-fatal
+      }
+    }
+
     const entry = {
       auctionId,
-      auctionNumber:    auctionData.auctionNumber ?? 0,
+      auctionNumber:     auctionData.auctionNumber     ?? 0,
       productTitle,
-      totalBids:        auctionData.totalBids ?? 0,
+      totalBids:         auctionData.totalBids         ?? 0,
       totalParticipants: auctionData.totalParticipants ?? 0,
       winningBid,
       actualPrice,
@@ -286,22 +333,21 @@ winnerName =
       winnerName,
     };
 
-    // Read current top lists, insert, re-sort, trim to TOP_N
-    const topRef  = db.collection(ANALYTICS).doc(TOP_AUCTIONS);
-    const topSnap = await topRef.get();
-    const existing = topSnap.exists ? topSnap.data()! : { byBids: [], byParticipants: [], byWinningBid: [] };
+    const topRef   = db.collection(ANALYTICS).doc(TOP_AUCTIONS);
+    const topSnap  = await topRef.get();
+    const existing = topSnap.exists
+      ? topSnap.data()!
+      : { byBids: [], byParticipants: [], byWinningBid: [] };
 
-    const upsert = (arr: any[], newEntry: any, sortKey: string) => {
-      const filtered = (arr ?? []).filter((a: any) => a.auctionId !== newEntry.auctionId);
-      return [...filtered, newEntry]
+    const upsert = (arr: any[], newEntry: any, sortKey: string) =>
+      [...(arr ?? []).filter((a: any) => a.auctionId !== newEntry.auctionId), newEntry]
         .sort((a, b) => b[sortKey] - a[sortKey])
         .slice(0, TOP_N);
-    };
 
     await topRef.set({
-      byBids:         upsert(existing.byBids, entry, "totalBids"),
+      byBids:         upsert(existing.byBids,         entry, "totalBids"),
       byParticipants: upsert(existing.byParticipants, entry, "totalParticipants"),
-      byWinningBid:   upsert(existing.byWinningBid, entry, "winningBid"),
+      byWinningBid:   upsert(existing.byWinningBid,   entry, "winningBid"),
       updatedAt:      FieldValue.serverTimestamp(),
     });
   } catch (err) {
@@ -309,7 +355,7 @@ winnerName =
   }
 }
 
-// ─── 4. Category written ─────────────────────────────────────────────────────
+// ─── 4. Category written ──────────────────────────────────────────────────────
 
 export const onCategoryWritten = onDocumentWritten(
   { document: "categories/{categoryId}", memory: "256MiB" },
@@ -373,6 +419,15 @@ export const onAuctionRequestWritten = onDocumentWritten(
 );
 
 // ─── 7. Feedback written (ratings) ───────────────────────────────────────────
+//
+// Strategy: maintain a running ratingSum + totalRatings in the dashboard doc.
+// avgRating is recomputed from those two fields after every change.
+// This eliminates the original full collection scan (N reads per write).
+//
+// Fields written to analytics/dashboard:
+//   ratingSum    — sum of all valid ratings (used only for avgRating calculation)
+//   totalRatings — count of valid ratings
+//   avgRating    — Math.round((ratingSum / totalRatings) * 10) / 10
 
 export const onFeedbackWritten = onDocumentWritten(
   { document: "feedbackMessages/{feedbackId}", memory: "256MiB" },
@@ -380,30 +435,49 @@ export const onFeedbackWritten = onDocumentWritten(
     const before = event.data?.before.data();
     const after  = event.data?.after.data();
 
-    if (!wasCreated(before, after) && !wasDeleted(before, after)) return;
+    const ref     = db.collection(ANALYTICS).doc(DASHBOARD);
+    const updates: Record<string, any> = { updatedAt: FieldValue.serverTimestamp() };
 
-    // Full recount of ratings for accuracy (feedback volume is typically low)
-    try {
-      const snap = await db.collection("feedbackMessages").get();
-      const ratings = snap.docs
-        .map((d) => d.data().rating as number)
-        .filter((r) => typeof r === "number" && r > 0);
+    if (wasCreated(before, after)) {
+      const rating = after?.rating as number | undefined;
+      if (typeof rating === "number" && rating > 0) {
+        updates.totalRatings = FieldValue.increment(1);
+        updates.ratingSum    = FieldValue.increment(rating);
+      } else {
+        // No valid rating — nothing meaningful to update
+        return;
+      }
 
-      const avg = ratings.length > 0
-        ? ratings.reduce((a, b) => a + b, 0) / ratings.length
-        : 0;
+    } else if (wasDeleted(before, after)) {
+      const rating = before?.rating as number | undefined;
+      if (typeof rating === "number" && rating > 0) {
+        updates.totalRatings = FieldValue.increment(-1);
+        updates.ratingSum    = FieldValue.increment(-rating);
+      } else {
+        return;
+      }
 
-      await db.collection(ANALYTICS).doc(DASHBOARD).set(
-        {
-          avgRating:    Math.round(avg * 10) / 10,
-          totalRatings: ratings.length,
-          updatedAt:    FieldValue.serverTimestamp(),
-        },
-        { merge: true },
-      );
-    } catch (err) {
-      console.error("[Analytics] onFeedbackWritten failed:", err);
+    } else {
+      // Edit — only proceed if the rating value actually changed
+      const oldRating = before?.rating as number | undefined;
+      const newRating = after?.rating  as number | undefined;
+      if (oldRating === newRating) return; // nothing to do
+      updates.ratingSum = FieldValue.increment((newRating ?? 0) - (oldRating ?? 0));
+      // totalRatings is unchanged on an edit — do not touch it
     }
+
+    // Step 1 — write the increments atomically
+    await ref.set(updates, { merge: true });
+
+    // Step 2 — read back the now-current sum and count, recompute avgRating
+    // This is 1 read of a single small document — not a collection scan.
+    const dash  = await ref.get();
+    const sum   = dash.data()?.ratingSum    ?? 0;
+    const count = dash.data()?.totalRatings ?? 0;
+    await ref.set(
+      { avgRating: count > 0 ? Math.round((sum / count) * 10) / 10 : 0 },
+      { merge: true },
+    );
   },
 );
 
@@ -414,7 +488,6 @@ export const rebuildAnalytics = onCall(
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "Must be signed in.");
 
-    // Verify superAdmin
     const callerSnap = await db.collection("users").doc(request.auth.uid).get();
     if (callerSnap.data()?.role !== "superAdmin") {
       throw new HttpsError("permission-denied", "Only superAdmins can rebuild analytics.");
@@ -453,10 +526,10 @@ export const rebuildAnalytics = onCall(
     let totalInventory = 0, totalInventoryValue = 0;
 
     for (const d of productsSnap.docs) {
-      const p = d.data();
-      totalProducts++;
-      const qty = p.quantity ?? 0;
+      const p   = d.data();
+      const qty = p.quantity    ?? 0;
       const ap  = p.actualPrice ?? 0;
+      totalProducts++;
       totalInventory      += qty;
       totalInventoryValue += ap * qty;
       if (p.isActive) activeProducts++;
@@ -470,13 +543,16 @@ export const rebuildAnalytics = onCall(
     let marginSum = 0, marginCount = 0;
     const topEntries: any[] = [];
 
+    // Build lookup maps from already-fetched snaps — zero extra reads
     const productMap: Record<string, any> = {};
     for (const d of productsSnap.docs) productMap[d.id] = d.data();
 
     const userMap: Record<string, string> = {};
     for (const d of usersSnap.docs) {
       const u = d.data();
-      userMap[d.id] = (u.fullName ?? u.displayName ?? `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim()) || "Unknown";
+      userMap[d.id] =
+        (u.fullName ?? u.displayName ??
+          `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim()) || "Unknown";
     }
 
     const now = new Date();
@@ -486,10 +562,12 @@ export const rebuildAnalytics = onCall(
       totalBids += a.totalBids ?? 0;
       if (a.isActive) activeAuctions++; else inactiveAuctions++;
 
-      const startTime = a.startTime instanceof Timestamp ? a.startTime.toDate() : new Date(a.startTime);
-      const endTime   = a.endTime   instanceof Timestamp ? a.endTime.toDate()   : new Date(a.endTime);
+      const startTime = a.startTime instanceof Timestamp
+        ? a.startTime.toDate() : new Date(a.startTime);
+      const endTime = a.endTime instanceof Timestamp
+        ? a.endTime.toDate()   : new Date(a.endTime);
 
-      if (now < startTime)      upcomingAuctions++;
+      if      (now < startTime) upcomingAuctions++;
       else if (now <= endTime)  liveAuctions++;
       else {
         endedAuctions++;
@@ -499,55 +577,58 @@ export const rebuildAnalytics = onCall(
           if (wb > highestWinningBid) highestWinningBid = wb;
 
           const product = productMap[a.productId];
-          const ap = product?.actualPrice ?? 0;
+          const ap      = product?.actualPrice ?? 0;
           if (ap > 0) {
             const margin = ((wb - ap) / ap) * 100;
-            marginSum += margin;
+            marginSum  += margin;
             marginCount++;
           }
 
           topEntries.push({
             auctionId:         d.id,
-            auctionNumber:     a.auctionNumber ?? 0,
-            productTitle:      product?.title ?? "Unknown",
-            totalBids:         a.totalBids ?? 0,
-            totalParticipants: a.totalParticipants ?? 0,
+            auctionNumber:     a.auctionNumber     ?? 0,
+            productTitle:      product?.title       ?? "Unknown",
+            totalBids:         a.totalBids          ?? 0,
+            totalParticipants: a.totalParticipants  ?? 0,
             winningBid:        wb,
             actualPrice:       product?.actualPrice ?? 0,
             margin:            ap > 0 ? ((wb - ap) / ap) * 100 : 0,
-            winnerId:          a.winnerId ?? "",
+            winnerId:          a.winnerId            ?? "",
             winnerName:        userMap[a.winnerId ?? ""] ?? "Unknown",
           });
         }
       }
     }
 
-    const avgWinningBid = endedAuctions > 0 ? totalRevenue / endedAuctions : 0;
-    const avgMargin     = marginCount > 0 ? marginSum / marginCount : 0;
+    const avgMargin = marginCount > 0 ? marginSum / marginCount : 0;
 
     // ── Ratings ───────────────────────────────────────────────────────────────
-    const ratings = feedbackSnap.docs
+    const validRatings = feedbackSnap.docs
       .map((d) => d.data().rating as number)
       .filter((r) => typeof r === "number" && r > 0);
-    const avgRating = ratings.length > 0
-      ? Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10
+
+    const ratingSum = validRatings.reduce((a, b) => a + b, 0);
+    const avgRating = validRatings.length > 0
+      ? Math.round((ratingSum / validRatings.length) * 10) / 10
       : 0;
 
     // ── Write analytics/dashboard ─────────────────────────────────────────────
+    // avgWinningBid is intentionally omitted — derived client-side in useAnalytics.ts
+    // ratingSum is stored so onFeedbackWritten can stay incremental after a rebuild
     const dashboard = {
-      totalUsers, activeUsers, inactiveUsers,
-      totalAdmins, totalSuperAdmins,
-      totalCategories: categoriesSnap.size,
-      totalProducts, activeProducts, inactiveProducts,
-      totalInventory, totalInventoryValue,
-      totalAuctions, liveAuctions, upcomingAuctions, endedAuctions,
-      activeAuctions, inactiveAuctions,
-      totalBids, highestWinningBid, avgWinningBid,
-      totalVouchers: vouchersSnap.size,
+      totalUsers,        activeUsers,       inactiveUsers,
+      totalAdmins,       totalSuperAdmins,
+      totalCategories:   categoriesSnap.size,
+      totalProducts,     activeProducts,    inactiveProducts,
+      totalInventory,    totalInventoryValue,
+      totalAuctions,     liveAuctions,      upcomingAuctions,  endedAuctions,
+      activeAuctions,    inactiveAuctions,
+      totalBids,         highestWinningBid,
+      totalVouchers:     vouchersSnap.size,
       totalAuctionRequests: requestsSnap.size,
-      avgRating, totalRatings: ratings.length,
-      totalRevenue, avgMargin,
-      updatedAt: FieldValue.serverTimestamp(),
+      avgRating,         totalRatings: validRatings.length,    ratingSum,
+      totalRevenue,      avgMargin,
+      updatedAt:         FieldValue.serverTimestamp(),
     };
 
     await db.collection(ANALYTICS).doc(DASHBOARD).set(dashboard);

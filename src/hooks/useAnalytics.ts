@@ -13,6 +13,10 @@
  *   Even with 100 admin sessions/day and 20 Cloud Function updates/day
  *   = 100 × 2 (initial) + 20 × 2 (updates) = 240 reads/day — negligible.
  *
+ * avgWinningBid is now derived client-side from totalRevenue / endedAuctions
+ * instead of being stored on the server, eliminating the concurrency race
+ * that existed when two auctions resolved at the same time.
+ *
  * Error handling:
  *   The previous onSnapshot implementation crashed Firestore's internal
  *   state machine (INTERNAL ASSERTION FAILED ca9) when permission-denied
@@ -52,33 +56,39 @@ function toDate(v: any): Date | null {
 }
 
 function parseAnalytics(data: Record<string, any>): DashboardAnalytics {
+  const totalRevenue  = data.totalRevenue  ?? 0;
+  const endedAuctions = data.endedAuctions ?? 0;
+
   return {
-    totalUsers:           data.totalUsers           ?? 0,
-    activeUsers:          data.activeUsers           ?? 0,
-    inactiveUsers:        data.inactiveUsers         ?? 0,
-    totalAdmins:          data.totalAdmins           ?? 0,
-    totalSuperAdmins:     data.totalSuperAdmins      ?? 0,
-    totalCategories:      data.totalCategories       ?? 0,
-    totalProducts:        data.totalProducts         ?? 0,
-    activeProducts:       data.activeProducts        ?? 0,
-    inactiveProducts:     data.inactiveProducts      ?? 0,
-    totalInventory:       data.totalInventory        ?? 0,
-    totalInventoryValue:  data.totalInventoryValue   ?? 0,
-    totalAuctions:        data.totalAuctions         ?? 0,
-    liveAuctions:         data.liveAuctions          ?? 0,
-    upcomingAuctions:     data.upcomingAuctions      ?? 0,
-    endedAuctions:        data.endedAuctions         ?? 0,
-    activeAuctions:       data.activeAuctions        ?? 0,
-    inactiveAuctions:     data.inactiveAuctions      ?? 0,
-    totalBids:            data.totalBids             ?? 0,
-    highestWinningBid:    data.highestWinningBid     ?? 0,
-    avgWinningBid:        data.avgWinningBid         ?? 0,
-    totalVouchers:        data.totalVouchers         ?? 0,
-    totalAuctionRequests: data.totalAuctionRequests  ?? 0,
-    avgRating:            data.avgRating             ?? 0,
-    totalRatings:         data.totalRatings          ?? 0,
-    totalRevenue:         data.totalRevenue          ?? 0,
-    avgMargin:            data.avgMargin             ?? 0,
+    totalUsers:           data.totalUsers          ?? 0,
+    activeUsers:          data.activeUsers          ?? 0,
+    inactiveUsers:        data.inactiveUsers        ?? 0,
+    totalAdmins:          data.totalAdmins          ?? 0,
+    totalSuperAdmins:     data.totalSuperAdmins     ?? 0,
+    totalCategories:      data.totalCategories      ?? 0,
+    totalProducts:        data.totalProducts        ?? 0,
+    activeProducts:       data.activeProducts       ?? 0,
+    inactiveProducts:     data.inactiveProducts     ?? 0,
+    totalInventory:       data.totalInventory       ?? 0,
+    totalInventoryValue:  data.totalInventoryValue  ?? 0,
+    totalAuctions:        data.totalAuctions        ?? 0,
+    liveAuctions:         data.liveAuctions         ?? 0,
+    upcomingAuctions:     data.upcomingAuctions     ?? 0,
+    endedAuctions,
+    activeAuctions:       data.activeAuctions       ?? 0,
+    inactiveAuctions:     data.inactiveAuctions     ?? 0,
+    totalBids:            data.totalBids            ?? 0,
+    highestWinningBid:    data.highestWinningBid    ?? 0,
+    // ✅ Derived client-side — eliminates the server-side concurrency race.
+    // Both totalRevenue and endedAuctions are incremented atomically via
+    // FieldValue.increment(); dividing them here is always correct.
+    avgWinningBid:        endedAuctions > 0 ? totalRevenue / endedAuctions : 0,
+    totalVouchers:        data.totalVouchers        ?? 0,
+    totalAuctionRequests: data.totalAuctionRequests ?? 0,
+    avgRating:            data.avgRating            ?? 0,
+    totalRatings:         data.totalRatings         ?? 0,
+    totalRevenue,
+    avgMargin:            data.avgMargin            ?? 0,
     updatedAt:            toDate(data.updatedAt),
   };
 }
@@ -108,7 +118,9 @@ export function useAnalytics() {
         getDoc(doc(db, "analytics", "dashboard")),
         getDoc(doc(db, "analytics", "topAuctions")),
       ]);
-      setAnalytics(dashSnap.exists() ? parseAnalytics(dashSnap.data()) : DEFAULT_ANALYTICS);
+      setAnalytics(
+        dashSnap.exists() ? parseAnalytics(dashSnap.data()) : DEFAULT_ANALYTICS,
+      );
       if (topSnap.exists()) {
         const d = topSnap.data();
         setTopAuctions({
@@ -146,7 +158,9 @@ export function useAnalytics() {
       (err) => {
         console.error("[useAnalytics] dashboard error:", err.code);
         if (err.code === "permission-denied") {
-          setError("Analytics access denied. Add the analytics rule to firestore.rules.");
+          setError(
+            "Analytics access denied. Add the analytics rule to firestore.rules.",
+          );
         }
         // Fall back to one-time fetch so the rest of the dashboard still works
         getDoc(doc(db, "analytics", "dashboard"))

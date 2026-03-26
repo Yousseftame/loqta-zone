@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 import { Globe } from "@/components/ui/globe";
 import { WordRotate } from "@/components/ui/word-rotate";
@@ -48,7 +49,18 @@ export default function AuthLayout() {
 
         {/* Form content */}
         <div className="relative z-10 w-full max-w-md">
-          <Outlet />
+          <Suspense
+            fallback={
+              <div className="space-y-4 animate-pulse">
+                <div className="h-8 w-2/3 bg-gray-200 rounded-lg mx-auto" />
+                <div className="h-12 bg-gray-100 rounded-xl" />
+                <div className="h-12 bg-gray-100 rounded-xl" />
+                <div className="h-12 bg-gray-200 rounded-xl" />
+              </div>
+            }
+          >
+            <Outlet />
+          </Suspense>
         </div>
       </div>
 

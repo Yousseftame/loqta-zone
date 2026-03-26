@@ -1,54 +1,97 @@
+import { lazy } from "react";
 import ProtectedRoute from "@/components/ProtectedRoute/ProtectedRoute";
 import PermissionRoute from "@/permissions/PermissionRoute";
 import AuthLayout from "@/layouts/AuthLayout/AuthLayout";
 import DashboardLayout from "@/layouts/DashboardLayout/DashboardLayout";
 import MainLayout from "@/layouts/MainLayout/MainLayout";
-import AboutUs from "@/pages/AboutUs/AboutUs";
-import AuctionForm from "@/pages/Admin/Auctions/AuctionForm";
-import AuctionsList from "@/pages/Admin/Auctions/AuctionsList";
-import AuctionView from "@/pages/Admin/Auctions/AuctionView";
-import BidsList from "@/pages/Admin/Biding/BidsList";
-import CategoryForm from "@/pages/Admin/Categories/Categoryform";
-import CategoriesList from "@/pages/Admin/Categories/CategoryList";
-import CategoryView from "@/pages/Admin/Categories/Categoryview";
-import AdminContactList from "@/pages/Admin/ContactUs/AdminContactList";
-import AdminContactView from "@/pages/Admin/ContactUs/AdminContactView";
-import Dashboard from "@/pages/Admin/Dashboard/Dashboard";
-import AdminFeedbackList from "@/pages/Admin/Feedback/AdminFeedbackList";
-import AdminFeedbackView from "@/pages/Admin/Feedback/AdminFeedbackView";
-import LastOfferList from "@/pages/Admin/LastOffer/LastOfferList";
-import ParticipantsList from "@/pages/Admin/Participants/ParticipantsList";
-import Payment from "@/pages/Admin/Payment/Payment";
-import ProductForm from "@/pages/Admin/Products/ProductForm";
-import ProductsList from "@/pages/Admin/Products/ProductsList";
-import ProductView from "@/pages/Admin/Products/ProductView";
-import AuctionRequestsList from "@/pages/Admin/RequestSystem/AuctionRequestsList";
-import AuctionRequestView from "@/pages/Admin/RequestSystem/AuctionRequestView";
-import Scheduling from "@/pages/Admin/Scheduling/Scheduling";
-import AdminsList from "@/pages/Admin/User/AdminsList";
-import UsersList from "@/pages/Admin/User/UsersList";
-import UserView from "@/pages/Admin/User/UserView";
-import VoucherForm from "@/pages/Admin/Voucher/VoucherForm";
-import VouchersList from "@/pages/Admin/Voucher/VoucherList";
-import VoucherView from "@/pages/Admin/Voucher/VoucherView";
-import AuctionLivePage from "@/pages/AuctionLivePage/AuctionLivePage";
-import AuctionRegisterPage from "@/pages/Auctionregisterpage/Auctionregisterpage";
-import ForgetPassword from "@/pages/Auth/ForgetPassword/ForgetPassword";
-import Login from "@/pages/Auth/Login/Login";
-import Register from "@/pages/Auth/Register/Register";
-import VerifyEmail from "@/pages/Auth/Verifyemail/Verifyemail";
-import Contact from "@/pages/Contact/Contact";
-import Home from "@/pages/Home/Home";
-import HowItWork from "@/pages/HowItWork/HowItWork";
-import NotFound from "@/pages/NotFound/NotFound";
-import TermsAndConditions from "@/pages/TermsAndConditions/TermsAndConditions";
-import MyBids from "@/pages/User/Bids/MyBids";
-import MyProfile from "@/pages/User/Profile/MyProfile";
-import ChangePassword from "@/pages/User/Settings/ChangePassword";
+
+// ── Auth pages ────────────────────────────────────────────────────────────────
+const Login = lazy(() => import("@/pages/Auth/Login/Login"));
+const Register = lazy(() => import("@/pages/Auth/Register/Register"));
+const ForgetPassword = lazy(
+  () => import("@/pages/Auth/ForgetPassword/ForgetPassword"),
+);
+
+// ── Admin pages ───────────────────────────────────────────────────────────────
+const Dashboard = lazy(() => import("@/pages/Admin/Dashboard/Dashboard"));
+const HeroSlidesList = lazy(
+  () => import("@/pages/Admin/HeroSlide/HeroSlidesList"),
+);
+const AuctionForm = lazy(() => import("@/pages/Admin/Auctions/AuctionForm"));
+const AuctionsList = lazy(() => import("@/pages/Admin/Auctions/AuctionsList"));
+const AuctionView = lazy(() => import("@/pages/Admin/Auctions/AuctionView"));
+const BidsList = lazy(() => import("@/pages/Admin/Biding/BidsList"));
+const CategoryForm = lazy(
+  () => import("@/pages/Admin/Categories/Categoryform"),
+);
+const CategoriesList = lazy(
+  () => import("@/pages/Admin/Categories/CategoryList"),
+);
+const CategoryView = lazy(
+  () => import("@/pages/Admin/Categories/Categoryview"),
+);
+const AdminContactList = lazy(
+  () => import("@/pages/Admin/ContactUs/AdminContactList"),
+);
+const AdminContactView = lazy(
+  () => import("@/pages/Admin/ContactUs/AdminContactView"),
+);
+const AdminFeedbackList = lazy(
+  () => import("@/pages/Admin/Feedback/AdminFeedbackList"),
+);
+const AdminFeedbackView = lazy(
+  () => import("@/pages/Admin/Feedback/AdminFeedbackView"),
+);
+const LastOfferList = lazy(
+  () => import("@/pages/Admin/LastOffer/LastOfferList"),
+);
+const ParticipantsList = lazy(
+  () => import("@/pages/Admin/Participants/ParticipantsList"),
+);
+const Payment = lazy(() => import("@/pages/Admin/Payment/Payment"));
+const ProductForm = lazy(() => import("@/pages/Admin/Products/ProductForm"));
+const ProductsList = lazy(() => import("@/pages/Admin/Products/ProductsList"));
+const ProductView = lazy(() => import("@/pages/Admin/Products/ProductView"));
+const AuctionRequestsList = lazy(
+  () => import("@/pages/Admin/RequestSystem/AuctionRequestsList"),
+);
+const AuctionRequestView = lazy(
+  () => import("@/pages/Admin/RequestSystem/AuctionRequestView"),
+);
+const Scheduling = lazy(() => import("@/pages/Admin/Scheduling/Scheduling"));
+const AdminsList = lazy(() => import("@/pages/Admin/User/AdminsList"));
+const UsersList = lazy(() => import("@/pages/Admin/User/UsersList"));
+const UserView = lazy(() => import("@/pages/Admin/User/UserView"));
+const VoucherForm = lazy(() => import("@/pages/Admin/Voucher/VoucherForm"));
+const VouchersList = lazy(() => import("@/pages/Admin/Voucher/VoucherList"));
+const VoucherView = lazy(() => import("@/pages/Admin/Voucher/VoucherView"));
+
+// ── Main / public pages ───────────────────────────────────────────────────────
+const AboutUs = lazy(() => import("@/pages/AboutUs/AboutUs"));
+const AuctionLivePage = lazy(
+  () => import("@/pages/AuctionLivePage/AuctionLivePage"),
+);
+const AuctionRegisterPage = lazy(
+  () => import("@/pages/Auctionregisterpage/Auctionregisterpage"),
+);
+const Contact = lazy(() => import("@/pages/Contact/Contact"));
+const Home = lazy(() => import("@/pages/Home/Home"));
+const HowItWork = lazy(() => import("@/pages/HowItWork/HowItWork"));
+const NotFound = lazy(() => import("@/pages/NotFound/NotFound"));
+const TermsAndConditions = lazy(
+  () => import("@/pages/TermsAndConditions/TermsAndConditions"),
+);
+const MyBids = lazy(() => import("@/pages/User/Bids/MyBids"));
+const MyProfile = lazy(() => import("@/pages/User/Profile/MyProfile"));
+const ChangePassword = lazy(
+  () => import("@/pages/User/Settings/ChangePassword"),
+);
+const CantFind = lazy(() => import("@/pages/CantFind/CantFind"));
+const LastOfferConfirmPage = lazy(
+  () => import("@/pages/LastOfferConfirm/LastOfferConfirmPage"),
+);
+
 import { createBrowserRouter } from "react-router-dom";
-import CantFind from "@/pages/CantFind/CantFind";
-import LastOfferConfirmPage from "@/pages/LastOfferConfirm/LastOfferConfirmPage";
-import HeroSlidesList from "@/pages/Admin/HeroSlide/HeroSlidesList";
 
 export const routes = createBrowserRouter([
   {

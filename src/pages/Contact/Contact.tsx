@@ -1291,7 +1291,6 @@ export default function ContactUs() {
                   color: CREAM,
                   letterSpacing: "-0.028em",
                   display: "block",
-                  textShadow: "0 2px 60px rgba(0,0,0,0.5)",
                 }}
               >
                 {t("contactPage.hero.line1")}
