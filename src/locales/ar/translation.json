@@ -134,7 +134,8 @@
     "session": "الجلسة",
     "winner": "الفائز",
     "name": "الاسم",
-    "country": "الدولة"
+    "country": "الدولة",
+    "loadMore": "تحميل المزيد "
   },
   "auctionRequest": {
     "eyebrow": "· طلب مزاد ·",

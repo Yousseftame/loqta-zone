@@ -13,18 +13,25 @@ import {
   orderBy,
   where,
   limit,
+  startAfter,
   Timestamp,
+  type QueryDocumentSnapshot,
+  type DocumentData,
 } from "firebase/firestore";
 import { db } from "@/firebase/firebase";
 import { CountdownBar } from "./CountdownBar";
 
-// ─── Reusable countdown stopwatch ─────────────────────────────────────────────
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const GOLD = "#c9a96e";
 const GOLD2 = "#b8944e";
 const NAVY = "#2A4863";
 const NAVY2 = "#1e3652";
 const CREAM = "rgb(229,224,198)";
+
+const PAST_PAGE_SIZE = 6; // auctions per page (before filtering no-winner)
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface UpcomingAuction {
   auctionNumber: number;
@@ -40,9 +47,9 @@ interface UpcomingAuction {
   sessionDate: string;
   isHot: boolean;
 }
+
 interface PastAuction {
   auctionNumber: number;
-
   id: string;
   title: string;
   subtitle: string;
@@ -58,11 +65,25 @@ interface PastAuction {
   };
 }
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-// ─── Data hook ────────────────────────────────────────────────────────────────
-function useAuctionsData() {
+const toDate = (v: any): Date =>
+  v instanceof Timestamp ? v.toDate() : new Date(v);
+
+const fmt = (d: Date, o: Intl.DateTimeFormatOptions) =>
+  d.toLocaleDateString("en-US", o);
+
+const fmtT = (d: Date) =>
+  d.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+
+// ─── Upcoming auctions hook (unchanged — loads all upcoming) ─────────────────
+
+function useUpcomingAuctions() {
   const [upcoming, setUpcoming] = useState<UpcomingAuction[]>([]);
-  const [past, setPast] = useState<PastAuction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -73,83 +94,42 @@ function useAuctionsData() {
         setLoading(true);
         setError(null);
         const now = Timestamp.now();
-        const [upSnap, pastSnap] = await Promise.all([
-          getDocs(
-            query(
-              collection(db, "auctions"),
-              where("startTime", ">", now),
-              where("isActive", "==", true),
-              orderBy("startTime", "asc"),
-            ),
+        const upSnap = await getDocs(
+          query(
+            collection(db, "auctions"),
+            where("startTime", ">", now),
+            where("isActive", "==", true),
+            orderBy("startTime", "asc"),
           ),
-          getDocs(
-            query(
-              collection(db, "auctions"),
-              where("endTime", "<=", now),
-              orderBy("endTime", "desc"),
-              limit(8),
-            ),
-          ),
-        ]);
+        );
         if (cancelled) return;
 
         const productIds = new Set<string>();
-        [...upSnap.docs, ...pastSnap.docs].forEach((d) => {
+        upSnap.docs.forEach((d) => {
           if (d.data().productId) productIds.add(d.data().productId);
         });
-        const winnerIds = new Set<string>();
-        pastSnap.docs.forEach((d) => {
-          const w = d.data().winnerId;
-          if (w && w !== "NO_WINNER") winnerIds.add(w);
-        });
 
-        const [productEntries, userEntries] = await Promise.all([
-          Promise.all(
-            Array.from(productIds).map(async (pid) => {
-              try {
-                const s = await getDoc(doc(db, "products", pid));
-                return s.exists() ? ([pid, s.data()] as const) : null;
-              } catch {
-                return null;
-              }
-            }),
-          ),
-          Promise.all(
-            Array.from(winnerIds).map(async (uid) => {
-              try {
-                const s = await getDoc(doc(db, "users", uid));
-                return s.exists() ? ([uid, s.data()] as const) : null;
-              } catch {
-                return null;
-              }
-            }),
-          ),
-        ]);
+        const productEntries = await Promise.all(
+          Array.from(productIds).map(async (pid) => {
+            try {
+              const s = await getDoc(doc(db, "products", pid));
+              return s.exists() ? ([pid, s.data()] as const) : null;
+            } catch {
+              return null;
+            }
+          }),
+        );
         if (cancelled) return;
 
         const pMap: Record<string, any> = Object.fromEntries(
           productEntries.filter(Boolean) as any,
         );
-        const uMap: Record<string, any> = Object.fromEntries(
-          userEntries.filter(Boolean) as any,
-        );
-
-        const toDate = (v: any): Date =>
-          v instanceof Timestamp ? v.toDate() : new Date(v);
-        const fmt = (d: Date, o: Intl.DateTimeFormatOptions) =>
-          d.toLocaleDateString("en-US", o);
-        const fmtT = (d: Date) =>
-          d.toLocaleTimeString("en-US", {
-            hour: "numeric",
-            minute: "2-digit",
-            hour12: true,
-          });
 
         const upcomingList: UpcomingAuction[] = upSnap.docs.map((d) => {
-          const data = d.data(),
-            p = pMap[data.productId] ?? {};
-          const start = toDate(data.startTime),
-            end = toDate(data.endTime);
+          const data = d.data();
+          const p = pMap[data.productId] ?? {};
+          const start = toDate(data.startTime);
+          const end = toDate(data.endTime);
           const image =
             p.thumbnail && p.thumbnail !== "null"
               ? p.thumbnail
@@ -170,54 +150,7 @@ function useAuctionsData() {
           };
         });
 
-        const pastList: PastAuction[] = pastSnap.docs
-          .filter((d) => {
-            const w = d.data().winnerId;
-            return w !== null && w !== undefined && w !== "NO_WINNER";
-          })
-          .map((d) => {
-            const data = d.data(),
-              p = pMap[data.productId] ?? {};
-            const end = toDate(data.endTime);
-            const image =
-              p.thumbnail && p.thumbnail !== "null"
-                ? p.thumbnail
-                : (p.images?.[0] ?? "");
-            const wid = data.winnerId as string,
-              u = uMap[wid] ?? {};
-            const winnerName =
-              wid === "NO_WINNER"
-                ? "No Winner"
-                : (u.fullName ??
-                    u.displayName ??
-                    `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim()) ||
-                  "Unknown";
-            return {
-              id: d.id,
-              title: p.title ?? "Auction",
-              auctionNumber: data.auctionNumber ?? 0,
-
-              subtitle: [p.brand, p.model].filter(Boolean).join(" · "),
-              image,
-              winningPrice: data.winningBid ?? 0,
-              currency: "EGP",
-              sessionDate: fmt(end, {
-                weekday: "long",
-                month: "long",
-                day: "numeric",
-                year: "numeric",
-              }),
-              winner: {
-                name: winnerName,
-                avatar: wid === "NO_WINNER" ? "" : (u.profileImage ?? ""),
-                country: "🇪🇬",
-                countryName: "Egypt",
-              },
-            };
-          });
-
         setUpcoming(upcomingList);
-        setPast(pastList);
       } catch (err: any) {
         if (!cancelled) {
           console.error("[AuctionsSection]", err);
@@ -233,10 +166,171 @@ function useAuctionsData() {
     };
   }, []);
 
-  return { upcoming, past, loading, error };
+  return { upcoming, loading, error };
+}
+
+// ─── Past auctions paginated hook ────────────────────────────────────────────
+// Strategy: query batches ordered by endTime desc, skip docs with
+// winnerId == null || "NO_WINNER", accumulate visible results.
+
+function usePastAuctions() {
+  const [past, setPast] = useState<PastAuction[]>([]);
+  const [loading, setLoading] = useState(true); // first page
+  const [loadingMore, setLoadingMore] = useState(false); // subsequent pages
+  const [error, setError] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const lastDocRef = useRef<QueryDocumentSnapshot<DocumentData> | null>(null);
+
+  // Fetch one page, resolve products + winners, append to list
+  const fetchPage = useCallback(async (isFirst: boolean) => {
+    try {
+      if (isFirst) setLoading(true);
+      else setLoadingMore(true);
+      setError(null);
+
+      const now = Timestamp.now();
+
+      // Build query — cursor-paginate with startAfter
+      const constraints: any[] = [
+        where("endTime", "<=", now),
+        orderBy("endTime", "desc"),
+        limit(PAST_PAGE_SIZE),
+      ];
+      if (!isFirst && lastDocRef.current) {
+        constraints.push(startAfter(lastDocRef.current));
+      }
+
+      const pastSnap = await getDocs(
+        query(collection(db, "auctions"), ...constraints),
+      );
+
+      if (pastSnap.empty) {
+        setHasMore(false);
+        return;
+      }
+
+      // Keep track of last doc for next page cursor
+      lastDocRef.current = pastSnap.docs[pastSnap.docs.length - 1];
+
+      // Filter: must have a real winner
+      const validDocs = pastSnap.docs.filter((d) => {
+        const w = d.data().winnerId;
+        return w !== null && w !== undefined && w !== "NO_WINNER";
+      });
+
+      // If fewer results than page size came back, we've hit the end
+      if (pastSnap.docs.length < PAST_PAGE_SIZE) setHasMore(false);
+
+      if (validDocs.length === 0) {
+        // All docs in this batch had no winner — check if there are more pages
+        if (pastSnap.docs.length === PAST_PAGE_SIZE) {
+          // There might be more, but we got nothing visible; return early
+          // so the UI shows a spinner or we can trigger another fetch
+        }
+        return;
+      }
+
+      // Resolve product + winner data
+      const productIds = new Set<string>();
+      const winnerIds = new Set<string>();
+      validDocs.forEach((d) => {
+        if (d.data().productId) productIds.add(d.data().productId);
+        const w = d.data().winnerId as string;
+        if (w && w !== "NO_WINNER") winnerIds.add(w);
+      });
+
+      const [productEntries, userEntries] = await Promise.all([
+        Promise.all(
+          Array.from(productIds).map(async (pid) => {
+            try {
+              const s = await getDoc(doc(db, "products", pid));
+              return s.exists() ? ([pid, s.data()] as const) : null;
+            } catch {
+              return null;
+            }
+          }),
+        ),
+        Promise.all(
+          Array.from(winnerIds).map(async (uid) => {
+            try {
+              const s = await getDoc(doc(db, "users", uid));
+              return s.exists() ? ([uid, s.data()] as const) : null;
+            } catch {
+              return null;
+            }
+          }),
+        ),
+      ]);
+
+      const pMap: Record<string, any> = Object.fromEntries(
+        productEntries.filter(Boolean) as any,
+      );
+      const uMap: Record<string, any> = Object.fromEntries(
+        userEntries.filter(Boolean) as any,
+      );
+
+      const newItems: PastAuction[] = validDocs.map((d) => {
+        const data = d.data();
+        const p = pMap[data.productId] ?? {};
+        const end = toDate(data.endTime);
+        const image =
+          p.thumbnail && p.thumbnail !== "null"
+            ? p.thumbnail
+            : (p.images?.[0] ?? "");
+        const wid = data.winnerId as string;
+        const u = uMap[wid] ?? {};
+        const winnerName =
+          (u.fullName ??
+            u.displayName ??
+            `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim()) ||
+          "Unknown";
+        return {
+          id: d.id,
+          auctionNumber: data.auctionNumber ?? 0,
+          title: p.title ?? "Auction",
+          subtitle: [p.brand, p.model].filter(Boolean).join(" · "),
+          image,
+          winningPrice: data.winningBid ?? 0,
+          currency: "EGP",
+          sessionDate: fmt(end, {
+            weekday: "long",
+            month: "long",
+            day: "numeric",
+            year: "numeric",
+          }),
+          winner: {
+            name: winnerName,
+            avatar: u.profileImage ?? "",
+            country: "🇪🇬",
+            countryName: "Egypt",
+          },
+        };
+      });
+
+      setPast((prev) => [...prev, ...newItems]);
+    } catch (err: any) {
+      console.error("[usePastAuctions]", err);
+      setError("Failed to load past auctions");
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  }, []);
+
+  // Load first page on mount
+  useEffect(() => {
+    fetchPage(true);
+  }, [fetchPage]);
+
+  const loadMore = useCallback(() => {
+    if (!loadingMore && hasMore) fetchPage(false);
+  }, [fetchPage, loadingMore, hasMore]);
+
+  return { past, loading, loadingMore, error, hasMore, loadMore };
 }
 
 // ─── SkeletonCard ─────────────────────────────────────────────────────────────
+
 function SkeletonCard() {
   return (
     <div
@@ -270,6 +364,7 @@ function SkeletonCard() {
 }
 
 // ─── UpcomingCard ─────────────────────────────────────────────────────────────
+
 const UpcomingCard = memo(function UpcomingCard({
   item,
   index,
@@ -581,6 +676,7 @@ const UpcomingCard = memo(function UpcomingCard({
 });
 
 // ─── HammerStamp ──────────────────────────────────────────────────────────────
+
 function HammerStamp() {
   return (
     <div
@@ -597,7 +693,6 @@ function HammerStamp() {
         gap: 5,
       }}
     >
-      {/* Circle — scaleX(-1) mirrors it so the hammer faces right */}
       <div
         style={{
           width: 96,
@@ -693,13 +788,11 @@ function HammerStamp() {
           }}
         />
       </div>
-
-      {/* HAMMERED label — same red family as the stamp */}
       <span
         style={{
           fontSize: 15,
           fontWeight: 1000,
-          letterSpacing: "0.22em",  
+          letterSpacing: "0.22em",
           textTransform: "uppercase",
           color: "rgba(220,40,40,0.92)",
           fontFamily: "'Jost', sans-serif",
@@ -718,6 +811,7 @@ function HammerStamp() {
 }
 
 // ─── PastCard ─────────────────────────────────────────────────────────────────
+
 const PastCard = memo(function PastCard({
   item,
   index,
@@ -754,7 +848,7 @@ const PastCard = memo(function PastCard({
       style={{
         opacity: vis ? 1 : 0,
         transform: vis ? "translateY(0)" : "translateY(40px)",
-        transition: `opacity 0.7s ease ${index * 0.1}s, transform 0.7s cubic-bezier(0.22,1,0.36,1) ${index * 0.1}s`,
+        transition: `opacity 0.7s ease ${(index % PAST_PAGE_SIZE) * 0.08}s, transform 0.7s cubic-bezier(0.22,1,0.36,1) ${(index % PAST_PAGE_SIZE) * 0.08}s`,
         overflow: "hidden",
         minWidth: 0,
         willChange: "transform",
@@ -866,6 +960,7 @@ const PastCard = memo(function PastCard({
             {item.subtitle}
           </p>
         </div>
+
         <span
           style={{
             display: "flex",
@@ -879,6 +974,7 @@ const PastCard = memo(function PastCard({
           <span style={{ color: GOLD, fontSize: 13 }}>📅</span>
           {t("auctionsSection.session")}: {item.sessionDate}
         </span>
+
         <div
           style={{
             display: "flex",
@@ -920,6 +1016,7 @@ const PastCard = memo(function PastCard({
             {cur}
           </span>
         </div>
+
         <div
           style={{
             height: 1,
@@ -927,6 +1024,7 @@ const PastCard = memo(function PastCard({
               "linear-gradient(90deg,rgba(229,224,198,0.1),transparent)",
           }}
         />
+
         <div>
           <div
             style={{
@@ -1036,7 +1134,70 @@ const PastCard = memo(function PastCard({
   );
 });
 
+// ─── LoadMoreButton ───────────────────────────────────────────────────────────
+
+function LoadMoreButton({
+  onClick,
+  loading,
+}: {
+  onClick: () => void;
+  loading: boolean;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div style={{ display: "flex", justifyContent: "center", marginTop: 12 }}>
+      <button
+        onClick={onClick}
+        disabled={loading}
+        style={{
+          background: loading
+            ? "rgba(255,255,255,0.04)"
+            : "rgba(255,255,255,0.06)",
+          border: `1px solid ${loading ? "rgba(229,224,198,0.12)" : "rgba(229,224,198,0.22)"}`,
+          borderRadius: 999,
+          padding: "14px 40px",
+          color: loading ? "rgba(229,224,198,0.4)" : CREAM,
+          fontFamily: "'Jost', sans-serif",
+          fontSize: 15,
+          fontWeight: 700,
+          letterSpacing: "0.16em",
+          textTransform: "uppercase",
+          cursor: loading ? "not-allowed" : "pointer",
+          transition: "all 0.3s ease",
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          backdropFilter: "blur(8px)",
+        }}
+      >
+        {loading ? (
+          <>
+            <span
+              style={{
+                display: "inline-block",
+                width: 16,
+                height: 16,
+                border: `2px solid ${GOLD}44`,
+                borderTop: `2px solid ${GOLD}`,
+                borderRadius: "50%",
+                animation: "lmSpin 0.8s linear infinite",
+              }}
+            />
+            Loading…
+          </>
+        ) : (
+          <>
+            <span style={{ color: GOLD }}>↓</span>
+            {t("auctionsSection.loadMore") || "Load More"}
+          </>
+        )}
+      </button>
+    </div>
+  );
+}
+
 // ─── TabButton ────────────────────────────────────────────────────────────────
+
 function TabButton({
   label,
   active,
@@ -1098,18 +1259,38 @@ function TabButton({
 }
 
 // ─── Main section ─────────────────────────────────────────────────────────────
+
 export default function AuctionsSection() {
   const [tab, setTab] = useState<"upcoming" | "past">("upcoming");
   const [anim, setAnim] = useState(false);
+
   const headerRef = useRef<HTMLDivElement>(null);
   const [vis, setVis] = useState(false);
   const [animKey, setAnimKey] = useState(0);
+
   const { t, i18n } = useTranslation();
   const isAr = i18n.language === "ar";
   const { user } = useAuth();
   const navigate = useNavigate();
   const [modal, setModal] = useState(false);
-  const { upcoming, past, loading, error } = useAuctionsData();
+
+  // Separate hooks for upcoming and past
+  const {
+    upcoming,
+    loading: upLoading,
+    error: upError,
+  } = useUpcomingAuctions();
+  const {
+    past,
+    loading: pastLoading,
+    loadingMore,
+    error: pastError,
+    hasMore,
+    loadMore,
+  } = usePastAuctions();
+
+  const loading = tab === "upcoming" ? upLoading : pastLoading;
+  const error = tab === "upcoming" ? upError : pastError;
 
   const onRegister = useCallback(
     (productId: string) => {
@@ -1166,9 +1347,10 @@ export default function AuctionsSection() {
       }}
     >
       <style>{`
-        @keyframes tabIn { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes tabIn  { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
         @keyframes liveP  { 0%,100%{opacity:1;box-shadow:0 0 6px #5ee8a0} 50%{opacity:.4;box-shadow:0 0 12px #5ee8a0} }
         @keyframes cdFlip { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes lmSpin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
         .lz-cd-digit { animation: cdFlip 0.22s cubic-bezier(0,0,0.2,1) both; }
         .tab-in  { animation: tabIn 0.38s cubic-bezier(0.22,1,0.36,1) forwards }
         .tab-out { opacity:0; transform:translateY(-8px); transition:opacity .2s ease,transform .2s ease }
@@ -1415,63 +1597,18 @@ export default function AuctionsSection() {
           overflow: "hidden",
         }}
       >
-        {loading && (
+        {/* ── UPCOMING TAB ─────────────────────────────────────────────── */}
+        {tab === "upcoming" && (
           <>
-            <SkeletonCard />
-            <SkeletonCard />
-            <SkeletonCard />
-          </>
-        )}
-
-        {!loading && error && (
-          <div
-            style={{
-              textAlign: "center",
-              padding: "60px 20px",
-              color: "rgba(229,224,198,0.4)",
-            }}
-          >
-            <div style={{ fontSize: 48, marginBottom: 12 }}>⚠️</div>
-            <p style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>{error}</p>
-          </div>
-        )}
-
-        {!loading && !error && tab === "upcoming" && (
-          <>
-            {upcoming.length > 0 && (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  marginBottom: 4,
-                }}
-              >
-                <div
-                  style={{
-                    width: 3,
-                    height: 18,
-                    background: GOLD,
-                    borderRadius: 2,
-                  }}
-                />
-                <span
-                  style={{
-                    fontSize: 15,
-                    fontWeight: 800,
-                    color: "rgba(229,224,198,0.9)",
-                    letterSpacing: "0.18em",
-                    textTransform: "uppercase",
-                    fontFamily: "'Jost', sans-serif",
-                  }}
-                >
-                  {t("auctionsSection.upcomingCount", {
-                    count: upcoming.length,
-                  })}
-                </span>
-              </div>
+            {upLoading && (
+              <>
+                <SkeletonCard />
+                <SkeletonCard />
+                <SkeletonCard />
+              </>
             )}
-            {upcoming.length === 0 ? (
+
+            {!upLoading && upError && (
               <div
                 style={{
                   textAlign: "center",
@@ -1479,66 +1616,97 @@ export default function AuctionsSection() {
                   color: "rgba(229,224,198,0.4)",
                 }}
               >
-                <div style={{ fontSize: 48, marginBottom: 12 }}>🔨</div>
+                <div style={{ fontSize: 48, marginBottom: 12 }}>⚠️</div>
                 <p style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>
-                  {isAr
-                    ? "لا توجد مزادات قادمة الآن"
-                    : "No upcoming auctions right now"}
-                </p>
-                <p style={{ fontSize: 15, marginTop: 6, opacity: 0.7 }}>
-                  {isAr
-                    ? "تحقق قريباً من جلسات جديدة"
-                    : "Check back soon for new sessions"}
+                  {upError}
                 </p>
               </div>
-            ) : (
-              upcoming.map((item, i) => (
-                <UpcomingCard
-                  key={item.id}
-                  item={item}
-                  index={i}
-                  isLoggedIn={!!user}
-                  onRegister={() => onRegister(item.productId)}
-                />
-              ))
+            )}
+
+            {!upLoading && !upError && (
+              <>
+                {upcoming.length > 0 && (
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      marginBottom: 4,
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 3,
+                        height: 18,
+                        background: GOLD,
+                        borderRadius: 2,
+                      }}
+                    />
+                    <span
+                      style={{
+                        fontSize: 15,
+                        fontWeight: 800,
+                        color: "rgba(229,224,198,0.9)",
+                        letterSpacing: "0.18em",
+                        textTransform: "uppercase",
+                        fontFamily: "'Jost', sans-serif",
+                      }}
+                    >
+                      {t("auctionsSection.upcomingCount", {
+                        count: upcoming.length,
+                      })}
+                    </span>
+                  </div>
+                )}
+                {upcoming.length === 0 ? (
+                  <div
+                    style={{
+                      textAlign: "center",
+                      padding: "60px 20px",
+                      color: "rgba(229,224,198,0.4)",
+                    }}
+                  >
+                    <div style={{ fontSize: 48, marginBottom: 12 }}>🔨</div>
+                    <p style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>
+                      {isAr
+                        ? "لا توجد مزادات قادمة الآن"
+                        : "No upcoming auctions right now"}
+                    </p>
+                    <p style={{ fontSize: 15, marginTop: 6, opacity: 0.7 }}>
+                      {isAr
+                        ? "تحقق قريباً من جلسات جديدة"
+                        : "Check back soon for new sessions"}
+                    </p>
+                  </div>
+                ) : (
+                  upcoming.map((item, i) => (
+                    <UpcomingCard
+                      key={item.id}
+                      item={item}
+                      index={i}
+                      isLoggedIn={!!user}
+                      onRegister={() => onRegister(item.productId)}
+                    />
+                  ))
+                )}
+              </>
             )}
           </>
         )}
 
-        {!loading && !error && tab === "past" && (
+        {/* ── PAST TAB ──────────────────────────────────────────────────── */}
+        {tab === "past" && (
           <>
-            {past.length > 0 && (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  marginBottom: 4,
-                }}
-              >
-                <div
-                  style={{
-                    width: 3,
-                    height: 18,
-                    background: "rgba(126,207,154,0.7)",
-                    borderRadius: 2,
-                  }}
-                />
-                <span
-                  style={{
-                    fontSize: 15,
-                    fontWeight: 800,
-                    color: "rgba(229,224,198,0.9)",
-                    letterSpacing: "0.18em",
-                    textTransform: "uppercase",
-                    fontFamily: "'Jost', sans-serif",
-                  }}
-                >
-                  {t("auctionsSection.pastCount", { count: past.length })}
-                </span>
-              </div>
+            {/* First-load skeleton */}
+            {pastLoading && (
+              <>
+                <SkeletonCard />
+                <SkeletonCard />
+                <SkeletonCard />
+              </>
             )}
-            {past.length === 0 ? (
+
+            {!pastLoading && pastError && (
               <div
                 style={{
                   textAlign: "center",
@@ -1546,22 +1714,115 @@ export default function AuctionsSection() {
                   color: "rgba(229,224,198,0.4)",
                 }}
               >
-                <div style={{ fontSize: 48, marginBottom: 12 }}>🏆</div>
+                <div style={{ fontSize: 48, marginBottom: 12 }}>⚠️</div>
                 <p style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>
-                  {isAr
-                    ? "لا توجد مزادات مكتملة بعد"
-                    : "No completed auctions yet"}
-                </p>
-                <p style={{ fontSize: 15, marginTop: 6, opacity: 0.7 }}>
-                  {isAr
-                    ? "ستظهر الفائزون هنا بعد انتهاء المزادات"
-                    : "Winners will appear here after auctions close"}
+                  {pastError}
                 </p>
               </div>
-            ) : (
-              past.map((item, i) => (
-                <PastCard key={item.id} item={item} index={i} />
-              ))
+            )}
+
+            {!pastLoading && !pastError && (
+              <>
+                {past.length > 0 && (
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      marginBottom: 4,
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 3,
+                        height: 18,
+                        background: "rgba(126,207,154,0.7)",
+                        borderRadius: 2,
+                      }}
+                    />
+                    <span
+                      style={{
+                        fontSize: 15,
+                        fontWeight: 800,
+                        color: "rgba(229,224,198,0.9)",
+                        letterSpacing: "0.18em",
+                        textTransform: "uppercase",
+                        fontFamily: "'Jost', sans-serif",
+                      }}
+                    >
+                      {t("auctionsSection.pastCount", { count: past.length })}
+                      {hasMore && (
+                        <span
+                          style={{
+                            color: `${GOLD}88`,
+                            fontWeight: 500,
+                            fontSize: 13,
+                            marginLeft: 6,
+                          }}
+                        >
+                          +
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                )}
+
+                {past.length === 0 ? (
+                  <div
+                    style={{
+                      textAlign: "center",
+                      padding: "60px 20px",
+                      color: "rgba(229,224,198,0.4)",
+                    }}
+                  >
+                    <div style={{ fontSize: 48, marginBottom: 12 }}>🏆</div>
+                    <p style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>
+                      {isAr
+                        ? "لا توجد مزادات مكتملة بعد"
+                        : "No completed auctions yet"}
+                    </p>
+                    <p style={{ fontSize: 15, marginTop: 6, opacity: 0.7 }}>
+                      {isAr
+                        ? "ستظهر الفائزون هنا بعد انتهاء المزادات"
+                        : "Winners will appear here after auctions close"}
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    {past.map((item, i) => (
+                      <PastCard key={item.id} item={item} index={i} />
+                    ))}
+
+                    {/* Load More button or end-of-list message */}
+                    {hasMore ? (
+                      <LoadMoreButton
+                        onClick={loadMore}
+                        loading={loadingMore}
+                      />
+                    ) : (
+                      past.length > PAST_PAGE_SIZE && (
+                        <div
+                          style={{ textAlign: "center", padding: "24px 0 8px" }}
+                        >
+                          <span
+                            style={{
+                              fontSize: 13,
+                              color: "rgba(229,224,198,0.3)",
+                              fontFamily: "'Jost', sans-serif",
+                              letterSpacing: "0.12em",
+                              textTransform: "uppercase",
+                            }}
+                          >
+                            —{" "}
+                            {isAr ? "كل المزادات محملة" : "All auctions loaded"}{" "}
+                            —
+                          </span>
+                        </div>
+                      )
+                    )}
+                  </>
+                )}
+              </>
             )}
           </>
         )}

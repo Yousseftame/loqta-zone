@@ -140,7 +140,8 @@
     "session": "Session",
     "winner": "Winner",
     "name": "Name",
-    "country": "Country"
+    "country": "Country",
+    "loadMore": "Load More"
   },
   "auctionRequest": {
     "eyebrow": "· Request an Auction ·",
