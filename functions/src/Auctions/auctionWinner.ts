@@ -53,7 +53,7 @@ async function resolveWinnerForAuction(auctionId: string): Promise<void> {
   // ── Pre-check: bail early if already resolved or endTime not passed ────────
   const preCheck = await auctionRef.get();
   if (!preCheck.exists) {
-    console.log(`[winner] Auction ${auctionId} does not exist.`);
+    // console.log(`[winner] Auction ${auctionId} does not exist.`);
     return;
   }
 
@@ -61,7 +61,7 @@ async function resolveWinnerForAuction(auctionId: string): Promise<void> {
 
   // Already resolved — nothing to do
   if (preData.winnerId !== null && preData.winnerId !== undefined) {
-    console.log(`[winner] Auction ${auctionId} already resolved — skipping.`);
+    // console.log(`[winner] Auction ${auctionId} already resolved — skipping.`);
     return;
   }
 
@@ -72,7 +72,7 @@ async function resolveWinnerForAuction(auctionId: string): Promise<void> {
       : new Date(preData.endTime);
 
   if (new Date() < endTime) {
-    console.log(`[winner] Auction ${auctionId} hasn't ended yet — skipping.`);
+    // console.log(`[winner] Auction ${auctionId} hasn't ended yet — skipping.`);
     return;
   }
 
@@ -94,7 +94,7 @@ async function resolveWinnerForAuction(auctionId: string): Promise<void> {
 
     // Idempotency guard inside transaction (concurrent call may have beaten us)
     if (fresh.winnerId !== null && fresh.winnerId !== undefined) {
-      console.log(`[winner] Auction ${auctionId} resolved by concurrent run — skipping.`);
+      // console.log(`[winner] Auction ${auctionId} resolved by concurrent run — skipping.`);
       return;
     }
 
@@ -105,7 +105,7 @@ async function resolveWinnerForAuction(auctionId: string): Promise<void> {
         isActive:   false,
         updatedAt:  FieldValue.serverTimestamp(),
       });
-      console.log(`[winner] Auction ${auctionId} → NO_WINNER (no bids).`);
+      // console.log(`[winner] Auction ${auctionId} → NO_WINNER (no bids).`);
       return;
     }
 
@@ -124,7 +124,7 @@ async function resolveWinnerForAuction(auctionId: string): Promise<void> {
       totalWins: FieldValue.increment(1),
     });
 
-    console.log(`[winner] Auction ${auctionId} → winner=${winnerId} bid=${winningBid}`);
+    // console.log(`[winner] Auction ${auctionId} → winner=${winnerId} bid=${winningBid}`);
   });
 }
 
@@ -204,11 +204,11 @@ export const resolveAuctionWinners = onSchedule(
       .get();
 
     if (auctionsSnap.empty) {
-      console.log("[resolveAuctionWinners] Nothing to resolve.");
+      // console.log("[resolveAuctionWinners] Nothing to resolve.");
       return;
     }
 
-    console.log(`[resolveAuctionWinners] Resolving ${auctionsSnap.size} missed auction(s).`);
+    // console.log(`[resolveAuctionWinners] Resolving ${auctionsSnap.size} missed auction(s).`);
 
     await Promise.allSettled(
       auctionsSnap.docs.map((d) =>
@@ -218,6 +218,6 @@ export const resolveAuctionWinners = onSchedule(
       ),
     );
 
-    console.log("[resolveAuctionWinners] Done.");
+  //  console.log("[resolveAuctionWinners] Done.");
   },
 );

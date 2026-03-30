@@ -192,12 +192,14 @@ export default function Dashboard() {
         <MetricCard
           label="Highest Bid"
           value={
+            analytics.highestWinningBid > 0 ? analytics.highestWinningBid : "—"
+          }
+          sub={
             analytics.highestWinningBid > 0
-              ? `${analytics.highestWinningBid.toLocaleString()} EGP`
-              : "—"
+              ? `EGP  ·  Avg: ${Math.round(analytics.avgWinningBid).toLocaleString()} EGP`
+              : `Avg: ${Math.round(analytics.avgWinningBid).toLocaleString()} EGP`
           }
           icon={<TrendingUp size={20} />}
-          sub={`Avg: ${Math.round(analytics.avgWinningBid).toLocaleString()} EGP`}
           accentIndex={3}
           delay={150}
           loading={loading}

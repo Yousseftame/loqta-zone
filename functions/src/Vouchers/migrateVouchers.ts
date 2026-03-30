@@ -28,7 +28,7 @@ export const migrateVouchers = onCall(
       throw new HttpsError("permission-denied", "Only superAdmins can run migrations.");
     }
 
-    console.log("[migrateVouchers] Starting migration...");
+    // console.log("[migrateVouchers] Starting migration...");
 
     const vouchersSnap = await db.collection("vouchers").get();
     let migrated = 0;
@@ -85,10 +85,10 @@ export const migrateVouchers = onCall(
       await batch.commit();
       migrated++;
 
-      console.log(`[migrateVouchers] Migrated voucher ${voucherDoc.id} (${usedByArray.length} usages)`);
+      // console.log(`[migrateVouchers] Migrated voucher ${voucherDoc.id} (${usedByArray.length} usages)`);
     }
 
-    console.log(`[migrateVouchers] Done. Migrated: ${migrated}, Skipped: ${skipped}`);
+    // console.log(`[migrateVouchers] Done. Migrated: ${migrated}, Skipped: ${skipped}`);
     return { success: true, migrated, skipped };
   },
 );

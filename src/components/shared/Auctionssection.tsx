@@ -58,6 +58,7 @@ interface PastAuction {
   };
 }
 
+
 // ─── Data hook ────────────────────────────────────────────────────────────────
 function useAuctionsData() {
   const [upcoming, setUpcoming] = useState<UpcomingAuction[]>([]);

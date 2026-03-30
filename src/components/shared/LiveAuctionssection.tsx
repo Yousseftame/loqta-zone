@@ -11,6 +11,7 @@ import {
   getDoc,
   doc,
   Timestamp,
+  orderBy,
 } from "firebase/firestore";
 import { db } from "@/firebase/firebase";
 
@@ -34,11 +35,11 @@ function useLiveAuctions() {
   const productCache = useRef<Record<string, any>>({});
 
   useEffect(() => {
-    const q = query(
-      collection(db, "auctions"),
-      where("isActive", "==", true),
-      where("endTime", ">", Timestamp.now()),
-    );
+const q = query(
+  collection(db, "auctions"),
+  where("isActive", "==", true),
+  where("endTime", ">", Timestamp.now()),
+);
 
     const unsub = onSnapshot(
       q,
@@ -69,14 +70,10 @@ function useLiveAuctions() {
           );
         }
 
-        setAuctions(
-          live.map((d) => {
+        const sorted = live
+          .map((d) => {
             const data = d.data(),
               p = productCache.current[data.productId] ?? {};
-            const img =
-              p.thumbnail && p.thumbnail !== "null"
-                ? p.thumbnail
-                : (p.images?.[0] ?? "");
             const end =
               data.endTime instanceof Timestamp
                 ? data.endTime.toDate()
@@ -85,13 +82,53 @@ function useLiveAuctions() {
               id: d.id,
               productId: data.productId ?? "",
               title: p.title ?? "Live Auction",
-              image: img,
+              image:
+                p.thumbnail && p.thumbnail !== "null"
+                  ? p.thumbnail
+                  : (p.images?.[0] ?? ""),
               currentBid: data.currentBid ?? data.startingPrice ?? 0,
               totalBids: data.totalBids ?? 0,
               endsAt: end.toISOString(),
             };
-          }),
+          })
+          .sort(
+            (a, b) =>
+              new Date(a.endsAt).getTime() - new Date(b.endsAt).getTime(),
+          );
+
+        console.log(
+          "sorted auctions:",
+          sorted.map((a) => ({ title: a.title, endsAt: a.endsAt })),
         );
+        setAuctions(sorted);
+        // Replace the entire setAuctions call:
+setAuctions(
+  live
+    .map((d) => {
+      const data = d.data(),
+        p = productCache.current[data.productId] ?? {};
+      const img =
+        p.thumbnail && p.thumbnail !== "null"
+          ? p.thumbnail
+          : (p.images?.[0] ?? "");
+      const end =
+        data.endTime instanceof Timestamp
+          ? data.endTime.toDate()
+          : new Date(data.endTime);
+      return {
+        id: d.id,
+        productId: data.productId ?? "",
+        title: p.title ?? "Live Auction",
+        image: img,
+        currentBid: data.currentBid ?? data.startingPrice ?? 0,
+        totalBids: data.totalBids ?? 0,
+        endsAt: end.toISOString(),
+      };
+    })
+    .sort(
+      (a, b) => new Date(a.endsAt).getTime() - new Date(b.endsAt).getTime(),
+    ),
+);
         setLoading(false);
       },
       () => setLoading(false),
@@ -1649,6 +1686,7 @@ export default function LiveAuctionsSection() {
             }}
           >
             <FeaturedCard
+              key={featured.id} // ← add this
               item={featured}
               onJoin={() => handleJoin(featured)}
               compact={isMobile}
@@ -1657,6 +1695,7 @@ export default function LiveAuctionsSection() {
         ) : (
           <>
             <FeaturedCard
+              key={featured.id} // ← add this
               item={featured}
               onJoin={() => handleJoin(featured)}
               compact={isMobile}

@@ -55,7 +55,7 @@ export const onUserCreated = functionsAuth.user().onCreate(async (user) => {
     if (existingDoc.exists) {
       const existingRole = existingDoc.data()?.role;
       if (existingRole && existingRole !== "user") {
-        console.log(`[onUserCreated] uid=${user.uid} sentinel doc has role="${existingRole}" — skipping.`);
+        // console.log(`[onUserCreated] uid=${user.uid} sentinel doc has role="${existingRole}" — skipping.`);
         return;
       }
     }
@@ -75,9 +75,9 @@ export const onUserCreated = functionsAuth.user().onCreate(async (user) => {
       { merge: true },
     );
 
-    console.log(`[onUserCreated] Set role=user for uid=${user.uid}`);
+    // console.log(`[onUserCreated] Set role=user for uid=${user.uid}`);
   } catch (error) {
-    console.error("[onUserCreated] Error:", error);
+    // console.error("[onUserCreated] Error:", error);
   }
 });
 
@@ -111,7 +111,7 @@ export const setUserRole = onCall(async (request) => {
     updatedAt: FieldValue.serverTimestamp(),
   });
 
-  console.log(`[setUserRole] uid=${targetUid} → role="${role}" by uid=${request.auth.uid}`);
+  // console.log(`[setUserRole] uid=${targetUid} → role="${role}" by uid=${request.auth.uid}`);
   return { success: true };
 });
 
@@ -156,7 +156,7 @@ export const blockUser = onCall(async (request) => {
     updatedAt: FieldValue.serverTimestamp(),
   });
 
-  console.log(`[blockUser] uid=${targetUid} isBlocked=${isBlocked} by uid=${request.auth.uid}`);
+  // console.log(`[blockUser] uid=${targetUid} isBlocked=${isBlocked} by uid=${request.auth.uid}`);
   return { success: true };
 });
 
@@ -248,7 +248,7 @@ export const createAdminAccount = onCall(async (request) => {
   // ── Step 3: Set custom claims ───────────────────────────────────────────────
   await firebaseAuth.setCustomUserClaims(newUser.uid, { role });
 
-  console.log(`[createAdminAccount] uid=${newUser.uid} role="${role}" created by uid=${request.auth.uid}`);
+  // console.log(`[createAdminAccount] uid=${newUser.uid} role="${role}" created by uid=${request.auth.uid}`);
 
   // Return enough data for the client to build an AppUser without a second fetch
   return {
@@ -307,6 +307,6 @@ export const deleteUser = onCall(async (request) => {
   // 2. Delete Firestore document
   await db.collection("users").doc(targetUid).delete();
 
-  console.log(`[deleteUser] uid=${targetUid} deleted by uid=${request.auth.uid}`);
+  // console.log(`[deleteUser] uid=${targetUid} deleted by uid=${request.auth.uid}`);
   return { success: true };
 });

@@ -146,7 +146,7 @@ export const onVoucherCreated = onDocumentCreated(
     const data = snap.data()!;
 
     if (data.notifiedAt) {
-      console.log(`[voucherNotification] ${voucherId} already notified — skipping.`);
+      // console.log(`[voucherNotification] ${voucherId} already notified — skipping.`);
       return;
     }
     if (!data.isActive) return;
@@ -217,7 +217,7 @@ export const onVoucherCreated = onDocumentCreated(
       });
     });
 
-    console.log(`[voucherNotification] ${allUids.length} users, ${tokenToUid.size} tokens`);
+    // console.log(`[voucherNotification] ${allUids.length} users, ${tokenToUid.size} tokens`);
 
     let inAppWritten = 0;
     await Promise.allSettled(
@@ -248,7 +248,7 @@ export const onVoucherCreated = onDocumentCreated(
       }),
     );
 
-    console.log(`[voucherNotification] In-app written: ${inAppWritten}`);
+    // console.log(`[voucherNotification] In-app written: ${inAppWritten}`);
 
     const allTokens = Array.from(tokenToUid.keys());
     let totalSent = 0, totalFailed = 0;
@@ -264,10 +264,10 @@ export const onVoucherCreated = onDocumentCreated(
           }
         }),
       );
-      console.log(`[voucherNotification] FCM sent=${totalSent} failed=${totalFailed}`);
+      // console.log(`[voucherNotification] FCM sent=${totalSent} failed=${totalFailed}`);
     }
 
     await snap.ref.update({ notifiedAt: FieldValue.serverTimestamp() });
-    console.log(`[voucherNotification] Done for ${voucherId}`);
+    // console.log(`[voucherNotification] Done for ${voucherId}`);
   },
 );

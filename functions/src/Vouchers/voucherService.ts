@@ -303,10 +303,10 @@ export const applyVoucher = onCall(
       };
     });
 
-    console.log(
-      `[applyVoucher] uid=${userId} voucher=${voucherId} auction=${auctionId} ` +
-      `discount=${result.discountApplied} effectiveFee=${result.effectiveFee}`,
-    );
+    // console.log(
+    //   `[applyVoucher] uid=${userId} voucher=${voucherId} auction=${auctionId} ` +
+    //   `discount=${result.discountApplied} effectiveFee=${result.effectiveFee}`,
+    // );
 
     return result;
   },

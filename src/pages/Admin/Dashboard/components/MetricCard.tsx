@@ -34,8 +34,16 @@ export default function MetricCard({
   delay = 0,
 }: MetricCardProps) {
   const accent = BLUES[accentIndex % BLUES.length];
-  const displayValue =
-    typeof value === "number" ? value.toLocaleString() : value;
+  function smartFormat(val: string | number): string {
+    if (typeof val !== "number") return val;
+    const absVal = Math.abs(val);
+    if (absVal >= 1_000_000 && val % 1_000_000 === 0)
+      return `${val / 1_000_000}M`;
+    if (absVal >= 1_000 && val % 1_000 === 0) return `${val / 1_000}K`;
+    return val.toLocaleString();
+  }
+
+  const displayValue = smartFormat(value);
 
   return (
     <div
@@ -138,6 +146,9 @@ export default function MetricCard({
               letterSpacing: "-0.025em",
               lineHeight: 1,
               fontFamily: "system-ui, -apple-system, sans-serif",
+              whiteSpace: "nowrap", // ← add this
+              overflow: "hidden",
+              textOverflow: "ellipsis",
             }}
           >
             {displayValue}

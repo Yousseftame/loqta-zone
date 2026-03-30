@@ -349,6 +349,7 @@ const AuctionCard = memo(function AuctionCard({
     <div
       dir="ltr"
       className={`lz-card-wrap ${isJoined ? "registered" : "default"}`}
+      onClick={onRegisterClick}
     >
       {/* Top banner */}
       {!isJoined && (
@@ -358,7 +359,7 @@ const AuctionCard = memo(function AuctionCard({
             background: `linear-gradient(90deg, ${NAVY}, #3a5a78)`,
             textAlign: "center",
             fontWeight: 700,
-            fontSize:11,
+            fontSize: 11,
             color: CREAM,
             textTransform: "uppercase",
             position: "relative",
@@ -380,7 +381,6 @@ const AuctionCard = memo(function AuctionCard({
           overflow: "hidden",
           background: isJoined ? "#0a1420" : "#eef1f4",
           flexShrink: 0,
-         
         }}
       >
         {isJoined && (
@@ -398,20 +398,35 @@ const AuctionCard = memo(function AuctionCard({
             loading="lazy"
             decoding="async"
             style={{
-              filter: isJoined ? "brightness(0.7) saturate(0.6) sepia(0.15)" : "none",
+              filter: isJoined
+                ? "brightness(0.7) saturate(0.6) sepia(0.15)"
+                : "none",
             }}
-            onError={(e) => { (e.target as HTMLImageElement).src = "/fallback.jpg"; }}
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = "/fallback.jpg";
+            }}
           />
         ) : (
           <div
             style={{
-              width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center",
+              width: "100%",
+              height: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
               background: isJoined
                 ? `linear-gradient(135deg, rgba(201,169,110,0.07), rgba(201,169,110,0.02))`
                 : `linear-gradient(135deg, ${NAVY}18, ${NAVY}08)`,
             }}
           >
-            <span style={{ fontSize: 42, fontWeight: 900, color: isJoined ? "rgba(201,169,110,0.2)" : `${NAVY}30`, textTransform: "uppercase" }}>
+            <span
+              style={{
+                fontSize: 42,
+                fontWeight: 900,
+                color: isJoined ? "rgba(201,169,110,0.2)" : `${NAVY}30`,
+                textTransform: "uppercase",
+              }}
+            >
               {item.title.charAt(0)}
             </span>
           </div>
@@ -420,7 +435,8 @@ const AuctionCard = memo(function AuctionCard({
         {/* Gradient overlay */}
         <div
           style={{
-            position: "absolute", inset: 0,
+            position: "absolute",
+            inset: 0,
             background: isJoined
               ? "linear-gradient(to bottom, transparent 30%, rgba(8,16,26,0.85) 100%)"
               : "linear-gradient(to bottom, transparent 40%, rgba(20,35,52,0.75) 100%)",
@@ -433,23 +449,47 @@ const AuctionCard = memo(function AuctionCard({
           style={{
             position: "absolute",
             borderRadius: "50%",
-            background: isJoined ? `linear-gradient(135deg, #1a1208, #0d0a05)` : `linear-gradient(135deg, ${NAVY}, ${NAVY2})`,
+            background: isJoined
+              ? `linear-gradient(135deg, #1a1208, #0d0a05)`
+              : `linear-gradient(135deg, ${NAVY}, ${NAVY2})`,
             border: `2px dashed ${isJoined ? REG_STAMP_BORDER : CREAM2}`,
-            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-            boxShadow: isJoined ? "0 4px 14px rgba(201,169,110,0.15)" : "0 4px 14px rgba(0,0,0,0.35)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: isJoined
+              ? "0 4px 14px rgba(201,169,110,0.15)"
+              : "0 4px 14px rgba(0,0,0,0.35)",
             ...(isJoined && { top: "calc(30px + 8px)" }),
           }}
         >
           {/* Inner wrapper gets the CSS hover transform */}
-          <div className="lz-stamp-inner" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+          <div
+            className="lz-stamp-inner"
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
             <span
               style={{
-                fontWeight: 900, color: isJoined ? GOLD : CREAM, textAlign: "center",
-                lineHeight: 1.4, letterSpacing: "0.05em", textTransform: "uppercase",
+                fontWeight: 900,
+                color: isJoined ? GOLD : CREAM,
+                textAlign: "center",
+                lineHeight: 1.4,
+                letterSpacing: "0.05em",
+                textTransform: "uppercase",
               }}
             >
-              LOQTA<br />ZONE<br />
-              <span className="lz-stamp-stars" style={{ color: GOLD }}>★★★</span>
+              LOQTA
+              <br />
+              ZONE
+              <br />
+              <span className="lz-stamp-stars" style={{ color: GOLD }}>
+                ★★★
+              </span>
             </span>
           </div>
         </div>
@@ -462,8 +502,12 @@ const AuctionCard = memo(function AuctionCard({
             background: "rgba(20, 35, 52, 0.72)",
             backdropFilter: "blur(6px)",
             borderRadius: 999,
-            display: "flex", alignItems: "center", gap: 4,
-            fontWeight: 700, color: CREAM2, letterSpacing: "0.04em",
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            fontWeight: 700,
+            color: CREAM2,
+            letterSpacing: "0.04em",
             border: `1px solid rgba(229,224,198,0.2)`,
             ...(isJoined && { top: "calc(30px + 8px)" }),
           }}
@@ -472,14 +516,28 @@ const AuctionCard = memo(function AuctionCard({
         </div>
 
         {/* Category */}
-        <div className="lz-cat-row" style={{ position: "absolute", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 4 }}>
+        <div
+          className="lz-cat-row"
+          style={{
+            position: "absolute",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 4,
+          }}
+        >
           <div
             className="lz-card-cat"
             style={{
-              background: "rgba(20,35,52,0.80)", backdropFilter: "blur(6px)",
-              border: `1px solid rgba(229,224,198,0.25)`, borderRadius: 5,
-              fontWeight: 700, color: CREAM, letterSpacing: "0.1em",
-              textTransform: "uppercase", whiteSpace: "nowrap",
+              background: "rgba(20,35,52,0.80)",
+              backdropFilter: "blur(6px)",
+              border: `1px solid rgba(229,224,198,0.25)`,
+              borderRadius: 5,
+              fontWeight: 700,
+              color: CREAM,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              whiteSpace: "nowrap",
             }}
           >
             {item.categoryName}
@@ -488,7 +546,10 @@ const AuctionCard = memo(function AuctionCard({
       </div>
 
       {/* Body */}
-      <div className="lz-card-body" style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+      <div
+        className="lz-card-body"
+        style={{ display: "flex", flexDirection: "column", flex: 1 }}
+      >
         <div style={{ minHeight: 52, flexShrink: 0 }}>
           {isJoined && (
             <div style={{ marginBottom: 5 }}>
@@ -501,10 +562,17 @@ const AuctionCard = memo(function AuctionCard({
           <h3
             className="lz-card-title"
             style={{
-              margin: 0, fontWeight: 800, color: isJoined ? REG_TITLE : NAVY,
-              fontSize:14,
-              textTransform: "uppercase", letterSpacing: "0.03em", lineHeight: 1.2,
-              display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
+              margin: 0,
+              fontWeight: 800,
+              color: isJoined ? REG_TITLE : NAVY,
+              fontSize: 14,
+              textTransform: "uppercase",
+              letterSpacing: "0.03em",
+              lineHeight: 1.2,
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
             }}
           >
             {item.title}
@@ -512,9 +580,15 @@ const AuctionCard = memo(function AuctionCard({
           <p
             className="lz-card-subtitle"
             style={{
-              margin: "3px 0 0", color: isJoined ? REG_SUBTITLE : "#7a8ea0",
-              fontWeight: 500, lineHeight: 1.3,fontSize :11,
-              display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical", overflow: "hidden",
+              margin: "3px 0 0",
+              color: isJoined ? REG_SUBTITLE : "#7a8ea0",
+              fontWeight: 500,
+              lineHeight: 1.3,
+              fontSize: 11,
+              display: "-webkit-box",
+              WebkitLineClamp: 1,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
             }}
           >
             · {item.model}
@@ -523,38 +597,85 @@ const AuctionCard = memo(function AuctionCard({
 
         <div
           className="lz-card-meta"
-          style={{ gap: 10, color: isJoined ? "rgba(201,169,110,0.4)" : "#8fa0b0", fontWeight: 600, alignItems: "center", fontSize: 12, minHeight: 18, flexShrink: 0 }}
+          style={{
+            gap: 10,
+            color: isJoined ? "rgba(201,169,110,0.4)" : "#8fa0b0",
+            fontWeight: 600,
+            alignItems: "center",
+            fontSize: 12,
+            minHeight: 18,
+            flexShrink: 0,
+          }}
         >
           <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <span style={{ opacity: 0.7 }}>🏷️</span> {item.brand}
           </span>
         </div>
 
-        <div style={{ height: 1, background: isJoined ? "linear-gradient(90deg, rgba(201,169,110,0.25), transparent)" : "linear-gradient(90deg, rgba(42,72,99,0.18), transparent)", flexShrink: 0 }} />
+        <div
+          style={{
+            height: 1,
+            background: isJoined
+              ? "linear-gradient(90deg, rgba(201,169,110,0.25), transparent)"
+              : "linear-gradient(90deg, rgba(42,72,99,0.18), transparent)",
+            flexShrink: 0,
+          }}
+        />
 
         {/* Price block */}
         <div
           className={`lz-card-price-block ${isJoined ? "lz-price-block-registered" : "lz-price-block-default"}`}
           style={{
             borderRadius: 10,
-            border: isJoined ? `1px solid rgba(201,169,110,0.18)` : `1px solid rgba(42,72,99,0.10)`,
-            display: "flex", flexDirection: "column", flex: 1, justifyContent: "space-between",
+            border: isJoined
+              ? `1px solid rgba(201,169,110,0.18)`
+              : `1px solid rgba(42,72,99,0.10)`,
+            display: "flex",
+            flexDirection: "column",
+            flex: 1,
+            justifyContent: "space-between",
           }}
         >
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 8 }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-end",
+              marginBottom: 8,
+            }}
+          >
             <div>
               <div
                 className="lz-card-price-label"
-                style={{ color: isJoined ? "rgba(201,169,110,0.4)" : "#9aabbb", fontWeight: 700, fontSize:13 , letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 2 }}
+                style={{
+                  color: isJoined ? "rgba(201,169,110,0.4)" : "#9aabbb",
+                  fontWeight: 700,
+                  fontSize: 13,
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                  marginBottom: 2,
+                }}
               >
                 {t("auctionSwiper.from")}
               </div>
               <div
                 className="lz-card-price-value"
-                style={{ fontWeight: 900, color: isJoined ? REG_PRICE : GOLD, letterSpacing: "-0.01em", lineHeight: 1 }}
+                style={{
+                  fontWeight: 900,
+                  color: isJoined ? REG_PRICE : GOLD,
+                  letterSpacing: "-0.01em",
+                  lineHeight: 1,
+                }}
               >
                 {item.price.toLocaleString()}
-                <span style={{ fontSize: "0.55em", fontWeight: 600, color: isJoined ? "rgba(201,169,110,0.5)" : "#b8996a", marginLeft: 3 }}>
+                <span
+                  style={{
+                    fontSize: "0.55em",
+                    fontWeight: 600,
+                    color: isJoined ? "rgba(201,169,110,0.5)" : "#b8996a",
+                    marginLeft: 3,
+                  }}
+                >
                   EGP
                 </span>
               </div>
@@ -563,11 +684,20 @@ const AuctionCard = memo(function AuctionCard({
               <div style={{ textAlign: "right" }}>
                 <div
                   className="lz-card-bid-label"
-                  style={{ color: isJoined ? "rgba(201,169,110,0.4)" : "#9aabbb", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 2 }}
+                  style={{
+                    color: isJoined ? "rgba(201,169,110,0.4)" : "#9aabbb",
+                    fontWeight: 700,
+                    letterSpacing: "0.1em",
+                    textTransform: "uppercase",
+                    marginBottom: 2,
+                  }}
                 >
                   Auctions
                 </div>
-                <div className="lz-card-bid-value" style={{ fontWeight: 800, color: isJoined ? GOLD : NAVY }}>
+                <div
+                  className="lz-card-bid-value"
+                  style={{ fontWeight: 800, color: isJoined ? GOLD : NAVY }}
+                >
                   ×{item.activeAuctionCount}
                 </div>
               </div>
@@ -576,12 +706,19 @@ const AuctionCard = memo(function AuctionCard({
 
           {isJoined ? (
             <button className="lz-reg-btn" onClick={onRegisterClick}>
-              <span   className=" text-[15px]">{t("auctionSwiper.viewSessions") || "View My Sessions"}</span>
+              <span className=" text-[15px]">
+                {t("auctionSwiper.viewSessions") || "View My Sessions"}
+              </span>
               <span className="lz-reg-arrow">→</span>
             </button>
           ) : (
-            <ShinyButton className="lz-shiny-btn w-full !rounded-lg" onClick={onRegisterClick}>
-              {isLoggedIn ? t("auctionSwiper.joinNow") || "✦ JOIN NOW ✦" : t("auctionSwiper.registerToJoin")}
+            <ShinyButton
+              className="lz-shiny-btn w-full !rounded-lg"
+              onClick={onRegisterClick}
+            >
+              {isLoggedIn
+                ? t("auctionSwiper.joinNow") || "✦ JOIN NOW ✦"
+                : t("auctionSwiper.registerToJoin")}
             </ShinyButton>
           )}
         </div>

@@ -56,7 +56,7 @@ export const onBidSelected = onDocumentUpdated(
 
     // ── 2. Idempotency guard — never fire twice for the same bid doc
     if (after.notifiedBidSelectedAt) {
-      console.log(`[bidWinnerNotification] bidId=${bidId} already notified — skipping.`);
+      // console.log(`[bidWinnerNotification] bidId=${bidId} already notified — skipping.`);
       return;
     }
 
@@ -120,9 +120,9 @@ export const onBidSelected = onDocumentUpdated(
         createdAt:   FieldValue.serverTimestamp(),
       });
 
-      console.log(
-        `[bidWinnerNotification] In-app notification created: uid=${userId} notifId=${notifRef.id}`,
-      );
+      // console.log(
+      //   `[bidWinnerNotification] In-app notification created: uid=${userId} notifId=${notifRef.id}`,
+      // );
 
       // ── 5. Fetch + deduplicate FCM tokens
       const userSnap    = await db.collection("users").doc(userId).get();
@@ -139,7 +139,7 @@ export const onBidSelected = onDocumentUpdated(
       }
 
       if (uniqueTokens.length === 0) {
-        console.log(`[bidWinnerNotification] No FCM tokens for uid=${userId} — push skipped.`);
+        // console.log(`[bidWinnerNotification] No FCM tokens for uid=${userId} — push skipped.`);
         await event.data!.after.ref.update({
           notifiedBidSelectedAt: FieldValue.serverTimestamp(),
         });
@@ -184,15 +184,15 @@ export const onBidSelected = onDocumentUpdated(
         await db.collection("users").doc(userId).update({
           fcmTokens: FieldValue.arrayRemove(...deadTokens),
         });
-        console.log(
-          `[bidWinnerNotification] Pruned ${deadTokens.length} dead token(s) for uid=${userId}`,
-        );
+        // console.log(
+        //   `[bidWinnerNotification] Pruned ${deadTokens.length} dead token(s) for uid=${userId}`,
+        // );
       }
 
-      console.log(
-        `[bidWinnerNotification] FCM result uid=${userId}: ` +
-        `${fcmResponse.successCount} sent / ${fcmResponse.failureCount} failed`,
-      );
+      // console.log(
+      //   `[bidWinnerNotification] FCM result uid=${userId}: ` +
+      //   `${fcmResponse.successCount} sent / ${fcmResponse.failureCount} failed`,
+      // );
 
       // ── 8. Idempotency stamp
       await event.data!.after.ref.update({

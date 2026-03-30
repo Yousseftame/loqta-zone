@@ -493,7 +493,6 @@ export const rebuildAnalytics = onCall(
       throw new HttpsError("permission-denied", "Only superAdmins can rebuild analytics.");
     }
 
-    console.log("[rebuildAnalytics] Starting full rebuild…");
 
     const [
       usersSnap, productsSnap, auctionsSnap,
@@ -644,7 +643,6 @@ export const rebuildAnalytics = onCall(
       updatedAt:      FieldValue.serverTimestamp(),
     });
 
-    console.log("[rebuildAnalytics] Done.");
     return { success: true, updatedAt: new Date().toISOString() };
   },
 );

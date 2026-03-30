@@ -53,7 +53,7 @@ export const onLastOfferSelected = onDocumentUpdated(
 
     // ── 2. Idempotency guard
     if (after.notifiedLastOfferSelectedAt) {
-      console.log(`[lastOfferNotification] offerId=${event.params.offerId} already notified — skipping.`);
+      // console.log(`[lastOfferNotification] offerId=${event.params.offerId} already notified — skipping.`);
       return;
     }
 
@@ -111,7 +111,7 @@ export const onLastOfferSelected = onDocumentUpdated(
         createdAt:   FieldValue.serverTimestamp(),
       });
 
-      console.log(`[lastOfferNotification] In-app notification created: uid=${userId} notifId=${notifRef.id}`);
+      // console.log(`[lastOfferNotification] In-app notification created: uid=${userId} notifId=${notifRef.id}`);
 
       // ── 5. Fetch + deduplicate FCM tokens
       const userSnap    = await db.collection("users").doc(userId).get();
@@ -128,7 +128,7 @@ export const onLastOfferSelected = onDocumentUpdated(
       }
 
       if (uniqueTokens.length === 0) {
-        console.log(`[lastOfferNotification] No FCM tokens for uid=${userId} — push skipped.`);
+        // console.log(`[lastOfferNotification] No FCM tokens for uid=${userId} — push skipped.`);
         await event.data!.after.ref.update({
           notifiedLastOfferSelectedAt: FieldValue.serverTimestamp(),
         });
@@ -173,13 +173,13 @@ export const onLastOfferSelected = onDocumentUpdated(
         await db.collection("users").doc(userId).update({
           fcmTokens: FieldValue.arrayRemove(...deadTokens),
         });
-        console.log(`[lastOfferNotification] Pruned ${deadTokens.length} dead token(s) for uid=${userId}`);
+        // console.log(`[lastOfferNotification] Pruned ${deadTokens.length} dead token(s) for uid=${userId}`);
       }
 
-      console.log(
-        `[lastOfferNotification] FCM result uid=${userId}: ` +
-        `${fcmResponse.successCount} sent / ${fcmResponse.failureCount} failed`,
-      );
+      // console.log(
+      //   `[lastOfferNotification] FCM result uid=${userId}: ` +
+      //   `${fcmResponse.successCount} sent / ${fcmResponse.failureCount} failed`,
+      // );
 
       // ── 8. Idempotency stamp
       await event.data!.after.ref.update({

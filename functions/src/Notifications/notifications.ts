@@ -61,7 +61,7 @@ export const onAuctionRequestUpdated = onDocumentUpdated(
 
     // ── 3. Idempotency guard: only run once even if the document is re-saved ──
     if (after.notifiedMatchedAt) {
-      console.log(`[notifications] requestId=${requestId} already notified — skipping.`);
+      // console.log(`[notifications] requestId=${requestId} already notified — skipping.`);
       return;
     }
 
@@ -100,7 +100,7 @@ export const onAuctionRequestUpdated = onDocumentUpdated(
         createdAt:   FieldValue.serverTimestamp(),
       });
 
-      console.log(`[notifications] In-app notification created: uid=${userId} notifId=${notifRef.id}`);
+      // console.log(`[notifications] In-app notification created: uid=${userId} notifId=${notifRef.id}`);
 
       // ── 5. Fetch tokens + deduplicate ──────────────────────────────────────
       const userSnap = await db.collection("users").doc(userId).get();
@@ -113,21 +113,21 @@ export const onAuctionRequestUpdated = onDocumentUpdated(
 
       // Self-heal: if we found duplicates, write the deduplicated list back
       if (uniqueTokens.length < rawTokens.length) {
-        console.log(
-          `[notifications] Found ${rawTokens.length - uniqueTokens.length} duplicate token(s) for uid=${userId} — deduplicating.`,
-        );
+        // console.log(
+        //   `[notifications] Found ${rawTokens.length - uniqueTokens.length} duplicate token(s) for uid=${userId} — deduplicating.`,
+        // );
         await db.collection("users").doc(userId).update({ fcmTokens: uniqueTokens });
       }
 
       if (uniqueTokens.length === 0) {
-        console.log(`[notifications] No FCM tokens for uid=${userId} — push skipped.`);
+        // console.log(`[notifications] No FCM tokens for uid=${userId} — push skipped.`);
         // Still stamp idempotency so we don't retry
         await event.data!.after.ref.update({ notifiedMatchedAt: FieldValue.serverTimestamp() });
         return;
       }
 
       // ── 6. Send FCM push ───────────────────────────────────────────────────
-      console.log(`[notifications] Sending to ${uniqueTokens.length} unique token(s) for uid=${userId}`);
+      // console.log(`[notifications] Sending to ${uniqueTokens.length} unique token(s) for uid=${userId}`);
 
       const fcmResponse = await messaging.sendEachForMulticast({
         tokens: uniqueTokens,
@@ -174,13 +174,13 @@ export const onAuctionRequestUpdated = onDocumentUpdated(
         await db.collection("users").doc(userId).update({
           fcmTokens: FieldValue.arrayRemove(...deadTokens),
         });
-        console.log(`[notifications] Pruned ${deadTokens.length} dead token(s) for uid=${userId}`);
+        // console.log(`[notifications] Pruned ${deadTokens.length} dead token(s) for uid=${userId}`);
       }
 
-      console.log(
-        `[notifications] FCM result uid=${userId}: ` +
-        `${fcmResponse.successCount} sent / ${fcmResponse.failureCount} failed`,
-      );
+      // console.log(
+      //   `[notifications] FCM result uid=${userId}: ` +
+      //   `${fcmResponse.successCount} sent / ${fcmResponse.failureCount} failed`,
+      // );
 
       // ── 8. Stamp idempotency field so this never runs twice ────────────────
       await event.data!.after.ref.update({
