@@ -847,7 +847,7 @@ export default function AuctionRequestSection() {
               {t("auctionRequest.titleLine1")}
             </h2>
           </div>
-          <div style={{ overflow: "hidden", marginBottom: 20 }}>
+          <div style={{  marginBottom: 20 }}>
             <h2
               style={{
                 margin: 0,

@@ -27,6 +27,7 @@ const NAVY2 = "#1e3652";
 const CREAM = "rgb(229,224,198)";
 
 interface UpcomingAuction {
+  auctionNumber: number;
   id: string;
   productId: string;
   title: string;
@@ -40,6 +41,8 @@ interface UpcomingAuction {
   isHot: boolean;
 }
 interface PastAuction {
+  auctionNumber: number;
+
   id: string;
   title: string;
   subtitle: string;
@@ -83,7 +86,7 @@ function useAuctionsData() {
               collection(db, "auctions"),
               where("endTime", "<=", now),
               orderBy("endTime", "desc"),
-              limit(5),
+              limit(8),
             ),
           ),
         ]);
@@ -152,6 +155,7 @@ function useAuctionsData() {
               : (p.images?.[0] ?? "");
           return {
             id: d.id,
+            auctionNumber: data.auctionNumber ?? 0,
             productId: data.productId ?? "",
             title: p.title ?? "Auction",
             subtitle: [p.brand, p.model].filter(Boolean).join(" · "),
@@ -168,7 +172,7 @@ function useAuctionsData() {
         const pastList: PastAuction[] = pastSnap.docs
           .filter((d) => {
             const w = d.data().winnerId;
-            return w !== null && w !== undefined;
+            return w !== null && w !== undefined && w !== "NO_WINNER";
           })
           .map((d) => {
             const data = d.data(),
@@ -190,6 +194,8 @@ function useAuctionsData() {
             return {
               id: d.id,
               title: p.title ?? "Auction",
+              auctionNumber: data.auctionNumber ?? 0,
+
               subtitle: [p.brand, p.model].filter(Boolean).join(" · "),
               image,
               winningPrice: data.winningBid ?? 0,
@@ -410,6 +416,20 @@ const UpcomingCard = memo(function UpcomingCard({
             >
               {item.title}
             </h3>
+            {item.auctionNumber > 0 && (
+              <span
+                style={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: `${GOLD}99`,
+                  letterSpacing: "0.12em",
+                  textTransform: "uppercase",
+                  fontFamily: "'Jost', sans-serif",
+                }}
+              >
+                #{item.auctionNumber}
+              </span>
+            )}
             <p
               style={{
                 margin: "3px 0 0",
@@ -820,6 +840,20 @@ const PastCard = memo(function PastCard({
           >
             {item.title}
           </h3>
+          {item.auctionNumber > 0 && (
+            <span
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                color: "rgba(229,224,198,0.4)",
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+                fontFamily: "'Jost', sans-serif",
+              }}
+            >
+              #{item.auctionNumber}
+            </span>
+          )}
           <p
             style={{
               margin: "3px 0 0",

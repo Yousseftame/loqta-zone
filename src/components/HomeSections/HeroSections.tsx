@@ -397,27 +397,7 @@ export default function HeroSections() {
         @keyframes hs-inc-next { from{transform:translateX(100%)} to{transform:translateX(0)} }
         @keyframes hs-inc-prev { from{transform:translateX(-100%)} to{transform:translateX(0)} }
 
-        /* ─── Progress bar ───────────────────────────────────────────────── */
-        .hs-progress-track {
-          position: absolute;
-          top: 0; left: 0; right: 0;
-          height: 3px;
-          z-index: 30;
-          background: rgba(255,255,255,0.12);
-          pointer-events: none;
-        }
-        .hs-progress-fill {
-          height: 100%;
-          border-radius: 0 2px 2px 0;
-          background: linear-gradient(
-            90deg,
-            rgba(255,255,255,0.5) 0%,
-            rgba(255,255,255,0.95) 60%,
-            #fff 100%
-          );
-          box-shadow: 0 0 8px rgba(255,255,255,0.45);
-          /* width comes from inline style — no CSS transition/animation at all */
-        }
+        
 
         /* ─── Vignette ───────────────────────────────────────────────────── */
         .hs-vignette {
@@ -581,14 +561,7 @@ export default function HeroSections() {
             • hover pause freezes it in place
             • returning from another tab resumes from the right spot
         */}
-        {slides.length > 1 && (
-          <div className="hs-progress-track">
-            <div
-              className="hs-progress-fill"
-              style={{ width: progressWidth }}
-            />
-          </div>
-        )}
+       
 
         {/* ── Dots ── */}
         {slides.length > 1 && (
