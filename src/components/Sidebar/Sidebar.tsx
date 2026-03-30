@@ -580,6 +580,7 @@ const Sidebar = () => {
 
       {/* Bottom Section */}
       <div className="border-t border-[#E2E8F0] p-4 space-y-3 flex-shrink-0">
+        {/* User email */}
         <div className="flex items-center gap-3 overflow-hidden">
           <div className="w-10 h-10 rounded-full bg-[#DBEAFE] flex items-center justify-center text-[#2A4863] font-bold flex-shrink-0">
             {user?.email?.charAt(0).toUpperCase()}
@@ -596,6 +597,78 @@ const Sidebar = () => {
           </div>
         </div>
 
+        {/* ── Website Button ── */}
+        <a
+          href="/"
+          target="_self"
+          rel="noopener noreferrer"
+          className={`w-full flex items-center py-2.5 rounded-lg hover:bg-[#EFF6FF] transition-all duration-300 group overflow-hidden no-underline ${
+            collapsed ? "justify-center px-0" : "px-3"
+          }`}
+        >
+          {/* Globe icon */}
+          <div className="flex-shrink-0 text-gray-400 group-hover:text-[#2A4863] transition-all duration-300">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <line x1="2" y1="12" x2="22" y2="12" />
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+            </svg>
+          </div>
+
+          {/* Label + subtitle */}
+          <div
+            className={`overflow-hidden whitespace-nowrap transition-all duration-500 ease-in-out ${
+              collapsed
+                ? "w-0 opacity-0 ml-0"
+                : "w-auto opacity-100 ml-3 delay-150"
+            }`}
+          >
+            <p className="text-sm font-medium text-gray-600 group-hover:text-[#2A4863] whitespace-nowrap leading-tight transition-colors duration-300">
+              Website
+            </p>
+            <p className="text-[11px] text-gray-400 group-hover:text-[#4A90BE] whitespace-nowrap leading-tight transition-colors duration-300">
+              Go back to website
+            </p>
+          </div>
+
+          {/* External link indicator (only when expanded) */}
+          {!collapsed && (
+            <div className="ml-auto flex-shrink-0 text-gray-300 group-hover:text-[#4A90BE] transition-all duration-300">
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                <polyline points="15 3 21 3 21 9" />
+                <line x1="10" y1="14" x2="21" y2="3" />
+              </svg>
+            </div>
+          )}
+
+          {/* Collapsed tooltip */}
+          {collapsed && (
+            <span className="absolute left-16 z-50 bg-[#1E40AF] text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-md">
+              Go back to website
+            </span>
+          )}
+        </a>
+
+        {/* Logout button */}
         <button
           onClick={() => setShowLogoutModal(true)}
           className={`w-full flex items-center py-2.5 rounded-lg hover:bg-red-50 transition-all duration-300 group overflow-hidden ${

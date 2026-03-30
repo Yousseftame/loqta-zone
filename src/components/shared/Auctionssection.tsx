@@ -551,7 +551,6 @@ const UpcomingCard = memo(function UpcomingCard({
             {t("auctionsSection.sessionStartsIn")}
           </div>
           <div style={{ overflow: "hidden" }}>
-            {/* ── Reusable stopwatch component ── */}
             <CountdownBar startsAt={item.startsAt} />
           </div>
         </div>
@@ -571,97 +570,128 @@ function HammerStamp() {
         transform: "translateX(-50%) rotate(-12deg)",
         pointerEvents: "none",
         zIndex: 10,
-        width: 96,
-        height: 96,
-        borderRadius: "50%",
-        border: "4px solid rgba(200,30,30,0.92)",
-        boxShadow:
-          "0 0 0 2px rgba(200,30,30,0.18), 0 0 28px rgba(200,30,30,0.45), inset 0 0 20px rgba(200,30,30,0.12)",
-        background: "rgba(10,6,6,0.52)",
-        backdropFilter: "blur(4px)",
         display: "flex",
+        flexDirection: "column",
         alignItems: "center",
-        justifyContent: "center",
-        filter: "contrast(1.08) saturate(1.1)",
+        gap: 5,
       }}
     >
+      {/* Circle — scaleX(-1) mirrors it so the hammer faces right */}
       <div
         style={{
-          position: "absolute",
-          inset: 5,
+          width: 96,
+          height: 96,
           borderRadius: "50%",
-          border: "1.5px solid rgba(200,30,30,0.45)",
+          border: "4px solid rgba(200,30,30,0.92)",
+          boxShadow:
+            "0 0 0 2px rgba(200,30,30,0.18), 0 0 28px rgba(200,30,30,0.45), inset 0 0 20px rgba(200,30,30,0.12)",
+          background: "rgba(10,6,6,0.52)",
+          backdropFilter: "blur(4px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          filter: "contrast(1.08) saturate(1.1)",
+          transform: "scaleX(-1)",
         }}
-      />
-      <svg
-        width="54"
-        height="54"
-        viewBox="0 0 48 48"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        style={{ position: "relative", zIndex: 1 }}
       >
-        <rect
-          x="4"
-          y="16"
-          width="22"
-          height="9"
-          rx="2.5"
-          fill="rgba(200,30,30,0.22)"
-          stroke="rgba(220,40,40,0.95)"
-          strokeWidth="2.2"
-          transform="rotate(-45 15 20.5)"
+        <div
+          style={{
+            position: "absolute",
+            inset: 5,
+            borderRadius: "50%",
+            border: "1.5px solid rgba(200,30,30,0.45)",
+          }}
         />
-        <rect
-          x="4"
-          y="16"
-          width="7"
-          height="9"
-          rx="2"
-          fill="rgba(220,40,40,0.38)"
-          stroke="rgba(230,50,50,0.95)"
-          strokeWidth="2"
-          transform="rotate(-45 15 20.5)"
+        <svg
+          width="54"
+          height="54"
+          viewBox="0 0 48 48"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          style={{ position: "relative", zIndex: 1 }}
+        >
+          <rect
+            x="4"
+            y="16"
+            width="22"
+            height="9"
+            rx="2.5"
+            fill="rgba(200,30,30,0.22)"
+            stroke="rgba(220,40,40,0.95)"
+            strokeWidth="2.2"
+            transform="rotate(-45 15 20.5)"
+          />
+          <rect
+            x="4"
+            y="16"
+            width="7"
+            height="9"
+            rx="2"
+            fill="rgba(220,40,40,0.38)"
+            stroke="rgba(230,50,50,0.95)"
+            strokeWidth="2"
+            transform="rotate(-45 15 20.5)"
+          />
+          <line
+            x1="24"
+            y1="24"
+            x2="42"
+            y2="42"
+            stroke="rgba(220,40,40,0.9)"
+            strokeWidth="4"
+            strokeLinecap="round"
+          />
+          <line
+            x1="30"
+            y1="30"
+            x2="34"
+            y2="34"
+            stroke="rgba(200,30,30,0.55)"
+            strokeWidth="5"
+            strokeLinecap="round"
+          />
+          <rect
+            x="8"
+            y="42"
+            width="26"
+            height="4"
+            rx="2"
+            fill="rgba(200,30,30,0.35)"
+            stroke="rgba(210,40,40,0.8)"
+            strokeWidth="1.8"
+          />
+        </svg>
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            borderRadius: "50%",
+            background:
+              "radial-gradient(ellipse at 30% 30%, rgba(255,255,255,0.04) 0%, transparent 60%)",
+            mixBlendMode: "overlay",
+          }}
         />
-        <line
-          x1="24"
-          y1="24"
-          x2="42"
-          y2="42"
-          stroke="rgba(220,40,40,0.9)"
-          strokeWidth="4"
-          strokeLinecap="round"
-        />
-        <line
-          x1="30"
-          y1="30"
-          x2="34"
-          y2="34"
-          stroke="rgba(200,30,30,0.55)"
-          strokeWidth="5"
-          strokeLinecap="round"
-        />
-        <rect
-          x="8"
-          y="42"
-          width="26"
-          height="4"
-          rx="2"
-          fill="rgba(200,30,30,0.35)"
-          stroke="rgba(210,40,40,0.8)"
-          strokeWidth="1.8"
-        />
-      </svg>
-      <div
+      </div>
+
+      {/* HAMMERED label — same red family as the stamp */}
+      <span
         style={{
-          position: "absolute",
-          inset: 0,
-          borderRadius: "50%",
-          background:
-            "radial-gradient(ellipse at 30% 30%, rgba(255,255,255,0.04) 0%, transparent 60%)",
-          mixBlendMode: "overlay",
+          fontSize: 15,
+          fontWeight: 1000,
+          letterSpacing: "0.22em",  
+          textTransform: "uppercase",
+          color: "rgba(220,40,40,0.92)",
+          fontFamily: "'Jost', sans-serif",
+          textShadow: "0 0 10px rgba(200,30,30,0.6)",
+          background: "rgba(10,6,6,0.55)",
+          borderRadius: 4,
+          padding: "6px 6px",
+          marginBottom: "8px",
+          border: "1px solid rgba(200,30,30,0.35)",
         }}
-      />
+      >
+        HAMMERED
+      </span>
     </div>
   );
 }
