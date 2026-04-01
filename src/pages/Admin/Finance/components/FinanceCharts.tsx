@@ -1,10 +1,12 @@
 /**
  * src/pages/Admin/Finance/components/FinanceCharts.tsx
  *
- * Three charts — all inside the same Paper/header shell as TopAuctionsCharts:
- *   1. Pie  — Expenses by Category
- *   2. Bar  — Monthly Expenses
- *   3. Line — Income vs Expenses over the year
+ * Changes:
+ *  1. "Income vs Expenses" line chart → replaced with "Available Balance vs Expenses"
+ *     Available Balance per month = monthlyIncome[i] - monthlyExpenses[i] (running net for that month).
+ *     This is the monthly available (net) income, not total income.
+ *  2. Expenses pie chart: ALL categories now render. Small slices (<7%) have their
+ *     percentage label rendered OUTSIDE the slice with a connector line, so nothing is hidden.
  */
 
 import { Box, Paper, Chip } from "@mui/material";
@@ -30,7 +32,6 @@ import {
   type FinanceStats,
 } from "../finance-data";
 
-// Consistent palette across all three charts
 const PIE_COLORS = [
   "#0EA5E9",
   "#10B981",
@@ -39,8 +40,11 @@ const PIE_COLORS = [
   "#F43F5E",
   "#6366F1",
   "#14B8A6",
+  "#F97316",
+  "#EC4899",
+  "#84CC16",
 ];
-const INCOME_CLR = "#10B981";
+const AVAILABLE_CLR = "#818cf8"; // indigo — matches Available Balance card
 const EXPENSE_CLR = "#F43F5E";
 
 const fmtEGP = (v: number) =>
@@ -56,7 +60,7 @@ const tooltipStyle = {
   fontSize: "0.8rem",
 };
 
-// ─── Wrapper card — identical shell to TopAuctions BarCard ───────────────────
+// ─── Wrapper card ─────────────────────────────────────────────────────────────
 
 function ChartCard({
   title,
@@ -116,7 +120,7 @@ function ChartCard({
   );
 }
 
-// ─── 1. Expenses Pie ──────────────────────────────────────────────────────────
+// ─── 1. Expenses Pie — ALL categories shown, small slices use outside label ───
 
 function ExpensesPie({
   stats,
@@ -131,6 +135,9 @@ function ExpensesPie({
     .sort((a, b) => b.value - a.value);
 
   const RADIAN = Math.PI / 180;
+
+  // Custom label: renders INSIDE for large slices, OUTSIDE (with line) for small ones.
+  // This ensures every slice shows its percentage — nothing is hidden.
   const renderLabel = ({
     cx,
     cy,
@@ -138,24 +145,67 @@ function ExpensesPie({
     innerRadius,
     outerRadius,
     percent,
+    index,
   }: any) => {
-    if (percent < 0.07) return null;
-    const r = innerRadius + (outerRadius - innerRadius) * 0.55;
+    const pct = (percent * 100).toFixed(0);
+
+    if (percent >= 0.07) {
+      // Large enough → label inside the slice
+      const r = innerRadius + (outerRadius - innerRadius) * 0.55;
+      const x = cx + r * Math.cos(-midAngle * RADIAN);
+      const y = cy + r * Math.sin(-midAngle * RADIAN);
+      return (
+        <text
+          x={x}
+          y={y}
+          fill="#fff"
+          textAnchor="middle"
+          dominantBaseline="central"
+          style={{
+            fontSize: 11,
+            fontWeight: 700,
+            fontFamily: "system-ui, sans-serif",
+          }}
+        >
+          {`${pct}%`}
+        </text>
+      );
+    }
+
+    // Small slice → label outside with a connector line
+    const outerR = outerRadius + 18;
+    const lineStart = outerRadius + 4;
+    const sx = cx + lineStart * Math.cos(-midAngle * RADIAN);
+    const sy = cy + lineStart * Math.sin(-midAngle * RADIAN);
+    const ex = cx + outerR * Math.cos(-midAngle * RADIAN);
+    const ey = cy + outerR * Math.sin(-midAngle * RADIAN);
+    const textAnchor = ex > cx ? "start" : "end";
+
     return (
-      <text
-        x={cx + r * Math.cos(-midAngle * RADIAN)}
-        y={cy + r * Math.sin(-midAngle * RADIAN)}
-        fill="#fff"
-        textAnchor="middle"
-        dominantBaseline="central"
-        style={{
-          fontSize: 11,
-          fontWeight: 700,
-          fontFamily: "system-ui, sans-serif",
-        }}
-      >
-        {`${(percent * 100).toFixed(0)}%`}
-      </text>
+      <g>
+        <line
+          x1={sx}
+          y1={sy}
+          x2={ex}
+          y2={ey}
+          stroke={PIE_COLORS[index % PIE_COLORS.length]}
+          strokeWidth={1}
+        />
+        <text
+          x={ex + (textAnchor === "start" ? 4 : -4)}
+          y={ey}
+          textAnchor={textAnchor}
+          dominantBaseline="central"
+          style={{
+            fontSize: 10,
+            fontWeight: 700,
+            fontFamily: "system-ui, sans-serif",
+            fill: colors.primaryDark,
+          }}
+        >
+          {`${pct}%`}
+        </text>
+      </g>
     );
   };
 
@@ -164,7 +214,7 @@ function ExpensesPie({
       {loading ? (
         <Box
           sx={{
-            height: 240,
+            height: 260,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -183,7 +233,7 @@ function ExpensesPie({
       ) : data.length === 0 ? (
         <Box
           sx={{
-            height: 240,
+            height: 260,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -194,15 +244,15 @@ function ExpensesPie({
           </span>
         </Box>
       ) : (
-        <ResponsiveContainer width="100%" height={240}>
+        <ResponsiveContainer width="100%" height={260}>
           <PieChart>
             <Pie
               data={data}
               cx="50%"
               cy="44%"
-              innerRadius={52}
-              outerRadius={84}
-              paddingAngle={3}
+              innerRadius={48}
+              outerRadius={76}
+              paddingAngle={2}
               dataKey="value"
               labelLine={false}
               label={renderLabel}
@@ -308,9 +358,9 @@ function MonthlyExpensesBar({
             />
             <RTooltip
               contentStyle={tooltipStyle}
-              formatter={(v, n) => [
+              formatter={(v) => [
                 fmtEGP(typeof v === "number" ? v : Number(v ?? 0)) + " EGP",
-                n === "income" ? "Income" : "Expenses",
+                "Expenses",
               ]}
             />
             <Bar
@@ -326,9 +376,12 @@ function MonthlyExpensesBar({
   );
 }
 
-// ─── 3. Income vs Expenses Line ───────────────────────────────────────────────
+// ─── 3. Available Balance vs Expenses Line ────────────────────────────────────
+// "Available Balance" per month = monthlyIncome[i] - monthlyExpenses[i]
+// This shows the net available (income minus expenses) for each month,
+// replacing the previous "Total Income" line.
 
-function IncomeVsExpensesLine({
+function AvailableVsExpensesLine({
   stats,
   loading,
 }: {
@@ -337,12 +390,12 @@ function IncomeVsExpensesLine({
 }) {
   const data = MONTH_LABELS.map((month, i) => ({
     month,
-    income: stats.monthlyIncome[i] ?? 0,
+    available: (stats.monthlyIncome[i] ?? 0) - (stats.monthlyExpenses[i] ?? 0),
     expenses: stats.monthlyExpenses[i] ?? 0,
   }));
 
   return (
-    <ChartCard title="Income vs Expenses" chip="Monthly">
+    <ChartCard title="Available Balance vs Expenses" chip="Monthly">
       {loading ? (
         <Box
           sx={{
@@ -380,7 +433,7 @@ function IncomeVsExpensesLine({
               contentStyle={tooltipStyle}
               formatter={(v, n) => [
                 fmtEGP(Number(v ?? 0)) + " EGP",
-                n === "income" ? "Income" : "Expenses",
+                n === "available" ? "Available Balance" : "Expenses",
               ]}
             />
             <Legend
@@ -394,14 +447,14 @@ function IncomeVsExpensesLine({
                     fontWeight: 600,
                   }}
                 >
-                  {v === "income" ? "Income" : "Expenses"}
+                  {v === "available" ? "Available Balance" : "Expenses"}
                 </span>
               )}
             />
             <Line
               type="monotone"
-              dataKey="income"
-              stroke={INCOME_CLR}
+              dataKey="available"
+              stroke={AVAILABLE_CLR}
               strokeWidth={2.5}
               dot={false}
               activeDot={{ r: 5 }}
@@ -439,7 +492,7 @@ export default function FinanceCharts({ stats, loading = false }: Props) {
     >
       <ExpensesPie stats={stats} loading={loading} />
       <MonthlyExpensesBar stats={stats} loading={loading} />
-      <IncomeVsExpensesLine stats={stats} loading={loading} />
+      <AvailableVsExpensesLine stats={stats} loading={loading} />
     </Box>
   );
 }

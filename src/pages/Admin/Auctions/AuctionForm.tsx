@@ -46,17 +46,22 @@ const selectSx = {
   },
 };
 
-// Format Date → datetime-local string (YYYY-MM-DDTHH:mm)
 function toDatetimeLocal(d: Date) {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-// Get current datetime rounded to the next minute (for min attribute)
 function nowDatetimeLocal() {
   const d = new Date();
   d.setSeconds(0, 0);
   return toDatetimeLocal(d);
+}
+
+/** Given a set of used numbers, find the smallest positive integer not in it */
+function nextAvailableNumber(used: Set<number>): number {
+  let n = 1;
+  while (used.has(n)) n++;
+  return n;
 }
 
 export default function AuctionForm() {
@@ -71,18 +76,18 @@ export default function AuctionForm() {
   const [saving, setSaving] = useState(false);
   const [loadingAuction, setLoadingAuction] = useState(isEdit);
 
+  // ── Redirect if editing an ended auction ────────────────────────────────────
   useEffect(() => {
     if (!isEdit || !id) return;
     (async () => {
       const a = await getAuction(id);
       if (a && a.status === "ended") {
-        // Redirect back — ended auctions cannot be edited
         navigate(`/admin/auctions/${id}`, { replace: true });
       }
     })();
   }, [id, isEdit]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Pre-fill on edit
+  // ── Pre-fill on edit ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (!isEdit || !id) return;
     (async () => {
@@ -113,7 +118,7 @@ export default function AuctionForm() {
     setErrors((e) => ({ ...e, [key]: "" }));
   };
 
-  // Get auction numbers already used for the selected product (excluding current auction if editing)
+  // ── Used auction numbers for the selected product (excluding current if editing) ──
   const usedAuctionNumbers = useMemo(() => {
     if (!form.productId) return new Set<number>();
     return new Set(
@@ -123,7 +128,18 @@ export default function AuctionForm() {
     );
   }, [auctions, form.productId, id]);
 
-  // Auto-computed status preview
+  // ── Auto-assign next available number when product changes (add mode only) ───
+  // In edit mode we keep the existing number — the admin chose it already.
+  useEffect(() => {
+    if (isEdit) return; // don't override on edit
+    if (!form.productId) return; // no product selected yet
+
+    const next = nextAvailableNumber(usedAuctionNumbers);
+    setForm((f) => ({ ...f, auctionNumber: String(next) }));
+    setErrors((e) => ({ ...e, auctionNumber: "" }));
+  }, [form.productId, usedAuctionNumbers, isEdit]);
+
+  // ── Status preview ───────────────────────────────────────────────────────────
   const previewStatus = useMemo(() => {
     if (!form.startTime || !form.endTime) return null;
     return computeAuctionStatus(
@@ -132,13 +148,14 @@ export default function AuctionForm() {
     );
   }, [form.startTime, form.endTime]);
 
+  // ── Validation ───────────────────────────────────────────────────────────────
   const validate = () => {
     const e: Record<string, string> = {};
     if (!form.productId) e.productId = "Please select a product";
     if (!form.auctionNumber || isNaN(Number(form.auctionNumber)))
-      e.auctionNumber = "Enter a valid auction number";
+      e.auctionNumber = "Auction number is invalid";
     else if (usedAuctionNumbers.has(Number(form.auctionNumber)))
-      e.auctionNumber = `Auction #${form.auctionNumber} already exists for this product`;
+      e.auctionNumber = `#${form.auctionNumber} is already used for this product`;
     if (
       !form.startingPrice ||
       isNaN(Number(form.startingPrice)) ||
@@ -215,6 +232,8 @@ export default function AuctionForm() {
   }
 
   const minDateTime = nowDatetimeLocal();
+  const autoNumber = Number(form.auctionNumber);
+  const isNumberConflict = usedAuctionNumbers.has(autoNumber);
 
   return (
     <Box
@@ -312,7 +331,7 @@ export default function AuctionForm() {
             gap: 3,
           }}
         >
-          {/* Row 1 — Product Select + Auction Number */}
+          {/* Row 1 — Product Select + Auction Number (auto) */}
           <Box
             sx={{
               display: "grid",
@@ -329,7 +348,6 @@ export default function AuctionForm() {
                 value={form.productId}
                 label="Product *"
                 onChange={(e) => {
-                  // Reset auction number when product changes
                   setForm((f) => ({
                     ...f,
                     productId: e.target.value,
@@ -393,29 +411,98 @@ export default function AuctionForm() {
               )}
             </FormControl>
 
-            {/* Auction Number */}
-            <TextField
-              label="Auction Number *"
-              size="small"
-              type="number"
-              fullWidth
-              value={form.auctionNumber}
-              onChange={(e) => field("auctionNumber", e.target.value)}
-              error={!!errors.auctionNumber}
-              helperText={
-                errors.auctionNumber ||
-                (form.productId && usedAuctionNumbers.size > 0
-                  ? `Used numbers for this product: ${[...usedAuctionNumbers].sort((a, b) => a - b).join(", ")}`
-                  : "")
-              }
-              sx={inputSx}
-              disabled={!form.productId}
-              placeholder={
-                form.productId
-                  ? "Enter unique number"
-                  : "Select a product first"
-              }
-            />
+            {/* Auction Number — auto-assigned, read-only display */}
+            <Box>
+             
+              {!form.productId ? (
+                // No product selected yet
+                <Box
+                  sx={{
+                    height: 40, 
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: 1,
+                    bgcolor: "#F8FAFC",
+                    display: "flex",
+                    alignItems: "center",
+                    px: 1.5,
+                  }}
+                >
+                  <span
+                    style={{ fontSize: "0.85rem", color: colors.textMuted }}
+                  >
+                    Select a product first,
+                  </span>
+                </Box>
+              ) : (
+                <Box
+                  sx={{
+                    height: 40,
+                    border: `1.5px solid ${isNumberConflict ? colors.error : colors.primary}`,
+                    borderRadius: 1,
+                    bgcolor: isNumberConflict ? "#FEF2F2" : colors.primaryBg,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    px: 1.5,
+                    gap: 1,
+                  }}
+                >
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <span
+                      style={{
+                        fontSize: "1.05rem",
+                        fontWeight: 700,
+                        color: isNumberConflict ? colors.error : colors.primary,
+                      }}
+                    >
+                      #{form.auctionNumber || "—"}
+                    </span>
+                    {!isNumberConflict && (
+                      <span
+                        style={{
+                          fontSize: "0.75rem",
+                          color: colors.textSecondary,
+                        }}
+                      >
+                        Auction Number
+                      </span>
+                    )}
+                  </Box>
+                  {/* Used numbers hint */}
+                  {usedAuctionNumbers.size > 0 && (
+                    <span
+                      style={{ fontSize: "0.72rem", color: colors.textMuted }}
+                    >
+                      Used:{" "}
+                      {[...usedAuctionNumbers].sort((a, b) => a - b).join(", ")}
+                    </span>
+                  )}
+                </Box>
+              )}
+              {errors.auctionNumber && (
+                <p
+                  style={{
+                    fontSize: "0.75rem",
+                    color: colors.error,
+                    margin: "3px 0 0 14px",
+                  }}
+                >
+                  {errors.auctionNumber}
+                </p>
+              )}
+              {/* In edit mode show a note that the number is locked */}
+              {isEdit && form.productId && (
+                <p
+                  style={{
+                    fontSize: "0.72rem",
+                    color: colors.textMuted,
+                    margin: "3px 0 0 2px",
+                  }}
+                >
+                  Auction number is locked while editing.
+                </p>
+              )}
+            </Box>
           </Box>
 
           {/* Row 2 — Starting Price + Min Increment */}
@@ -466,7 +553,6 @@ export default function AuctionForm() {
               value={form.startTime}
               onChange={(e) => {
                 field("startTime", e.target.value);
-                // Clear end time if it's now before start time
                 if (
                   form.endTime &&
                   new Date(form.endTime) <= new Date(e.target.value)
@@ -495,7 +581,6 @@ export default function AuctionForm() {
               helperText={errors.endTime}
               sx={inputSx}
               InputLabelProps={{ shrink: true }}
-              // End time must be at least 1 minute after start time
               inputProps={{
                 min: form.startTime
                   ? (() => {
@@ -524,7 +609,13 @@ export default function AuctionForm() {
                     : previewStatus === "upcoming"
                       ? "#EFF6FF"
                       : "#F1F5F9",
-                border: `1px solid ${previewStatus === "live" ? "#22C55E" : previewStatus === "upcoming" ? "#3B82F6" : "#94A3B8"}`,
+                border: `1px solid ${
+                  previewStatus === "live"
+                    ? "#22C55E"
+                    : previewStatus === "upcoming"
+                      ? "#3B82F6"
+                      : "#94A3B8"
+                }`,
               }}
             >
               <span
@@ -635,7 +726,7 @@ export default function AuctionForm() {
             </Box>
           </Box>
 
-          {/* Fixed Bid Value (only when bidType === "fixed") */}
+          {/* Fixed Bid Value */}
           {form.bidType === "fixed" && (
             <Box
               sx={{
@@ -660,7 +751,7 @@ export default function AuctionForm() {
             </Box>
           )}
 
-          {/* Entry Fee (conditional on paid) */}
+          {/* Entry Fee */}
           {form.entryType === "paid" && (
             <Box
               sx={{
@@ -767,7 +858,7 @@ export default function AuctionForm() {
               <strong>Note:</strong>{" "}
               {isEdit
                 ? "Changes will be applied immediately. The auction status is automatically updated based on the start and end times."
-                : "The auction status (upcoming / live / ended) is calculated automatically from the start and end times you set."}
+                : "The auction number is assigned automatically as the next available number for the selected product. The status (upcoming / live / ended) is calculated from your chosen times."}
             </p>
           </Box>
         </Box>

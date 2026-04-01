@@ -31,7 +31,9 @@ export type NotificationType =
   | "last_offer_selected"
   | "bid_selected"
   | "payment_confirmed"
-  | "voucher_created"; 
+  | "voucher_created"
+  | "last_offer_available";   
+
 
 export interface AppNotification {
   id: string;
@@ -41,12 +43,13 @@ export interface AppNotification {
   isRead: boolean;
   auctionId?: string;
   requestId?: string;
-  /** Product ID — stored on auction_matched notifications for navigation */
   productId?: string;
-  /** Product name — stored on auction_matched notifications for display */
   productName?: string;
-  /** Deep-link URL for navigation */
   url?: string;
+  // ── new fields for last_offer_available ──
+  productTitle?: string;
+  winnerName?: string;
+  winningBid?: number;
   createdAt: Date;
 }
 
@@ -84,7 +87,10 @@ export function useNotifications() {
               requestId:   data.requestId   ?? undefined,
               productId:   data.productId   ?? undefined,
               productName: data.productName ?? undefined,
-              url:         data.url         ?? undefined,
+              url: data.url ?? undefined,
+              productTitle: data.productTitle ?? undefined,   // ← NEW
+              winnerName:   data.winnerName   ?? undefined,   // ← NEW
+              winningBid:   data.winningBid   ?? undefined,   // ← NEW
               createdAt:
                 data.createdAt instanceof Timestamp
                   ? data.createdAt.toDate()

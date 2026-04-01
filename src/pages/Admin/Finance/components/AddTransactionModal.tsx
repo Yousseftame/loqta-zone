@@ -1,7 +1,13 @@
 /**
  * src/pages/Admin/Finance/components/AddTransactionModal.tsx
  *
- * Modal form to add a new income or expense transaction.
+ * Modal form to add a new income, expense, or owner withdrawal transaction.
+ *
+ * ─── Owner Withdrawal tab ────────────────────────────────────────────────────
+ * Selecting "Owner" creates a transaction with type="owner_withdrawal".
+ * The method field (cash/bank) determines which balance is debited.
+ * The Cloud Function handles updating ownerBalance and debiting cashBalance/bankBalance.
+ * Owner withdrawals do NOT affect totalIncome or totalExpenses.
  */
 
 import { useState } from "react";
@@ -23,11 +29,20 @@ import { colors } from "../../Products/products-data";
 import {
   EXPENSE_CATEGORIES,
   INCOME_CATEGORIES,
+  OWNER_CATEGORIES,
   type TransactionFormValues,
   type TransactionType,
   type PaymentMethod,
   type TransactionCategory,
 } from "../finance-data";
+
+// ─── Defaults by type ─────────────────────────────────────────────────────────
+
+const DEFAULT_CATEGORY_BY_TYPE: Record<TransactionType, TransactionCategory> = {
+  income: "auction_revenue",
+  expense: "other",
+  owner_withdrawal: "owner_draw",
+};
 
 const EMPTY: TransactionFormValues = {
   type: "income",
@@ -37,12 +52,59 @@ const EMPTY: TransactionFormValues = {
   note: "",
 };
 
+// ─── Tab visual config ────────────────────────────────────────────────────────
+
+const TAB_CONFIG: Record<
+  TransactionType,
+  {
+    label: string;
+    emoji: string;
+    selectedBg: string;
+    selectedColor: string;
+    selectedBorder: string;
+    btnColor: string;
+    btnHover: string;
+  }
+> = {
+  income: {
+    label: "Income",
+    emoji: "📈",
+    selectedBg: "#D1FAE5",
+    selectedColor: "#065F46",
+    selectedBorder: "#059669",
+    btnColor: colors.primary,
+    btnHover: colors.primaryDark,
+  },
+  expense: {
+    label: "Expense",
+    emoji: "📉",
+    selectedBg: "#FEE2E2",
+    selectedColor: "#991B1B",
+    selectedBorder: "#DC2626",
+    btnColor: "#DC2626",
+    btnHover: "#B91C1C",
+  },
+  owner_withdrawal: {
+    label: "Owner",
+    emoji: "👤",
+    selectedBg: "#FEF3C7",
+    selectedColor: "#78350F",
+    selectedBorder: "#D97706",
+    btnColor: "#D97706",
+    btnHover: "#B45309",
+  },
+};
+
+// ─── Props ────────────────────────────────────────────────────────────────────
+
 interface Props {
   open: boolean;
   adding: boolean;
   onClose: () => void;
   onSubmit: (values: TransactionFormValues) => Promise<void>;
 }
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export default function AddTransactionModal({
   open,
@@ -53,20 +115,24 @@ export default function AddTransactionModal({
   const [form, setForm] = useState<TransactionFormValues>(EMPTY);
   const [error, setError] = useState<string | null>(null);
 
+  // Categories depend on active type
   const categories =
-    form.type === "expense" ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
+    form.type === "expense"
+      ? EXPENSE_CATEGORIES
+      : form.type === "owner_withdrawal"
+        ? OWNER_CATEGORIES
+        : INCOME_CATEGORIES;
 
   const set = <K extends keyof TransactionFormValues>(
     k: K,
     v: TransactionFormValues[K],
   ) => setForm((p) => ({ ...p, [k]: v }));
 
-  const handleTypeChange = (type: TransactionType) => {
-    const defaultCat = type === "expense" ? "other" : "auction_revenue";
+  const handleTypeChange = (newType: TransactionType) => {
     setForm((p) => ({
       ...p,
-      type,
-      category: defaultCat as TransactionCategory,
+      type: newType,
+      category: DEFAULT_CATEGORY_BY_TYPE[newType],
     }));
   };
 
@@ -93,7 +159,8 @@ export default function AddTransactionModal({
     onClose();
   };
 
-  const isExpense = form.type === "expense";
+  const tabCfg = TAB_CONFIG[form.type];
+  const isOwner = form.type === "owner_withdrawal";
 
   return (
     <Dialog
@@ -105,6 +172,7 @@ export default function AddTransactionModal({
         sx: { borderRadius: 3, border: `1px solid ${colors.border}` },
       }}
     >
+      {/* ── Title ── */}
       <DialogTitle
         sx={{
           fontWeight: 700,
@@ -117,6 +185,7 @@ export default function AddTransactionModal({
         Add Transaction
       </DialogTitle>
 
+      {/* ── Body ── */}
       <DialogContent
         sx={{
           pt: "20px !important",
@@ -131,7 +200,7 @@ export default function AddTransactionModal({
           </Alert>
         )}
 
-        {/* Type toggle */}
+        {/* ── Type toggle: Income / Expense / Owner ── */}
         <Box>
           <label
             style={{
@@ -157,42 +226,81 @@ export default function AddTransactionModal({
                 "& .MuiToggleButton-root": {
                   textTransform: "none",
                   fontWeight: 700,
-                  fontSize: "0.82rem",
+                  fontSize: "0.8rem",
                   borderRadius: "8px !important",
                   border: `1px solid ${colors.border} !important`,
-                  mx: 0.5,
+                  mx: 0.4,
+                  py: 0.9,
                 },
               }}
             >
+              {/* Income */}
               <ToggleButton
                 value="income"
                 sx={{
                   "&.Mui-selected": {
-                    bgcolor: "#D1FAE5 !important",
-                    color: "#065F46 !important",
-                    borderColor: "#059669 !important",
+                    bgcolor: `${TAB_CONFIG.income.selectedBg} !important`,
+                    color: `${TAB_CONFIG.income.selectedColor} !important`,
+                    borderColor: `${TAB_CONFIG.income.selectedBorder} !important`,
                   },
                 }}
               >
                 📈 Income
               </ToggleButton>
+
+              {/* Expense */}
               <ToggleButton
                 value="expense"
                 sx={{
                   "&.Mui-selected": {
-                    bgcolor: "#FEE2E2 !important",
-                    color: "#991B1B !important",
-                    borderColor: "#DC2626 !important",
+                    bgcolor: `${TAB_CONFIG.expense.selectedBg} !important`,
+                    color: `${TAB_CONFIG.expense.selectedColor} !important`,
+                    borderColor: `${TAB_CONFIG.expense.selectedBorder} !important`,
                   },
                 }}
               >
                 📉 Expense
               </ToggleButton>
+
+              {/* Owner Withdrawal */}
+              <ToggleButton
+                value="owner_withdrawal"
+                sx={{
+                  "&.Mui-selected": {
+                    bgcolor: `${TAB_CONFIG.owner_withdrawal.selectedBg} !important`,
+                    color: `${TAB_CONFIG.owner_withdrawal.selectedColor} !important`,
+                    borderColor: `${TAB_CONFIG.owner_withdrawal.selectedBorder} !important`,
+                  },
+                }}
+              >
+                👤 Owner
+              </ToggleButton>
             </ToggleButtonGroup>
           </Box>
+
+          {/* Owner Withdrawal explanation */}
+          {isOwner && (
+            <Box
+              sx={{
+                mt: 1.5,
+                p: 1.5,
+                bgcolor: "#FFFBEB",
+                border: "1px solid #FDE68A",
+                borderRadius: 2,
+                fontSize: "0.75rem",
+                color: "#78350F",
+                lineHeight: 1.5,
+              }}
+            >
+              💡 <strong>Owner Withdrawal</strong> transfers business money to
+              the owner. It reduces Cash or Bank balance (choose below) and is
+              tracked separately from operating expenses — it does <em>not</em>{" "}
+              count as a business expense.
+            </Box>
+          )}
         </Box>
 
-        {/* Amount */}
+        {/* ── Amount ── */}
         <TextField
           label="Amount (EGP)"
           type="number"
@@ -204,21 +312,22 @@ export default function AddTransactionModal({
           sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
         />
 
-        {/* Method */}
+        {/* ── Method (cash / bank) — always visible, critical for owner withdrawals ── */}
         <TextField
-          label="Payment Method"
+          label={isOwner ? "Source (debit from)" : "Payment Method"}
           select
           size="small"
           fullWidth
           value={form.method}
           onChange={(e) => set("method", e.target.value as PaymentMethod)}
           sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+          helperText={isOwner ? "The balance that will be reduced" : undefined}
         >
           <MenuItem value="cash">💵 Cash</MenuItem>
           <MenuItem value="bank">🏦 Bank</MenuItem>
         </TextField>
 
-        {/* Category */}
+        {/* ── Category ── */}
         <TextField
           label="Category"
           select
@@ -237,7 +346,7 @@ export default function AddTransactionModal({
           ))}
         </TextField>
 
-        {/* Note */}
+        {/* ── Note ── */}
         <TextField
           label="Note (optional)"
           size="small"
@@ -250,6 +359,7 @@ export default function AddTransactionModal({
         />
       </DialogContent>
 
+      {/* ── Actions ── */}
       <DialogActions
         sx={{
           px: 3,
@@ -279,15 +389,15 @@ export default function AddTransactionModal({
             textTransform: "none",
             fontWeight: 700,
             px: 3,
-            bgcolor: isExpense ? "#DC2626" : colors.primary,
-            "&:hover": { bgcolor: isExpense ? "#B91C1C" : colors.primaryDark },
-            minWidth: 120,
+            bgcolor: tabCfg.btnColor,
+            "&:hover": { bgcolor: tabCfg.btnHover },
+            minWidth: 130,
           }}
         >
           {adding ? (
             <CircularProgress size={18} sx={{ color: "#fff" }} />
           ) : (
-            `Save ${isExpense ? "Expense" : "Income"}`
+            `Save ${tabCfg.emoji} ${tabCfg.label}`
           )}
         </Button>
       </DialogActions>

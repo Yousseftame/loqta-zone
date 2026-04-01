@@ -363,7 +363,7 @@ const Sidebar = () => {
       label: "Dashboard",
       icon: Home,
       path: "/admin",
-      roles: ["admin", "superAdmin"],
+      roles: ["superAdmin"],
     },
     {
       id: "Hero Slides",

@@ -1,30 +1,58 @@
 /**
  * src/pages/Admin/Finance/components/FinanceCards.tsx
  *
- * Four premium "credit card" style balance cards:
- *   Cash Balance · Bank Balance · Total Income · Total Expenses
+ * Six premium "credit card" style balance cards:
  *
- * Design language: dark glass morphism, chip details, subtle holographic sheen —
- * think Visa Infinite / Amex Black. Keeps the dashboard's navy palette as the
- * anchor colour while each card has its own accent gradient.
+ *   [HERO — full width]  Available Balance  = cashBalance + bankBalance
+ *   [Row of 5]           Cash Balance · Bank Balance · Owner Balance · Total Income · Total Expenses
+ *
+ * ─── Accounting identity verified ────────────────────────────────────────────
+ *   totalIncome = cashBalance + bankBalance + ownerBalance + totalExpenses
+ *
+ * Every dollar earned goes to one of four places:
+ *   • Still in cash              → cashBalance
+ *   • Still in bank              → bankBalance
+ *   • Taken by the owner         → ownerBalance  (owner draws, not operating expenses)
+ *   • Spent on business expenses → totalExpenses
+ *
+ * Available Balance = cashBalance + bankBalance
+ *   An owner_withdrawal reduces cashBalance or bankBalance → reduces Available automatically.
+ *   totalIncome and totalExpenses are NOT touched by owner withdrawals.
+ *
+ * No Firestore changes needed for Available Balance — it's derived client-side.
+ * ownerBalance is stored in finance_stats/dashboard by the Cloud Function.
  */
 
 import type { FinanceStats } from "../finance-data";
-
-// ─── Card config ──────────────────────────────────────────────────────────────
 
 interface CardConfig {
   label: string;
   value: (s: FinanceStats) => number;
   sub: string;
   gradient: string;
-  chip: string; // card network label
+  chip: string;
   chipBg: string;
-  icon: string; // emoji stand-in — swap for lucide if preferred
+  icon: string;
   accentLine: string;
+  featured?: boolean;
 }
 
-const CARDS: CardConfig[] = [
+// ─── Card definitions ─────────────────────────────────────────────────────────
+
+const HERO_CARD: CardConfig = {
+  label: "Available Balance",
+  value: (s) => s.cashBalance + s.bankBalance,
+  sub: "Cash + Bank · reduced by expenses & owner withdrawals",
+  gradient:
+    "linear-gradient(135deg, #1e1b4b 0%, #312e81 45%, #4338ca 80%, #6366f1 100%)",
+  chip: "LIQUID",
+  chipBg: "rgba(255,255,255,0.15)",
+  icon: "💰",
+  accentLine: "linear-gradient(90deg, #818cf8, #c7d2fe, #818cf8)",
+  featured: true,
+};
+
+const DETAIL_CARDS: CardConfig[] = [
   {
     label: "Cash Balance",
     value: (s) => s.cashBalance,
@@ -46,9 +74,19 @@ const CARDS: CardConfig[] = [
     accentLine: "linear-gradient(90deg, #0EA5E9, #38BDF8)",
   },
   {
+    label: "Owner Balance",
+    value: (s) => s.ownerBalance,
+    sub: "Total withdrawn by owner",
+    gradient: "linear-gradient(135deg, #451a03 0%, #78350f 50%, #92400e 100%)",
+    chip: "OWNER",
+    chipBg: "rgba(255,255,255,0.12)",
+    icon: "👤",
+    accentLine: "linear-gradient(90deg, #F59E0B, #FCD34D)",
+  },
+  {
     label: "Total Income",
     value: (s) => s.totalIncome,
-    sub: "All-time income",
+    sub: "Cash + Bank + Owner + Expenses",
     gradient: "linear-gradient(135deg, #064e3b 0%, #065f46 55%, #059669 100%)",
     chip: "INCOME",
     chipBg: "rgba(255,255,255,0.12)",
@@ -58,7 +96,7 @@ const CARDS: CardConfig[] = [
   {
     label: "Total Expenses",
     value: (s) => s.totalExpenses,
-    sub: "All-time expenses",
+    sub: "All-time operating expenses",
     gradient: "linear-gradient(135deg, #4c0519 0%, #7f1d1d 55%, #991b1b 100%)",
     chip: "EXPENSES",
     chipBg: "rgba(255,255,255,0.12)",
@@ -67,7 +105,7 @@ const CARDS: CardConfig[] = [
   },
 ];
 
-// ─── Single card ──────────────────────────────────────────────────────────────
+// ─── Single card component ────────────────────────────────────────────────────
 
 function CreditCard({
   config,
@@ -82,7 +120,14 @@ function CreditCard({
 }) {
   const rawValue = config.value(stats);
   const isNeg = rawValue < 0;
-  const formatted = `${isNeg ? "-" : ""}${Math.abs(rawValue).toLocaleString("en-EG")} EGP`;
+  const formatted = `${isNeg ? "−" : ""}${Math.abs(rawValue).toLocaleString("en-EG")} EGP`;
+
+  const baseShadow = config.featured
+    ? "0 24px 80px rgba(99,102,241,0.4), 0 0 0 1px rgba(255,255,255,0.1)"
+    : "0 20px 60px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.07)";
+  const hoverShadow = config.featured
+    ? "0 32px 100px rgba(99,102,241,0.55), 0 0 0 1px rgba(255,255,255,0.15)"
+    : "0 28px 80px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.12)";
 
   return (
     <div
@@ -90,14 +135,13 @@ function CreditCard({
         position: "relative",
         borderRadius: 20,
         background: config.gradient,
-        padding: "26px 28px 22px",
+        padding: config.featured ? "30px 32px 26px" : "26px 28px 22px",
         overflow: "hidden",
-        boxShadow:
-          "0 20px 60px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.07)",
-        animation: `card-rise 0.45s cubic-bezier(0.22,1,0.36,1) ${index * 80}ms both`,
+        boxShadow: baseShadow,
+        animation: `card-rise 0.45s cubic-bezier(0.22,1,0.36,1) ${index * 70}ms both`,
         transition: "transform 0.25s ease, box-shadow 0.25s ease",
         cursor: "default",
-        minHeight: 178,
+        minHeight: config.featured ? 155 : 178,
         display: "flex",
         flexDirection: "column",
         justifyContent: "space-between",
@@ -105,36 +149,50 @@ function CreditCard({
       onMouseEnter={(e) => {
         const el = e.currentTarget as HTMLDivElement;
         el.style.transform = "translateY(-4px) scale(1.01)";
-        el.style.boxShadow =
-          "0 28px 80px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.12)";
+        el.style.boxShadow = hoverShadow;
       }}
       onMouseLeave={(e) => {
         const el = e.currentTarget as HTMLDivElement;
         el.style.transform = "";
-        el.style.boxShadow =
-          "0 20px 60px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.07)";
+        el.style.boxShadow = baseShadow;
       }}
     >
-      {/* Holographic sheen overlay */}
+      {/* Glass sheen */}
       <div
         style={{
           position: "absolute",
           inset: 0,
           borderRadius: 20,
           background:
-            "linear-gradient(135deg, rgba(255,255,255,0.06) 0%, transparent 50%, rgba(255,255,255,0.03) 100%)",
+            "linear-gradient(135deg, rgba(255,255,255,0.07) 0%, transparent 50%, rgba(255,255,255,0.03) 100%)",
           pointerEvents: "none",
         }}
       />
 
-      {/* Decorative circle blur top-right */}
+      {/* Animated shimmer sweep — featured card only */}
+      {config.featured && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            borderRadius: 20,
+            background:
+              "linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.05) 50%, transparent 70%)",
+            backgroundSize: "200% 100%",
+            animation: "shimmer-sweep 3.5s ease infinite",
+            pointerEvents: "none",
+          }}
+        />
+      )}
+
+      {/* Decorative blur circles */}
       <div
         style={{
           position: "absolute",
           top: -40,
           right: -40,
-          width: 140,
-          height: 140,
+          width: config.featured ? 200 : 140,
+          height: config.featured ? 200 : 140,
           borderRadius: "50%",
           background: "rgba(255,255,255,0.04)",
           pointerEvents: "none",
@@ -145,10 +203,10 @@ function CreditCard({
           position: "absolute",
           top: 20,
           right: 20,
-          width: 70,
-          height: 70,
+          width: config.featured ? 100 : 70,
+          height: config.featured ? 100 : 70,
           borderRadius: "50%",
-          background: "rgba(255,255,255,0.04)",
+          background: "rgba(255,255,255,0.05)",
           pointerEvents: "none",
         }}
       />
@@ -169,25 +227,26 @@ function CreditCard({
               fontWeight: 700,
               letterSpacing: "0.15em",
               textTransform: "uppercase",
-              color: "rgba(255,255,255,0.5)",
+              color: "rgba(255,255,255,0.55)",
               fontFamily: "system-ui, sans-serif",
             }}
           >
             {config.label}
           </div>
-          <div style={{ fontSize: 20, marginTop: 4 }}>{config.icon}</div>
+          <div style={{ fontSize: config.featured ? 26 : 20, marginTop: 4 }}>
+            {config.icon}
+          </div>
         </div>
-        {/* Card network chip */}
         <div
           style={{
             background: config.chipBg,
-            border: "1px solid rgba(255,255,255,0.15)",
+            border: "1px solid rgba(255,255,255,0.18)",
             borderRadius: 6,
             padding: "4px 10px",
             fontSize: 9,
             fontWeight: 800,
             letterSpacing: "0.12em",
-            color: "rgba(255,255,255,0.7)",
+            color: "rgba(255,255,255,0.8)",
             fontFamily: "system-ui, sans-serif",
             backdropFilter: "blur(4px)",
           }}
@@ -201,8 +260,8 @@ function CreditCard({
         {loading ? (
           <div
             style={{
-              height: 32,
-              width: "65%",
+              height: config.featured ? 40 : 32,
+              width: "60%",
               borderRadius: 8,
               background: "rgba(255,255,255,0.08)",
               animation: "fc-shimmer 1.4s ease infinite",
@@ -211,7 +270,9 @@ function CreditCard({
         ) : (
           <div
             style={{
-              fontSize: "clamp(1.3rem, 2vw, 1.65rem)",
+              fontSize: config.featured
+                ? "clamp(1.7rem, 3vw, 2.2rem)"
+                : "clamp(1.3rem, 2vw, 1.65rem)",
               fontWeight: 800,
               color: isNeg ? "#FCA5A5" : "#ffffff",
               letterSpacing: "-0.02em",
@@ -224,22 +285,21 @@ function CreditCard({
         )}
       </div>
 
-      {/* ── Bottom row: sub label + accent bar ── */}
+      {/* ── Bottom: accent bar + sub label ── */}
       <div style={{ position: "relative", marginTop: 16 }}>
-        {/* Thin holographic gradient line */}
         <div
           style={{
-            height: 2,
+            height: config.featured ? 3 : 2,
             borderRadius: 999,
             background: config.accentLine,
-            opacity: 0.7,
+            opacity: 0.8,
             marginBottom: 10,
           }}
         />
         <div
           style={{
             fontSize: "0.72rem",
-            color: "rgba(255,255,255,0.45)",
+            color: "rgba(255,255,255,0.5)",
             fontWeight: 500,
             fontFamily: "system-ui, sans-serif",
           }}
@@ -257,12 +317,16 @@ function CreditCard({
           0%,100% { opacity: 0.4; }
           50%      { opacity: 0.8; }
         }
+        @keyframes shimmer-sweep {
+          0%   { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
       `}</style>
     </div>
   );
 }
 
-// ─── Grid ─────────────────────────────────────────────────────────────────────
+// ─── Grid layout ─────────────────────────────────────────────────────────────
 
 interface Props {
   stats: FinanceStats;
@@ -271,22 +335,32 @@ interface Props {
 
 export default function FinanceCards({ stats, loading = false }: Props) {
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-        gap: 20,
-      }}
-    >
-      {CARDS.map((cfg, i) => (
-        <CreditCard
-          key={cfg.label}
-          config={cfg}
-          stats={stats}
-          loading={loading}
-          index={i}
-        />
-      ))}
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      {/* Hero: Available Balance — full width */}
+      <CreditCard
+        config={HERO_CARD}
+        stats={stats}
+        loading={loading}
+        index={0}
+      />
+      {/* 5 detail cards in responsive grid */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(200px,1fr))",
+          gap: 20,
+        }}
+      >
+        {DETAIL_CARDS.map((cfg, i) => (
+          <CreditCard
+            key={cfg.label}
+            config={cfg}
+            stats={stats}
+            loading={loading}
+            index={i + 1}
+          />
+        ))}
+      </div>
     </div>
   );
 }

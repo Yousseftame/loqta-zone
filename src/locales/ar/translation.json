@@ -1150,6 +1150,10 @@
       "copied": "✓ تم النسخ",
       "exp": "تنتهي {{date}}",
       "usesOnly": "العدد محدود"
+    },
+    "lastOfferAvailable": {
+      "title": "اخر عرض مفتوح — {{product}}",
+      "titleGeneric": "اخر فرصه عرض "
     }
   },
   "profilePage": {

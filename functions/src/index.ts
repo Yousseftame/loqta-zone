@@ -23,6 +23,9 @@ export { onUserCreated, setUserRole, blockUser, deleteUser, createAdminAccount }
 export { onAuctionRequestUpdated } from "./Notifications/notifications";
 
 
+// Last offer available — notifies all non-winner participants when auction resolves
+// with lastOfferEnabled=true so they can submit a backup offer
+export { onAuctionResolvedLastOffer } from "./Notifications/lastOfferAvailableNotification";
 
 // ── Last Offer — winner selected notification ─────────────────────────────────
 // Fires when admin sets selectedbyAdmin=true + status="accepted" on a lastOffer doc.

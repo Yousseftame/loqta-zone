@@ -1166,6 +1166,10 @@
       "copied": "✓ copied",
       "exp": "Exp. {{date}}",
       "usesOnly": "Limited quantity"
+    },
+    "lastOfferAvailable": {
+      "title": "Last offer open — {{product}}",
+      "titleGeneric": "Last offer opportunity"
     }
   },
   "profilePage": {

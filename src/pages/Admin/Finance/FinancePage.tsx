@@ -1,5 +1,3 @@
-
-
 import { useState } from "react";
 import { Box, Button, IconButton, Tooltip } from "@mui/material";
 import { DollarSign, RefreshCw, PlusCircle } from "lucide-react";
@@ -23,7 +21,6 @@ export default function FinancePage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [rebuilding, setRebuilding] = useState(false);
 
-  // ── Rebuild (superAdmin only) ──────────────────────────────────────────────
   const handleRebuild = async () => {
     if (rebuilding) return;
     setRebuilding(true);
@@ -167,7 +164,12 @@ export default function FinancePage() {
 
       {/* ── Transactions ─────────────────────────────────────────────────── */}
       <SectionLabel label="Recent Transactions" />
-      <TransactionsTable transactions={transactions} loading={loading} />
+      {/* Pass stats so TransactionsTable can compute running available balance */}
+      <TransactionsTable
+        transactions={transactions}
+        stats={stats}
+        loading={loading}
+      />
 
       {/* ── Modal ────────────────────────────────────────────────────────── */}
       <AddTransactionModal
@@ -182,7 +184,7 @@ export default function FinancePage() {
   );
 }
 
-// ─── Section label (same as Dashboard.tsx) ────────────────────────────────────
+// ─── Section label ────────────────────────────────────────────────────────────
 
 function SectionLabel({ label }: { label: string }) {
   return (

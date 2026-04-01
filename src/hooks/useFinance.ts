@@ -4,10 +4,13 @@
  * Fetches finance data with minimal Firestore reads:
  *
  *   finance_stats/dashboard  — 1 onSnapshot listener (all aggregated totals)
- *   transactions             — query last 20 ordered by createdAt desc (1 read per page)
+ *   transactions             — query last 20 ordered by createdAt desc
  *
  * Total reads on mount: 2 documents + 1 query (up to 20 docs = 21 reads max)
  * Updates: onSnapshot fires once per Cloud Function write on finance_stats/dashboard.
+ *
+ * Added: ownerBalance field (cumulative owner withdrawals). Defaults to 0
+ * for legacy Firestore docs that pre-date this field — safe to deploy.
  */
 
 import { useEffect, useState, useCallback } from "react";
@@ -30,8 +33,6 @@ import {
 // ─── Parser ───────────────────────────────────────────────────────────────────
 
 function parseStats(data: Record<string, any>): FinanceStats {
-  // monthlyIncome/monthlyExpenses are stored as a map {0:x, 1:y, ...} via dot-notation
-  // We normalise back to a length-12 array
   const toArray = (raw: any): number[] => {
     if (Array.isArray(raw)) return raw.map(Number);
     if (raw && typeof raw === "object") {
@@ -45,6 +46,8 @@ function parseStats(data: Record<string, any>): FinanceStats {
   return {
     totalIncome:         data.totalIncome         ?? 0,
     totalExpenses:       data.totalExpenses        ?? 0,
+    // ownerBalance defaults to 0 for legacy docs that don't have it yet
+    ownerBalance:        data.ownerBalance         ?? 0,
     cashBalance:         data.cashBalance          ?? 0,
     bankBalance:         data.bankBalance          ?? 0,
     monthlyIncome:       toArray(data.monthlyIncome),
@@ -125,6 +128,8 @@ export function useFinance() {
   }, []);
 
   // ─── Add transaction ───────────────────────────────────────────────────────
+  // owner_withdrawal is stored as type="owner_withdrawal" — the Cloud Function
+  // then decrements cashBalance/bankBalance and increments ownerBalance.
   const addTransaction = useCallback(async (
     values: TransactionFormValues,
     adminId: string,

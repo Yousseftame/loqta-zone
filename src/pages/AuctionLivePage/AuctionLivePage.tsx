@@ -2,7 +2,7 @@
  * AuctionLivePage.tsx — /auctions/:auctionId — fully localised (EN/AR)
  * Logic is identical to the original; only display strings use t().
  */
-
+import { useSearchParams } from "react-router-dom";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
@@ -134,6 +134,8 @@ export default function AuctionLivePage() {
   const triggerFiredRef = useRef(false);
   const auctionRef = useRef<AuctionData | null>(null);
   const userRef = useRef(user);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [showLastOfferModal, setShowLastOfferModal] = useState(false);
 
   useEffect(() => {
     userRef.current = user;
@@ -623,13 +625,13 @@ export default function AuctionLivePage() {
             <div className="al-histcard">
               <div className="al-histtitle">
                 {t("auctionLive.bidHistory")}
-                <span className="al-histcount">{bids.length}</span>
+                <span className="al-histcount">{auction.totalBids}</span>
               </div>
               {bids.length === 0 ? (
                 <div className="al-histempty">{t("auctionLive.noBids")}</div>
               ) : (
                 <div className="al-histlist">
-                  {bids.map((bid, i) => (
+                  {bids.slice(0, 1).map((bid, i) => (
                     <div
                       key={bid.id}
                       className={`al-histrow ${i === 0 ? "top" : ""}`}
