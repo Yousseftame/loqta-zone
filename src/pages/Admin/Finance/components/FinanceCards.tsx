@@ -1,26 +1,11 @@
 /**
  * src/pages/Admin/Finance/components/FinanceCards.tsx
  *
- * Six premium "credit card" style balance cards:
+ * Layout:
+ *   Row 1 (2 equal cards): Available Balance · Owner Balance
+ *   Row 2 (4 equal cards): Cash · Bank · Total Income · Total Expenses
  *
- *   [HERO — full width]  Available Balance  = cashBalance + bankBalance
- *   [Row of 5]           Cash Balance · Bank Balance · Owner Balance · Total Income · Total Expenses
- *
- * ─── Accounting identity verified ────────────────────────────────────────────
- *   totalIncome = cashBalance + bankBalance + ownerBalance + totalExpenses
- *
- * Every dollar earned goes to one of four places:
- *   • Still in cash              → cashBalance
- *   • Still in bank              → bankBalance
- *   • Taken by the owner         → ownerBalance  (owner draws, not operating expenses)
- *   • Spent on business expenses → totalExpenses
- *
- * Available Balance = cashBalance + bankBalance
- *   An owner_withdrawal reduces cashBalance or bankBalance → reduces Available automatically.
- *   totalIncome and totalExpenses are NOT touched by owner withdrawals.
- *
- * No Firestore changes needed for Available Balance — it's derived client-side.
- * ownerBalance is stored in finance_stats/dashboard by the Cloud Function.
+ * Removed: shimmer-sweep animation on Available Balance card.
  */
 
 import type { FinanceStats } from "../finance-data";
@@ -37,23 +22,37 @@ interface CardConfig {
   featured?: boolean;
 }
 
-// ─── Card definitions ─────────────────────────────────────────────────────────
+// ─── Row 1: two prominent cards ───────────────────────────────────────────────
 
-const HERO_CARD: CardConfig = {
-  label: "Available Balance",
-  value: (s) => s.cashBalance + s.bankBalance,
-  sub: "Cash + Bank · reduced by expenses & owner withdrawals",
-  gradient:
-    "linear-gradient(135deg, #1e1b4b 0%, #312e81 45%, #4338ca 80%, #6366f1 100%)",
-  chip: "LIQUID",
-  chipBg: "rgba(255,255,255,0.15)",
-  icon: "💰",
-  accentLine: "linear-gradient(90deg, #818cf8, #c7d2fe, #818cf8)",
-  featured: true,
-};
+const ROW1_CARDS: CardConfig[] = [
+  {
+    label: "Available Balance",
+    value: (s) => s.cashBalance + s.bankBalance,
+    sub: "Cash + Bank · reduced by expenses & owner withdrawals",
+    gradient:
+      "linear-gradient(135deg, #1e1b4b 0%, #312e81 45%, #4338ca 80%, #6366f1 100%)",
+    chip: "LIQUID",
+    chipBg: "rgba(255,255,255,0.15)",
+    icon: "💰",
+    accentLine: "linear-gradient(90deg, #818cf8, #c7d2fe, #818cf8)",
+    featured: true,
+  },
+  {
+    label: "Owner Balance",
+    value: (s) => s.ownerBalance,
+    sub: "Total withdrawn by owner",
+    gradient: "linear-gradient(135deg, #451a03 0%, #78350f 50%, #92400e 100%)",
+    chip: "OWNER",
+    chipBg: "rgba(255,255,255,0.12)",
+    icon: "👤",
+    accentLine: "linear-gradient(90deg, #F59E0B, #FCD34D)",
+    featured: true,
+  },
+];
 
+// ─── Row 2: four detail cards ─────────────────────────────────────────────────
 
-const DETAIL_CARDS: CardConfig[] = [
+const ROW2_CARDS: CardConfig[] = [
   {
     label: "Cash Balance",
     value: (s) => s.cashBalance,
@@ -73,16 +72,6 @@ const DETAIL_CARDS: CardConfig[] = [
     chipBg: "rgba(255,255,255,0.12)",
     icon: "🏦",
     accentLine: "linear-gradient(90deg, #0EA5E9, #38BDF8)",
-  },
-  {
-    label: "Owner Balance",
-    value: (s) => s.ownerBalance,
-    sub: "Total withdrawn by owner",
-    gradient: "linear-gradient(135deg, #451a03 0%, #78350f 50%, #92400e 100%)",
-    chip: "OWNER",
-    chipBg: "rgba(255,255,255,0.12)",
-    icon: "👤",
-    accentLine: "linear-gradient(90deg, #F59E0B, #FCD34D)",
   },
   {
     label: "Total Income",
@@ -169,22 +158,6 @@ function CreditCard({
           pointerEvents: "none",
         }}
       />
-
-      {/* Animated shimmer sweep — featured card only */}
-      {config.featured && (
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            borderRadius: 20,
-            background:
-              "linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.05) 50%, transparent 70%)",
-            backgroundSize: "200% 100%",
-            animation: "shimmer-sweep 3.5s ease infinite",
-            pointerEvents: "none",
-          }}
-        />
-      )}
 
       {/* Decorative blur circles */}
       <div
@@ -318,10 +291,6 @@ function CreditCard({
           0%,100% { opacity: 0.4; }
           50%      { opacity: 0.8; }
         }
-        @keyframes shimmer-sweep {
-          0%   { background-position: 200% 0; }
-          100% { background-position: -200% 0; }
-        }
       `}</style>
     </div>
   );
@@ -337,28 +306,40 @@ interface Props {
 export default function FinanceCards({ stats, loading = false }: Props) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      {/* Hero: Available Balance — full width */}
-      <CreditCard
-        config={HERO_CARD}
-        stats={stats}
-        loading={loading}
-        index={0}
-      />
-      {/* 5 detail cards in responsive grid */}
+      {/* Row 1: Available Balance + Owner Balance — 2 equal columns */}
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(200px,1fr))",
+          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
           gap: 20,
         }}
       >
-        {DETAIL_CARDS.map((cfg, i) => (
+        {ROW1_CARDS.map((cfg, i) => (
           <CreditCard
             key={cfg.label}
             config={cfg}
             stats={stats}
             loading={loading}
-            index={i + 1}
+            index={i}
+          />
+        ))}
+      </div>
+
+      {/* Row 2: Cash · Bank · Income · Expenses — 4 equal columns */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+          gap: 20,
+        }}
+      >
+        {ROW2_CARDS.map((cfg, i) => (
+          <CreditCard
+            key={cfg.label}
+            config={cfg}
+            stats={stats}
+            loading={loading}
+            index={i + 2}
           />
         ))}
       </div>

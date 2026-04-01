@@ -294,7 +294,7 @@ export default function AddTransactionModal({
             >
               💡 <strong>Owner Withdrawal</strong> transfers business money to
               the owner. It reduces Cash or Bank balance (choose below) and is
-              tracked separately from operating expenses — it does <em>not</em>{" "}
+              tracked separately from operating expenses , it does <em>not</em>{" "}
               count as a business expense.
             </Box>
           )}

@@ -4,20 +4,18 @@
  * Fetches finance data with minimal Firestore reads:
  *
  *   finance_stats/dashboard  — 1 onSnapshot listener (all aggregated totals)
- *   transactions             — query last 20 ordered by createdAt desc
+ *   transactions             — ALL docs ordered by createdAt desc, paginated client-side
  *
- * Total reads on mount: 2 documents + 1 query (up to 20 docs = 21 reads max)
- * Updates: onSnapshot fires once per Cloud Function write on finance_stats/dashboard.
- *
- * Added: ownerBalance field (cumulative owner withdrawals). Defaults to 0
- * for legacy Firestore docs that pre-date this field — safe to deploy.
+ * Pagination is done client-side after a full fetch so the TransactionsTable
+ * can slice any page without additional Firestore reads. For very large datasets
+ * (10k+ transactions) switch to server-side cursor pagination.
  */
 
 import { useEffect, useState, useCallback } from "react";
 import {
   doc, collection,
   onSnapshot,
-  query, orderBy, limit, addDoc,
+  query, orderBy, addDoc,
   serverTimestamp, Timestamp,
   type Unsubscribe,
 } from "firebase/firestore";
@@ -46,7 +44,6 @@ function parseStats(data: Record<string, any>): FinanceStats {
   return {
     totalIncome:         data.totalIncome         ?? 0,
     totalExpenses:       data.totalExpenses        ?? 0,
-    // ownerBalance defaults to 0 for legacy docs that don't have it yet
     ownerBalance:        data.ownerBalance         ?? 0,
     cashBalance:         data.cashBalance          ?? 0,
     bankBalance:         data.bankBalance          ?? 0,
@@ -105,11 +102,10 @@ export function useFinance() {
     );
     unsubs.push(unsubStats);
 
-    // ── last 20 transactions ─────────────────────────────────────────────────
+    // ── ALL transactions (no limit — client-side pagination) ─────────────────
     const txQuery = query(
       collection(db, "transactions"),
       orderBy("createdAt", "desc"),
-      limit(20),
     );
     const unsubTx = onSnapshot(
       txQuery,
@@ -128,8 +124,6 @@ export function useFinance() {
   }, []);
 
   // ─── Add transaction ───────────────────────────────────────────────────────
-  // owner_withdrawal is stored as type="owner_withdrawal" — the Cloud Function
-  // then decrements cashBalance/bankBalance and increments ownerBalance.
   const addTransaction = useCallback(async (
     values: TransactionFormValues,
     adminId: string,

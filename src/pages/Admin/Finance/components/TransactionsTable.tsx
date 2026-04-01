@@ -4,30 +4,25 @@
  * Recent transactions table with columns:
  *   Date · Type · Category · Method · Note · Done By · Balance After · Amount
  *
+ * Now shows ALL transactions with client-side pagination (10 rows per page),
+ * using the same pagination UI as MarginReportTable.
+ *
  * ─── Balance After calculation ────────────────────────────────────────────────
- * "Available Balance" = cashBalance + bankBalance (the liquid business money).
- * Owner withdrawals reduce cashBalance or bankBalance, so they also reduce
- * the available balance — exactly like an expense.
- *
- * Transactions arrive sorted newest-first (desc by createdAt).
- * We anchor on the CURRENT available balance (cashBalance + bankBalance from stats)
- * and walk backwards, undoing each transaction to reconstruct the historical balance.
- *
- *   Walk rule:
- *     income            → added money to available  → undo by subtracting
- *     expense           → removed money             → undo by adding
- *     owner_withdrawal  → removed money             → undo by adding (same as expense)
- *
- * Zero extra Firestore reads — uses only data already in memory.
+ * Anchors on current available balance and walks backwards through the
+ * sorted-desc list, undoing each transaction.
  */
 
+import { useState, useMemo } from "react";
 import { Box, Paper, Chip } from "@mui/material";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { colors } from "../../Products/products-data";
 import {
   CATEGORY_LABEL,
   type Transaction,
   type FinanceStats,
 } from "../finance-data";
+
+const PAGE_SIZE = 10;
 
 // ─── Visual chip maps ─────────────────────────────────────────────────────────
 
@@ -46,7 +41,6 @@ const TYPE_CHIP: Record<string, { label: string; bg: string; color: string }> =
     owner_withdrawal: { label: "Owner", bg: "#FEF3C7", color: "#78350F" },
   };
 
-// Amount color / sign by type
 const AMOUNT_STYLE: Record<string, { color: string; sign: string }> = {
   income: { color: "#059669", sign: "+" },
   expense: { color: "#DC2626", sign: "−" },
@@ -70,14 +64,9 @@ function fmtBalance(n: number): string {
 }
 
 /**
- * Reconstructs running available balance (cashBalance + bankBalance) at the
- * moment of each transaction, starting from the current available balance and
- * walking backwards through the sorted-desc transaction list.
- *
- * Rule:
- *   income            → added to available  → undo: subtract
- *   expense           → removed             → undo: add
- *   owner_withdrawal  → removed (same as expense) → undo: add
+ * Reconstructs running available balance for every transaction.
+ * Transactions arrive sorted newest-first. We anchor on the current
+ * available balance and walk backwards, undoing each transaction.
  */
 function computeRunningBalances(
   transactions: Transaction[],
@@ -86,20 +75,15 @@ function computeRunningBalances(
   const result: number[] = new Array(transactions.length).fill(0);
   if (transactions.length === 0) return result;
 
-  // Index 0 = most recent tx → its "balance after" equals current available
   result[0] = currentAvailable;
-
   for (let i = 1; i < transactions.length; i++) {
     const prev = transactions[i - 1];
-    // Undo prev transaction to get the balance before it was applied
     if (prev.type === "income") {
-      result[i] = result[i - 1] - prev.amount; // income added → subtract to go back
+      result[i] = result[i - 1] - prev.amount;
     } else {
-      // expense or owner_withdrawal both removed money → add back to go back
       result[i] = result[i - 1] + prev.amount;
     }
   }
-
   return result;
 }
 
@@ -116,8 +100,26 @@ export default function TransactionsTable({
   stats,
   loading = false,
 }: Props) {
+  const [page, setPage] = useState(1);
+
   const currentAvailable = stats.cashBalance + stats.bankBalance;
-  const balances = computeRunningBalances(transactions, currentAvailable);
+
+  // Pre-compute ALL running balances (across the full list, not just current page)
+  const allBalances = useMemo(
+    () => computeRunningBalances(transactions, currentAvailable),
+    [transactions, currentAvailable],
+  );
+
+  const totalPages = Math.max(1, Math.ceil(transactions.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+
+  const pageStart = (safePage - 1) * PAGE_SIZE;
+  const pageEnd = safePage * PAGE_SIZE;
+  const pageData = transactions.slice(pageStart, pageEnd);
+  const pageBalances = allBalances.slice(pageStart, pageEnd);
+
+  const handlePrev = () => setPage((p) => Math.max(1, p - 1));
+  const handleNext = () => setPage((p) => Math.min(totalPages, p + 1));
 
   const HEADERS = [
     "Date",
@@ -149,6 +151,8 @@ export default function TransactionsTable({
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: 1,
         }}
       >
         <span
@@ -158,18 +162,33 @@ export default function TransactionsTable({
             color: colors.primaryDark,
           }}
         >
-          Recent Transactions
+          Transactions
         </span>
-        <Chip
-          label={`Last ${transactions.length}`}
-          size="small"
-          sx={{
-            bgcolor: colors.primary,
-            color: "#fff",
-            fontWeight: 700,
-            fontSize: "0.68rem",
-          }}
-        />
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <Chip
+            label="All Transactions"
+            size="small"
+            sx={{
+              bgcolor: "#DCFCE7",
+              color: "#22C55E",
+              fontWeight: 700,
+              fontSize: "0.68rem",
+            }}
+          />
+          {transactions.length > 0 && (
+            <Chip
+              label={`${transactions.length} total`}
+              size="small"
+              sx={{
+                bgcolor: colors.primaryBg,
+                color: colors.primary,
+                fontWeight: 700,
+                fontSize: "0.68rem",
+                border: `1px solid ${colors.border}`,
+              }}
+            />
+          )}
+        </Box>
       </Box>
 
       {/* ── Table ── */}
@@ -213,7 +232,7 @@ export default function TransactionsTable({
           <tbody>
             {/* ── Skeleton loading ── */}
             {loading ? (
-              Array(5)
+              Array(PAGE_SIZE)
                 .fill(0)
                 .map((_, i) => (
                   <tr key={i}>
@@ -240,8 +259,7 @@ export default function TransactionsTable({
                       ))}
                   </tr>
                 ))
-            ) : /* ── Empty state ── */
-            transactions.length === 0 ? (
+            ) : transactions.length === 0 ? (
               <tr>
                 <td
                   colSpan={8}
@@ -255,24 +273,25 @@ export default function TransactionsTable({
                 </td>
               </tr>
             ) : (
-              /* ── Data rows ── */
-              transactions.map((tx, i) => {
+              pageData.map((tx, i) => {
                 const typeChip = TYPE_CHIP[tx.type] ?? TYPE_CHIP.income;
                 const methodChip = METHOD_CHIP[tx.method] ?? METHOD_CHIP.cash;
                 const amtStyle = AMOUNT_STYLE[tx.type] ?? AMOUNT_STYLE.income;
-                const bal = balances[i];
+                const bal = pageBalances[i];
                 const balNeg = bal < 0;
 
-                // Done By: prefer stored name, fall back to truncated uid
                 const doneBy =
                   tx.createdByName?.trim() ||
                   (tx.createdBy ? `${tx.createdBy.slice(0, 8)}…` : "—");
+
+                // Global row index (for alternating background)
+                const globalIdx = pageStart + i;
 
                 return (
                   <tr
                     key={tx.id}
                     style={{
-                      background: i % 2 === 0 ? "#fff" : "#FAFAFA",
+                      background: globalIdx % 2 === 0 ? "#fff" : "#FAFAFA",
                       transition: "background 0.15s",
                     }}
                     onMouseEnter={(e) => {
@@ -283,7 +302,8 @@ export default function TransactionsTable({
                     onMouseLeave={(e) => {
                       (
                         e.currentTarget as HTMLTableRowElement
-                      ).style.background = i % 2 === 0 ? "#fff" : "#FAFAFA";
+                      ).style.background =
+                        globalIdx % 2 === 0 ? "#fff" : "#FAFAFA";
                     }}
                   >
                     {/* Date */}
@@ -444,6 +464,136 @@ export default function TransactionsTable({
           </tbody>
         </table>
       </Box>
+
+      {/* ── Pagination ── */}
+      {!loading && totalPages > 1 && (
+        <Box
+          sx={{
+            px: 3,
+            py: 1.5,
+            borderTop: `1px solid ${colors.border}`,
+            bgcolor: "#FAFAFA",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 2,
+            flexWrap: "wrap",
+          }}
+        >
+          {/* Row range label */}
+          <span
+            style={{
+              fontSize: "0.75rem",
+              color: colors.textMuted,
+              fontWeight: 500,
+            }}
+          >
+            Showing{" "}
+            <strong style={{ color: colors.textPrimary }}>
+              {pageStart + 1}–{Math.min(pageEnd, transactions.length)}
+            </strong>{" "}
+            of{" "}
+            <strong style={{ color: colors.textPrimary }}>
+              {transactions.length}
+            </strong>{" "}
+            transactions
+          </span>
+
+          {/* Controls */}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+            {/* Prev */}
+            <button
+              onClick={handlePrev}
+              disabled={safePage === 1}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 30,
+                height: 30,
+                borderRadius: 7,
+                border: `1px solid ${colors.border}`,
+                background: safePage === 1 ? "#F1F5F9" : "#fff",
+                color: safePage === 1 ? colors.textMuted : colors.primary,
+                cursor: safePage === 1 ? "not-allowed" : "pointer",
+                transition: "all 0.15s",
+              }}
+            >
+              <ChevronLeft size={14} />
+            </button>
+
+            {/* Page pills */}
+            {Array.from({ length: totalPages }, (_, idx) => idx + 1)
+              .filter(
+                (p) =>
+                  p === 1 || p === totalPages || Math.abs(p - safePage) <= 1,
+              )
+              .reduce<(number | "…")[]>((acc, p, i, arr) => {
+                if (i > 0) {
+                  const prev = arr[i - 1] as number;
+                  if (p - prev > 1) acc.push("…");
+                }
+                acc.push(p);
+                return acc;
+              }, [])
+              .map((item, idx) =>
+                item === "…" ? (
+                  <span
+                    key={`ellipsis-${idx}`}
+                    style={{
+                      fontSize: "0.75rem",
+                      color: colors.textMuted,
+                      padding: "0 2px",
+                    }}
+                  >
+                    …
+                  </span>
+                ) : (
+                  <button
+                    key={item}
+                    onClick={() => setPage(item as number)}
+                    style={{
+                      width: 30,
+                      height: 30,
+                      borderRadius: 7,
+                      border: `1px solid ${item === safePage ? colors.primary : colors.border}`,
+                      background: item === safePage ? colors.primary : "#fff",
+                      color: item === safePage ? "#fff" : colors.textPrimary,
+                      fontSize: "0.75rem",
+                      fontWeight: item === safePage ? 700 : 500,
+                      cursor: "pointer",
+                      transition: "all 0.15s",
+                    }}
+                  >
+                    {item}
+                  </button>
+                ),
+              )}
+
+            {/* Next */}
+            <button
+              onClick={handleNext}
+              disabled={safePage === totalPages}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 30,
+                height: 30,
+                borderRadius: 7,
+                border: `1px solid ${colors.border}`,
+                background: safePage === totalPages ? "#F1F5F9" : "#fff",
+                color:
+                  safePage === totalPages ? colors.textMuted : colors.primary,
+                cursor: safePage === totalPages ? "not-allowed" : "pointer",
+                transition: "all 0.15s",
+              }}
+            >
+              <ChevronRight size={14} />
+            </button>
+          </Box>
+        </Box>
+      )}
     </Paper>
   );
 }
