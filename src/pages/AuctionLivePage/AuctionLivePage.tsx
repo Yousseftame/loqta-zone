@@ -134,12 +134,51 @@ export default function AuctionLivePage() {
   const triggerFiredRef = useRef(false);
   const auctionRef = useRef<AuctionData | null>(null);
   const userRef = useRef(user);
+
+  // ── ?lastOffer=1 deep-link state ──────────────────────────────────────────
   const [searchParams, setSearchParams] = useSearchParams();
-  const [showLastOfferModal, setShowLastOfferModal] = useState(false);
+  const [showLastOfferFromNotif, setShowLastOfferFromNotif] = useState(false);
+  const lastOfferParamHandledRef = useRef(false);
 
   useEffect(() => {
     userRef.current = user;
   }, [user]);
+
+  // ── Handle ?lastOffer=1 from notification deep-link ───────────────────────
+  // Waits until auction data is loaded + participant status confirmed before
+  // opening the modal, so all required props are available.
+  useEffect(() => {
+    if (lastOfferParamHandledRef.current) return;
+    if (searchParams.get("lastOffer") !== "1") return;
+    if (!auction || isParticipant === null) return; // wait for data
+
+    lastOfferParamHandledRef.current = true;
+
+    // Clean the URL immediately so refresh doesn't re-open
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("lastOffer");
+        return next;
+      },
+      { replace: true },
+    );
+
+    // Only show if:
+    //  - user is a participant
+    //  - auction has ended with a real winner (not the current user)
+    //  - lastOfferEnabled is true
+    const hasRealWinner =
+      !!auction.winnerId &&
+      auction.winnerId !== "NO_WINNER" &&
+      auction.winnerId !== user?.uid;
+
+    if (isParticipant === true && hasRealWinner && auction.lastOfferEnabled) {
+      // Small delay so the page finishes painting before modal slides in
+      const t = setTimeout(() => setShowLastOfferFromNotif(true), 800);
+      return () => clearTimeout(t);
+    }
+  }, [searchParams, auction, isParticipant, user?.uid]);
 
   useEffect(() => {
     if (!auctionId || !user) {
@@ -376,6 +415,11 @@ export default function AuctionLivePage() {
     freeBidNum >= computeMinFreeBid() &&
     freeBidNum > 0;
   const isWinner = !!(auction?.winnerId && auction.winnerId === user?.uid);
+
+  // Winner name for the notification-triggered modal
+  // (resolvedWinner may be null if the user arrived via notification, not the live flow)
+  const notifWinnerName =
+    resolvedWinner?.name ?? t("auctionLive.winner", "Winner");
 
   if (pageLoading || isParticipant === null) {
     return (
@@ -683,6 +727,9 @@ export default function AuctionLivePage() {
         )}
       </div>
 
+      {/* ── MODALS ─────────────────────────────────────────────────────────── */}
+
+      {/* 1. Winner celebration (fires during the live session when auction resolves) */}
       {isParticipant === true && showCelebration && resolvedWinner && (
         <WinnerCelebration
           winnerName={resolvedWinner.name}
@@ -691,6 +738,8 @@ export default function AuctionLivePage() {
           productTitle={product?.title}
         />
       )}
+
+      {/* 2. Post-auction summary modal */}
       {isParticipant === true && showModal && resolvedWinner && (
         <PostAuctionModal
           winnerName={resolvedWinner.name}
@@ -701,6 +750,8 @@ export default function AuctionLivePage() {
           onBack={() => navigate(-1)}
         />
       )}
+
+      {/* 3. Last offer modal — shown when the auction resolves live (user was watching) */}
       {isParticipant === true && showLastOffer && auction && user && (
         <LastOfferModal
           auctionId={auction.id}
@@ -713,6 +764,19 @@ export default function AuctionLivePage() {
             setShowLastOffer(false);
             setShowModal(true);
           }}
+        />
+      )}
+
+      {/* 4. Last offer modal — triggered by ?lastOffer=1 notification deep-link */}
+      {isParticipant === true && showLastOfferFromNotif && auction && user && (
+        <LastOfferModal
+          auctionId={auction.id}
+          userId={user.uid}
+          startingPrice={auction.startingPrice}
+          winningBid={auction.winningBid ?? auction.currentBid}
+          winnerName={notifWinnerName}
+          productTitle={product?.title}
+          onClose={() => setShowLastOfferFromNotif(false)}
         />
       )}
     </>
