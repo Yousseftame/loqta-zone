@@ -66,6 +66,8 @@ export interface TopAuction {
   totalParticipants: number;
   winningBid: number;
   actualPrice: number;
+  /** Actual EGP profit: winningBid - actualPrice. 0 if actualPrice unknown. */
+  actualProfit: number;
   margin: number;
   winnerId: string;
   winnerName: string;
@@ -75,6 +77,12 @@ export interface TopAuctionsAnalytics {
   byBids: TopAuction[];
   byParticipants: TopAuction[];
   byWinningBid: TopAuction[];
+  /**
+   * ALL ended auctions with a real winner, sorted by winningBid desc.
+   * Not capped — used for the paginated Auction Financial Report table.
+   * Populated by rebuildAnalytics and kept in sync by onAuctionWritten.
+   */
+  financialReport: TopAuction[];
   updatedAt: Date | null;
 }
 
@@ -86,6 +94,7 @@ export interface MarginReport {
   productTitle: string;
   winningBid: number;
   actualPrice: number;
+  actualProfit: number;
   margin: number;        // percentage
   winnerName: string;
   endedAt: Date | null;
@@ -127,5 +136,6 @@ export const DEFAULT_TOP_AUCTIONS: TopAuctionsAnalytics = {
   byBids: [],
   byParticipants: [],
   byWinningBid: [],
+  financialReport: [],
   updatedAt: null,
 };

@@ -695,7 +695,27 @@ export default function AuctionView() {
                 // ── Real winner: UID pill + resolved name + email ───────────
                 // Cost: 1 extra getDoc, fires once, result cached in winnerInfo state
                 <Box
-                  sx={{ display: "flex", flexDirection: "column", gap: 0.7 }}
+                  sx={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 0.7,
+                    cursor: "pointer",
+                    p: 1.2,
+                    borderRadius: 2,
+                    border: `1px solid ${colors.primary}`,
+                    backgroundColor: colors.primaryBg,
+                    transition: "all 0.2s ease",
+
+                    "&:hover": {
+                     
+                      transform: "translateY(-2px)",
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+
+                      "& span": {
+                        color: "#fff",
+                      },
+                    },
+                  }}
                 >
                   {/* UID — always visible immediately */}
                   <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>

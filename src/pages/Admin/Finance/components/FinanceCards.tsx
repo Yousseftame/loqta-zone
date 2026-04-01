@@ -52,6 +52,7 @@ const HERO_CARD: CardConfig = {
   featured: true,
 };
 
+
 const DETAIL_CARDS: CardConfig[] = [
   {
     label: "Cash Balance",

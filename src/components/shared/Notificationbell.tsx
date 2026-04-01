@@ -695,7 +695,7 @@ function FormattedLastOfferAvailableMessage({
       >
         <span
           style={{
-            fontSize:    "9px",
+            fontSize:    "11px",
             fontFamily:  "'Jost',sans-serif",
             fontWeight:  800,
             letterSpacing: "0.1em",
@@ -1230,7 +1230,7 @@ const CSS = `
 .nf-item-title{font-family:'Jost',sans-serif;font-size:13px;font-weight:700;color:rgb(229,224,198);margin:0 0 5px;padding-right:24px;line-height:1.3;}
 .nf-item.unread .nf-item-title{color:#fff;}
 .nf-item-msg{font-family:'Jost',sans-serif;font-size:11.5px;color:rgba(229,224,198,0.42);margin:0 0 5px;line-height:1.55;}
-.nf-cta-pill{display:inline-flex;align-items:center;gap:4px;font-family:'Jost',sans-serif;font-size:9px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#c9a96e;background:rgba(201,169,110,0.1);border:1px solid rgba(201,169,110,0.22);border-radius:5px;padding:3px 8px;margin-bottom:4px;}
+.nf-cta-pill{display:inline-flex;align-items:center;gap:4px;font-family:'Jost',sans-serif;font-size:11px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#c9a96e;background:rgba(201,169,110,0.1);border:1px solid rgba(201,169,110,0.22);border-radius:5px;padding:3px 8px;margin-bottom:4px;}
 .nf-item-time{font-family:'Jost',sans-serif;font-size:10px;font-weight:700;color:rgba(201,169,110,0.45);letter-spacing:0.05em;display:block;margin-top:3px;}
 .nf-x{position:absolute;top:10px;right:10px;width:22px;height:22px;border-radius:7px;background:transparent;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:rgba(229,224,198,0.2);opacity:0;transition:all 0.2s;}
 .nf-item:hover .nf-x{opacity:1;}

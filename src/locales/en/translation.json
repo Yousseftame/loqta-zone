@@ -1168,8 +1168,8 @@
       "usesOnly": "Limited quantity"
     },
     "lastOfferAvailable": {
-      "title": "Last offer open — {{product}}",
-      "titleGeneric": "Last offer opportunity"
+      "title": "العرض الاخير مفتوح — {{product}}",
+      "titleGeneric": "فرصه العرض الاخيره"
     }
   },
   "profilePage": {

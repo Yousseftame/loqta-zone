@@ -9,7 +9,7 @@
  *
  * Firestore paths:
  *   analytics/dashboard    — all scalar metrics (counts, sums, averages)
- *   analytics/topAuctions  — ranked top-N auction lists
+ *   analytics/topAuctions  — ranked top-N auction lists + full financialReport
  *
  * ─── Triggers ────────────────────────────────────────────────────────────────
  * 1. onUserWritten           — updates user / admin counts
@@ -26,14 +26,19 @@
  * Writes          : 1-2 documents per mutation event (near zero marginal cost)
  *
  * ─── Key design decisions ────────────────────────────────────────────────────
- * • avgWinningBid  — NOT stored; derived client-side as totalRevenue/endedAuctions
- *                    to eliminate the concurrency race on concurrent resolutions.
- * • ratingSum      — stored alongside totalRatings so avgRating can be recomputed
- *                    incrementally without scanning the feedbackMessages collection.
+ * • avgWinningBid    — NOT stored; derived client-side as totalRevenue/endedAuctions
+ *                      to eliminate the concurrency race on concurrent resolutions.
+ * • ratingSum        — stored alongside totalRatings so avgRating can be recomputed
+ *                      incrementally without scanning the feedbackMessages collection.
+ * • actualProfit     — winningBid - actualPrice, stored on each financialReport entry
+ *                      so the client never has to recompute it.
+ * • financialReport  — ALL ended auctions with a winner, sorted by winningBid desc,
+ *                      stored on analytics/topAuctions. Not capped at TOP_N so the
+ *                      admin can paginate through the full history.
  * • onAuctionWritten short-circuit — exits after 1 write when only totalBids
  *                    changed (the most frequent trigger path — every bid placed).
- * • product read   — fetched exactly once per auction resolution and passed into
- *                    updateTopAuctions so the doc is never read twice.
+ * • product read     — fetched exactly once per auction resolution and passed into
+ *                      updateTopAuctions so the doc is never read twice.
  */
 
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
@@ -300,6 +305,8 @@ async function updateTopAuctions(
     const margin     = actualPrice > 0
       ? ((winningBid - actualPrice) / actualPrice) * 100
       : 0;
+    // actualProfit: the real EGP profit amount (not just percentage)
+    const actualProfit = actualPrice > 0 ? winningBid - actualPrice : 0;
 
     // Resolve winner name
     let winnerName = "Unknown";
@@ -328,6 +335,7 @@ async function updateTopAuctions(
       totalParticipants: auctionData.totalParticipants ?? 0,
       winningBid,
       actualPrice,
+      actualProfit,
       margin,
       winnerId:   winnerId ?? "",
       winnerName,
@@ -337,18 +345,25 @@ async function updateTopAuctions(
     const topSnap  = await topRef.get();
     const existing = topSnap.exists
       ? topSnap.data()!
-      : { byBids: [], byParticipants: [], byWinningBid: [] };
+      : { byBids: [], byParticipants: [], byWinningBid: [], financialReport: [] };
 
     const upsert = (arr: any[], newEntry: any, sortKey: string) =>
       [...(arr ?? []).filter((a: any) => a.auctionId !== newEntry.auctionId), newEntry]
         .sort((a, b) => b[sortKey] - a[sortKey])
         .slice(0, TOP_N);
 
+    // financialReport: ALL ended auctions with a real winner, sorted by winningBid desc
+    // No slice — this is the full history used for the paginated financial table
+    const upsertAll = (arr: any[], newEntry: any, sortKey: string) =>
+      [...(arr ?? []).filter((a: any) => a.auctionId !== newEntry.auctionId), newEntry]
+        .sort((a, b) => b[sortKey] - a[sortKey]);
+
     await topRef.set({
-      byBids:         upsert(existing.byBids,         entry, "totalBids"),
-      byParticipants: upsert(existing.byParticipants, entry, "totalParticipants"),
-      byWinningBid:   upsert(existing.byWinningBid,   entry, "winningBid"),
-      updatedAt:      FieldValue.serverTimestamp(),
+      byBids:          upsert(existing.byBids,         entry, "totalBids"),
+      byParticipants:  upsert(existing.byParticipants, entry, "totalParticipants"),
+      byWinningBid:    upsert(existing.byWinningBid,   entry, "winningBid"),
+      financialReport: upsertAll(existing.financialReport ?? [], entry, "winningBid"),
+      updatedAt:       FieldValue.serverTimestamp(),
     });
   } catch (err) {
     console.error("[Analytics] updateTopAuctions failed:", err);
@@ -419,15 +434,6 @@ export const onAuctionRequestWritten = onDocumentWritten(
 );
 
 // ─── 7. Feedback written (ratings) ───────────────────────────────────────────
-//
-// Strategy: maintain a running ratingSum + totalRatings in the dashboard doc.
-// avgRating is recomputed from those two fields after every change.
-// This eliminates the original full collection scan (N reads per write).
-//
-// Fields written to analytics/dashboard:
-//   ratingSum    — sum of all valid ratings (used only for avgRating calculation)
-//   totalRatings — count of valid ratings
-//   avgRating    — Math.round((ratingSum / totalRatings) * 10) / 10
 
 export const onFeedbackWritten = onDocumentWritten(
   { document: "feedbackMessages/{feedbackId}", memory: "256MiB" },
@@ -444,7 +450,6 @@ export const onFeedbackWritten = onDocumentWritten(
         updates.totalRatings = FieldValue.increment(1);
         updates.ratingSum    = FieldValue.increment(rating);
       } else {
-        // No valid rating — nothing meaningful to update
         return;
       }
 
@@ -458,19 +463,14 @@ export const onFeedbackWritten = onDocumentWritten(
       }
 
     } else {
-      // Edit — only proceed if the rating value actually changed
       const oldRating = before?.rating as number | undefined;
       const newRating = after?.rating  as number | undefined;
-      if (oldRating === newRating) return; // nothing to do
+      if (oldRating === newRating) return;
       updates.ratingSum = FieldValue.increment((newRating ?? 0) - (oldRating ?? 0));
-      // totalRatings is unchanged on an edit — do not touch it
     }
 
-    // Step 1 — write the increments atomically
     await ref.set(updates, { merge: true });
 
-    // Step 2 — read back the now-current sum and count, recompute avgRating
-    // This is 1 read of a single small document — not a collection scan.
     const dash  = await ref.get();
     const sum   = dash.data()?.ratingSum    ?? 0;
     const count = dash.data()?.totalRatings ?? 0;
@@ -492,7 +492,6 @@ export const rebuildAnalytics = onCall(
     if (callerSnap.data()?.role !== "superAdmin") {
       throw new HttpsError("permission-denied", "Only superAdmins can rebuild analytics.");
     }
-
 
     const [
       usersSnap, productsSnap, auctionsSnap,
@@ -591,7 +590,10 @@ export const rebuildAnalytics = onCall(
             totalParticipants: a.totalParticipants  ?? 0,
             winningBid:        wb,
             actualPrice:       product?.actualPrice ?? 0,
-            margin:            ap > 0 ? ((wb - ap) / ap) * 100 : 0,
+            actualProfit:      (product?.actualPrice ?? 0) > 0 ? wb - (product?.actualPrice ?? 0) : 0,
+            margin:            (product?.actualPrice ?? 0) > 0
+                                 ? ((wb - (product?.actualPrice ?? 0)) / (product?.actualPrice ?? 0)) * 100
+                                 : 0,
             winnerId:          a.winnerId            ?? "",
             winnerName:        userMap[a.winnerId ?? ""] ?? "Unknown",
           });
@@ -612,8 +614,6 @@ export const rebuildAnalytics = onCall(
       : 0;
 
     // ── Write analytics/dashboard ─────────────────────────────────────────────
-    // avgWinningBid is intentionally omitted — derived client-side in useAnalytics.ts
-    // ratingSum is stored so onFeedbackWritten can stay incremental after a rebuild
     const dashboard = {
       totalUsers,        activeUsers,       inactiveUsers,
       totalAdmins,       totalSuperAdmins,
@@ -636,11 +636,15 @@ export const rebuildAnalytics = onCall(
     const sortAndSlice = (arr: any[], key: string) =>
       [...arr].sort((a, b) => b[key] - a[key]).slice(0, TOP_N);
 
+    const sortAll = (arr: any[], key: string) =>
+      [...arr].sort((a, b) => b[key] - a[key]);
+
     await db.collection(ANALYTICS).doc(TOP_AUCTIONS).set({
-      byBids:         sortAndSlice(topEntries, "totalBids"),
-      byParticipants: sortAndSlice(topEntries, "totalParticipants"),
-      byWinningBid:   sortAndSlice(topEntries, "winningBid"),
-      updatedAt:      FieldValue.serverTimestamp(),
+      byBids:          sortAndSlice(topEntries, "totalBids"),
+      byParticipants:  sortAndSlice(topEntries, "totalParticipants"),
+      byWinningBid:    sortAndSlice(topEntries, "winningBid"),
+      financialReport: sortAll(topEntries, "winningBid"),   // ALL entries, no cap
+      updatedAt:       FieldValue.serverTimestamp(),
     });
 
     return { success: true, updatedAt: new Date().toISOString() };
