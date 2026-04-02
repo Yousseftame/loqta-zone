@@ -1155,9 +1155,15 @@
       "title": "اخر عرض مفتوح — {{product}}",
       "titleGeneric": "اخر فرصه عرض "
     },
-    "auctionRegistered":{
-      "title":"✔️ مسجّل · مزاد #{{num}}",
+    "auctionRegistered": {
+      "title": "✔️ مسجّل · مزاد #{{num}}",
       "goodLuck": "✦ بالتوفيق · انقر لعرض المزاد"
+    },
+    "auctionEnded": {
+      "title": "انتهى المزاد رقم {{num}}",
+      "message": "شكرًا لمشاركتك في المزاد على \"{{product}}\" (رقم {{num}}). نتمنى رؤيتك في المزادات القادمة! 🎉",
+      "messageGeneric": "شكرًا لمشاركتك في المزاد رقم {{num}}. نتمنى رؤيتك في المزادات القادمة! 🎉",
+      "seeYouSoon": "✦ نراك في المزاد القادم →"
     }
   },
   "profilePage": {

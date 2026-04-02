@@ -1,7 +1,7 @@
 /**
  * src/hooks/useNotifications.ts
  *
- * Updated: added "auction_registered" to NotificationType.
+ * Updated: added "auction_ended" to NotificationType.
  */
 
 import { useEffect, useState, useCallback } from "react";
@@ -32,7 +32,8 @@ export type NotificationType =
   | "payment_confirmed"
   | "voucher_created"
   | "last_offer_available"
-  | "auction_registered";
+  | "auction_registered"
+  | "auction_ended";
 
 
 export interface AppNotification {

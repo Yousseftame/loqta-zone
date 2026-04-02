@@ -22,7 +22,9 @@ export { onUserCreated, setUserRole, blockUser, deleteUser, createAdminAccount }
 // ── Notifications ────────────────────────────────────────────────────────────
 export { onAuctionRequestUpdated } from "./Notifications/notifications";
 
-
+// Auction ended — notifies ALL participants when an auction resolves (winner or no winner).
+// Non-clickable thank-you message: "Auction #N has ended, see you at the next one!"
+export { onAuctionEnded } from "./Notifications/auctionEndedNotification";
 
 // Auction registration — fires when a user joins an auction (Participants doc created)
 // Sends in-app + FCM push to the registered user with a deep-link to the auction page

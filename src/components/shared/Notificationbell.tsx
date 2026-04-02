@@ -1,6 +1,13 @@
 /**
  * src/components/shared/Notificationbell.tsx
  *
+ * auction_ended:
+ * - New type added — styled elegantly like payment_confirmed (non-clickable)
+ * - AuctionEndedIcon: a soft dark-gold circular icon with a gavel/flag motif
+ * - FormattedAuctionEndedMessage: renders product name, auction number, warm farewell text
+ * - Non-clickable — clicking does nothing, navigates nowhere
+ * - Localized via t("notifications.auctionEnded.*")
+ *
  * voucher_created localization:
  * - getLocalizedNotif now handles voucher_created — title uses t("notifications.voucherCreated.title/titleGeneric")
  * - FormattedVoucherMessage accepts { notif, t, isRTL } and uses t() for all UI strings
@@ -114,11 +121,20 @@ function getLocalizedNotif(
       return { title, message: notif.message };
     }
     case "auction_registered": {
-      const product = (data.productTitle ?? "") as string;
       const num = (data.auctionNumber ?? 0) as number;
       return {
         title: t("notifications.auctionRegistered.title", { num }),
         message: notif.message,
+      };
+    }
+    case "auction_ended": {
+      const num = (data.auctionNumber ?? 0) as number;
+      const product = (data.productTitle ?? "") as string;
+      return {
+        title: t("notifications.auctionEnded.title", { num }),
+        message: product
+          ? t("notifications.auctionEnded.message", { product, num })
+          : t("notifications.auctionEnded.messageGeneric", { num }),
       };
     }
     default:
@@ -742,7 +758,6 @@ function FormattedRegistrationMessage({
         direction: isRTL ? "rtl" : "ltr",
       }}
     >
-      {/* Product name */}
       {productTitle && (
         <p
           style={{
@@ -771,7 +786,6 @@ function FormattedRegistrationMessage({
         </p>
       )}
 
-      {/* Good luck CTA pill */}
       <div
         style={{
           display: "inline-flex",
@@ -795,6 +809,89 @@ function FormattedRegistrationMessage({
           }}
         >
           {t("notifications.auctionRegistered.goodLuck")}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ── FormattedAuctionEndedMessage ──────────────────────────────────────────────
+function FormattedAuctionEndedMessage({
+  notif,
+  t,
+  isRTL,
+}: {
+  notif: AppNotification;
+  t: (key: string, opts?: Record<string, any>) => string;
+  isRTL: boolean;
+}) {
+  const data = notif as any;
+  const productTitle = (data.productTitle ?? "") as string;
+  const auctionNum = (data.auctionNumber ?? 0) as number;
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 5,
+        marginBottom: 4,
+        direction: isRTL ? "rtl" : "ltr",
+      }}
+    >
+      {/* Product name + auction number */}
+      {productTitle && (
+        <p
+          style={{
+            fontFamily: "'Jost',sans-serif",
+            fontSize: "12.5px",
+            fontWeight: 500,
+            color: "rgba(229,224,198,0.62)",
+            margin: 0,
+            lineHeight: 1.4,
+          }}
+        >
+          {productTitle}
+          {auctionNum > 0 && (
+            <span
+              style={{
+                color: "rgba(201,169,110,0.38)",
+                fontWeight: 600,
+                marginLeft: isRTL ? 0 : 6,
+                marginRight: isRTL ? 6 : 0,
+                fontSize: "11px",
+              }}
+            >
+              · #{auctionNum}
+            </span>
+          )}
+        </p>
+      )}
+
+      {/* Warm farewell pill */}
+      <div
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 5,
+          background: "rgba(201,169,110,0.06)",
+          border: "1px solid rgba(201,169,110,0.16)",
+          borderRadius: 6,
+          padding: "4px 10px",
+          marginTop: 2,
+          alignSelf: "flex-start",
+        }}
+      >
+        <span
+          style={{
+            fontSize: "11px",
+            fontFamily: "'Jost',sans-serif",
+            fontWeight: 700,
+            letterSpacing: "0.08em",
+            color: "rgba(201,169,110,0.65)",
+          }}
+        >
+          {t("notifications.auctionEnded.seeYouSoon")}
         </span>
       </div>
     </div>
@@ -853,7 +950,6 @@ function AuctionRegisteredIcon({ isUnread }: { isUnread: boolean }) {
         position: "relative" as const,
       }}
     >
-      {/* Ticket / confirmed-entry icon */}
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
         <path
           d="M5 13l4 4L19 7"
@@ -873,6 +969,58 @@ function AuctionRegisteredIcon({ isUnread }: { isUnread: boolean }) {
             height: 9,
             borderRadius: "50%",
             background: "#38bdd2",
+            border: "2px solid #080d1a",
+            animation: "nfDotPulse 1.8s ease-in-out infinite",
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── AuctionEndedIcon ──────────────────────────────────────────────────────────
+// Elegant dark-gold circular icon with a subtle gavel silhouette.
+// Deliberately muted — this is a farewell, not a celebration.
+function AuctionEndedIcon({ isUnread }: { isUnread: boolean }) {
+  return (
+    <div
+      style={{
+        width: 44,
+        height: 44,
+        borderRadius: "50%",
+        background: "linear-gradient(135deg,#1c1608 0%,#0f0b04 100%)",
+        border: "2px solid rgba(201,169,110,0.3)",
+        boxShadow: isUnread
+          ? "0 0 14px rgba(201,169,110,0.18), 0 4px 10px rgba(0,0,0,0.35)"
+          : "0 4px 10px rgba(0,0,0,0.3)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexShrink: 0,
+        marginTop: 1,
+        position: "relative" as const,
+      }}
+    >
+      {/* Hourglass / time-ended SVG */}
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+        <path
+          d="M5 2h14M5 22h14M6 2v5l6 5-6 5v5M18 2v5l-6 5 6 5v5"
+          stroke="rgba(201,169,110,0.7)"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+      {isUnread && (
+        <span
+          style={{
+            position: "absolute",
+            bottom: -2,
+            right: -2,
+            width: 9,
+            height: 9,
+            borderRadius: "50%",
+            background: "rgba(201,169,110,0.8)",
             border: "2px solid #080d1a",
             animation: "nfDotPulse 1.8s ease-in-out infinite",
           }}
@@ -1026,16 +1174,22 @@ const TYPE_CONFIG: Record<
     border: "rgba(201,169,110,0.3)",
   },
   last_offer_available: {
-    Icon: null, // uses custom icon below
+    Icon: null,
     color: "#c9a96e",
     bg: "rgba(201,169,110,0.1)",
     border: "rgba(201,169,110,0.3)",
   },
   auction_registered: {
-    Icon: null, // uses AuctionRegisteredIcon
+    Icon: null,
     color: "#c9a96e",
     bg: "rgba(201,169,110,0.08)",
     border: "rgba(201,169,110,0.28)",
+  },
+  auction_ended: {
+    Icon: null, // uses AuctionEndedIcon
+    color: "rgba(201,169,110,0.55)",
+    bg: "rgba(201,169,110,0.05)",
+    border: "rgba(201,169,110,0.18)",
   },
 };
 
@@ -1078,9 +1232,11 @@ export const NotificationBell = () => {
   }, []);
 
   const handleItemClick = (notif: AppNotification) => {
+    // Non-clickable types — mark read only, no navigation
     if (
       notif.type === "payment_confirmed" ||
-      notif.type === "voucher_created"
+      notif.type === "voucher_created" ||
+      notif.type === "auction_ended"
     ) {
       markRead(notif.id);
       return;
@@ -1169,9 +1325,13 @@ export const NotificationBell = () => {
                   const isLastOfferAvailableType =
                     notif.type === "last_offer_available";
                   const isRegisteredType = notif.type === "auction_registered";
+                  const isAuctionEndedType = notif.type === "auction_ended";
 
-                  // auction_registered is clickable (navigates to register page)
-                  const isClickable = !isPaymentConfirmed && !isVoucherType;
+                  // auction_ended is NOT clickable (same as payment_confirmed, voucher_created)
+                  const isClickable =
+                    !isPaymentConfirmed &&
+                    !isVoucherType &&
+                    !isAuctionEndedType;
 
                   const cfg = TYPE_CONFIG[notif.type] ?? TYPE_CONFIG.promo;
 
@@ -1188,6 +1348,7 @@ export const NotificationBell = () => {
                         isPaymentConfirmed ? "payment-confirmed" : "",
                         isVoucherType ? "voucher-item" : "",
                         isRegisteredType ? "registered-item" : "",
+                        isAuctionEndedType ? "ended-item" : "",
                       ]
                         .filter(Boolean)
                         .join(" ")}
@@ -1196,7 +1357,15 @@ export const NotificationBell = () => {
                     >
                       {!notif.isRead && (
                         <span
-                          className={`nf-unread-bar${isPaymentConfirmed ? " nf-unread-green" : isRegisteredType ? " nf-unread-teal" : ""}`}
+                          className={`nf-unread-bar${
+                            isPaymentConfirmed
+                              ? " nf-unread-green"
+                              : isRegisteredType
+                                ? " nf-unread-teal"
+                                : isAuctionEndedType
+                                  ? " nf-unread-gold-dim"
+                                  : ""
+                          }`}
                         />
                       )}
 
@@ -1209,6 +1378,8 @@ export const NotificationBell = () => {
                         <LastOfferAvailableIcon isUnread={!notif.isRead} />
                       ) : isRegisteredType ? (
                         <AuctionRegisteredIcon isUnread={!notif.isRead} />
+                      ) : isAuctionEndedType ? (
+                        <AuctionEndedIcon isUnread={!notif.isRead} />
                       ) : (
                         <div
                           className="nf-icon"
@@ -1263,6 +1434,12 @@ export const NotificationBell = () => {
                           />
                         ) : isRegisteredType ? (
                           <FormattedRegistrationMessage
+                            notif={notif}
+                            t={t}
+                            isRTL={isRTL}
+                          />
+                        ) : isAuctionEndedType ? (
+                          <FormattedAuctionEndedMessage
                             notif={notif}
                             t={t}
                             isRTL={isRTL}
@@ -1394,10 +1571,13 @@ const CSS = `
 .nf-item.voucher-item{cursor:default;}
 .nf-item.voucher-item.unread{background:rgba(201,169,110,0.04);}
 .nf-item.registered-item.unread{background:rgba(56,189,210,0.03);}
+.nf-item.ended-item{cursor:default;}
+.nf-item.ended-item.unread{background:rgba(201,169,110,0.025);}
 .nf-unread-bar{position:absolute;left:0;top:12%;bottom:12%;width:3px;border-radius:0 3px 3px 0;background:linear-gradient(180deg,#c9a96e,#b8944e);box-shadow:0 0 8px rgba(201,169,110,0.65);}
 .nf-unread-bar.nf-unread-green{background:linear-gradient(180deg,#4ade80,#22c55e);box-shadow:0 0 8px rgba(74,222,128,0.65);}
 .nf-unread-bar.nf-unread-gold{background:linear-gradient(180deg,#c9a96e,#b8944e);box-shadow:0 0 10px rgba(201,169,110,0.7);}
 .nf-unread-bar.nf-unread-teal{background:linear-gradient(180deg,#38bdd2,#0e9ab5);box-shadow:0 0 10px rgba(56,189,210,0.65);}
+.nf-unread-bar.nf-unread-gold-dim{background:linear-gradient(180deg,rgba(201,169,110,0.55),rgba(184,148,78,0.4));box-shadow:0 0 6px rgba(201,169,110,0.3);}
 .nf-icon{width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;position:relative;}
 .nf-icon-pulse{position:absolute;bottom:-2px;right:-2px;width:9px;height:9px;border-radius:50%;border:2px solid #080d1a;animation:nfDotPulse 1.8s ease-in-out infinite;}
 .nf-body{flex:1;min-width:0;}

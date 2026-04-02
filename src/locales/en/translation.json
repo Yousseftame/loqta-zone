@@ -1167,13 +1167,19 @@
       "exp": "Exp. {{date}}",
       "usesOnly": "Limited quantity"
     },
-    "lastOfferAvailable": {
-      "title": "العرض الاخير مفتوح — {{product}}",
-      "titleGeneric": "فرصه العرض الاخيره"
+     "lastOfferAvailable": {
+      "title": "Last offer open — {{product}}",
+      "titleGeneric": "Last offer opportunity"
     },
     "auctionRegistered": {
       "title": "✔️ Registered · Auction #{{num}}",
-      "goodLuck": "✦ Good luck · tap to view auction"
+      "goodLuck": "✦ Good luck · tap to view auction" 
+    },
+    "auctionEnded": {
+      "title": "Auction #{{num}} Has Ended",
+      "message": "Thank you for joining the auction for \"{{product}}\" (#{{num}}). Hope to see you at our next one! 🎉",
+      "messageGeneric": "Thank you for participating in Auction #{{num}}. Hope to see you at our next one! 🎉",
+      "seeYouSoon": "✦ See you at the next auction →"
     }
   },
   "profilePage": {
