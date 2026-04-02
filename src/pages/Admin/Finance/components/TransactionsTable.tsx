@@ -10,6 +10,11 @@
  * ─── Balance After calculation ────────────────────────────────────────────────
  * Anchors on current available balance and walks backwards through the
  * sorted-desc list, undoing each transaction.
+ *
+ * ─── Transfer rows ────────────────────────────────────────────────────────────
+ * Transfers show a special "Method" cell: "💵 Cash → 🏦 Bank" (or reverse).
+ * They show "0 EGP" in the Amount column with a neutral style since they
+ * don't change available balance. Balance After stays the same before/after.
  */
 
 import { useState, useMemo } from "react";
@@ -39,12 +44,14 @@ const TYPE_CHIP: Record<string, { label: string; bg: string; color: string }> =
     income: { label: "Income", bg: "#D1FAE5", color: "#065F46" },
     expense: { label: "Expense", bg: "#FEE2E2", color: "#991B1B" },
     owner_withdrawal: { label: "Owner", bg: "#FEF3C7", color: "#78350F" },
+    transfer: { label: "Transfer", bg: "#EDE9FE", color: "#4C1D95" },
   };
 
 const AMOUNT_STYLE: Record<string, { color: string; sign: string }> = {
   income: { color: "#059669", sign: "+" },
   expense: { color: "#DC2626", sign: "−" },
   owner_withdrawal: { color: "#D97706", sign: "−" },
+  transfer: { color: "#7C3AED", sign: "⇄ " },
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -63,10 +70,23 @@ function fmtBalance(n: number): string {
   return n < 0 ? `−${abs}` : abs;
 }
 
+/** Build the method display string for a transaction row */
+function buildMethodDisplay(tx: Transaction): string {
+  if (tx.type === "transfer") {
+    const from = tx.method === "cash" ? "💵 Cash" : "🏦 Bank";
+    const to = tx.transferTo === "cash" ? "💵 Cash" : "🏦 Bank";
+    return `${from} → ${to}`;
+  }
+  return tx.method === "cash" ? "💵 Cash" : "🏦 Bank";
+}
+
 /**
  * Reconstructs running available balance for every transaction.
  * Transactions arrive sorted newest-first. We anchor on the current
  * available balance and walk backwards, undoing each transaction.
+ *
+ * Transfers are balance-neutral (they only shift between cash/bank,
+ * not the combined available balance) so they don't move the running total.
  */
 function computeRunningBalances(
   transactions: Transaction[],
@@ -80,7 +100,11 @@ function computeRunningBalances(
     const prev = transactions[i - 1];
     if (prev.type === "income") {
       result[i] = result[i - 1] - prev.amount;
+    } else if (prev.type === "transfer") {
+      // Transfer doesn't change combined available balance — carry forward
+      result[i] = result[i - 1];
     } else {
+      // expense + owner_withdrawal both reduce available balance
       result[i] = result[i - 1] + prev.amount;
     }
   }
@@ -274,11 +298,18 @@ export default function TransactionsTable({
               </tr>
             ) : (
               pageData.map((tx, i) => {
+                const isTransfer = tx.type === "transfer";
                 const typeChip = TYPE_CHIP[tx.type] ?? TYPE_CHIP.income;
-                const methodChip = METHOD_CHIP[tx.method] ?? METHOD_CHIP.cash;
                 const amtStyle = AMOUNT_STYLE[tx.type] ?? AMOUNT_STYLE.income;
                 const bal = pageBalances[i];
                 const balNeg = bal < 0;
+                const methodLabel = buildMethodDisplay(tx);
+
+                // For transfers: method chip spans the whole from→to string
+                // with a purple style instead of the normal cash/bank chip
+                const methodChipStyle = isTransfer
+                  ? { bg: "#EDE9FE", color: "#4C1D95" }
+                  : (METHOD_CHIP[tx.method] ?? METHOD_CHIP.cash);
 
                 const doneBy =
                   tx.createdByName?.trim() ||
@@ -297,7 +328,7 @@ export default function TransactionsTable({
                     onMouseEnter={(e) => {
                       (
                         e.currentTarget as HTMLTableRowElement
-                      ).style.background = "#EFF6FF";
+                      ).style.background = isTransfer ? "#F5F3FF" : "#EFF6FF";
                     }}
                     onMouseLeave={(e) => {
                       (
@@ -352,7 +383,7 @@ export default function TransactionsTable({
                       {CATEGORY_LABEL[tx.category] ?? tx.category}
                     </td>
 
-                    {/* Method */}
+                    {/* Method / Transfer direction */}
                     <td
                       style={{
                         padding: "12px 16px",
@@ -361,15 +392,16 @@ export default function TransactionsTable({
                     >
                       <span
                         style={{
-                          background: methodChip.bg,
-                          color: methodChip.color,
+                          background: methodChipStyle.bg,
+                          color: methodChipStyle.color,
                           borderRadius: 999,
                           padding: "3px 10px",
                           fontSize: "0.72rem",
                           fontWeight: 700,
+                          whiteSpace: "nowrap",
                         }}
                       >
-                        {methodChip.label}
+                        {methodLabel}
                       </span>
                     </td>
 
@@ -432,14 +464,28 @@ export default function TransactionsTable({
                           display: "inline-block",
                           fontWeight: 700,
                           fontSize: "0.8rem",
-                          color: balNeg ? "#DC2626" : "#0f172a",
-                          background: balNeg ? "#FEE2E2" : "#F0FDF4",
-                          border: `1px solid ${balNeg ? "#FECACA" : "#BBF7D0"}`,
+                          color: isTransfer
+                            ? "#4C1D95"
+                            : balNeg
+                              ? "#DC2626"
+                              : "#0f172a",
+                          background: isTransfer
+                            ? "#EDE9FE"
+                            : balNeg
+                              ? "#FEE2E2"
+                              : "#F0FDF4",
+                          border: `1px solid ${
+                            isTransfer
+                              ? "#DDD6FE"
+                              : balNeg
+                                ? "#FECACA"
+                                : "#BBF7D0"
+                          }`,
                           borderRadius: 6,
                           padding: "3px 9px",
                         }}
                       >
-                        {fmtBalance(bal)} EGP
+                        {isTransfer ? "—" : `${fmtBalance(bal)} EGP`}
                       </span>
                     </td>
 
@@ -454,8 +500,17 @@ export default function TransactionsTable({
                         whiteSpace: "nowrap",
                       }}
                     >
-                      {amtStyle.sign}
-                      {tx.amount.toLocaleString("en-EG")} EGP
+                      {isTransfer ? (
+                        /* show the transfer amount with neutral style */
+                        <span style={{ fontWeight: 700, color: "#7C3AED" }}>
+                          ⇄ {tx.amount.toLocaleString("en-EG")} EGP
+                        </span>
+                      ) : (
+                        <>
+                          {amtStyle.sign}
+                          {tx.amount.toLocaleString("en-EG")} EGP
+                        </>
+                      )}
                     </td>
                   </tr>
                 );

@@ -19,9 +19,14 @@
  * "owner_withdrawal" → ownerBalance++, cash/bankBalance--
  *                       Does NOT touch totalIncome or totalExpenses.
  *                       Does NOT appear in monthlyIncome or monthlyExpenses.
+ * "transfer"         → source balance--, destination balance++
+ *                       Does NOT touch totalIncome, totalExpenses, ownerBalance,
+ *                       or any monthly arrays. Net effect on available balance = zero.
+ *                       Requires `transferTo` field on the transaction doc.
  *
  * ─── Accounting identity ─────────────────────────────────────────────────────
  *   totalIncome = cashBalance + bankBalance + ownerBalance + totalExpenses
+ *   (transfers are neutral — they don't affect this identity)
  *
  * ─── Safety ──────────────────────────────────────────────────────────────────
  * All balance/total updates use FieldValue.increment() — atomic, no race conditions.
@@ -53,14 +58,20 @@ function monthIndex(data: Record<string, any>): number {
 //   - Increments ownerBalance by amount (or decrements on delete)
 //   - Decrements cashBalance or bankBalance (or increments on delete)
 //   - Does NOT touch totalIncome, totalExpenses, or monthly arrays
+//
+// transfer:
+//   - Decrements source balance (method field), increments destination (transferTo field)
+//   - Does NOT touch totalIncome, totalExpenses, ownerBalance, or monthly arrays
+//   - Net available balance effect = zero
 
 function buildUpdate(
-  type:     "income" | "expense" | "owner_withdrawal",
-  method:   "cash" | "bank",
-  category: string,
-  amount:   number,
-  month:    number,
-  sign:     1 | -1,
+  type:       "income" | "expense" | "owner_withdrawal" | "transfer",
+  method:     "cash" | "bank",
+  category:   string,
+  amount:     number,
+  month:      number,
+  sign:       1 | -1,
+  transferTo?: "cash" | "bank",
 ): Record<string, any> {
   const amt = amount * sign;
   const update: Record<string, any> = {
@@ -85,18 +96,27 @@ function buildUpdate(
 
   } else if (type === "owner_withdrawal") {
     // Owner takes money out of the business for personal use.
-    // Rules:
-    //   ✅ ownerBalance   += amount  (track cumulative owner draws)
-    //   ✅ cash/bankBal   -= amount  (money leaves the business wallet)
-    //   ❌ totalIncome    unchanged  (this is NOT new income)
-    //   ❌ totalExpenses  unchanged  (this is NOT an operating expense)
-    //   ❌ monthlyIncome  unchanged
-    //   ❌ monthlyExpenses unchanged
     update.ownerBalance = FieldValue.increment(amt);
-    // amt = amount * sign; for the balance we need to subtract on apply (+sign)
-    // and add back on reverse (-sign) — which is exactly -amt.
     if (method === "cash") update.cashBalance = FieldValue.increment(-amt);
     else                   update.bankBalance = FieldValue.increment(-amt);
+
+  } else if (type === "transfer") {
+    // Internal transfer between cash and bank.
+    // source (method) loses `amount`, destination (transferTo) gains `amount`.
+    // No totals, no monthly arrays, no ownerBalance — purely a balance shift.
+    // amt = amount * sign  →  on create(+1): source -= amount, dest += amount
+    //                         on delete(-1): source += amount, dest -= amount
+    const dest = transferTo ?? (method === "cash" ? "bank" : "cash");
+    if (method === "cash") {
+      update.cashBalance = FieldValue.increment(-amt);  // source loses
+    } else {
+      update.bankBalance = FieldValue.increment(-amt);  // source loses
+    }
+    if (dest === "cash") {
+      update.cashBalance = FieldValue.increment(amt);   // dest gains
+    } else {
+      update.bankBalance = FieldValue.increment(amt);   // dest gains
+    }
   }
 
   return update;
@@ -110,21 +130,22 @@ export const onTransactionCreated = onDocumentCreated(
     const data = event.data?.data();
     if (!data) return;
 
-    const { type, method, category, amount } = data as {
-      type:     "income" | "expense" | "owner_withdrawal";
-      method:   "cash" | "bank";
-      category: string;
-      amount:   number;
+    const { type, method, category, amount, transferTo } = data as {
+      type:       "income" | "expense" | "owner_withdrawal" | "transfer";
+      method:     "cash" | "bank";
+      category:   string;
+      amount:     number;
+      transferTo?: "cash" | "bank";
     };
 
     // Guard: skip if type is unrecognised (defensive, should never happen)
-    if (!["income", "expense", "owner_withdrawal"].includes(type)) {
+    if (!["income", "expense", "owner_withdrawal", "transfer"].includes(type)) {
       console.warn(`[onTransactionCreated] Unknown type="${type}" — skipping.`);
       return;
     }
 
     const month  = monthIndex(data);
-    const update = buildUpdate(type, method, category, amount, month, 1);
+    const update = buildUpdate(type, method, category, amount, month, 1, transferTo);
 
     await STATS().set(update, { merge: true });
   },
@@ -138,21 +159,22 @@ export const onTransactionDeleted = onDocumentDeleted(
     const data = event.data?.data();
     if (!data) return;
 
-    const { type, method, category, amount } = data as {
-      type:     "income" | "expense" | "owner_withdrawal";
-      method:   "cash" | "bank";
-      category: string;
-      amount:   number;
+    const { type, method, category, amount, transferTo } = data as {
+      type:       "income" | "expense" | "owner_withdrawal" | "transfer";
+      method:     "cash" | "bank";
+      category:   string;
+      amount:     number;
+      transferTo?: "cash" | "bank";
     };
 
-    if (!["income", "expense", "owner_withdrawal"].includes(type)) {
+    if (!["income", "expense", "owner_withdrawal", "transfer"].includes(type)) {
       console.warn(`[onTransactionDeleted] Unknown type="${type}" — skipping.`);
       return;
     }
 
     const month  = monthIndex(data);
     // sign = -1 reverses the original effect atomically
-    const update = buildUpdate(type, method, category, amount, month, -1);
+    const update = buildUpdate(type, method, category, amount, month, -1, transferTo);
 
     await STATS().set(update, { merge: true });
   },
@@ -182,7 +204,7 @@ export const rebuildFinanceStats = onCall(
     const stats = {
       totalIncome:         0,
       totalExpenses:       0,
-      ownerBalance:        0,          // ← NEW: cumulative owner withdrawals
+      ownerBalance:        0,
       cashBalance:         0,
       bankBalance:         0,
       monthlyIncome:       Array(12).fill(0) as number[],
@@ -192,11 +214,12 @@ export const rebuildFinanceStats = onCall(
 
     snap.forEach((doc) => {
       const d = doc.data();
-      const { type, method, category, amount } = d as {
-        type:     string;
-        method:   "cash" | "bank";
-        category: string;
-        amount:   number;
+      const { type, method, category, amount, transferTo } = d as {
+        type:       string;
+        method:     "cash" | "bank";
+        category:   string;
+        amount:     number;
+        transferTo?: "cash" | "bank";
       };
       const month = monthIndex(d);
 
@@ -215,10 +238,17 @@ export const rebuildFinanceStats = onCall(
 
       } else if (type === "owner_withdrawal") {
         // Owner draw: reduces liquid balance, tracked in ownerBalance
-        // Does NOT touch totalIncome, totalExpenses, or monthly arrays
         stats.ownerBalance += amount;
         if (method === "cash") stats.cashBalance -= amount;
         else                   stats.bankBalance -= amount;
+
+      } else if (type === "transfer") {
+        // Internal transfer: source loses, destination gains — net zero on available balance
+        const dest = transferTo ?? (method === "cash" ? "bank" : "cash");
+        if (method === "cash") stats.cashBalance -= amount;
+        else                   stats.bankBalance -= amount;
+        if (dest === "cash")   stats.cashBalance += amount;
+        else                   stats.bankBalance += amount;
 
       } else {
         console.warn(`[rebuildFinanceStats] Unknown type="${type}" on doc=${doc.id} — skipped.`);

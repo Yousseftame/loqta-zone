@@ -4,41 +4,29 @@
  * Single source of truth for all Finance types.
  *
  * Firestore schema:
- *   transactions/{id}          — every income / expense / owner_withdrawal entry
+ *   transactions/{id}          — every income / expense / owner_withdrawal / transfer entry
  *   finance_stats/dashboard    — pre-aggregated totals (Cloud Function only)
  *
  * ─── Accounting identity ─────────────────────────────────────────────────────
  *   totalIncome = cashBalance + bankBalance + ownerBalance + totalExpenses
  *
- * Every dollar earned goes to one of four places:
- *   • Still sitting in cash      → cashBalance
- *   • Still sitting in bank      → bankBalance
- *   • Taken by owner             → ownerBalance  (cumulative withdrawals)
- *   • Spent on business expenses → totalExpenses
- *
- * ─── Owner Withdrawal ────────────────────────────────────────────────────────
- * An owner_withdrawal is money the owner transfers from the business to themselves.
- * It is sourced from cash or bank (specified via `method`), so it REDUCES the
- * cashBalance or bankBalance → automatically reduces availableBalance.
- * It is NOT a business operating expense — it goes into ownerBalance instead.
- *
- * Cloud Function must handle owner_withdrawal transactions to:
- *   - Decrement cashBalance or bankBalance by amount
- *   - Increment ownerBalance by amount
- *   - NOT touch totalExpenses (owner draws are not expenses)
- *   - NOT touch totalIncome
- *
- * Dashboard reads: 2 documents total (finance_stats/dashboard + last 20 transactions)
+ * ─── Transfer ────────────────────────────────────────────────────────────────
+ * A transfer moves money between cash and bank (or bank and cash).
+ * It does NOT change totalIncome, totalExpenses, ownerBalance, or any monthly arrays.
+ * It simply decrements the source balance and increments the destination balance.
+ * The `method` field = source ("cash" | "bank"), and `transferTo` field = destination.
+ * Net effect on available balance = zero.
  */
 
 // ─── Enums ─────────────────────────────────────────────────────────────────
 
-export type TransactionType     = "income" | "expense" | "owner_withdrawal";
+export type TransactionType     = "income" | "expense" | "owner_withdrawal" | "transfer";
 export type PaymentMethod       = "cash" | "bank";
 export type ExpenseCategory     = "ads" | "salary" | "products" | "maintenance" | "equipment" | "utilities" | "rent" | "other";
 export type IncomeCategory      = "auction_revenue" | "registration_fee" | "sponsorship" | "refund_received" | "other";
 export type OwnerCategory       = "owner_draw";
-export type TransactionCategory = ExpenseCategory | IncomeCategory | OwnerCategory;
+export type TransferCategory    = "cash_to_bank" | "bank_to_cash";
+export type TransactionCategory = ExpenseCategory | IncomeCategory | OwnerCategory | TransferCategory;
 
 // ─── Transaction document ───────────────────────────────────────────────────
 
@@ -52,6 +40,8 @@ export interface Transaction {
   createdAt: Date | null;
   createdBy: string;
   createdByName?: string;
+  /** Only present for type="transfer" — the destination balance */
+  transferTo?: PaymentMethod;
 }
 
 // ─── finance_stats/dashboard ────────────────────────────────────────────────
@@ -76,6 +66,8 @@ export interface TransactionFormValues {
   method: PaymentMethod;
   category: TransactionCategory;
   note: string;
+  /** Only used when type="transfer" */
+  transferTo?: PaymentMethod;
 }
 
 // ─── Defaults ───────────────────────────────────────────────────────────────
@@ -116,6 +108,11 @@ export const OWNER_CATEGORIES: { value: OwnerCategory; label: string }[] = [
   { value: "owner_draw", label: "Owner Draw" },
 ];
 
+export const TRANSFER_CATEGORIES: { value: TransferCategory; label: string }[] = [
+  { value: "cash_to_bank", label: "Cash → Bank" },
+  { value: "bank_to_cash", label: "Bank → Cash" },
+];
+
 export const CATEGORY_LABEL: Record<string, string> = {
   ads:               "Advertising",
   salary:            "Salary",
@@ -129,6 +126,8 @@ export const CATEGORY_LABEL: Record<string, string> = {
   sponsorship:       "Sponsorship",
   other:             "Other",
   owner_draw:        "Owner Draw",
+  cash_to_bank:      "Cash → Bank",
+  bank_to_cash:      "Bank → Cash",
 };
 
 export const MONTH_LABELS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];

@@ -65,6 +65,8 @@ function parseTransaction(id: string, data: Record<string, any>): Transaction {
     createdAt:     toDate(data.createdAt),
     createdBy:     data.createdBy     ?? "",
     createdByName: data.createdByName ?? "",
+    // transfer-specific field — only present on transfer docs
+    transferTo:    data.transferTo    ?? undefined,
   };
 }
 
@@ -131,7 +133,7 @@ export function useFinance() {
   ) => {
     setAdding(true);
     try {
-      await addDoc(collection(db, "transactions"), {
+      const payload: Record<string, any> = {
         type:          values.type,
         amount:        Number(values.amount),
         method:        values.method,
@@ -140,7 +142,14 @@ export function useFinance() {
         createdAt:     serverTimestamp(),
         createdBy:     adminId,
         createdByName: adminName,
-      });
+      };
+
+      // Only write transferTo for transfer transactions
+      if (values.type === "transfer" && values.transferTo) {
+        payload.transferTo = values.transferTo;
+      }
+
+      await addDoc(collection(db, "transactions"), payload);
     } finally {
       setAdding(false);
     }

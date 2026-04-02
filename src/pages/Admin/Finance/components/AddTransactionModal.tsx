@@ -1,13 +1,15 @@
 /**
  * src/pages/Admin/Finance/components/AddTransactionModal.tsx
  *
- * Modal form to add a new income, expense, or owner withdrawal transaction.
+ * Modal form to add a new income, expense, owner withdrawal, or transfer transaction.
  *
- * ─── Owner Withdrawal tab ────────────────────────────────────────────────────
- * Selecting "Owner" creates a transaction with type="owner_withdrawal".
- * The method field (cash/bank) determines which balance is debited.
- * The Cloud Function handles updating ownerBalance and debiting cashBalance/bankBalance.
- * Owner withdrawals do NOT affect totalIncome or totalExpenses.
+ * ─── Transfer tab ────────────────────────────────────────────────────────────
+ * Selecting "Transfer" creates a transaction with type="transfer".
+ * The `method` field = source balance (cash/bank).
+ * The `transferTo` field = destination balance (the opposite of source).
+ * The Cloud Function handles debiting the source and crediting the destination.
+ * Transfers do NOT affect totalIncome, totalExpenses, ownerBalance, or any monthly arrays.
+ * Net effect on available balance = zero.
  */
 
 import { useState } from "react";
@@ -30,10 +32,12 @@ import {
   EXPENSE_CATEGORIES,
   INCOME_CATEGORIES,
   OWNER_CATEGORIES,
+  TRANSFER_CATEGORIES,
   type TransactionFormValues,
   type TransactionType,
   type PaymentMethod,
   type TransactionCategory,
+  type TransferCategory,
 } from "../finance-data";
 
 // ─── Defaults by type ─────────────────────────────────────────────────────────
@@ -42,6 +46,7 @@ const DEFAULT_CATEGORY_BY_TYPE: Record<TransactionType, TransactionCategory> = {
   income: "auction_revenue",
   expense: "other",
   owner_withdrawal: "owner_draw",
+  transfer: "cash_to_bank",
 };
 
 const EMPTY: TransactionFormValues = {
@@ -50,6 +55,7 @@ const EMPTY: TransactionFormValues = {
   method: "cash",
   category: "auction_revenue",
   note: "",
+  transferTo: "bank",
 };
 
 // ─── Tab visual config ────────────────────────────────────────────────────────
@@ -93,6 +99,15 @@ const TAB_CONFIG: Record<
     btnColor: "#D97706",
     btnHover: "#B45309",
   },
+  transfer: {
+    label: "Transfer",
+    emoji: "🔄",
+    selectedBg: "#EDE9FE",
+    selectedColor: "#4C1D95",
+    selectedBorder: "#7C3AED",
+    btnColor: "#7C3AED",
+    btnHover: "#6D28D9",
+  },
 };
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -102,6 +117,18 @@ interface Props {
   adding: boolean;
   onClose: () => void;
   onSubmit: (values: TransactionFormValues) => Promise<void>;
+}
+
+// ─── Helper: derive transferTo and category from method for transfers ─────────
+
+function deriveTransferFields(method: PaymentMethod): {
+  transferTo: PaymentMethod;
+  category: TransferCategory;
+} {
+  if (method === "cash") {
+    return { transferTo: "bank", category: "cash_to_bank" };
+  }
+  return { transferTo: "cash", category: "bank_to_cash" };
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -115,13 +142,18 @@ export default function AddTransactionModal({
   const [form, setForm] = useState<TransactionFormValues>(EMPTY);
   const [error, setError] = useState<string | null>(null);
 
+  const isTransfer = form.type === "transfer";
+  const isOwner = form.type === "owner_withdrawal";
+
   // Categories depend on active type
   const categories =
     form.type === "expense"
       ? EXPENSE_CATEGORIES
       : form.type === "owner_withdrawal"
         ? OWNER_CATEGORIES
-        : INCOME_CATEGORIES;
+        : form.type === "transfer"
+          ? TRANSFER_CATEGORIES
+          : INCOME_CATEGORIES;
 
   const set = <K extends keyof TransactionFormValues>(
     k: K,
@@ -129,10 +161,33 @@ export default function AddTransactionModal({
   ) => setForm((p) => ({ ...p, [k]: v }));
 
   const handleTypeChange = (newType: TransactionType) => {
+    if (newType === "transfer") {
+      // For transfers, auto-set method=cash, transferTo=bank, category=cash_to_bank
+      setForm((p) => ({
+        ...p,
+        type: "transfer",
+        method: "cash",
+        transferTo: "bank",
+        category: "cash_to_bank",
+      }));
+    } else {
+      setForm((p) => ({
+        ...p,
+        type: newType,
+        category: DEFAULT_CATEGORY_BY_TYPE[newType],
+        transferTo: undefined,
+      }));
+    }
+  };
+
+  // When source changes on a transfer, auto-update destination and category
+  const handleTransferSourceChange = (source: PaymentMethod) => {
+    const { transferTo, category } = deriveTransferFields(source);
     setForm((p) => ({
       ...p,
-      type: newType,
-      category: DEFAULT_CATEGORY_BY_TYPE[newType],
+      method: source,
+      transferTo,
+      category,
     }));
   };
 
@@ -143,6 +198,13 @@ export default function AddTransactionModal({
       setError("Please enter a valid amount greater than 0.");
       return;
     }
+
+    // Extra validation for transfers
+    if (isTransfer && form.method === form.transferTo) {
+      setError("Source and destination must be different.");
+      return;
+    }
+
     try {
       await onSubmit(form);
       setForm(EMPTY);
@@ -160,7 +222,6 @@ export default function AddTransactionModal({
   };
 
   const tabCfg = TAB_CONFIG[form.type];
-  const isOwner = form.type === "owner_withdrawal";
 
   return (
     <Dialog
@@ -200,7 +261,7 @@ export default function AddTransactionModal({
           </Alert>
         )}
 
-        {/* ── Type toggle: Income / Expense / Owner ── */}
+        {/* ── Type toggle: Income / Expense / Owner / Transfer ── */}
         <Box>
           <label
             style={{
@@ -226,11 +287,12 @@ export default function AddTransactionModal({
                 "& .MuiToggleButton-root": {
                   textTransform: "none",
                   fontWeight: 700,
-                  fontSize: "0.8rem",
+                  fontSize: "0.75rem",
                   borderRadius: "8px !important",
                   border: `1px solid ${colors.border} !important`,
-                  mx: 0.4,
+                  mx: 0.3,
                   py: 0.9,
+                  px: 0.5,
                 },
               }}
             >
@@ -275,6 +337,20 @@ export default function AddTransactionModal({
               >
                 👤 Owner
               </ToggleButton>
+
+              {/* Transfer */}
+              <ToggleButton
+                value="transfer"
+                sx={{
+                  "&.Mui-selected": {
+                    bgcolor: `${TAB_CONFIG.transfer.selectedBg} !important`,
+                    color: `${TAB_CONFIG.transfer.selectedColor} !important`,
+                    borderColor: `${TAB_CONFIG.transfer.selectedBorder} !important`,
+                  },
+                }}
+              >
+                🔄 Transfer
+              </ToggleButton>
             </ToggleButtonGroup>
           </Box>
 
@@ -294,8 +370,28 @@ export default function AddTransactionModal({
             >
               💡 <strong>Owner Withdrawal</strong> transfers business money to
               the owner. It reduces Cash or Bank balance (choose below) and is
-              tracked separately from operating expenses , it does <em>not</em>{" "}
+              tracked separately from operating expenses, it does <em>not</em>{" "}
               count as a business expense.
+            </Box>
+          )}
+
+          {/* Transfer explanation */}
+          {isTransfer && (
+            <Box
+              sx={{
+                mt: 1.5,
+                p: 1.5,
+                bgcolor: "#F5F3FF",
+                border: "1px solid #DDD6FE",
+                borderRadius: 2,
+                fontSize: "0.75rem",
+                color: "#4C1D95",
+                lineHeight: 1.5,
+              }}
+            >
+              🔄 <strong>Transfer</strong> moves money between Cash and Bank. It
+              does <em>not</em> affect your total income, expenses, or owner
+              balance. Your available balance stays the same.
             </Box>
           )}
         </Box>
@@ -312,39 +408,124 @@ export default function AddTransactionModal({
           sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
         />
 
-        {/* ── Method (cash / bank) — always visible, critical for owner withdrawals ── */}
-        <TextField
-          label={isOwner ? "Source (debit from)" : "Payment Method"}
-          select
-          size="small"
-          fullWidth
-          value={form.method}
-          onChange={(e) => set("method", e.target.value as PaymentMethod)}
-          sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
-          helperText={isOwner ? "The balance that will be reduced" : undefined}
-        >
-          <MenuItem value="cash">💵 Cash</MenuItem>
-          <MenuItem value="bank">🏦 Bank</MenuItem>
-        </TextField>
+        {/* ── Transfer: Source + Destination (visual flow) ── */}
+        {isTransfer ? (
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+            {/* Source */}
+            <TextField
+              label="From (source)"
+              select
+              size="small"
+              fullWidth
+              value={form.method}
+              onChange={(e) =>
+                handleTransferSourceChange(e.target.value as PaymentMethod)
+              }
+              sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+              helperText="Money will be taken from this balance"
+            >
+              <MenuItem value="cash">💵 Cash</MenuItem>
+              <MenuItem value="bank">🏦 Bank</MenuItem>
+            </TextField>
 
-        {/* ── Category ── */}
-        <TextField
-          label="Category"
-          select
-          size="small"
-          fullWidth
-          value={form.category}
-          onChange={(e) =>
-            set("category", e.target.value as TransactionCategory)
-          }
-          sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
-        >
-          {categories.map((c) => (
-            <MenuItem key={c.value} value={c.value}>
-              {c.label}
-            </MenuItem>
-          ))}
-        </TextField>
+            {/* Arrow indicator */}
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 1,
+                py: 0.5,
+              }}
+            >
+              <Box
+                sx={{
+                  height: 1,
+                  flex: 1,
+                  bgcolor: "#DDD6FE",
+                  borderRadius: 1,
+                }}
+              />
+              <Box
+                sx={{
+                  px: 1.5,
+                  py: 0.5,
+                  bgcolor: "#EDE9FE",
+                  border: "1px solid #DDD6FE",
+                  borderRadius: 999,
+                  fontSize: "0.72rem",
+                  fontWeight: 700,
+                  color: "#6D28D9",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                🔄 Transfer to
+              </Box>
+              <Box
+                sx={{
+                  height: 1,
+                  flex: 1,
+                  bgcolor: "#DDD6FE",
+                  borderRadius: 1,
+                }}
+              />
+            </Box>
+
+            {/* Destination (read-only — always opposite of source) */}
+            <TextField
+              label="To (destination)"
+              size="small"
+              fullWidth
+              value={form.transferTo === "cash" ? "💵 Cash" : "🏦 Bank"}
+              InputProps={{ readOnly: true }}
+              sx={{
+                "& .MuiOutlinedInput-root": {
+                  borderRadius: 2,
+                  bgcolor: "#F5F3FF",
+                },
+              }}
+              helperText="Money will be added to this balance"
+            />
+          </Box>
+        ) : (
+          /* ── Method (cash / bank) for non-transfer types ── */
+          <TextField
+            label={isOwner ? "Source (debit from)" : "Payment Method"}
+            select
+            size="small"
+            fullWidth
+            value={form.method}
+            onChange={(e) => set("method", e.target.value as PaymentMethod)}
+            sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+            helperText={
+              isOwner ? "The balance that will be reduced" : undefined
+            }
+          >
+            <MenuItem value="cash">💵 Cash</MenuItem>
+            <MenuItem value="bank">🏦 Bank</MenuItem>
+          </TextField>
+        )}
+
+        {/* ── Category (hidden for transfers — auto-set) ── */}
+        {!isTransfer && (
+          <TextField
+            label="Category"
+            select
+            size="small"
+            fullWidth
+            value={form.category}
+            onChange={(e) =>
+              set("category", e.target.value as TransactionCategory)
+            }
+            sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+          >
+            {categories.map((c) => (
+              <MenuItem key={c.value} value={c.value}>
+                {c.label}
+              </MenuItem>
+            ))}
+          </TextField>
+        )}
 
         {/* ── Note ── */}
         <TextField
@@ -391,7 +572,7 @@ export default function AddTransactionModal({
             px: 3,
             bgcolor: tabCfg.btnColor,
             "&:hover": { bgcolor: tabCfg.btnHover },
-            minWidth: 130,
+            minWidth: 140,
           }}
         >
           {adding ? (
