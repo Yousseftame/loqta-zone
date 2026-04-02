@@ -23,6 +23,11 @@ export { onUserCreated, setUserRole, blockUser, deleteUser, createAdminAccount }
 export { onAuctionRequestUpdated } from "./Notifications/notifications";
 
 
+
+// Auction registration — fires when a user joins an auction (Participants doc created)
+// Sends in-app + FCM push to the registered user with a deep-link to the auction page
+export { onAuctionRegistration } from "./Notifications/auctionRegistrationNotification";
+
 // Last offer available — notifies all non-winner participants when auction resolves
 // with lastOfferEnabled=true so they can submit a backup offer
 export { onAuctionResolvedLastOffer } from "./Notifications/lastOfferAvailableNotification";

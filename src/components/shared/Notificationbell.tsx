@@ -6,6 +6,11 @@
  * - FormattedVoucherMessage accepts { notif, t, isRTL } and uses t() for all UI strings
  * - CopyableCode accepts { code, t } and uses t() for "tap to copy" / "✓ copied"
  * - All other notification types unchanged
+ *
+ * auction_registered:
+ * - New type added — styled like payment_confirmed (elegant + non-clickable icon)
+ * - FormattedRegistrationMessage renders product name, auction number, entry fee
+ * - Navigates to /auctions/register/{productId} on click
  */
 
 import { useState, useEffect, useRef } from "react";
@@ -101,14 +106,20 @@ function getLocalizedNotif(
         message: notif.message,
       };
     }
-    // ── voucher_created: title is localized; message body rendered by FormattedVoucherMessage
     case "voucher_created": {
       const label = (data.voucherLabel ?? "") as string;
       const title = label
         ? t("notifications.voucherCreated.title", { label })
         : t("notifications.voucherCreated.titleGeneric");
-      // message is not used directly — FormattedVoucherMessage renders the body
       return { title, message: notif.message };
+    }
+    case "auction_registered": {
+      const product = (data.productTitle ?? "") as string;
+      const num = (data.auctionNumber ?? 0) as number;
+      return {
+        title: t("notifications.auctionRegistered.title", { num }),
+        message: notif.message,
+      };
     }
     default:
       return { title: notif.title, message: notif.message };
@@ -353,7 +364,6 @@ function FormattedVoucherMessage({
 }) {
   const data = notif as any;
 
-  // ── Try structured fields first (new notifications) ───────────────────────
   let code = (data.voucherCode ?? "") as string;
   let label = (data.voucherLabel ?? "") as string;
   let expiry = (data.expiry ?? "") as string;
@@ -368,7 +378,6 @@ function FormattedVoucherMessage({
     /* ignore */
   }
 
-  // Fallback: auctionLine string
   if (auctions.length === 0) {
     const line = (data.auctionLine ?? "") as string;
     if (line && line !== "All Auctions" && line !== "جميع المزادات") {
@@ -382,7 +391,6 @@ function FormattedVoucherMessage({
     }
   }
 
-  // ── Last-resort: parse from raw message string (old notifications) ────────
   const msg = notif.message ?? "";
 
   if (!code) {
@@ -400,7 +408,6 @@ function FormattedVoucherMessage({
     if (m) maxUses = parseInt(m[1], 10);
   }
 
-  // Parse auction items from raw message body
   if (auctions.length === 0 && code) {
     const afterCode = msg.replace(/Use code [A-Z0-9]+\s+on\s+/i, "");
     const beforeExpiry = afterCode.split(/\.\s*Expires/i)[0];
@@ -418,9 +425,7 @@ function FormattedVoucherMessage({
     }
   }
 
-  // Derive label from title if not stored
   if (!label && notif.title) {
-    // Strip both EN and AR prefixes
     const full = notif.title
       .replace(/^🎟️\s*/i, "")
       .replace(/^Exclusive Voucher\s*[—-]\s*/i, "")
@@ -436,7 +441,6 @@ function FormattedVoucherMessage({
   const hasAnyContent =
     code || label || expiry || maxUses > 0 || auctions.length > 0;
 
-  // Absolute fallback — plain text
   if (!hasAnyContent) {
     return (
       <p className="nf-item-msg" style={{ marginBottom: 4 }}>
@@ -454,7 +458,6 @@ function FormattedVoucherMessage({
         marginBottom: 4,
       }}
     >
-      {/* Line 1 — label */}
       {label && (
         <p
           style={{
@@ -467,14 +470,10 @@ function FormattedVoucherMessage({
             direction: isRTL ? "rtl" : "ltr",
           }}
         >
-          <span style={{ color: "#c9a96e", fontWeight: 700 }}>
-            {/* "Exclusive Voucher" header is part of the title now — just show label here */}
-            {label}
-          </span>
+          <span style={{ color: "#c9a96e", fontWeight: 700 }}>{label}</span>
         </p>
       )}
 
-      {/* Lines 2…N — auction items */}
       {universalVoucher ? (
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
           <span
@@ -545,10 +544,8 @@ function FormattedVoucherMessage({
         </div>
       )}
 
-      {/* Line 3 — copyable code badge */}
       {code && <CopyableCode code={code} t={t} />}
 
-      {/* Line 4 — expiry + uses, plain muted text below the badge */}
       {(expiry || maxUses > 0) && (
         <div
           style={{
@@ -600,8 +597,7 @@ function FormattedVoucherMessage({
   );
 }
 
-
-// ── FormattedLastOfferAvailableMessage ───────────────────────────────────────
+// ── FormattedLastOfferAvailableMessage ────────────────────────────────────────
 function FormattedLastOfferAvailableMessage({
   notif,
   t,
@@ -611,31 +607,30 @@ function FormattedLastOfferAvailableMessage({
   t: (key: string, opts?: Record<string, any>) => string;
   isRTL: boolean;
 }) {
-  const data        = notif as any;
-  const winnerName  = (data.winnerName  ?? "") as string;
-  const winningBid  = (data.winningBid  ?? 0)  as number;
-  const productTitle= (data.productTitle ?? data.productName ?? "") as string;
-  const cur         = isRTL ? "جنيه" : "EGP";
+  const data = notif as any;
+  const winnerName = (data.winnerName ?? "") as string;
+  const winningBid = (data.winningBid ?? 0) as number;
+  const productTitle = (data.productTitle ?? data.productName ?? "") as string;
+  const cur = isRTL ? "جنيه" : "EGP";
 
   return (
     <div
       style={{
-        display:       "flex",
+        display: "flex",
         flexDirection: "column",
-        gap:           5,
-        marginBottom:  4,
-        direction:     isRTL ? "rtl" : "ltr",
+        gap: 5,
+        marginBottom: 4,
+        direction: isRTL ? "rtl" : "ltr",
       }}
     >
-      {/* Product name */}
       {productTitle && (
         <p
           style={{
             fontFamily: "'Jost',sans-serif",
-            fontSize:   "12.5px",
+            fontSize: "12.5px",
             fontWeight: 600,
-            color:      "rgba(201,169,110,0.9)",
-            margin:     0,
+            color: "rgba(201,169,110,0.9)",
+            margin: 0,
             lineHeight: 1.4,
           }}
         >
@@ -643,20 +638,28 @@ function FormattedLastOfferAvailableMessage({
         </p>
       )}
 
-      {/* Winner + bid row */}
       {(winnerName || winningBid > 0) && (
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            flexWrap: "wrap",
+          }}
+        >
           {winnerName && (
             <span
               style={{
                 fontFamily: "'Jost',sans-serif",
-                fontSize:   "11px",
-                color:      "rgba(229,224,198,0.45)",
+                fontSize: "11px",
+                color: "rgba(229,224,198,0.45)",
                 fontWeight: 400,
               }}
             >
               {isRTL ? "الفائز:" : "Winner:"}{" "}
-              <span style={{ color: "rgba(229,224,198,0.65)", fontWeight: 600 }}>
+              <span
+                style={{ color: "rgba(229,224,198,0.65)", fontWeight: 600 }}
+              >
                 {winnerName}
               </span>
             </span>
@@ -665,13 +668,19 @@ function FormattedLastOfferAvailableMessage({
             <span
               style={{
                 fontFamily: "'Jost',sans-serif",
-                fontSize:   "12px",
+                fontSize: "12px",
                 fontWeight: 700,
-                color:      "#c9a96e",
+                color: "#c9a96e",
               }}
             >
               {winningBid.toLocaleString("en-EG")}{" "}
-              <span style={{ fontSize: "10px", color: "rgba(201,169,110,0.45)", fontWeight: 500 }}>
+              <span
+                style={{
+                  fontSize: "10px",
+                  color: "rgba(201,169,110,0.45)",
+                  fontWeight: 500,
+                }}
+              >
                 {cur}
               </span>
             </span>
@@ -679,31 +688,113 @@ function FormattedLastOfferAvailableMessage({
         </div>
       )}
 
-      {/* Call to action pill */}
       <div
         style={{
-          display:        "inline-flex",
-          alignItems:     "center",
-          gap:            5,
-          background:     "rgba(201,169,110,0.08)",
-          border:         "1px solid rgba(201,169,110,0.2)",
-          borderRadius:   6,
-          padding:        "4px 10px",
-          marginTop:      2,
-          alignSelf:      "flex-start",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 5,
+          background: "rgba(201,169,110,0.08)",
+          border: "1px solid rgba(201,169,110,0.2)",
+          borderRadius: 6,
+          padding: "4px 10px",
+          marginTop: 2,
+          alignSelf: "flex-start",
         }}
       >
         <span
           style={{
-            fontSize:    "11px",
-            fontFamily:  "'Jost',sans-serif",
-            fontWeight:  800,
+            fontSize: "11px",
+            fontFamily: "'Jost',sans-serif",
+            fontWeight: 800,
             letterSpacing: "0.1em",
             textTransform: "uppercase" as const,
-            color:       "#c9a96e",
+            color: "#c9a96e",
           }}
         >
           {isRTL ? "✦ قدّم عرضك الأخير →" : "✦ Submit your last offer →"}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ── FormattedRegistrationMessage ──────────────────────────────────────────────
+function FormattedRegistrationMessage({
+  notif,
+  t,
+  isRTL,
+}: {
+  notif: AppNotification;
+  t: (key: string, opts?: Record<string, any>) => string;
+  isRTL: boolean;
+}) {
+  const data = notif as any;
+  const productTitle = (data.productTitle ?? "") as string;
+  const auctionNum = (data.auctionNumber ?? 0) as number;
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 5,
+        marginBottom: 4,
+        direction: isRTL ? "rtl" : "ltr",
+      }}
+    >
+      {/* Product name */}
+      {productTitle && (
+        <p
+          style={{
+            fontFamily: "'Jost',sans-serif",
+            fontSize: "12.5px",
+            fontWeight: 500,
+            color: "rgba(229,224,198,0.65)",
+            margin: 0,
+            lineHeight: 1.4,
+          }}
+        >
+          {productTitle}
+          {auctionNum > 0 && (
+            <span
+              style={{
+                color: "rgba(56,189,210,0.5)",
+                fontWeight: 600,
+                marginLeft: isRTL ? 0 : 6,
+                marginRight: isRTL ? 6 : 0,
+                fontSize: "11px",
+              }}
+            >
+              · #{auctionNum}
+            </span>
+          )}
+        </p>
+      )}
+
+      {/* Good luck CTA pill */}
+      <div
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 5,
+          background: "rgba(56,189,210,0.06)",
+          border: "1px solid rgba(56,189,210,0.2)",
+          borderRadius: 6,
+          padding: "4px 10px",
+          marginTop: 2,
+          alignSelf: "flex-start",
+        }}
+      >
+        <span
+          style={{
+            fontSize: "11px",
+            fontFamily: "'Jost',sans-serif",
+            fontWeight: 700,
+            letterSpacing: "0.08em",
+            color: "rgba(56,189,210,0.8)",
+          }}
+        >
+          {t("notifications.auctionRegistered.goodLuck")}
         </span>
       </div>
     </div>
@@ -737,6 +828,56 @@ function PaymentConfirmedIcon() {
           strokeLinejoin="round"
         />
       </svg>
+    </div>
+  );
+}
+
+// ── AuctionRegisteredIcon ─────────────────────────────────────────────────────
+function AuctionRegisteredIcon({ isUnread }: { isUnread: boolean }) {
+  return (
+    <div
+      style={{
+        width: 44,
+        height: 44,
+        borderRadius: "50%",
+        background: "linear-gradient(135deg,#0e3d4f 0%,#061824 100%)",
+        border: "2.5px solid rgba(56,189,210,0.5)",
+        boxShadow: isUnread
+          ? "0 0 16px rgba(56,189,210,0.28), 0 4px 12px rgba(0,0,0,0.35)"
+          : "0 4px 10px rgba(0,0,0,0.25)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexShrink: 0,
+        marginTop: 1,
+        position: "relative" as const,
+      }}
+    >
+      {/* Ticket / confirmed-entry icon */}
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+        <path
+          d="M5 13l4 4L19 7"
+          stroke="#38bdd2"
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+      {isUnread && (
+        <span
+          style={{
+            position: "absolute",
+            bottom: -2,
+            right: -2,
+            width: 9,
+            height: 9,
+            borderRadius: "50%",
+            background: "#38bdd2",
+            border: "2px solid #080d1a",
+            animation: "nfDotPulse 1.8s ease-in-out infinite",
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -779,7 +920,7 @@ function VoucherTicketIcon({ isUnread }: { isUnread: boolean }) {
   );
 }
 
-// ── LastOfferAvailableIcon ───────────────────────────────────────────────────
+// ── LastOfferAvailableIcon ────────────────────────────────────────────────────
 function LastOfferAvailableIcon({ isUnread }: { isUnread: boolean }) {
   return (
     <div
@@ -797,7 +938,9 @@ function LastOfferAvailableIcon({ isUnread }: { isUnread: boolean }) {
         border: "1px solid rgba(201,169,110,0.22)",
       }}
     >
-      <span style={{ fontSize: 22, lineHeight: 1, userSelect: "none" }}>🏷️</span>
+      <span style={{ fontSize: 22, lineHeight: 1, userSelect: "none" }}>
+        🏷️
+      </span>
       {isUnread && (
         <span
           style={{
@@ -888,6 +1031,12 @@ const TYPE_CONFIG: Record<
     bg: "rgba(201,169,110,0.1)",
     border: "rgba(201,169,110,0.3)",
   },
+  auction_registered: {
+    Icon: null, // uses AuctionRegisteredIcon
+    color: "#c9a96e",
+    bg: "rgba(201,169,110,0.08)",
+    border: "rgba(201,169,110,0.28)",
+  },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -938,8 +1087,17 @@ export const NotificationBell = () => {
     }
     markRead(notif.id);
     setOpen(false);
+
+    // auction_registered — navigate to the register page for this product
+    if (notif.type === "auction_registered") {
+      const d = notif as any;
+      const pid = d.productId ?? "";
+      if (pid) navigate(`/auctions/register/${pid}`);
+      return;
+    }
+
     if (notif.url) {
-      navigate(notif.url); // navigates to /auctions/{id}?lastOffer=1
+      navigate(notif.url);
       return;
     }
     if (notif.type === "auction_matched") {
@@ -1010,7 +1168,11 @@ export const NotificationBell = () => {
                   const isVoucherType = notif.type === "voucher_created";
                   const isLastOfferAvailableType =
                     notif.type === "last_offer_available";
+                  const isRegisteredType = notif.type === "auction_registered";
+
+                  // auction_registered is clickable (navigates to register page)
                   const isClickable = !isPaymentConfirmed && !isVoucherType;
+
                   const cfg = TYPE_CONFIG[notif.type] ?? TYPE_CONFIG.promo;
 
                   const { title: localTitle, message: localMessage } =
@@ -1025,6 +1187,7 @@ export const NotificationBell = () => {
                         !notif.isRead ? "unread" : "",
                         isPaymentConfirmed ? "payment-confirmed" : "",
                         isVoucherType ? "voucher-item" : "",
+                        isRegisteredType ? "registered-item" : "",
                       ]
                         .filter(Boolean)
                         .join(" ")}
@@ -1033,16 +1196,19 @@ export const NotificationBell = () => {
                     >
                       {!notif.isRead && (
                         <span
-                          className={`nf-unread-bar${isPaymentConfirmed ? " nf-unread-green" : ""}`}
+                          className={`nf-unread-bar${isPaymentConfirmed ? " nf-unread-green" : isRegisteredType ? " nf-unread-teal" : ""}`}
                         />
                       )}
 
+                      {/* Icon column */}
                       {isPaymentConfirmed ? (
                         <PaymentConfirmedIcon />
                       ) : isVoucherType ? (
                         <VoucherTicketIcon isUnread={!notif.isRead} />
                       ) : isLastOfferAvailableType ? (
                         <LastOfferAvailableIcon isUnread={!notif.isRead} />
+                      ) : isRegisteredType ? (
+                        <AuctionRegisteredIcon isUnread={!notif.isRead} />
                       ) : (
                         <div
                           className="nf-icon"
@@ -1084,7 +1250,6 @@ export const NotificationBell = () => {
                         ) : isMatchedType ? (
                           <FormattedMatchedMessage message={localMessage} />
                         ) : isVoucherType ? (
-                          // ↓ pass t and isRTL for full localization
                           <FormattedVoucherMessage
                             notif={notif}
                             t={t}
@@ -1092,6 +1257,12 @@ export const NotificationBell = () => {
                           />
                         ) : isLastOfferAvailableType ? (
                           <FormattedLastOfferAvailableMessage
+                            notif={notif}
+                            t={t}
+                            isRTL={isRTL}
+                          />
+                        ) : isRegisteredType ? (
+                          <FormattedRegistrationMessage
                             notif={notif}
                             t={t}
                             isRTL={isRTL}
@@ -1208,7 +1379,7 @@ const CSS = `
 .nf-head-left{display:flex;align-items:center;gap:8px;flex-wrap:nowrap;overflow:hidden;}
 .nf-head-title{font-family:'Jost',sans-serif;font-size:14px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#c9a96e;white-space:nowrap;flex-shrink:0;}
 .nf-new-pill{font-family:'Jost',sans-serif;font-size:10px;font-weight:900;letter-spacing:0.06em;color:#fff;background:linear-gradient(135deg,#ff3d5a,#c41e3a);border-radius:999px;padding:4px 10px;white-space:nowrap;flex-shrink:0;line-height:1;display:inline-flex;align-items:center;}
-.nf-markall{font-family:'Jost',sans-serif;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:rgba(201,169,110,0.55);background:none;border:none;cursor:pointer;padding:5px 10px;border-radius:8px;transition:all 0.2s;}
+.nf-markall{font-family:'Jost',sans-serif;font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:rgba(201,169,110,0.55);background:none;border:none;cursor:pointer;padding:5px 10px;border-radius:8px;transition:all 0.2s;}
 .nf-markall:hover{color:#c9a96e;background:rgba(201,169,110,0.09);}
 .nf-scroll{overflow-y:auto;flex:1;scrollbar-width:thin;scrollbar-color:rgba(201,169,110,0.18) transparent;}
 .nf-scroll::-webkit-scrollbar{width:3px;}
@@ -1222,8 +1393,11 @@ const CSS = `
 .nf-item.payment-confirmed{background:rgba(74,222,128,0.03);cursor:default;}
 .nf-item.voucher-item{cursor:default;}
 .nf-item.voucher-item.unread{background:rgba(201,169,110,0.04);}
+.nf-item.registered-item.unread{background:rgba(56,189,210,0.03);}
 .nf-unread-bar{position:absolute;left:0;top:12%;bottom:12%;width:3px;border-radius:0 3px 3px 0;background:linear-gradient(180deg,#c9a96e,#b8944e);box-shadow:0 0 8px rgba(201,169,110,0.65);}
 .nf-unread-bar.nf-unread-green{background:linear-gradient(180deg,#4ade80,#22c55e);box-shadow:0 0 8px rgba(74,222,128,0.65);}
+.nf-unread-bar.nf-unread-gold{background:linear-gradient(180deg,#c9a96e,#b8944e);box-shadow:0 0 10px rgba(201,169,110,0.7);}
+.nf-unread-bar.nf-unread-teal{background:linear-gradient(180deg,#38bdd2,#0e9ab5);box-shadow:0 0 10px rgba(56,189,210,0.65);}
 .nf-icon{width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;position:relative;}
 .nf-icon-pulse{position:absolute;bottom:-2px;right:-2px;width:9px;height:9px;border-radius:50%;border:2px solid #080d1a;animation:nfDotPulse 1.8s ease-in-out infinite;}
 .nf-body{flex:1;min-width:0;}

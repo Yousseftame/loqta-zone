@@ -1154,6 +1154,10 @@
     "lastOfferAvailable": {
       "title": "اخر عرض مفتوح — {{product}}",
       "titleGeneric": "اخر فرصه عرض "
+    },
+    "auctionRegistered":{
+      "title":"✔️ مسجّل · مزاد #{{num}}",
+      "goodLuck": "✦ بالتوفيق · انقر لعرض المزاد"
     }
   },
   "profilePage": {

@@ -1170,6 +1170,10 @@
     "lastOfferAvailable": {
       "title": "العرض الاخير مفتوح — {{product}}",
       "titleGeneric": "فرصه العرض الاخيره"
+    },
+    "auctionRegistered": {
+      "title": "✔️ Registered · Auction #{{num}}",
+      "goodLuck": "✦ Good luck · tap to view auction"
     }
   },
   "profilePage": {

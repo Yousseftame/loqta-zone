@@ -1,8 +1,7 @@
 /**
  * src/hooks/useNotifications.ts
  *
- * Updated: added "bid_selected" to NotificationType, and added productId
- * and productName fields to AppNotification for auction_matched type.
+ * Updated: added "auction_registered" to NotificationType.
  */
 
 import { useEffect, useState, useCallback } from "react";
@@ -32,7 +31,8 @@ export type NotificationType =
   | "bid_selected"
   | "payment_confirmed"
   | "voucher_created"
-  | "last_offer_available";   
+  | "last_offer_available"
+  | "auction_registered";
 
 
 export interface AppNotification {
@@ -46,10 +46,14 @@ export interface AppNotification {
   productId?: string;
   productName?: string;
   url?: string;
-  // ── new fields for last_offer_available ──
+  // ── last_offer_available fields ──
   productTitle?: string;
   winnerName?: string;
   winningBid?: number;
+  // ── auction_registered fields ──
+  auctionNumber?: number;
+  entryFee?: number;
+  entryType?: string;
   createdAt: Date;
 }
 
@@ -78,19 +82,22 @@ export function useNotifications() {
           snap.docs.map((d) => {
             const data = d.data();
             return {
-              id:          d.id,
-              type:        (data.type as NotificationType) ?? "promo",
-              title:       data.title       ?? "",
-              message:     data.message     ?? "",
-              isRead:      data.isRead      ?? false,
-              auctionId:   data.auctionId   ?? undefined,
-              requestId:   data.requestId   ?? undefined,
-              productId:   data.productId   ?? undefined,
-              productName: data.productName ?? undefined,
-              url: data.url ?? undefined,
-              productTitle: data.productTitle ?? undefined,   // ← NEW
-              winnerName:   data.winnerName   ?? undefined,   // ← NEW
-              winningBid:   data.winningBid   ?? undefined,   // ← NEW
+              id:            d.id,
+              type:          (data.type as NotificationType) ?? "promo",
+              title:         data.title         ?? "",
+              message:       data.message       ?? "",
+              isRead:        data.isRead        ?? false,
+              auctionId:     data.auctionId     ?? undefined,
+              requestId:     data.requestId     ?? undefined,
+              productId:     data.productId     ?? undefined,
+              productName:   data.productName   ?? undefined,
+              url:           data.url           ?? undefined,
+              productTitle:  data.productTitle  ?? undefined,
+              winnerName:    data.winnerName    ?? undefined,
+              winningBid:    data.winningBid    ?? undefined,
+              auctionNumber: data.auctionNumber ?? undefined,
+              entryFee:      data.entryFee      ?? undefined,
+              entryType:     data.entryType     ?? undefined,
               createdAt:
                 data.createdAt instanceof Timestamp
                   ? data.createdAt.toDate()
