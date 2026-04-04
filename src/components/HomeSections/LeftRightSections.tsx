@@ -366,12 +366,12 @@ function SlidePanel({
         }
 
         /* ── Progress bar ─────────────────────────────────────── */
-        .lrs-prog-track-${id} {
-          position: absolute;
-          bottom: 0; left: 0; right: 0; height: 2px;
-          background: rgba(255,255,255,0.12);
-          z-index: 20; pointer-events: none;
-        }
+        // .lrs-prog-track-${id} {
+        //   position: absolute;
+        //   bottom: 0; left: 0; right: 0; height: 2px;
+        //   background: rgba(255,255,255,0.12);
+        //   z-index: 20; pointer-events: none;
+        // }
         .lrs-prog-fill-${id} {
           height: 100%;
           background: rgba(255,255,255,0.75);
@@ -510,14 +510,14 @@ function SlidePanel({
         <div className={`lrs-edge-bottom-${id}`} />
 
         {/* Progress bar */}
-        {slides.length > 1 && (
+        {/* {slides.length > 1 && (
           <div className={`lrs-prog-track-${id}`}>
             <div
               className={`lrs-prog-fill-${id}`}
               style={{ width: progressWidth }}
             />
           </div>
-        )}
+        )} */}
 
         {/* Dots */}
         {slides.length > 1 && (
