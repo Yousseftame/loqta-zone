@@ -3,6 +3,10 @@
  *
  * Dialog for editing an existing admin's permissions after creation.
  * Opened from the AdminsList action buttons.
+ *
+ * FIX: Fetches the latest permissions directly from Firestore when the
+ * dialog opens, so the matrix always reflects the actual stored data
+ * rather than potentially-stale in-memory state.
  */
 
 import { useEffect, useState } from "react";
@@ -17,6 +21,8 @@ import {
   CircularProgress,
 } from "@mui/material";
 import { ShieldCheck } from "lucide-react";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/firebase/firebase";
 import { colors } from "../Products/products-data";
 import type { AppUser } from "./users-data";
 import { updateAdminPermissionsService } from "@/service/users/userService";
@@ -44,13 +50,51 @@ export default function EditAdminPermissions({
     normalizePermissions(null),
   );
   const [saving, setSaving] = useState(false);
+  const [loadingPerms, setLoadingPerms] = useState(false);
 
-  // Reset permissions whenever a new target is set
+  // Fetch the latest permissions from Firestore whenever the dialog opens
+  // for a new target. This guarantees the matrix shows the real stored data.
   useEffect(() => {
-    if (target) {
-      setPermissions(normalizePermissions(target.permissions));
+    if (!target || !open) return;
+
+    // If superAdmin, no need to fetch — they always have full access
+    if (target.role === "superAdmin") {
+      setPermissions(normalizePermissions(null));
+      return;
     }
-  }, [target]);
+
+    let cancelled = false;
+
+    async function fetchCurrentPermissions() {
+      setLoadingPerms(true);
+      try {
+        const snap = await getDoc(doc(db, "users", target!.id));
+        if (cancelled) return;
+        if (snap.exists()) {
+          const raw = snap.data()?.permissions ?? null;
+          setPermissions(normalizePermissions(raw));
+        } else {
+          setPermissions(normalizePermissions(null));
+        }
+      } catch (err) {
+        if (cancelled) return;
+        console.error(
+          "[EditAdminPermissions] Failed to fetch permissions:",
+          err,
+        );
+        // Fall back to whatever is in memory
+        setPermissions(normalizePermissions(target?.permissions));
+      } finally {
+        if (!cancelled) setLoadingPerms(false);
+      }
+    }
+
+    fetchCurrentPermissions();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [target?.id, open]); // re-run when a different admin is opened
 
   const handleSave = async () => {
     if (!target) return;
@@ -137,13 +181,33 @@ export default function EditAdminPermissions({
               </Box>
             </Box>
 
-            {/* Permissions matrix */}
-            <PermissionsMatrix
-              role={target.role as "admin" | "superAdmin"}
-              value={permissions}
-              onChange={setPermissions}
-              disabled={saving || isSuperAdmin}
-            />
+            {/* Loading state while fetching permissions */}
+            {loadingPerms ? (
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  py: 4,
+                  gap: 1.5,
+                }}
+              >
+                <CircularProgress size={20} sx={{ color: colors.primary }} />
+                <span
+                  style={{ fontSize: "0.875rem", color: colors.textSecondary }}
+                >
+                  Loading current permissions…
+                </span>
+              </Box>
+            ) : (
+              /* Permissions matrix */
+              <PermissionsMatrix
+                role={target.role as "admin" | "superAdmin"}
+                value={permissions}
+                onChange={setPermissions}
+                disabled={saving || isSuperAdmin}
+              />
+            )}
           </Box>
         )}
       </DialogContent>
@@ -164,7 +228,7 @@ export default function EditAdminPermissions({
         </Button>
         <Button
           onClick={handleSave}
-          disabled={saving || isSuperAdmin}
+          disabled={saving || isSuperAdmin || loadingPerms}
           variant="contained"
           startIcon={
             saving ? (
