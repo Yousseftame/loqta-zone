@@ -37,7 +37,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   // Authenticated but wrong role → show unauthorized
   if (allowedRoles && role && !allowedRoles.includes(role)) {
     if (role === "user") return <Navigate to="/" replace />;
-    return <Navigate to="/admin" replace />;
+    return <Navigate to="/admin/hero-slides" replace />;
   }
 
   return <>{children}</>;

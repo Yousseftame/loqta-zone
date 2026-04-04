@@ -125,8 +125,14 @@ export const routes = createBrowserRouter([
     errorElement: <NotFound />,
     children: [
       // Dashboard — always accessible to any admin
-      { index: true, element: <Dashboard /> },
-
+      {
+        index: true,
+        element: (
+          <ProtectedRoute allowedRoles={["superAdmin"]}>
+            <Dashboard />
+          </ProtectedRoute>
+        ),
+      },
       // ── Hero Slide ───────────────────────────────────────────────────────
 
       { path: "/admin/hero-slides", element: <HeroSlidesList /> },
