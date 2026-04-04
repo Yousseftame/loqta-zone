@@ -18,6 +18,8 @@ import { BidProvider } from './store/AdminContext/Bidcontext/Bidcontext.tsx';
 import { ParticipantProvider } from './store/AdminContext/Participantcontext/Participantcontext.tsx';
 import { LastOfferProvider } from './store/AdminContext/LastOfferContext/LastOfferContext.tsx';
 import { HeroSlideProvider } from './store/AdminContext/HeroSlideContext/HeroSlideContext.tsx';
+import { LeftSectionProvider } from './store/AdminContext/LeftSectionContext/LeftSectionContext.tsx';
+import { RightSectionProvider } from './store/AdminContext/RightSectionContext/RightSectionContext.tsx';
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -40,8 +42,12 @@ createRoot(document.getElementById("root")!).render(
                       <ParticipantProvider>
                         <LastOfferProvider>
                           <HeroSlideProvider>
-                            <App />
-                            </HeroSlideProvider>
+                            <LeftSectionProvider>
+                              <RightSectionProvider>
+                                <App />
+                              </RightSectionProvider>
+                            </LeftSectionProvider>
+                          </HeroSlideProvider>
                         </LastOfferProvider>
                       </ParticipantProvider>
                     </BidProvider>

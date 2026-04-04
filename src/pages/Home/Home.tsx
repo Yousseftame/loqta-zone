@@ -20,6 +20,7 @@ import AuctionsSection from "@/components/shared/Auctionssection";
 import AuctionRequestSection from "@/components/shared/Auctionrequestsection";
 import { useTranslation } from "react-i18next";
 import LiveAuctionsSection from "@/components/shared/LiveAuctionssection";
+import LeftRightSections from "@/components/HomeSections/LeftRightSections";
 
 export default function Home() {
 
@@ -28,11 +29,10 @@ export default function Home() {
 
   return (
     <>
-  
       <HeroSections />
+      <LeftRightSections />
 
-    
-      <LiveAuctionsSection/>
+      <LiveAuctionsSection />
       <AuctionSwiper />
       <StatsSection />
       <AuctionsSection />

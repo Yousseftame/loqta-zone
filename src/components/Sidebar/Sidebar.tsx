@@ -10,7 +10,15 @@ import AttachEmailIcon from "@mui/icons-material/AttachEmail";
 import LocalOfferIcon from "@mui/icons-material/LocalOffer";
 import AddCardIcon from "@mui/icons-material/AddCard";
 import LocalActivityIcon from "@mui/icons-material/LocalActivity";
-import { ChevronLeft, ChevronRight, Images, Menu, X } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Images,
+  Menu,
+  X,
+  PanelLeft,
+  PanelRight,
+} from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { signOut } from "firebase/auth";
 import { auth } from "@/firebase/firebase";
@@ -323,8 +331,6 @@ function LogoutModal({
 // ── Sidebar ───────────────────────────────────────────────────────────────────
 
 const Sidebar = () => {
-  // On mobile: sidebar is hidden by default (mobileOpen=false)
-  // On desktop: sidebar respects the collapsed state
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -372,7 +378,20 @@ const Sidebar = () => {
       path: "/admin/hero-slides",
       roles: ["admin", "superAdmin"],
     },
-
+    {
+      id: "Left Section",
+      label: "Left Section",
+      icon: PanelLeft,
+      path: "/admin/left-section",
+      roles: ["admin", "superAdmin"],
+    },
+    {
+      id: "Right Section",
+      label: "Right Section",
+      icon: PanelRight,
+      path: "/admin/right-section",
+      roles: ["admin", "superAdmin"],
+    },
     {
       id: "Category",
       label: "Category",
@@ -606,7 +625,6 @@ const Sidebar = () => {
             collapsed ? "justify-center px-0" : "px-3"
           }`}
         >
-          {/* Globe icon */}
           <div className="flex-shrink-0 text-gray-400 group-hover:text-[#2A4863] transition-all duration-300">
             <svg
               width="20"
@@ -624,7 +642,6 @@ const Sidebar = () => {
             </svg>
           </div>
 
-          {/* Label + subtitle */}
           <div
             className={`overflow-hidden whitespace-nowrap transition-all duration-500 ease-in-out ${
               collapsed
@@ -640,7 +657,6 @@ const Sidebar = () => {
             </p>
           </div>
 
-          {/* External link indicator (only when expanded) */}
           {!collapsed && (
             <div className="ml-auto flex-shrink-0 text-gray-300 group-hover:text-[#4A90BE] transition-all duration-300">
               <svg
@@ -660,7 +676,6 @@ const Sidebar = () => {
             </div>
           )}
 
-          {/* Collapsed tooltip */}
           {collapsed && (
             <span className="absolute left-16 z-50 bg-[#1E40AF] text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-md">
               Go back to website
@@ -702,7 +717,7 @@ const Sidebar = () => {
         />
       )}
 
-      {/* ── Mobile hamburger button (visible only on small screens) ── */}
+      {/* ── Mobile hamburger button ── */}
       <button
         onClick={() => setMobileOpen(true)}
         className="md:hidden fixed top-3 left-3 z-40 bg-white border border-[#2A4863] rounded-xl p-2.5 shadow-md text-[#2A4863]"
@@ -719,13 +734,12 @@ const Sidebar = () => {
         />
       )}
 
-      {/* ── Mobile drawer (slides in from left) ── */}
+      {/* ── Mobile drawer ── */}
       <div
         className={`md:hidden fixed top-0 left-0 z-50 h-full w-72 bg-white border-r border-[#E2E8F0] shadow-xl transition-transform duration-300 ease-in-out ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        {/* Close button inside drawer */}
         <button
           onClick={() => setMobileOpen(false)}
           className="absolute top-4 right-4 z-10 bg-[#F1F5F9] hover:bg-[#E2E8F0] rounded-lg p-1.5 text-[#64748B] transition-colors"
@@ -736,7 +750,7 @@ const Sidebar = () => {
         <SidebarContent />
       </div>
 
-      {/* ── Desktop sidebar (always visible, collapsible) ── */}
+      {/* ── Desktop sidebar ── */}
       <div
         className={`hidden md:block relative bg-white border-r border-[#E2E8F0] shadow-sm transition-all duration-500 ease-in-out flex-shrink-0 ${
           collapsed ? "w-20" : "w-72"

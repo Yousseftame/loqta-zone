@@ -17,6 +17,11 @@ const Dashboard = lazy(() => import("@/pages/Admin/Dashboard/Dashboard"));
 const HeroSlidesList = lazy(
   () => import("@/pages/Admin/HeroSlide/HeroSlidesList"),
 );
+const LeftSectionList = lazy(
+  () => import("@/pages/Admin/LeftSection/LeftSectionList"),
+);const RightSectionList = lazy(
+  () => import("@/pages/Admin/RightSection/RightSectionList"),
+);
 const AuctionForm = lazy(() => import("@/pages/Admin/Auctions/AuctionForm"));
 const AuctionsList = lazy(() => import("@/pages/Admin/Auctions/AuctionsList"));
 const AuctionView = lazy(() => import("@/pages/Admin/Auctions/AuctionView"));
@@ -125,6 +130,9 @@ export const routes = createBrowserRouter([
       // ── Hero Slide ───────────────────────────────────────────────────────
 
       { path: "/admin/hero-slides", element: <HeroSlidesList /> },
+
+      { path: "/admin/left-section", element: <LeftSectionList /> },
+      { path: "/admin/right-section", element: <RightSectionList /> },
 
       // ── Categories ───────────────────────────────────────────────────────
       {
