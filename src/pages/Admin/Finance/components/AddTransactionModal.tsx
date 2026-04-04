@@ -1,18 +1,13 @@
 /**
  * src/pages/Admin/Finance/components/AddTransactionModal.tsx
  *
- * Modal form to add a new income, expense, owner withdrawal, or transfer transaction.
- *
- * ─── Transfer tab ────────────────────────────────────────────────────────────
- * Selecting "Transfer" creates a transaction with type="transfer".
- * The `method` field = source balance (cash/bank).
- * The `transferTo` field = destination balance (the opposite of source).
- * The Cloud Function handles debiting the source and crediting the destination.
- * Transfers do NOT affect totalIncome, totalExpenses, ownerBalance, or any monthly arrays.
- * Net effect on available balance = zero.
+ * Updated: accepts an optional `initialValues` prop so the modal can be
+ * pre-filled from outside (e.g. after adding a product with a cost price).
+ * When `initialValues` changes while the modal is closed, the form resets
+ * to those values the next time it opens.
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -44,7 +39,7 @@ import {
 
 const DEFAULT_CATEGORY_BY_TYPE: Record<TransactionType, TransactionCategory> = {
   income: "auction_revenue",
-  expense: "other",
+  expense: "products", // ← default to "products" for expense (most common from product form)
   owner_withdrawal: "owner_draw",
   transfer: "cash_to_bank",
 };
@@ -117,6 +112,8 @@ interface Props {
   adding: boolean;
   onClose: () => void;
   onSubmit: (values: TransactionFormValues) => Promise<void>;
+  /** Optional pre-fill: when provided, the modal opens with these values loaded */
+  initialValues?: Partial<TransactionFormValues>;
 }
 
 // ─── Helper: derive transferTo and category from method for transfers ─────────
@@ -131,6 +128,20 @@ function deriveTransferFields(method: PaymentMethod): {
   return { transferTo: "cash", category: "bank_to_cash" };
 }
 
+/** Merge EMPTY defaults with any provided initialValues */
+function buildInitialForm(
+  init?: Partial<TransactionFormValues>,
+): TransactionFormValues {
+  if (!init) return EMPTY;
+  return {
+    ...EMPTY,
+    ...init,
+    // Ensure transferTo is set correctly for transfer type
+    transferTo:
+      init.type === "transfer" ? (init.transferTo ?? "bank") : EMPTY.transferTo,
+  };
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function AddTransactionModal({
@@ -138,9 +149,30 @@ export default function AddTransactionModal({
   adding,
   onClose,
   onSubmit,
+  initialValues,
 }: Props) {
-  const [form, setForm] = useState<TransactionFormValues>(EMPTY);
+  const [form, setForm] = useState<TransactionFormValues>(
+    buildInitialForm(initialValues),
+  );
   const [error, setError] = useState<string | null>(null);
+
+  // Re-initialise the form whenever initialValues changes (e.g. product was saved)
+  // Only applies when modal is closed so we don't reset a half-filled form
+  useEffect(() => {
+    if (!open) {
+      setForm(buildInitialForm(initialValues));
+      setError(null);
+    }
+  }, [initialValues, open]);
+
+  // Also reset when modal opens fresh with new initialValues
+  useEffect(() => {
+    if (open) {
+      setForm(buildInitialForm(initialValues));
+      setError(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const isTransfer = form.type === "transfer";
   const isOwner = form.type === "owner_withdrawal";
@@ -162,7 +194,6 @@ export default function AddTransactionModal({
 
   const handleTypeChange = (newType: TransactionType) => {
     if (newType === "transfer") {
-      // For transfers, auto-set method=cash, transferTo=bank, category=cash_to_bank
       setForm((p) => ({
         ...p,
         type: "transfer",
@@ -180,7 +211,6 @@ export default function AddTransactionModal({
     }
   };
 
-  // When source changes on a transfer, auto-update destination and category
   const handleTransferSourceChange = (source: PaymentMethod) => {
     const { transferTo, category } = deriveTransferFields(source);
     setForm((p) => ({
@@ -199,7 +229,6 @@ export default function AddTransactionModal({
       return;
     }
 
-    // Extra validation for transfers
     if (isTransfer && form.method === form.transferTo) {
       setError("Source and destination must be different.");
       return;
@@ -223,6 +252,9 @@ export default function AddTransactionModal({
 
   const tabCfg = TAB_CONFIG[form.type];
 
+  // Whether the modal was opened with a pre-fill (shows a helpful banner)
+  const hasPrefill = !!initialValues && Object.keys(initialValues).length > 0;
+
   return (
     <Dialog
       open={open}
@@ -243,7 +275,7 @@ export default function AddTransactionModal({
           pb: 2,
         }}
       >
-        Add Transaction
+        {hasPrefill ? "Log Product Expense" : "Add Transaction"}
       </DialogTitle>
 
       {/* ── Body ── */}
@@ -255,13 +287,32 @@ export default function AddTransactionModal({
           gap: 2.5,
         }}
       >
+        {/* Pre-fill context banner */}
+        {hasPrefill && (
+          <Box
+            sx={{
+              p: 1.5,
+              bgcolor: "#FEF3C7",
+              border: "1px solid #FDE68A",
+              borderRadius: 2,
+              fontSize: "0.78rem",
+              color: "#78350F",
+              lineHeight: 1.5,
+            }}
+          >
+            💡 The cost price from your new product has been pre-filled below.
+            Review the details and click <strong>Save</strong> to log it as a
+            product expense.
+          </Box>
+        )}
+
         {error && (
           <Alert severity="error" sx={{ borderRadius: 2, fontSize: "0.8rem" }}>
             {error}
           </Alert>
         )}
 
-        {/* ── Type toggle: Income / Expense / Owner / Transfer ── */}
+        {/* ── Type toggle ── */}
         <Box>
           <label
             style={{
@@ -296,7 +347,6 @@ export default function AddTransactionModal({
                 },
               }}
             >
-              {/* Income */}
               <ToggleButton
                 value="income"
                 sx={{
@@ -310,7 +360,6 @@ export default function AddTransactionModal({
                 📈 Income
               </ToggleButton>
 
-              {/* Expense */}
               <ToggleButton
                 value="expense"
                 sx={{
@@ -324,7 +373,6 @@ export default function AddTransactionModal({
                 📉 Expense
               </ToggleButton>
 
-              {/* Owner Withdrawal */}
               <ToggleButton
                 value="owner_withdrawal"
                 sx={{
@@ -338,7 +386,6 @@ export default function AddTransactionModal({
                 👤 Owner
               </ToggleButton>
 
-              {/* Transfer */}
               <ToggleButton
                 value="transfer"
                 sx={{
@@ -354,7 +401,6 @@ export default function AddTransactionModal({
             </ToggleButtonGroup>
           </Box>
 
-          {/* Owner Withdrawal explanation */}
           {isOwner && (
             <Box
               sx={{
@@ -369,13 +415,11 @@ export default function AddTransactionModal({
               }}
             >
               💡 <strong>Owner Withdrawal</strong> transfers business money to
-              the owner. It reduces Cash or Bank balance (choose below) and is
-              tracked separately from operating expenses, it does <em>not</em>{" "}
-              count as a business expense.
+              the owner. It reduces Cash or Bank balance and is tracked
+              separately from operating expenses.
             </Box>
           )}
 
-          {/* Transfer explanation */}
           {isTransfer && (
             <Box
               sx={{
@@ -389,9 +433,8 @@ export default function AddTransactionModal({
                 lineHeight: 1.5,
               }}
             >
-              🔄 <strong>Transfer</strong> moves money between Cash and Bank. It
-              does <em>not</em> affect your total income, expenses, or owner
-              balance. Your available balance stays the same.
+              🔄 <strong>Transfer</strong> moves money between Cash and Bank.
+              Your available balance stays the same.
             </Box>
           )}
         </Box>
@@ -408,10 +451,9 @@ export default function AddTransactionModal({
           sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
         />
 
-        {/* ── Transfer: Source + Destination (visual flow) ── */}
+        {/* ── Transfer source/destination ── */}
         {isTransfer ? (
           <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-            {/* Source */}
             <TextField
               label="From (source)"
               select
@@ -428,7 +470,6 @@ export default function AddTransactionModal({
               <MenuItem value="bank">🏦 Bank</MenuItem>
             </TextField>
 
-            {/* Arrow indicator */}
             <Box
               sx={{
                 display: "flex",
@@ -439,12 +480,7 @@ export default function AddTransactionModal({
               }}
             >
               <Box
-                sx={{
-                  height: 1,
-                  flex: 1,
-                  bgcolor: "#DDD6FE",
-                  borderRadius: 1,
-                }}
+                sx={{ height: 1, flex: 1, bgcolor: "#DDD6FE", borderRadius: 1 }}
               />
               <Box
                 sx={{
@@ -462,16 +498,10 @@ export default function AddTransactionModal({
                 🔄 Transfer to
               </Box>
               <Box
-                sx={{
-                  height: 1,
-                  flex: 1,
-                  bgcolor: "#DDD6FE",
-                  borderRadius: 1,
-                }}
+                sx={{ height: 1, flex: 1, bgcolor: "#DDD6FE", borderRadius: 1 }}
               />
             </Box>
 
-            {/* Destination (read-only — always opposite of source) */}
             <TextField
               label="To (destination)"
               size="small"
@@ -488,7 +518,6 @@ export default function AddTransactionModal({
             />
           </Box>
         ) : (
-          /* ── Method (cash / bank) for non-transfer types ── */
           <TextField
             label={isOwner ? "Source (debit from)" : "Payment Method"}
             select
@@ -506,7 +535,7 @@ export default function AddTransactionModal({
           </TextField>
         )}
 
-        {/* ── Category (hidden for transfers — auto-set) ── */}
+        {/* ── Category ── */}
         {!isTransfer && (
           <TextField
             label="Category"
@@ -559,7 +588,7 @@ export default function AddTransactionModal({
             fontWeight: 600,
           }}
         >
-          Cancel
+          {hasPrefill ? "Skip" : "Cancel"}
         </Button>
         <Button
           variant="contained"

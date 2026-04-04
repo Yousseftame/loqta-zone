@@ -35,20 +35,25 @@ import {
   RefreshCw,
   CheckCircle2,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { type Product, colors, getAvatarColor } from "./products-data";
 import { useProducts } from "@/store/AdminContext/ProductContext/ProductsCotnext";
 import { useCategories } from "@/store/AdminContext/CategoryContext/CategoryContext";
 import { usePermissions } from "@/permissions/usePermissions";
-
+import { useAuth } from "@/store/AuthContext/AuthContext";
+import { useFinance } from "@/hooks/useFinance";
+import AddTransactionModal from "../Finance/components/AddTransactionModal";
+import type { TransactionFormValues } from "../Finance/finance-data";
 
 export default function ProductsList() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { user } = useAuth();
   const { products, loading, error, refreshProducts, removeProduct } =
     useProducts();
   const { categories } = useCategories();
-    const { can } = usePermissions();
-
+  const { can } = usePermissions();
+  const { adding, addTransaction } = useFinance();
 
   const [filtered, setFiltered] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -58,12 +63,31 @@ export default function ProductsList() {
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [loadingDelete, setLoadingDelete] = useState(false);
 
+  // ── Expense modal state ────────────────────────────────────────────────────
+  const [expenseModalOpen, setExpenseModalOpen] = useState(false);
+  const [expensePrefill, setExpensePrefill] = useState<
+    Partial<TransactionFormValues> | undefined
+  >(undefined);
+
+  // ── On mount: check if we navigated here with a prefill request ────────────
+  useEffect(() => {
+    const state = location.state as {
+      openExpenseModal?: boolean;
+      expensePrefill?: Partial<TransactionFormValues>;
+    } | null;
+
+    if (state?.openExpenseModal) {
+      setExpensePrefill(state.expensePrefill);
+      setExpenseModalOpen(true);
+      // Clear the state so a page refresh doesn't re-open the modal
+      window.history.replaceState({}, "", location.pathname);
+    }
+  }, []); // intentionally empty — only runs once on mount
+
   // ── Helper: resolve category ID → display name ────────────────────────────
   const getCategoryName = (categoryId: string): string => {
     if (!categoryId) return "—";
     const found = categories.find((c) => c.id === categoryId);
-    // If found by ID, show the EN name; otherwise fall back to the raw value
-    // (handles legacy products that stored name instead of ID)
     return found ? found.name.en : categoryId;
   };
 
@@ -97,6 +121,18 @@ export default function ProductsList() {
     } finally {
       setLoadingDelete(false);
     }
+  };
+
+  // ── Expense modal submit ───────────────────────────────────────────────────
+  const handleExpenseSubmit = async (values: TransactionFormValues) => {
+    await addTransaction(values, user?.uid ?? "", user?.displayName ?? "Admin");
+    setExpenseModalOpen(false);
+    setExpensePrefill(undefined);
+  };
+
+  const handleExpenseModalClose = () => {
+    setExpenseModalOpen(false);
+    setExpensePrefill(undefined);
   };
 
   const activeCount = products.filter((p) => p.isActive).length;
@@ -516,7 +552,7 @@ export default function ProductsList() {
                       </p>
                     </TableCell>
 
-                    {/* Category — resolved from ID to name */}
+                    {/* Category */}
                     <TableCell sx={{ minWidth: 120 }}>
                       <span
                         style={{
@@ -741,6 +777,15 @@ export default function ProductsList() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* ── Expense Modal (auto-opens after product creation with a cost price) ── */}
+      <AddTransactionModal
+        open={expenseModalOpen}
+        adding={adding}
+        onClose={handleExpenseModalClose}
+        onSubmit={handleExpenseSubmit}
+        initialValues={expensePrefill}
+      />
     </Box>
   );
 }

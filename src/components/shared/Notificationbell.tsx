@@ -127,16 +127,18 @@ function getLocalizedNotif(
         message: notif.message,
       };
     }
-    case "auction_ended": {
-      const num = (data.auctionNumber ?? 0) as number;
-      const product = (data.productTitle ?? "") as string;
-      return {
-        title: t("notifications.auctionEnded.title", { num }),
-        message: product
-          ? t("notifications.auctionEnded.message", { product, num })
-          : t("notifications.auctionEnded.messageGeneric", { num }),
-      };
-    }
+      case "auction_ended": {
+        const num     = (data.auctionNumber ?? 0) as number;
+        const product = (data.productTitle ?? "") as string;
+        return {
+          title: product
+            ? t("notifications.auctionEnded.titleProduct", { product })
+            : t("notifications.auctionEnded.title", { num }),
+          message: product
+            ? t("notifications.auctionEnded.message", { product, num })
+            : t("notifications.auctionEnded.messageGeneric", { num }),
+        };
+      }
     default:
       return { title: notif.title, message: notif.message };
   }
@@ -826,47 +828,33 @@ function FormattedAuctionEndedMessage({
   isRTL: boolean;
 }) {
   const data = notif as any;
-  const productTitle = (data.productTitle ?? "") as string;
   const auctionNum = (data.auctionNumber ?? 0) as number;
+  const productTitle = (data.productTitle ?? "") as string;
+
+  // Re-derive the localized message the same way getLocalizedNotif does,
+  // so we always show the freshly-translated string (not the raw English
+  // stored in Firestore).
+  const localMessage = productTitle
+    ? t("notifications.auctionEnded.message", {
+        product: productTitle,
+        num: auctionNum,
+      })
+    : t("notifications.auctionEnded.messageGeneric", { num: auctionNum });
 
   return (
     <div
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: 5,
+        gap: 6,
         marginBottom: 4,
         direction: isRTL ? "rtl" : "ltr",
       }}
     >
-      {/* Product name + auction number */}
-      {productTitle && (
-        <p
-          style={{
-            fontFamily: "'Jost',sans-serif",
-            fontSize: "12.5px",
-            fontWeight: 500,
-            color: "rgba(229,224,198,0.62)",
-            margin: 0,
-            lineHeight: 1.4,
-          }}
-        >
-          {productTitle}
-          {auctionNum > 0 && (
-            <span
-              style={{
-                color: "rgba(201,169,110,0.38)",
-                fontWeight: 600,
-                marginLeft: isRTL ? 0 : 6,
-                marginRight: isRTL ? 6 : 0,
-                fontSize: "11px",
-              }}
-            >
-              · #{auctionNum}
-            </span>
-          )}
-        </p>
-      )}
+      {/* Plain message text — no box, just like a normal notification body */}
+      <p className="nf-item-msg" style={{ marginBottom: 0 }}>
+        {localMessage}
+      </p>
 
       {/* Warm farewell pill */}
       <div
@@ -878,7 +866,6 @@ function FormattedAuctionEndedMessage({
           border: "1px solid rgba(201,169,110,0.16)",
           borderRadius: 6,
           padding: "4px 10px",
-          marginTop: 2,
           alignSelf: "flex-start",
         }}
       >

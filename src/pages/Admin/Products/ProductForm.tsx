@@ -53,17 +53,12 @@ const selectSx = {
   },
 };
 
-// ── Numeric-only input helper ─────────────────────────────────────────────────
-// Accepts digits and a single decimal point only.
-// Using type="text" avoids the browser stepper + mid-keystroke onChange bug
-// that type="number" has (e.g. typing "8000" could fire as "800" then "8000").
 const numericProps = {
   inputMode: "decimal" as const,
   pattern: "[0-9]*\\.?[0-9]*",
 };
 
 function sanitizeNumeric(val: string): string {
-  // Allow digits and at most one decimal point
   const cleaned = val.replace(/[^0-9.]/g, "");
   const parts = cleaned.split(".");
   if (parts.length > 2) return parts[0] + "." + parts.slice(1).join("");
@@ -88,7 +83,6 @@ export default function ProductForm() {
 
   const activeCategories = categories.filter((c) => c.isActive);
 
-  // ── Pre-fill on edit ──────────────────────────────────────────────────────
   useEffect(() => {
     if (!isEdit || !id) return;
     (async () => {
@@ -121,14 +115,12 @@ export default function ProductForm() {
     setErrors((e) => ({ ...e, [key]: "" }));
   };
 
-  // Numeric field handler — strips non-numeric characters on every keystroke
   const numField =
     (key: "price" | "actualPrice" | "quantity") =>
     (e: React.ChangeEvent<HTMLInputElement>) => {
       field(key, sanitizeNumeric(e.target.value));
     };
 
-  // ── Features ─────────────────────────────────────────────────────────────
   const addFeature = () => {
     const v = newFeature.trim();
     if (!v) return;
@@ -142,7 +134,6 @@ export default function ProductForm() {
       form.features.filter((_, idx) => idx !== i),
     );
 
-  // ── Images ───────────────────────────────────────────────────────────────
   const handleImageFiles = (files: FileList | null) => {
     if (!files) return;
     const newFiles = Array.from(files);
@@ -174,7 +165,6 @@ export default function ProductForm() {
     }));
   };
 
-  // ── Validation ────────────────────────────────────────────────────────────
   const validate = () => {
     const e: Record<string, string> = {};
     if (!form.title.trim()) e.title = "Title is required";
@@ -187,7 +177,6 @@ export default function ProductForm() {
     if (!form.price.trim() || isNaN(priceVal) || priceVal < 0)
       e.price = "Enter a valid starting price";
 
-    // actualPrice is optional — only validate if something was entered
     if (form.actualPrice.trim() !== "") {
       const apVal = Number(form.actualPrice.trim());
       if (isNaN(apVal) || apVal < 0) e.actualPrice = "Enter a valid cost price";
@@ -200,7 +189,6 @@ export default function ProductForm() {
     return e;
   };
 
-  // ── Save ─────────────────────────────────────────────────────────────────
   const handleSave = async () => {
     const e = validate();
     if (Object.keys(e).length) {
@@ -210,11 +198,33 @@ export default function ProductForm() {
     setSaving(true);
     try {
       if (isEdit && id) {
+        // Edit path — just navigate back, no expense prompt
         await editProduct(id, form, originalImages);
+        navigate("/admin/Products");
       } else {
+        // Add path — after success, navigate to ProductsList with prefill state
+        // so AddTransactionModal opens automatically
         await addProduct(form);
+
+        const costPrice = Number(form.actualPrice.trim());
+        if (costPrice > 0) {
+          // Pass the prefill data via location state; ProductsList reads it on mount
+          navigate("/admin/Products", {
+            state: {
+              openExpenseModal: true,
+              expensePrefill: {
+                type: "expense" as const,
+                amount: String(costPrice),
+                method: "cash" as const,
+                category: "products" as const,
+                note: `Cost price for product: ${form.title.trim()}`,
+              },
+            },
+          });
+        } else {
+          navigate("/admin/Products");
+        }
       }
-      navigate("/admin/Products");
     } catch {
       // toast already shown in context/service
     } finally {
@@ -434,7 +444,7 @@ export default function ProductForm() {
             </FormControl>
           </Box>
 
-          {/* Row 3 — starting Price + Cost Price (actualPrice) */}
+          {/* Row 3 — Starting Price + Cost Price */}
           <Box
             sx={{
               display: "grid",
@@ -442,7 +452,6 @@ export default function ProductForm() {
               gap: 2.5,
             }}
           >
-            {/* starting price — visible to users */}
             <TextField
               label="Starting Price (EGP) *"
               size="small"
@@ -466,7 +475,6 @@ export default function ProductForm() {
               sx={inputSx}
             />
 
-            {/* Cost / actual price — admin panel only */}
             <TextField
               label="Cost Price (EGP) — Admin only"
               size="small"
@@ -475,7 +483,8 @@ export default function ProductForm() {
               onChange={numField("actualPrice")}
               error={!!errors.actualPrice}
               helperText={
-                errors.actualPrice || "Price you paid for this product"
+                errors.actualPrice ||
+                "Price you paid · will prompt an expense entry"
               }
               inputProps={numericProps}
               InputProps={{
@@ -666,7 +675,6 @@ export default function ProductForm() {
               Images
             </p>
 
-            {/* Existing images */}
             {form.existingImages.length > 0 && (
               <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.5, mb: 2 }}>
                 {form.existingImages.map((url) => (
@@ -729,7 +737,6 @@ export default function ProductForm() {
               </Box>
             )}
 
-            {/* New image previews */}
             {newImagePreviews.length > 0 && (
               <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.5, mb: 2 }}>
                 {newImagePreviews.map((previewUrl, i) => (
@@ -775,7 +782,6 @@ export default function ProductForm() {
               </Box>
             )}
 
-            {/* Drop zone */}
             <Box
               onClick={() => fileInputRef.current?.click()}
               sx={{
@@ -833,7 +839,6 @@ export default function ProductForm() {
               />
             </Box>
 
-            {/* Thumbnail selector */}
             {form.existingImages.length > 1 && (
               <Box sx={{ mt: 2 }}>
                 <p
@@ -904,7 +909,13 @@ export default function ProductForm() {
                 ? "Any changes you make here will be saved and reflected immediately across the platform."
                 : "Once you submit, the product will be live and visible based on its active status."}{" "}
               The <strong>Cost Price</strong> is only visible to admins and will
-              never be shown to users.
+              never be shown to users.{" "}
+              {!isEdit && (
+                <strong>
+                  If a cost price is set, you'll be prompted to log it as a
+                  product expense automatically.
+                </strong>
+              )}
             </p>
           </Box>
         </Box>

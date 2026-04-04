@@ -1176,7 +1176,7 @@
       "goodLuck": "✦ Good luck · tap to view auction" 
     },
     "auctionEnded": {
-      "title": "Auction #{{num}} Has Ended",
+      "titleProduct": "{{product}} Has Ended",
       "message": "Thank you for joining the auction for \"{{product}}\" (#{{num}}). Hope to see you at our next one! 🎉",
       "messageGeneric": "Thank you for participating in Auction #{{num}}. Hope to see you at our next one! 🎉",
       "seeYouSoon": "✦ See you at the next auction →"
