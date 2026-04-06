@@ -96,10 +96,10 @@ const q = query(
               new Date(a.endsAt).getTime() - new Date(b.endsAt).getTime(),
           );
 
-        console.log(
-          "sorted auctions:",
-          sorted.map((a) => ({ title: a.title, endsAt: a.endsAt })),
-        );
+        // console.log(
+        //   "sorted auctions:",
+        //   sorted.map((a) => ({ title: a.title, endsAt: a.endsAt })),
+        // );
         setAuctions(sorted);
         // Replace the entire setAuctions call:
 setAuctions(
