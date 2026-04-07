@@ -66,19 +66,26 @@ function docToLog(id: string, data: Record<string, any>): AuditLog {
 
 // ─── WRITE (fire-and-forget) ──────────────────────────────────────────────────
 
+
+function stripUndefined(obj: Record<string, any>): Record<string, any> {
+  return Object.fromEntries(
+    Object.entries(obj).filter(([, v]) => v !== undefined)
+  );
+}
+
+
 export async function writeAuditLog(
   payload: CreateAuditLogPayload,
 ): Promise<void> {
   try {
-    await addDoc(collection(db, COLLECTION), {
+    const doc = stripUndefined({
       ...payload,
-      // Ensure category and status are always filled from maps if not provided
       category: payload.category ?? ACTION_CATEGORY_MAP[payload.action] ?? "system",
       status:   payload.status   ?? ACTION_STATUS_MAP[payload.action]   ?? "info",
       timestamp: Timestamp.now(),
     });
+    await addDoc(collection(db, COLLECTION), doc);
   } catch (err) {
-    // Non-fatal — audit log write failure should NEVER break user flows
     console.warn("[AuditLog] Write failed (non-fatal):", err);
   }
 }

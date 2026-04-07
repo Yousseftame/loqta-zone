@@ -448,17 +448,18 @@ function SuccessState({
         </p>
       </div>
 
+      {/* ── Stepper — fixed for mobile ── */}
       <div
         style={{
           display: "flex",
           alignItems: "center",
-          gap: 0,
           background: "rgba(255,255,255,0.025)",
           border: "1px solid rgba(229,224,198,0.08)",
           borderRadius: 14,
-          padding: "16px 24px",
+          padding: "16px 8px",
           width: "100%",
           maxWidth: 380,
+          boxSizing: "border-box",
         }}
       >
         {[
@@ -467,7 +468,14 @@ function SuccessState({
           { labelKey: "success.stepMatched", done: false },
         ].map((step, i, arr) => (
           <React.Fragment key={step.labelKey}>
-            <div style={{ textAlign: "center", flex: 1 }}>
+            <div
+              style={{
+                textAlign: "center",
+                flex: 1,
+                minWidth: 0,
+                padding: "0 2px",
+              }}
+            >
               <div
                 style={{
                   width: 28,
@@ -481,6 +489,7 @@ function SuccessState({
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
+                  flexShrink: 0,
                   fontSize: step.done ? 14 : 12,
                   color: step.done ? "#0a0a1a" : "rgba(229,224,198,0.25)",
                   fontWeight: 800,
@@ -490,11 +499,13 @@ function SuccessState({
               </div>
               <div
                 style={{
-                  fontSize: 13,
+                  fontSize: "clamp(8px, 2.2vw, 11px)",
                   fontWeight: 700,
-                  letterSpacing: "0.1em",
+                  letterSpacing: "0.05em",
                   textTransform: "uppercase",
                   color: step.done ? GOLD : "rgba(229,224,198,0.7)",
+                  wordBreak: "break-word",
+                  lineHeight: 1.3,
                 }}
               >
                 {t(`auctionRequest.${step.labelKey}`)}
@@ -503,7 +514,8 @@ function SuccessState({
             {i < arr.length - 1 && (
               <div
                 style={{
-                  flex: 1,
+                  flexShrink: 0,
+                  width: 16,
                   height: 1,
                   background: `linear-gradient(90deg, ${GOLD}55, rgba(229,224,198,0.08))`,
                   marginBottom: 22,
@@ -847,7 +859,7 @@ export default function AuctionRequestSection() {
               {t("auctionRequest.titleLine1")}
             </h2>
           </div>
-          <div style={{  marginBottom: 20 }}>
+          <div style={{ marginBottom: 20 }}>
             <h2
               style={{
                 margin: 0,
