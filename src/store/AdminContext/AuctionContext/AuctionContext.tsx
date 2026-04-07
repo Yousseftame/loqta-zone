@@ -1,3 +1,8 @@
+/**
+ * AuctionContext.tsx
+ * Updated: Added auditLogger calls for admin auction create/delete.
+ */
+
 import {
   createContext,
   useContext,
@@ -20,6 +25,7 @@ import {
   toggleAuctionActive,
 } from "@/service/auctions/auctionService";
 import { useAuth } from "@/store/AuthContext/AuthContext";
+import { auditLogger, buildActor } from "@/service/audit/auditLogger";
 
 interface AuctionContextType {
   auctions: Auction[];
@@ -42,7 +48,7 @@ export const useAuctions = () => {
 };
 
 export const AuctionProvider = ({ children }: { children: ReactNode }) => {
-  const { user, loading: authLoading } = useAuth();
+  const { user, role, loading: authLoading } = useAuth();
   const [auctions, setAuctions] = useState<Auction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -86,13 +92,24 @@ export const AuctionProvider = ({ children }: { children: ReactNode }) => {
         const auction = await createAuction(formData, user?.uid ?? "");
         setAuctions((prev) => [auction, ...prev]);
         toast.success("Auction created successfully");
+
+        // 🔥 AUDIT LOG: admin auction created
+        if (user && role) {
+          const actor = buildActor(user, role as "admin" | "superAdmin");
+          auditLogger.adminAuctionCreated(
+            actor,
+            auction.id,
+            formData.productId ?? auction.id,
+          );
+        }
+
         return auction;
       } catch (err: any) {
         toast.error(err?.message ?? "Failed to create auction");
         throw err;
       }
     },
-    [user],
+    [user, role],
   );
 
   const editAuction = useCallback(
@@ -101,25 +118,47 @@ export const AuctionProvider = ({ children }: { children: ReactNode }) => {
         const updated = await updateAuction(id, formData);
         setAuctions((prev) => prev.map((a) => (a.id === id ? updated : a)));
         toast.success("Auction updated successfully");
+
+        // 🔥 AUDIT LOG: admin auction updated
+        if (user && role) {
+          const actor = buildActor(user, role as "admin" | "superAdmin");
+          auditLogger.adminAuctionUpdated(actor, id, formData.productId ?? id);
+        }
+
         return updated;
       } catch (err: any) {
         toast.error(err?.message ?? "Failed to update auction");
         throw err;
       }
     },
-    [],
+    [user, role],
   );
 
-  const removeAuction = useCallback(async (id: string) => {
-    try {
-      await deleteAuction(id);
-      setAuctions((prev) => prev.filter((a) => a.id !== id));
-      toast.success("Auction deleted");
-    } catch (err: any) {
-      toast.error(err?.message ?? "Failed to delete auction");
-      throw err;
-    }
-  }, []);
+  const removeAuction = useCallback(
+    async (id: string) => {
+      // Find the auction name before deleting
+      const auction = auctions.find((a) => a.id === id);
+      try {
+        await deleteAuction(id);
+        setAuctions((prev) => prev.filter((a) => a.id !== id));
+        toast.success("Auction deleted");
+
+        // 🔥 AUDIT LOG: admin auction deleted
+        if (user && role) {
+          const actor = buildActor(user, role as "admin" | "superAdmin");
+          auditLogger.adminAuctionDeleted(
+            actor,
+            id,
+            (auction as any)?.productTitle ?? "Auction",
+          );
+        }
+      } catch (err: any) {
+        toast.error(err?.message ?? "Failed to delete auction");
+        throw err;
+      }
+    },
+    [user, role, auctions],
+  );
 
   const toggleActive = useCallback(async (id: string, isActive: boolean) => {
     try {

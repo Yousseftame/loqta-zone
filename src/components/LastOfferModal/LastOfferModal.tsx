@@ -1,19 +1,20 @@
 /**
  * LastOfferModal.tsx — fully localised (EN/AR)
+ * Updated: Added auditLogger.lastOfferSubmitted() call after successful submission.
  */
 
 import { useEffect, useRef, useState } from "react";
 import {
   collection,
   addDoc,
-  getDoc,
   serverTimestamp,
   query,
   where,
   getDocs,
 } from "firebase/firestore";
-import { db } from "@/firebase/firebase";
+import { db, auth } from "@/firebase/firebase";
 import { useTranslation } from "react-i18next";
+import { auditLogger, buildActor } from "@/service/audit/auditLogger";
 
 interface LastOfferModalProps {
   auctionId: string;
@@ -104,6 +105,19 @@ export default function LastOfferModal({
         selectedbyAdmin: false,
         createdAt: serverTimestamp(),
       });
+
+      // 🔥 AUDIT LOG: last offer submitted
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        const actor = buildActor(currentUser, "user");
+        auditLogger.lastOfferSubmitted(
+          actor,
+          auctionId,
+          productTitle ?? "Auction",
+          offerNum,
+        );
+      }
+
       setModalState("success");
     } catch {
       setErrorMsg(

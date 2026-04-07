@@ -2,18 +2,7 @@
  * src/permissions/permissions-data.ts
  *
  * Single source of truth for all admin module permissions.
- *
- * DESIGN:
- *  - Each module has up to 4 CRUD operations: create, read, update, delete
- *  - superAdmin always has full access — permissions are not stored / checked for them
- *  - admin accounts get a `permissions` map in their Firestore doc
- *  - The `can(module, action)` helper is used everywhere in the UI
- *
- * MODULES:
- *  categories, products, auctions, vouchers, auctionRequests,
- *  contacts, feedback, bids, participants, lastOffers,
- *  users, scheduling, payment
- *  (admins is superAdmin-only and never appears in permissions)
+ * Updated: Added "auditLogs" module (read-only for admins).
  */
 
 export type PermissionAction = "create" | "read" | "update" | "delete";
@@ -25,7 +14,6 @@ export interface ModulePermissions {
   delete: boolean;
 }
 
-// All modules an admin can be granted access to
 export type PermissionModule =
   | "categories"
   | "products"
@@ -39,16 +27,15 @@ export type PermissionModule =
   | "lastOffers"
   | "users"
   | "scheduling"
-  | "payment";
+  | "payment"
+  | "auditLogs"; // ← NEW
 
 export type AdminPermissions = Record<PermissionModule, ModulePermissions>;
 
-// Human-readable labels shown in the permissions UI
 export interface ModuleMeta {
   key: PermissionModule;
   label: string;
-  icon: string; // emoji for quick visual scanning
-  // Which actions are meaningful for this module (some are read-only by nature)
+  icon: string;
   actions: PermissionAction[];
 }
 
@@ -66,6 +53,7 @@ export const MODULE_META: ModuleMeta[] = [
   { key: "users",           label: "Users",             icon: "👤",  actions: ["read","update","delete"] },
   { key: "scheduling",      label: "Scheduling",        icon: "📅",  actions: ["read","update"] },
   { key: "payment",         label: "Payments",          icon: "💳",  actions: ["read"] },
+  { key: "auditLogs",       label: "Audit Logs",        icon: "📋",  actions: ["read"] }, // ← NEW: read-only
 ];
 
 /** Full access — used as the base for superAdmin and the "Grant All" helper */
