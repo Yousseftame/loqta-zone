@@ -1,4 +1,5 @@
 import Footer from "@/components/Footer/Footer";
+import GuestTracker from "@/components/GuestTracker/GuestTracker";
 import Navbar from "@/components/Navbar/Navbar";
 import NavigateTop from "@/components/shared/NavigateTop";
 import NotificationBell from "@/components/shared/Notificationbell";
@@ -16,6 +17,7 @@ export default function MainLayout() {
         <Navbar />
         <main className="flex-1 w-full">
           <NavigateTop />
+          <GuestTracker />
           <Outlet />
         </main>
         <Footer />

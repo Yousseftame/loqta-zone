@@ -120,6 +120,12 @@ export const auditLogger = {
     log("PASSWORD_RESET_REQUEST", actor, "User", `Password reset requested for ${email}`);
   },
 
+      passwordChanged(actor: AuditActor) {
+      log("PASSWORD_CHANGED", actor, "User",
+        `${actor.name} changed their password`,
+        { entityId: actor.userId ?? undefined });
+    },
+
   emailVerified(actor: AuditActor) {
     log("EMAIL_VERIFIED", actor, "User", `Email verified for ${actor.email}`, { entityId: actor.userId ?? undefined });
   },

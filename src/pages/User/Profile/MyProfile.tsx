@@ -33,6 +33,8 @@ import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { db, storage } from "@/firebase/firebase";
 import { useAuth } from "@/store/AuthContext/AuthContext";
+import { auditLogger, buildActor } from "@/service/audit/auditLogger";
+import type { AuditChange } from "@/service/audit/audit-log-data";
 
 // ─── Design tokens ─────────────────────────────────────────────────────────
 const GOLD = "#c9a96e";
@@ -414,6 +416,38 @@ export default function MyProfile() {
         displayName: fullName,
         ...(photoURL && photoURL !== profile.profileImage && { photoURL }),
       });
+
+      // 🔥 AUDIT LOG: profile updated — build a changes diff
+      const changes: AuditChange[] = [];
+      if (firstName.trim() !== profile.firstName)
+        changes.push({
+          field: "firstName",
+          before: profile.firstName,
+          after: firstName.trim(),
+        });
+      if (lastName.trim() !== profile.lastName)
+        changes.push({
+          field: "lastName",
+          before: profile.lastName,
+          after: lastName.trim(),
+        });
+      if (phone.trim() !== profile.phone)
+        changes.push({
+          field: "phone",
+          before: profile.phone,
+          after: phone.trim(),
+        });
+      if (newImage)
+        changes.push({
+          field: "profileImage",
+          before: "(previous)",
+          after: "(updated)",
+        });
+      if (changes.length > 0) {
+        const actor = buildActor(user, (profile.role as any) ?? "user");
+        auditLogger.profileUpdated(actor, changes);
+      }
+
       setNewImage(null);
       setPreviewUrl(null);
       setEditing(false);

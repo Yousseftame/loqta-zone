@@ -30,8 +30,6 @@ import {
   arrayUnion,
 } from "firebase/firestore";
 import { db } from "@/firebase/firebase";
-   import { auditLogger, buildActor } from "@/service/audit/auditLogger";
-    import { auth } from "@/firebase/firebase";
 
 export interface PlaceBidParams {
   auctionId: string;
@@ -183,14 +181,5 @@ export async function placeBid({
     throw err;
   }
 
-     // 🔥 AUDIT LOG — bid placed (fire-and-forget, after transaction succeeds)
-   try {
-     const currentUser = auth.currentUser;
-     if (currentUser) {
-       const actor = buildActor(currentUser, "user");
-       // We don't have the product title here, but we have auctionId
-       auditLogger.bidPlaced(actor, auctionId, `Auction ${auctionId.slice(0,6)}`, amount);
-     }
-   } catch { /* non-fatal */ }
   return { success: true, newBid: amount };
 }

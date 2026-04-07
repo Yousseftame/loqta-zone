@@ -1,15 +1,5 @@
 /**
- * AuditLogsPage.tsx
- *
- * Redesigned to match the admin panel's light theme:
- * white cards · #2A4863 navy primary · #EFF6FF / #DBEAFE accents
- * Same modal & table style as LogoutModal + TransactionsTable
- *
- * Changes:
- * - All StatsBar cards use same navy gradient theme as "Total"
- * - Action field (e.g. BID_PLACED) is now a prominent navy badge in table & modal header
- * - "Where" section in modal is visually highlighted and easy to read
- * - Modal broken into reusable components (imported from LogDetailModal.tsx)
+ * AuditLogsPage.tsx — Fixed responsive stats cards + all existing features
  */
 
 import { useState } from "react";
@@ -26,7 +16,6 @@ import {
 } from "../../../service/audit/audit-log-data";
 import { ChevronLeft, ChevronRight, RefreshCw, Filter } from "lucide-react";
 
-// Import all reusable modal components
 import {
   C,
   STATUS_LIGHT,
@@ -39,7 +28,6 @@ import {
 
 const PAGE_SIZE = 15;
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 function fmtDate(d: Date) {
   return d.toLocaleDateString("en-GB", {
     day: "numeric",
@@ -118,7 +106,6 @@ function FilterPanel({
         boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
       }}
     >
-      {/* Header */}
       <div
         style={{
           display: "flex",
@@ -193,7 +180,6 @@ function FilterPanel({
           gap: 14,
         }}
       >
-        {/* Search */}
         <div style={{ gridColumn: "span 2" }}>
           <label style={labelBase}>Search</label>
           <input
@@ -212,8 +198,6 @@ function FilterPanel({
             onBlur={(e) => (e.currentTarget.style.borderColor = C.border)}
           />
         </div>
-
-        {/* Category */}
         <div>
           <label style={labelBase}>Category</label>
           <select
@@ -229,8 +213,6 @@ function FilterPanel({
             ))}
           </select>
         </div>
-
-        {/* Status */}
         <div>
           <label style={labelBase}>Status</label>
           <select
@@ -246,8 +228,6 @@ function FilterPanel({
             ))}
           </select>
         </div>
-
-        {/* Role */}
         <div>
           <label style={labelBase}>Role</label>
           <select
@@ -262,8 +242,6 @@ function FilterPanel({
             <option value="guest">Guest</option>
           </select>
         </div>
-
-        {/* Date From */}
         <div>
           <label style={labelBase}>From</label>
           <input
@@ -273,8 +251,6 @@ function FilterPanel({
             onChange={(e) => set("dateFrom", e.target.value)}
           />
         </div>
-
-        {/* Date To */}
         <div>
           <label style={labelBase}>To</label>
           <input
@@ -286,7 +262,6 @@ function FilterPanel({
         </div>
       </div>
 
-      {/* Quick filters */}
       <div style={{ marginTop: 14, display: "flex", gap: 6, flexWrap: "wrap" }}>
         {QUICK_FILTERS.map((qf) => {
           const active = local.quickFilter === qf.key;
@@ -321,7 +296,7 @@ function FilterPanel({
   );
 }
 
-// ─── Stats Bar — all cards share the same navy gradient theme ─────────────────
+// ─── Stats Bar — FIXED responsive grid ───────────────────────────────────────
 function StatsBar({ logs }: { logs: AuditLog[] }) {
   const statusCounts = logs.reduce(
     (acc, l) => {
@@ -339,80 +314,98 @@ function StatsBar({ logs }: { logs: AuditLog[] }) {
     {} as Record<string, number>,
   );
 
-  // Shared card style — all use the same navy gradient
-  const cardStyle = (opacity = 1): React.CSSProperties => ({
-    padding: "12px 20px",
-    background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryLight} 100%)`,
-    borderRadius: 12,
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
-    boxShadow: "0 4px 14px rgba(42,72,99,0.2)",
-    opacity,
-  });
-
-  const numStyle: React.CSSProperties = {
-    fontSize: 22,
-    fontWeight: 800,
-    color: "#fff",
-  };
-
-  const labelStyle: React.CSSProperties = {
-    fontSize: 11,
-    color: "rgba(255,255,255,0.7)",
-    letterSpacing: "0.1em",
-    fontWeight: 600,
-  };
+  // Build all cards into one flat array for a clean responsive grid
+  const cards: { label: string; count: number; dot?: string }[] = [
+    { label: "TOTAL", count: logs.length },
+    ...(["success", "info", "warning", "danger"] as const)
+      .filter((s) => (statusCounts[s] ?? 0) > 0)
+      .map((s) => ({
+        label: s.toUpperCase(),
+        count: statusCounts[s],
+        dot: STATUS_LIGHT[s].dot,
+      })),
+    ...Object.entries(catCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .filter(([cat]) => CATEGORY_CONFIG[cat as AuditActionCategory])
+      .map(([cat, n]) => ({
+        label: CATEGORY_CONFIG[cat as AuditActionCategory].label.toUpperCase(),
+        count: n,
+      })),
+  ];
 
   return (
-    <div
-      style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20 }}
-    >
-      {/* Total */}
-      <div style={cardStyle()}>
-        <span style={numStyle}>{logs.length}</span>
-        <span style={labelStyle}>TOTAL</span>
-      </div>
-
-      {/* Status cards */}
-      {(["success", "info", "warning", "danger"] as const).map((s) => {
-        const n = statusCounts[s] ?? 0;
-        if (!n) return null;
-        const cfg = STATUS_LIGHT[s];
-        return (
-          <div key={s} style={cardStyle()}>
-            {/* Small colored dot to differentiate status type */}
+    <>
+      <style>{`
+        .al-stats-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+          gap: 10px;
+          margin-bottom: 20px;
+        }
+        @media (max-width: 480px) {
+          .al-stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+          }
+        }
+      `}</style>
+      <div className="al-stats-grid">
+        {cards.map((card, i) => (
+          <div
+            key={i}
+            style={{
+              padding: "12px 14px",
+              background: `linear-gradient(135deg, ${C.primary} 0%, #3D6A8A 100%)`,
+              borderRadius: 12,
+              display: "flex",
+              flexDirection: "column",
+              gap: 4,
+              boxShadow: "0 4px 14px rgba(42,72,99,0.2)",
+              minWidth: 0,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              {card.dot && (
+                <span
+                  style={{
+                    width: 7,
+                    height: 7,
+                    borderRadius: "50%",
+                    background: card.dot,
+                    flexShrink: 0,
+                    boxShadow: `0 0 0 2px rgba(255,255,255,0.25)`,
+                  }}
+                />
+              )}
+              <span
+                style={{
+                  fontSize: 22,
+                  fontWeight: 800,
+                  color: "#fff",
+                  lineHeight: 1,
+                }}
+              >
+                {card.count}
+              </span>
+            </div>
             <span
               style={{
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
-                background: cfg.dot,
-                flexShrink: 0,
-                boxShadow: `0 0 0 2px rgba(255,255,255,0.3)`,
+                fontSize: 10,
+                color: "rgba(255,255,255,0.7)",
+                letterSpacing: "0.1em",
+                fontWeight: 600,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
               }}
-            />
-            <span style={numStyle}>{n}</span>
-            <span style={labelStyle}>{s.toUpperCase()}</span>
+            >
+              {card.label}
+            </span>
           </div>
-        );
-      })}
-
-      {/* Category cards */}
-      {Object.entries(catCounts)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 3)
-        .map(([cat, n]) => {
-          const cfg = CATEGORY_CONFIG[cat as AuditActionCategory];
-          if (!cfg) return null;
-          return (
-            <div key={cat} style={cardStyle()}>
-              <span style={numStyle}>{n}</span>
-              <span style={labelStyle}>{cfg.label.toUpperCase()}</span>
-            </div>
-          );
-        })}
-    </div>
+        ))}
+      </div>
+    </>
   );
 }
 
@@ -428,7 +421,6 @@ function LogRow({
 }) {
   const [hovered, setHovered] = useState(false);
   const defaultBg = globalIdx % 2 === 0 ? "#fff" : C.muted;
-
   return (
     <tr
       onClick={onClick}
@@ -441,7 +433,6 @@ function LogRow({
         transition: "background 0.15s",
       }}
     >
-      {/* Timestamp */}
       <td
         style={{
           padding: "12px 16px",
@@ -467,8 +458,6 @@ function LogRow({
           {timeAgo(log.timestamp)}
         </div>
       </td>
-
-      {/* Actor */}
       <td style={{ padding: "12px 16px", verticalAlign: "middle" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <div
@@ -506,19 +495,14 @@ function LogRow({
           </div>
         </div>
       </td>
-
-      {/* Category + Action — action is now prominently displayed */}
       <td style={{ padding: "12px 16px", verticalAlign: "middle" }}>
         <div style={{ marginBottom: 5 }}>
           <CategoryBadge category={log.category} />
         </div>
-        {/* Prominent action badge replacing the plain monospace text */}
         <div style={{ marginTop: 4 }}>
           <ActionBadge action={log.action} />
         </div>
       </td>
-
-      {/* Description */}
       <td
         style={{ padding: "12px 16px", verticalAlign: "middle", maxWidth: 260 }}
       >
@@ -531,8 +515,6 @@ function LogRow({
           </div>
         )}
       </td>
-
-      {/* Status */}
       <td
         style={{
           padding: "12px 16px",
@@ -542,8 +524,6 @@ function LogRow({
       >
         <StatusBadge status={log.status} />
       </td>
-
-      {/* Meta */}
       <td style={{ padding: "12px 16px", verticalAlign: "middle" }}>
         {log.ipAddress && (
           <span
@@ -586,7 +566,6 @@ function LogRow({
   );
 }
 
-// ─── Empty State ──────────────────────────────────────────────────────────────
 function EmptyState({ hasFilters }: { hasFilters: boolean }) {
   return (
     <tr>
@@ -642,7 +621,6 @@ export default function AuditLogsPage() {
     resetFilters,
     refresh,
   } = useAuditLogs();
-
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [page, setPage] = useState(1);
@@ -683,7 +661,7 @@ export default function AuditLogsPage() {
           animation: "al-fadepage 0.35s ease",
         }}
       >
-        {/* ── PAGE HEADER ──────────────────────────────────────────────── */}
+        {/* Header */}
         <div
           style={{
             display: "flex",
@@ -710,9 +688,7 @@ export default function AuditLogsPage() {
               Complete activity trail · All user and admin actions
             </p>
           </div>
-
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            {/* Filter toggle */}
             <button
               onClick={() => setShowFilters((v) => !v)}
               style={{
@@ -753,8 +729,6 @@ export default function AuditLogsPage() {
                 </span>
               )}
             </button>
-
-            {/* Refresh */}
             <button
               onClick={refresh}
               disabled={loading}
@@ -787,7 +761,6 @@ export default function AuditLogsPage() {
           </div>
         </div>
 
-        {/* ── FILTER PANEL ─────────────────────────────────────────────── */}
         {showFilters && (
           <FilterPanel
             filters={filters}
@@ -802,7 +775,6 @@ export default function AuditLogsPage() {
           />
         )}
 
-        {/* ── ERROR ────────────────────────────────────────────────────── */}
         {error && (
           <div
             style={{
@@ -819,10 +791,9 @@ export default function AuditLogsPage() {
           </div>
         )}
 
-        {/* ── STATS BAR ────────────────────────────────────────────────── */}
         {logs.length > 0 && <StatsBar logs={logs} />}
 
-        {/* ── TABLE CARD ───────────────────────────────────────────────── */}
+        {/* Table */}
         <div
           style={{
             background: C.surface,
@@ -832,7 +803,6 @@ export default function AuditLogsPage() {
             boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
           }}
         >
-          {/* Card header */}
           <div
             style={{
               padding: "14px 20px",
@@ -854,23 +824,21 @@ export default function AuditLogsPage() {
             >
               Activity Log
             </span>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              {logs.length > 0 && (
-                <span
-                  style={{
-                    padding: "3px 10px",
-                    borderRadius: 999,
-                    background: C.surface,
-                    border: `1px solid ${C.primaryRing}`,
-                    fontSize: 11,
-                    fontWeight: 700,
-                    color: C.primary,
-                  }}
-                >
-                  {logs.length} total{hasActiveFilters ? " (filtered)" : ""}
-                </span>
-              )}
-            </div>
+            {logs.length > 0 && (
+              <span
+                style={{
+                  padding: "3px 10px",
+                  borderRadius: 999,
+                  background: C.surface,
+                  border: `1px solid ${C.primaryRing}`,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: C.primary,
+                }}
+              >
+                {logs.length} total{hasActiveFilters ? " (filtered)" : ""}
+              </span>
+            )}
           </div>
 
           <div style={{ overflowX: "auto" }}>
@@ -908,7 +876,6 @@ export default function AuditLogsPage() {
                   ))}
                 </tr>
               </thead>
-
               <tbody>
                 {loading && logs.length === 0 ? (
                   Array(8)
@@ -928,7 +895,6 @@ export default function AuditLogsPage() {
                                   borderRadius: 4,
                                   background: C.primaryBg,
                                   width: j === 5 ? 60 : "75%",
-                                  animation: "al-shimmer 1.4s infinite",
                                 }}
                               />
                             </td>
@@ -951,7 +917,7 @@ export default function AuditLogsPage() {
             </table>
           </div>
 
-          {/* ── Pagination ── */}
+          {/* Pagination */}
           {!loading && totalPages > 1 && (
             <div
               style={{
@@ -980,9 +946,7 @@ export default function AuditLogsPage() {
                 <strong style={{ color: C.textPrimary }}>{logs.length}</strong>{" "}
                 logs
               </span>
-
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                {/* Prev */}
                 <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={safePage === 1}
@@ -1002,8 +966,6 @@ export default function AuditLogsPage() {
                 >
                   <ChevronLeft size={14} />
                 </button>
-
-                {/* Page pills */}
                 {Array.from({ length: totalPages }, (_, idx) => idx + 1)
                   .filter(
                     (p) =>
@@ -1049,8 +1011,6 @@ export default function AuditLogsPage() {
                       </button>
                     ),
                   )}
-
-                {/* Next */}
                 <button
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={safePage === totalPages}
@@ -1074,7 +1034,6 @@ export default function AuditLogsPage() {
             </div>
           )}
 
-          {/* Load More (for server-side pagination) */}
           {(hasMore || (loading && logs.length > 0)) && !loading && (
             <div
               style={{
@@ -1098,21 +1057,12 @@ export default function AuditLogsPage() {
                   fontWeight: 700,
                   transition: "all 0.2s",
                 }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.background =
-                    C.primaryRing;
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.background =
-                    C.primaryBg;
-                }}
               >
                 Load More Logs
               </button>
             </div>
           )}
 
-          {/* Footer */}
           {logs.length > 0 && (
             <div
               style={{
@@ -1152,7 +1102,6 @@ export default function AuditLogsPage() {
         </div>
       </div>
 
-      {/* ── DETAIL MODAL — now a clean reusable component ──────────────── */}
       {selectedLog && (
         <LogDetailModal
           log={selectedLog}
