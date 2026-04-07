@@ -66,13 +66,11 @@ function docToLog(id: string, data: Record<string, any>): AuditLog {
 
 // ─── WRITE (fire-and-forget) ──────────────────────────────────────────────────
 
-
 function stripUndefined(obj: Record<string, any>): Record<string, any> {
   return Object.fromEntries(
     Object.entries(obj).filter(([, v]) => v !== undefined)
   );
 }
-
 
 export async function writeAuditLog(
   payload: CreateAuditLogPayload,
@@ -154,6 +152,9 @@ export async function fetchAuditLogs(
       constraints.push(where("status", "in", ["danger", "warning"]));
     } else if (filters.quickFilter === "auth_only") {
       constraints.push(where("category", "==", "auth"));
+    } else if (filters.quickFilter === "contact_only") {
+      // ← NEW: filter to contact + feedback submissions
+      constraints.push(where("category", "==", "contact"));
     }
   }
 

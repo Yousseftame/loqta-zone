@@ -21,8 +21,7 @@ import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/store/AuthContext/AuthContext";
 import { validatePassword } from "@/types/validation";
-import { auditLogger, buildActor } from "@/service/audit/auditLogger";
- 
+import { auditLogger, buildActor } from "@/service/audit/auditLogger"; 
 // ─── Tokens ──────────────────────────────────────────────────────────────────
 const GOLD = "#c9a96e";
 const GOLD2 = "#b8944e";

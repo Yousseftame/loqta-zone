@@ -14,6 +14,8 @@ import {
   getCountFromServer,
 } from "firebase/firestore";
 import { db } from "@/firebase/firebase";
+import { getAuth } from "firebase/auth";
+import { auditLogger } from "@/service/audit/auditLogger";
 import type {
   ContactMessage,
   ContactStatus,
@@ -21,7 +23,7 @@ import type {
   FeedbackStatus,
 } from "@/pages/Admin/ContactUs/contact-feedback-data";
 
-const CONTACT_COLLECTION = "contactMessages";
+const CONTACT_COLLECTION  = "contactMessages";
 const FEEDBACK_COLLECTION = "feedbackMessages";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -29,60 +31,74 @@ const FEEDBACK_COLLECTION = "feedbackMessages";
 function docToContact(id: string, data: Record<string, any>): ContactMessage {
   return {
     id,
-    name: data.name ?? "",
-    email: data.email ?? "",
-    phone: data.phone ?? "",
+    name:    data.name    ?? "",
+    email:   data.email   ?? "",
+    phone:   data.phone   ?? "",
     subject: data.subject ?? "",
     message: data.message ?? "",
-    status: data.status ?? "new",
+    status:  data.status  ?? "new",
     createdAt:
-      data.createdAt instanceof Timestamp
-        ? data.createdAt.toDate()
-        : new Date(),
+      data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
     updatedAt:
-      data.updatedAt instanceof Timestamp
-        ? data.updatedAt.toDate()
-        : new Date(),
+      data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date(),
   };
 }
 
 function docToFeedback(id: string, data: Record<string, any>): FeedbackMessage {
   return {
     id,
-    name: data.name ?? "",
-    email: data.email ?? "",
-    category: data.category ?? "",
-    rating: data.rating ?? 0,
-    title: data.title ?? "",
-    feedback: data.feedback ?? "",
+    name:      data.name      ?? "",
+    email:     data.email     ?? "",
+    category:  data.category  ?? "",
+    rating:    data.rating    ?? 0,
+    title:     data.title     ?? "",
+    feedback:  data.feedback  ?? "",
     recommend: data.recommend ?? "",
-    status: data.status ?? "new",
+    status:    data.status    ?? "new",
     createdAt:
-      data.createdAt instanceof Timestamp
-        ? data.createdAt.toDate()
-        : new Date(),
+      data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
     updatedAt:
-      data.updatedAt instanceof Timestamp
-        ? data.updatedAt.toDate()
-        : new Date(),
+      data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date(),
   };
+}
+
+// ─── Resolve the currently signed-in user (if any) ───────────────────────────
+// contactFeedbackService runs in a plain service file (no React hooks), so we
+// read the current user directly from the Firebase Auth SDK instead of useAuth().
+
+function getCurrentUser() {
+  try {
+    return getAuth().currentUser;
+  } catch {
+    return null;
+  }
 }
 
 // ─── CONTACT — Submit (public) ────────────────────────────────────────────────
 
 export async function submitContactMessage(data: {
-  name: string;
-  email: string;
-  phone: string;
+  name:    string;
+  email:   string;
+  phone:   string;
   subject: string;
   message: string;
 }): Promise<void> {
   await addDoc(collection(db, CONTACT_COLLECTION), {
     ...data,
-    status: "new",
+    status:    "new",
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
+
+  // 🔥 AUDIT LOG — fire-and-forget after the write succeeds
+  const currentUser = getCurrentUser();
+  auditLogger.contactSubmitted(
+    data.name,
+    data.email,
+    data.subject,
+    currentUser?.uid ?? null,
+    currentUser ? "user" : "guest",
+  );
 }
 
 // ─── CONTACT — Fetch All (admin) ──────────────────────────────────────────────
@@ -98,9 +114,7 @@ export async function fetchContactMessages(): Promise<ContactMessage[]> {
 
 // ─── CONTACT — Fetch One ──────────────────────────────────────────────────────
 
-export async function fetchContactMessage(
-  id: string,
-): Promise<ContactMessage | null> {
+export async function fetchContactMessage(id: string): Promise<ContactMessage | null> {
   const snap = await getDoc(doc(db, CONTACT_COLLECTION, id));
   if (!snap.exists()) return null;
   return docToContact(snap.id, snap.data());
@@ -108,10 +122,7 @@ export async function fetchContactMessage(
 
 // ─── CONTACT — Update Status ──────────────────────────────────────────────────
 
-export async function updateContactStatus(
-  id: string,
-  status: ContactStatus,
-): Promise<void> {
+export async function updateContactStatus(id: string, status: ContactStatus): Promise<void> {
   await updateDoc(doc(db, CONTACT_COLLECTION, id), {
     status,
     updatedAt: serverTimestamp(),
@@ -138,20 +149,31 @@ export async function fetchContactNewCount(): Promise<number> {
 // ─── FEEDBACK — Submit (public) ───────────────────────────────────────────────
 
 export async function submitFeedbackMessage(data: {
-  name: string;
-  email: string;
-  category: string;
-  rating: number;
-  title: string;
-  feedback: string;
+  name:      string;
+  email:     string;
+  category:  string;
+  rating:    number;
+  title:     string;
+  feedback:  string;
   recommend: string;
 }): Promise<void> {
   await addDoc(collection(db, FEEDBACK_COLLECTION), {
     ...data,
-    status: "new",
+    status:    "new",
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
+
+  // 🔥 AUDIT LOG — fire-and-forget after the write succeeds
+  const currentUser = getCurrentUser();
+  auditLogger.feedbackSubmitted(
+    data.name,
+    data.email,
+    data.category,
+    data.rating,
+    currentUser?.uid ?? null,
+    currentUser ? "user" : "guest",
+  );
 }
 
 // ─── FEEDBACK — Fetch All (admin) ─────────────────────────────────────────────
@@ -167,9 +189,7 @@ export async function fetchFeedbackMessages(): Promise<FeedbackMessage[]> {
 
 // ─── FEEDBACK — Fetch One ─────────────────────────────────────────────────────
 
-export async function fetchFeedbackMessage(
-  id: string,
-): Promise<FeedbackMessage | null> {
+export async function fetchFeedbackMessage(id: string): Promise<FeedbackMessage | null> {
   const snap = await getDoc(doc(db, FEEDBACK_COLLECTION, id));
   if (!snap.exists()) return null;
   return docToFeedback(snap.id, snap.data());
@@ -177,10 +197,7 @@ export async function fetchFeedbackMessage(
 
 // ─── FEEDBACK — Update Status ─────────────────────────────────────────────────
 
-export async function updateFeedbackStatus(
-  id: string,
-  status: FeedbackStatus,
-): Promise<void> {
+export async function updateFeedbackStatus(id: string, status: FeedbackStatus): Promise<void> {
   await updateDoc(doc(db, FEEDBACK_COLLECTION, id), {
     status,
     updatedAt: serverTimestamp(),

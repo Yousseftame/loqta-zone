@@ -23,6 +23,9 @@ export type AuditActionType =
   | "AUCTION_REQUEST_SUBMITTED"
   // Profile
   | "PROFILE_UPDATED"
+  // Contact & Feedback  ← NEW
+  | "CONTACT_SUBMITTED"
+  | "FEEDBACK_SUBMITTED"
   // Guest
   | "GUEST_VISIT"
   | "GUEST_PAGE_VIEW"
@@ -56,6 +59,7 @@ export type AuditActionCategory =
   | "profile"     // purple
   | "guest"       // gray
   | "admin"       // red/orange
+  | "contact"     // teal  ← NEW
   | "system";     // teal
 
 // ─── Entity Types ─────────────────────────────────────────────────────────────
@@ -69,6 +73,8 @@ export type AuditEntityType =
   | "Voucher"
   | "Category"
   | "AuctionRequest"
+  | "ContactMessage"   // ← NEW
+  | "FeedbackMessage"  // ← NEW
   | "System"
   | "Page";
 
@@ -140,6 +146,8 @@ export const ACTION_CATEGORY_MAP: Record<AuditActionType, AuditActionCategory> =
   LAST_OFFER_SUBMITTED:         "auction",
   AUCTION_REQUEST_SUBMITTED:    "auction",
   PROFILE_UPDATED:              "profile",
+  CONTACT_SUBMITTED:            "contact",   // ← NEW
+  FEEDBACK_SUBMITTED:           "contact",   // ← NEW
   GUEST_VISIT:                  "guest",
   GUEST_PAGE_VIEW:              "guest",
   ADMIN_LOGIN:                  "admin",
@@ -179,6 +187,8 @@ export const ACTION_STATUS_MAP: Record<AuditActionType, AuditLog["status"]> = {
   LAST_OFFER_SUBMITTED:         "success",
   AUCTION_REQUEST_SUBMITTED:    "info",
   PROFILE_UPDATED:              "info",
+  CONTACT_SUBMITTED:            "info",   // ← NEW
+  FEEDBACK_SUBMITTED:           "info",   // ← NEW
   GUEST_VISIT:                  "info",
   GUEST_PAGE_VIEW:              "info",
   ADMIN_LOGIN:                  "success",
@@ -214,6 +224,7 @@ export const CATEGORY_CONFIG: Record<
   profile: { label: "Profile", color: "#7C3AED", bg: "#F5F3FF", border: "#DDD6FE" },
   guest:   { label: "Guest",   color: "#6B7280", bg: "#F9FAFB", border: "#E5E7EB" },
   admin:   { label: "Admin",   color: "#DC2626", bg: "#FEF2F2", border: "#FECACA" },
+  contact: { label: "Contact", color: "#0D9488", bg: "#F0FDFA", border: "#99F6E4" }, // ← NEW
   system:  { label: "System",  color: "#0D9488", bg: "#F0FDFA", border: "#99F6E4" },
 };
 
@@ -238,11 +249,12 @@ export interface QuickFilter {
 }
 
 export const QUICK_FILTERS: QuickFilter[] = [
-  { key: "today",        label: "Today",       description: "Logs from today"         },
-  { key: "last7days",    label: "Last 7 Days", description: "Logs from last 7 days"   },
-  { key: "admin_only",   label: "Admin Only",  description: "Admin actions only"      },
-  { key: "danger_only",  label: "Errors",      description: "Danger/warning actions"  },
-  { key: "auth_only",    label: "Auth Events", description: "Login/logout/register"   },
+  { key: "today",        label: "Today",       description: "Logs from today"           },
+  { key: "last7days",    label: "Last 7 Days", description: "Logs from last 7 days"     },
+  { key: "admin_only",   label: "Admin Only",  description: "Admin actions only"        },
+  { key: "danger_only",  label: "Errors",      description: "Danger/warning actions"    },
+  { key: "auth_only",    label: "Auth Events", description: "Login/logout/register"     },
+  { key: "contact_only", label: "Contact",     description: "Contact & feedback forms"  }, // ← NEW
 ];
 
 // ─── Default/empty audit log for UI placeholders ──────────────────────────────

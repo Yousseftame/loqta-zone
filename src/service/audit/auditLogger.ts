@@ -169,6 +169,81 @@ export const auditLogger = {
     );
   },
 
+   /**
+   * Called after a contact form is submitted successfully.
+   *
+   * Works for both logged-in users and guests:
+   *   - If the caller has a Firebase user, pass their uid + role.
+   *   - For a guest submission, pass null/undefined for userId and role "guest".
+   *
+   * @param name       Submitter's name from the form
+   * @param email      Submitter's email from the form
+   * @param subject    Subject / topic selected in the form (optional)
+   * @param userId     Firebase uid if the user is logged in, otherwise null
+   * @param userRole   "user" | "guest" — defaults to "guest" if userId is null
+   */
+  contactSubmitted(
+    name: string,
+    email: string,
+    subject?: string,
+    userId?: string | null,
+    userRole: "user" | "guest" = userId ? "user" : "guest",
+  ) {
+    const actor: AuditActor = {
+      userId: userId ?? null,
+      name:   name || email || "Anonymous",
+      email:  email || "",
+      role:   userRole,
+    };
+
+    const subjectLabel = subject && subject !== "" ? ` — subject: "${subject}"` : "";
+
+    log(
+      "CONTACT_SUBMITTED",
+      actor,
+      "ContactMessage",
+      `Contact form submitted by ${actor.name} (${actor.email})${subjectLabel}`,
+      { entityName: actor.name, route: "/contact" },
+    );
+  },
+
+  /**
+   * Called after a feedback form is submitted successfully.
+   *
+   * @param name       Submitter's name from the form
+   * @param email      Submitter's email from the form
+   * @param category   Feedback category selected in the form (optional)
+   * @param rating     Star rating 1–5 (optional)
+   * @param userId     Firebase uid if the user is logged in, otherwise null
+   * @param userRole   "user" | "guest"
+   */
+  feedbackSubmitted(
+    name: string,
+    email: string,
+    category?: string,
+    rating?: number,
+    userId?: string | null,
+    userRole: "user" | "guest" = userId ? "user" : "guest",
+  ) {
+    const actor: AuditActor = {
+      userId: userId ?? null,
+      name:   name || email || "Anonymous",
+      email:  email || "",
+      role:   userRole,
+    };
+
+    const categoryLabel = category && category !== "" ? ` [${category}]` : "";
+    const ratingLabel   = rating ? ` — ${rating}★` : "";
+
+    log(
+      "FEEDBACK_SUBMITTED",
+      actor,
+      "FeedbackMessage",
+      `Feedback submitted by ${actor.name} (${actor.email})${categoryLabel}${ratingLabel}`,
+      { entityName: actor.name, route: "/contact" },
+    );
+  },
+
   // ── Guest ─────────────────────────────────────────────────────────────────
 
   guestVisit(route: string) {
