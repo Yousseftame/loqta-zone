@@ -25,6 +25,7 @@ import {
   Timestamp,
 } from "firebase/firestore";
 import { db } from "@/firebase/firebase";
+import { auditLogger } from "@/service/audit/auditLogger";
 
 export interface AuctionToJoin {
   id:        string;
@@ -159,6 +160,7 @@ export async function joinAuctions(
 
   try {
     await batch.commit();
+    
     result.joined = validAuctions.map((a) => a.id);
   } catch (err) {
     console.error("[joinAuctions] Batch commit failed:", err);

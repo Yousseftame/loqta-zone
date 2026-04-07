@@ -97,6 +97,7 @@ const LastOfferConfirmPage = lazy(
 );
 
 import { createBrowserRouter } from "react-router-dom";
+import AuditLogsPage from "@/pages/Admin/AuditLogs/AuditLogsPage";
 
 export const routes = createBrowserRouter([
   {
@@ -376,6 +377,15 @@ export const routes = createBrowserRouter([
 
       // ── Admins — superAdmin-only guard is inside AdminsList itself ─────────
       { path: "admins", element: <AdminsList /> },
+
+      {
+        path: "/admin/audit-logs",
+        element: (
+         
+            <AuditLogsPage />
+        
+        ),
+      },
 
       // ── Scheduling / Payment ──────────────────────────────────────────────
       {

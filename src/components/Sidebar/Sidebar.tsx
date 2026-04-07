@@ -3,6 +3,7 @@ import { Dashboard, MenuBook, Logout, Home } from "@mui/icons-material";
 import CategoryIcon from "@mui/icons-material/Category";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import FolderSharedIcon from "@mui/icons-material/FolderShared";
+import HistoryIcon from "@mui/icons-material/History";
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import ContactsIcon from "@mui/icons-material/Contacts";
 import FeedbackIcon from "@mui/icons-material/Feedback";
@@ -476,6 +477,13 @@ const Sidebar = () => {
       label: "Admins",
       icon: AdminPanelSettingsIcon,
       path: "/admin/admins",
+      roles: ["superAdmin"],
+    },
+    {
+      id: "auditlogs",
+      label: "Audit Logs",
+      icon: HistoryIcon,
+      path: "/admin/audit-logs",
       roles: ["superAdmin"],
     },
   ];

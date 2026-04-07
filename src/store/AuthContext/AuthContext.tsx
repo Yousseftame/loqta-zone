@@ -34,6 +34,7 @@ import app, { auth, db, storage } from "@/firebase/firebase";
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { unregisterFCMToken } from "@/hooks/useFCM";
+import { auditLogger, buildActor } from "@/service/audit/auditLogger";
 
 export type UserRole = "user" | "admin" | "superAdmin";
 
@@ -116,6 +117,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const userRole = await getRoleFromFirestore(loggedUser);
       setRole(userRole);
       toast.success("Login successful");
+
+      // 🔥 LOG AUDIT: log in 
+      const role = await getRoleFromFirestore(loggedUser);
+      const actor = buildActor(loggedUser, role);
+      if (role === "admin" || role === "superAdmin") {
+        auditLogger.adminLogin(actor);
+      } else {
+        auditLogger.login(actor);
+      }
       return { role: userRole };
       // NOTE: FCM token registration happens automatically via the useFCM()
       // hook once the user state updates and the hook re-runs.
@@ -184,6 +194,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         createdBy: newUser.uid,
       });
 
+      // 🔥 LOG AUDIT: register
+      const actor = buildActor(newUser, "user", `${firstName} ${lastName}`);
+      auditLogger.register(actor);
+
       toast.success("Account created successfully!");
     } catch (error: any) {
       const messages: Record<string, string> = {
@@ -211,6 +225,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         await unregisterFCMToken(user.uid);
       }
 
+      // 🔥 LOG AUDIT: logout 
+      if (user && role) {
+        const actor = buildActor(user, role ?? "user");
+        auditLogger.logout(actor);
+      }
+
       await firebaseSignOut(auth);
       setRole(null);
       toast.success("Logged out successfully");
@@ -225,6 +245,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       await sendPasswordResetEmail(auth, email);
       toast.success("Password reset email sent");
+       auditLogger.passwordResetRequest(email);
     } catch (error: any) {
       const messages: Record<string, string> = {
         "auth/user-not-found": "No account found with this email address.",
