@@ -35,18 +35,29 @@ import {
   REQUEST_URGENCY_LABELS,
 } from "./auction-requests-data";
 import { useAuctionRequests } from "@/store/AdminContext/AuctionRequestContext/AuctionRequestContext";
+import { useAuctions } from "@/store/AdminContext/AuctionContext/AuctionContext";
+import { useProducts } from "@/store/AdminContext/ProductContext/ProductsCotnext";
 import { usePermissions } from "@/permissions/usePermissions";
 
 export default function AuctionRequestsList() {
   const navigate = useNavigate();
   const { requests, loading, error, refreshRequests } = useAuctionRequests();
+  const { auctions } = useAuctions();
+  const { products } = useProducts();
 
   const [filtered, setFiltered] = useState<AuctionRequest[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-      const { can } = usePermissions();
+  const { can } = usePermissions();
 
+  // Build a label for each auction: "Auction #3 — iPhone 15 Pro"
+  const getAuctionLabel = (auctionId: string): string => {
+    const auction = auctions.find((a) => a.id === auctionId);
+    if (!auction) return auctionId.slice(0, 10) + "…";
+    const product = products.find((p) => p.id === auction.productId);
+    return `#${auction.auctionNumber}${product ? ` — ${product.title}` : ""}`;
+  };
 
   useEffect(() => {
     let f = requests;
@@ -447,8 +458,8 @@ export default function AuctionRequestsList() {
                         />
                       </TableCell>
 
-                      {/* Matched Auction */}
-                      <TableCell sx={{ minWidth: 130 }}>
+                      {/* Matched Auction — now shows #number — product title */}
+                      <TableCell sx={{ minWidth: 160 }}>
                         {req.matchedAuctionId ? (
                           <span
                             style={{
@@ -458,10 +469,9 @@ export default function AuctionRequestsList() {
                               padding: "3px 10px",
                               borderRadius: 99,
                               fontWeight: 600,
-                              fontFamily: "monospace",
                             }}
                           >
-                            {req.matchedAuctionId.slice(0, 10)}…
+                            {getAuctionLabel(req.matchedAuctionId)}
                           </span>
                         ) : (
                           <span
@@ -489,20 +499,22 @@ export default function AuctionRequestsList() {
 
                       {/* Actions */}
                       <TableCell align="center" sx={{ minWidth: 80 }}>
-                        {can("auctionRequests", "read") && <IconButton
-                          size="small"
-                          onClick={() =>
-                            navigate(`/admin/auctionRequests/${req.id}`)
-                          }
-                          sx={{
-                            color: colors.primary,
-                            "&:hover": { bgcolor: colors.primaryBg },
-                            borderRadius: 1.5,
-                          }}
-                          title="View / Edit"
-                        >
-                          <Eye size={16} />
-                        </IconButton>}
+                        {can("auctionRequests", "read") && (
+                          <IconButton
+                            size="small"
+                            onClick={() =>
+                              navigate(`/admin/auctionRequests/${req.id}`)
+                            }
+                            sx={{
+                              color: colors.primary,
+                              "&:hover": { bgcolor: colors.primaryBg },
+                              borderRadius: 1.5,
+                            }}
+                            title="View / Edit"
+                          >
+                            <Eye size={16} />
+                          </IconButton>
+                        )}
                       </TableCell>
                     </TableRow>
                   );

@@ -25,6 +25,8 @@ import {
   Info,
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/firebase/firebase";
 import {
   colors,
   getStatusStyle,
@@ -69,7 +71,11 @@ export default function AuctionRequestView() {
   const [request, setRequest] = useState<AuctionRequest | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-    const { can } = usePermissions();
+  const { can } = usePermissions();
+
+  // Resolved user info
+  const [userName, setUserName] = useState<string>("");
+  const [userEmail, setUserEmail] = useState<string>("");
 
   const [form, setForm] = useState<AuctionRequestFormData>({
     status: "pending",
@@ -98,6 +104,24 @@ export default function AuctionRequestView() {
           matchedAuctionId: r.matchedAuctionId ?? "",
           notes: r.notes,
         });
+
+        // Fetch user name + email from Firestore
+        try {
+          const userSnap = await getDoc(doc(db, "users", r.userId));
+          if (userSnap.exists()) {
+            const d = userSnap.data();
+            setUserName(
+              (d.fullName ??
+                `${d.firstName ?? ""} ${d.lastName ?? ""}`.trim()) ||
+                "—",
+            );
+            setUserEmail(d.email ?? "—");
+          }
+        } catch {
+          // non-fatal — fall back to showing userId
+          setUserName(r.userId);
+          setUserEmail("—");
+        }
       }
       setLoading(false);
     })();
@@ -441,7 +465,8 @@ export default function AuctionRequestView() {
           }}
         >
           {[
-            { label: "User ID", value: request.userId },
+            { label: "User Name", value: userName || "—" },
+            { label: "User Email", value: userEmail || "—" },
             { label: "Product Name", value: request.productName },
             { label: "Category", value: request.category },
             { label: "Budget", value: `${request.budget} EGP` },
@@ -597,7 +622,7 @@ export default function AuctionRequestView() {
             </Select>
           </FormControl>
 
-          {/* ── Matched Auction SELECT (replaces free-text input) ── */}
+          {/* ── Matched Auction SELECT ── */}
           <FormControl size="small" fullWidth error={!!errors.matchedAuctionId}>
             <InputLabel
               sx={{
@@ -676,7 +701,6 @@ export default function AuctionRequestView() {
                       <Box
                         sx={{ display: "flex", alignItems: "center", gap: 1.5 }}
                       >
-                        {/* Auction number badge */}
                         <Box
                           sx={{
                             minWidth: 32,
@@ -724,7 +748,6 @@ export default function AuctionRequestView() {
                         </div>
                       </Box>
 
-                      {/* Status pill */}
                       <span
                         style={{
                           fontSize: "0.68rem",
@@ -751,7 +774,7 @@ export default function AuctionRequestView() {
             </FormHelperText>
           </FormControl>
 
-          {/* Admin notes override */}
+          {/* Admin notes */}
           <TextField
             label="Notes"
             size="small"
@@ -820,30 +843,32 @@ export default function AuctionRequestView() {
         >
           Cancel
         </Button>
-        {can("auctionRequests", "update") && <Button
-          onClick={handleSave}
-          variant="contained"
-          disabled={saving}
-          startIcon={
-            saving ? (
-              <CircularProgress size={16} color="inherit" />
-            ) : (
-              <Save size={16} />
-            )
-          }
-          sx={{
-            textTransform: "none",
-            bgcolor: colors.primary,
-            "&:hover": { bgcolor: "#111", color: "#fff" },
-            borderRadius: 2,
-            px: 4,
-            fontWeight: 600,
-            width: { xs: "100%", sm: "auto" },
-            boxShadow: "0 4px 14px rgba(37,99,235,0.30)",
-          }}
-        >
-          {saving ? "Saving…" : "Save Changes"}
-        </Button>}
+        {can("auctionRequests", "update") && (
+          <Button
+            onClick={handleSave}
+            variant="contained"
+            disabled={saving}
+            startIcon={
+              saving ? (
+                <CircularProgress size={16} color="inherit" />
+              ) : (
+                <Save size={16} />
+              )
+            }
+            sx={{
+              textTransform: "none",
+              bgcolor: colors.primary,
+              "&:hover": { bgcolor: "#111", color: "#fff" },
+              borderRadius: 2,
+              px: 4,
+              fontWeight: 600,
+              width: { xs: "100%", sm: "auto" },
+              boxShadow: "0 4px 14px rgba(37,99,235,0.30)",
+            }}
+          >
+            {saving ? "Saving…" : "Save Changes"}
+          </Button>
+        )}
       </Box>
     </Box>
   );
