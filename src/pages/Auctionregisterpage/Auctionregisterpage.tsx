@@ -21,6 +21,8 @@ import PromoCodeModal, {
   type VoucherPreview,
 } from "@/components/shared/Promocodemodal";
 import { useTranslation } from "react-i18next";
+   import { auditLogger, buildActor } from "@/service/audit/auditLogger";
+    import { auth } from "@/firebase/firebase";
 
 // ─── applyVoucher Cloud Function callable ────────────────────────────────────
 
@@ -393,8 +395,10 @@ export default function AuctionRegisterPage() {
         id: a.id,
         entryType: a.entryType,
         entryFee: a.entryFee,
+        title: product?.title ?? `Auction #${a.auctionNumber}`,
       }));
-      const result = await joinAuctions(user.uid, auctionsToJoin);
+       const actor = buildActor(auth.currentUser, "user");
+      const result = await joinAuctions(user.uid, auctionsToJoin, actor);
 
       if (result.errors.length > 0)
         toast.error(

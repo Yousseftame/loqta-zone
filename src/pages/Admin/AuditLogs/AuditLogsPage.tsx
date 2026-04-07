@@ -4,9 +4,15 @@
  * Redesigned to match the admin panel's light theme:
  * white cards · #2A4863 navy primary · #EFF6FF / #DBEAFE accents
  * Same modal & table style as LogoutModal + TransactionsTable
+ *
+ * Changes:
+ * - All StatsBar cards use same navy gradient theme as "Total"
+ * - Action field (e.g. BID_PLACED) is now a prominent navy badge in table & modal header
+ * - "Where" section in modal is visually highlighted and easy to read
+ * - Modal broken into reusable components (imported from LogDetailModal.tsx)
  */
 
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { useAuditLogs } from "@/service/audit/useAuditLogs";
 import type {
   AuditLog,
@@ -15,34 +21,21 @@ import type {
 } from "../../../service/audit/audit-log-data";
 import {
   CATEGORY_CONFIG,
-  STATUS_CONFIG,
   QUICK_FILTERS,
   DEFAULT_AUDIT_FILTERS,
 } from "../../../service/audit/audit-log-data";
-import { ChevronLeft, ChevronRight, RefreshCw, Filter, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, RefreshCw, Filter } from "lucide-react";
 
-// ─── Design tokens (matches admin panel) ─────────────────────────────────────
-const C = {
-  primary: "#2A4863",
-  primaryLight: "#3D6A8A",
-  primaryDark: "#1E40AF",
-  primaryBg: "#EFF6FF",
-  primaryRing: "#DBEAFE",
-  surface: "#FFFFFF",
-  border: "#E2E8F0",
-  muted: "#F8FAFC",
-  textPrimary: "#0F172A",
-  textSecondary: "#64748B",
-  textMuted: "#94A3B8",
-  success: "#22C55E",
-  successBg: "#DCFCE7",
-  error: "#EF4444",
-  errorBg: "#FEE2E2",
-  warning: "#F97316",
-  warningBg: "#FFEDD5",
-  info: "#3B82F6",
-  infoBg: "#DBEAFE",
-};
+// Import all reusable modal components
+import {
+  C,
+  STATUS_LIGHT,
+  StatusBadge,
+  CategoryBadge,
+  RoleBadge,
+  ActionBadge,
+  LogDetailModal,
+} from "./Logdetailmodal";
 
 const PAGE_SIZE = 15;
 
@@ -70,526 +63,6 @@ function timeAgo(d: Date) {
 }
 function truncate(str: string, n = 60) {
   return str.length > n ? str.slice(0, n) + "…" : str;
-}
-
-// ─── Status config → light-theme tokens ──────────────────────────────────────
-const STATUS_LIGHT: Record<
-  string,
-  { bg: string; color: string; dot: string; label: string }
-> = {
-  success: {
-    bg: "#DCFCE7",
-    color: "#16A34A",
-    dot: "#22C55E",
-    label: "Success",
-  },
-  info: { bg: "#DBEAFE", color: "#1D4ED8", dot: "#3B82F6", label: "Info" },
-  warning: {
-    bg: "#FEF3C7",
-    color: "#B45309",
-    dot: "#F59E0B",
-    label: "Warning",
-  },
-  danger: { bg: "#FEE2E2", color: "#DC2626", dot: "#EF4444", label: "Danger" },
-};
-
-const ROLE_STYLE: Record<string, { bg: string; color: string }> = {
-  superAdmin: { bg: "#FEF3C7", color: "#B45309" },
-  admin: { bg: "#FEE2E2", color: "#DC2626" },
-  user: { bg: "#DBEAFE", color: "#2563EB" },
-  guest: { bg: "#F3F4F6", color: "#6B7280" },
-};
-
-// ─── Badge components ─────────────────────────────────────────────────────────
-function StatusBadge({ status }: { status: AuditLog["status"] }) {
-  const s = STATUS_LIGHT[status] ?? STATUS_LIGHT.info;
-  return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 5,
-        padding: "3px 10px",
-        borderRadius: 999,
-        background: s.bg,
-        color: s.color,
-        fontSize: 11,
-        fontWeight: 700,
-        letterSpacing: "0.04em",
-        border: `1px solid ${s.color}33`,
-        whiteSpace: "nowrap",
-      }}
-    >
-      <span
-        style={{
-          width: 5,
-          height: 5,
-          borderRadius: "50%",
-          background: s.dot,
-          flexShrink: 0,
-        }}
-      />
-      {s.label}
-    </span>
-  );
-}
-
-function CategoryBadge({ category }: { category: AuditActionCategory }) {
-  const cfg = CATEGORY_CONFIG[category];
-  return (
-    <span
-      style={{
-        display: "inline-block",
-        padding: "2px 9px",
-        borderRadius: 6,
-        background: cfg.bg,
-        color: cfg.color,
-        fontSize: 10,
-        fontWeight: 700,
-        letterSpacing: "0.08em",
-        textTransform: "uppercase",
-        border: `1px solid ${cfg.border}`,
-        whiteSpace: "nowrap",
-      }}
-    >
-      {cfg.label}
-    </span>
-  );
-}
-
-function RoleBadge({ role }: { role: AuditLog["actor"]["role"] }) {
-  const s = ROLE_STYLE[role] ?? ROLE_STYLE.guest;
-  return (
-    <span
-      style={{
-        padding: "2px 8px",
-        borderRadius: 5,
-        background: s.bg,
-        color: s.color,
-        fontSize: 10,
-        fontWeight: 700,
-        textTransform: "capitalize",
-        letterSpacing: "0.04em",
-      }}
-    >
-      {role}
-    </span>
-  );
-}
-
-// ─── Log Detail Modal (matches LogoutModal style) ─────────────────────────────
-function LogDetailModal({
-  log,
-  onClose,
-}: {
-  log: AuditLog;
-  onClose: () => void;
-}) {
-  const statusStyle = STATUS_LIGHT[log.status] ?? STATUS_LIGHT.info;
-  const catCfg = CATEGORY_CONFIG[log.category];
-
-  const sections = [
-    {
-      title: "Who",
-      icon: "👤",
-      rows: [
-        ["Name", log.actor.name || "—"],
-        ["Email", log.actor.email || "—"],
-        ["Role", <RoleBadge role={log.actor.role} />],
-        ["User ID", log.actor.userId ?? "Guest"],
-      ],
-    },
-    {
-      title: "Where",
-      icon: "📍",
-      rows: [
-        ["Entity Type", log.entityType],
-        ["Entity Name", log.entityName ?? "—"],
-        ["Entity ID", log.entityId ?? "—"],
-        ["Route", log.route ?? "—"],
-      ],
-    },
-    {
-      title: "When",
-      icon: "🕐",
-      rows: [
-        ["Date", fmtDate(log.timestamp)],
-        ["Time", fmtTime(log.timestamp)],
-        ["Time Ago", timeAgo(log.timestamp)],
-      ],
-    },
-    {
-      title: "Meta",
-      icon: "🔧",
-      rows: [
-        ["IP Address", log.ipAddress ?? "—"],
-        ["User Agent", log.userAgent ? truncate(log.userAgent, 50) : "—"],
-        ["Session ID", log.sessionId ?? "—"],
-      ],
-    },
-  ];
-
-  return (
-    <>
-      {/* Backdrop */}
-      <div
-        onClick={onClose}
-        style={{
-          position: "fixed",
-          inset: 0,
-          zIndex: 9998,
-          background: "rgba(15,23,42,0.45)",
-          backdropFilter: "blur(4px)",
-          animation: "al-fadein 0.18s ease forwards",
-        }}
-      />
-
-      {/* Modal */}
-      <div
-        style={{
-          position: "fixed",
-          inset: 0,
-          zIndex: 9999,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          pointerEvents: "none",
-        }}
-      >
-        <div
-          style={{
-            pointerEvents: "all",
-            background: "#ffffff",
-            borderRadius: 20,
-            boxShadow:
-              "0 32px 80px rgba(15,23,42,0.18), 0 0 0 1px rgba(226,232,240,0.8)",
-            width: "100%",
-            maxWidth: 500,
-            margin: "0 16px",
-            maxHeight: "90vh",
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-            animation:
-              "al-slidein 0.22s cubic-bezier(0.34,1.56,0.64,1) forwards",
-          }}
-        >
-          {/* Top accent bar */}
-          <div
-            style={{
-              height: 4,
-              background: `linear-gradient(90deg, ${C.primary} 0%, ${C.primaryLight} 100%)`,
-              flexShrink: 0,
-            }}
-          />
-
-          {/* Header */}
-          <div
-            style={{
-              padding: "20px 24px 16px",
-              borderBottom: `1px solid ${C.border}`,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              flexShrink: 0,
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 10,
-                  background: C.primaryBg,
-                  border: `1px solid ${C.primaryRing}`,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <span style={{ fontSize: 16 }}>📋</span>
-              </div>
-              <div>
-                <div
-                  style={{
-                    fontSize: 15,
-                    fontWeight: 700,
-                    color: C.textPrimary,
-                  }}
-                >
-                  Log Details
-                </div>
-                <div style={{ fontSize: 11, color: C.textMuted, marginTop: 1 }}>
-                  {log.action}
-                </div>
-              </div>
-            </div>
-            <button
-              onClick={onClose}
-              style={{
-                background: C.muted,
-                border: `1px solid ${C.border}`,
-                borderRadius: 8,
-                padding: "6px 8px",
-                cursor: "pointer",
-                color: C.textMuted,
-                display: "flex",
-                alignItems: "center",
-              }}
-            >
-              <X size={14} />
-            </button>
-          </div>
-
-          {/* Scrollable body */}
-          <div
-            style={{ flex: 1, overflowY: "auto", padding: "20px 24px 24px" }}
-          >
-            {/* Action banner */}
-            <div
-              style={{
-                background: catCfg.bg,
-                border: `1px solid ${catCfg.border}`,
-                borderRadius: 12,
-                padding: "14px 16px",
-                marginBottom: 20,
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  marginBottom: 8,
-                }}
-              >
-                <CategoryBadge category={log.category} />
-                <StatusBadge status={log.status} />
-              </div>
-              <div
-                style={{
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: C.textPrimary,
-                  lineHeight: 1.5,
-                }}
-              >
-                {log.description}
-              </div>
-            </div>
-
-            {/* Detail sections */}
-            {sections.map((sec) => (
-              <div key={sec.title} style={{ marginBottom: 16 }}>
-                <div
-                  style={{
-                    fontSize: 10,
-                    fontWeight: 700,
-                    color: C.textMuted,
-                    letterSpacing: "0.14em",
-                    textTransform: "uppercase",
-                    marginBottom: 8,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 5,
-                  }}
-                >
-                  <span>{sec.icon}</span> {sec.title}
-                </div>
-                <div
-                  style={{
-                    background: C.muted,
-                    border: `1px solid ${C.border}`,
-                    borderRadius: 10,
-                    overflow: "hidden",
-                  }}
-                >
-                  {sec.rows.map(([label, value], i) => (
-                    <div
-                      key={String(label)}
-                      style={{
-                        display: "flex",
-                        alignItems: "flex-start",
-                        padding: "9px 14px",
-                        gap: 12,
-                        borderBottom:
-                          i < sec.rows.length - 1
-                            ? `1px solid ${C.border}`
-                            : "none",
-                      }}
-                    >
-                      <span
-                        style={{
-                          minWidth: 80,
-                          fontSize: 11,
-                          color: C.textMuted,
-                          fontWeight: 600,
-                          letterSpacing: "0.04em",
-                          paddingTop: 1,
-                          flexShrink: 0,
-                        }}
-                      >
-                        {label}
-                      </span>
-                      <span
-                        style={{
-                          fontSize: 12,
-                          color: C.textPrimary,
-                          wordBreak: "break-all",
-                          fontFamily:
-                            typeof value === "string" &&
-                            (value.length > 20 ||
-                              String(label) === "IP Address" ||
-                              String(label) === "Session ID")
-                              ? "monospace"
-                              : "inherit",
-                        }}
-                      >
-                        {value}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-
-            {/* Changes diff */}
-            {log.changes && log.changes.length > 0 && (
-              <div>
-                <div
-                  style={{
-                    fontSize: 10,
-                    fontWeight: 700,
-                    color: C.textMuted,
-                    letterSpacing: "0.14em",
-                    textTransform: "uppercase",
-                    marginBottom: 8,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 5,
-                  }}
-                >
-                  🔄 Changes
-                </div>
-                <div
-                  style={{
-                    background: C.muted,
-                    border: `1px solid ${C.border}`,
-                    borderRadius: 10,
-                    overflow: "hidden",
-                  }}
-                >
-                  {log.changes.map((c, i) => (
-                    <div
-                      key={i}
-                      style={{
-                        padding: "10px 14px",
-                        borderBottom:
-                          i < (log.changes?.length ?? 0) - 1
-                            ? `1px solid ${C.border}`
-                            : "none",
-                      }}
-                    >
-                      <div
-                        style={{
-                          fontSize: 11,
-                          color: C.primary,
-                          fontWeight: 700,
-                          marginBottom: 6,
-                        }}
-                      >
-                        {c.field}
-                      </div>
-                      <div
-                        style={{
-                          display: "flex",
-                          gap: 8,
-                          flexWrap: "wrap",
-                          alignItems: "center",
-                        }}
-                      >
-                        <span
-                          style={{
-                            padding: "2px 9px",
-                            borderRadius: 5,
-                            background: C.errorBg,
-                            color: C.error,
-                            fontSize: 11,
-                            fontFamily: "monospace",
-                          }}
-                        >
-                          − {String(c.before ?? "null")}
-                        </span>
-                        <span style={{ color: C.textMuted, fontSize: 11 }}>
-                          →
-                        </span>
-                        <span
-                          style={{
-                            padding: "2px 9px",
-                            borderRadius: 5,
-                            background: C.successBg,
-                            color: C.success,
-                            fontSize: 11,
-                            fontFamily: "monospace",
-                          }}
-                        >
-                          + {String(c.after ?? "null")}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Footer close */}
-          <div
-            style={{
-              padding: "16px 24px",
-              borderTop: `1px solid ${C.border}`,
-              flexShrink: 0,
-            }}
-          >
-            <button
-              onClick={onClose}
-              style={{
-                width: "100%",
-                padding: "11px 0",
-                borderRadius: 10,
-                border: `1.5px solid ${C.border}`,
-                background: C.muted,
-                color: C.textSecondary,
-                fontSize: 14,
-                fontWeight: 600,
-                cursor: "pointer",
-                fontFamily: "system-ui, -apple-system, sans-serif",
-                transition: "all 0.18s ease",
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.background =
-                  "#F1F5F9";
-                (e.currentTarget as HTMLButtonElement).style.borderColor =
-                  "#CBD5E1";
-                (e.currentTarget as HTMLButtonElement).style.color =
-                  C.textPrimary;
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.background =
-                  C.muted;
-                (e.currentTarget as HTMLButtonElement).style.borderColor =
-                  C.border;
-                (e.currentTarget as HTMLButtonElement).style.color =
-                  C.textSecondary;
-              }}
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      </div>
-    </>
-  );
 }
 
 // ─── Filter Panel ─────────────────────────────────────────────────────────────
@@ -848,7 +321,7 @@ function FilterPanel({
   );
 }
 
-// ─── Stats Bar ────────────────────────────────────────────────────────────────
+// ─── Stats Bar — all cards share the same navy gradient theme ─────────────────
 function StatsBar({ logs }: { logs: AuditLog[] }) {
   const statusCounts = logs.reduce(
     (acc, l) => {
@@ -866,81 +339,66 @@ function StatsBar({ logs }: { logs: AuditLog[] }) {
     {} as Record<string, number>,
   );
 
+  // Shared card style — all use the same navy gradient
+  const cardStyle = (opacity = 1): React.CSSProperties => ({
+    padding: "12px 20px",
+    background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryLight} 100%)`,
+    borderRadius: 12,
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    boxShadow: "0 4px 14px rgba(42,72,99,0.2)",
+    opacity,
+  });
+
+  const numStyle: React.CSSProperties = {
+    fontSize: 22,
+    fontWeight: 800,
+    color: "#fff",
+  };
+
+  const labelStyle: React.CSSProperties = {
+    fontSize: 11,
+    color: "rgba(255,255,255,0.7)",
+    letterSpacing: "0.1em",
+    fontWeight: 600,
+  };
+
   return (
     <div
       style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20 }}
     >
       {/* Total */}
-      <div
-        style={{
-          padding: "12px 20px",
-          background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryLight} 100%)`,
-          borderRadius: 12,
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          boxShadow: "0 4px 14px rgba(42,72,99,0.2)",
-        }}
-      >
-        <span style={{ fontSize: 22, fontWeight: 800, color: "#fff" }}>
-          {logs.length}
-        </span>
-        <span
-          style={{
-            fontSize: 11,
-            color: "rgba(255,255,255,0.7)",
-            letterSpacing: "0.1em",
-            fontWeight: 600,
-          }}
-        >
-          TOTAL
-        </span>
+      <div style={cardStyle()}>
+        <span style={numStyle}>{logs.length}</span>
+        <span style={labelStyle}>TOTAL</span>
       </div>
 
+      {/* Status cards */}
       {(["success", "info", "warning", "danger"] as const).map((s) => {
-        const cfg = STATUS_LIGHT[s];
         const n = statusCounts[s] ?? 0;
         if (!n) return null;
+        const cfg = STATUS_LIGHT[s];
         return (
-          <div
-            key={s}
-            style={{
-              padding: "12px 16px",
-              background: cfg.bg,
-              border: `1px solid ${cfg.color}33`,
-              borderRadius: 12,
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-            }}
-          >
+          <div key={s} style={cardStyle()}>
+            {/* Small colored dot to differentiate status type */}
             <span
               style={{
-                width: 7,
-                height: 7,
+                width: 8,
+                height: 8,
                 borderRadius: "50%",
                 background: cfg.dot,
                 flexShrink: 0,
+                boxShadow: `0 0 0 2px rgba(255,255,255,0.3)`,
               }}
             />
-            <span style={{ fontSize: 18, fontWeight: 800, color: cfg.color }}>
-              {n}
-            </span>
-            <span
-              style={{
-                fontSize: 10,
-                color: cfg.color,
-                opacity: 0.8,
-                letterSpacing: "0.1em",
-                fontWeight: 700,
-              }}
-            >
-              {s.toUpperCase()}
-            </span>
+            <span style={numStyle}>{n}</span>
+            <span style={labelStyle}>{s.toUpperCase()}</span>
           </div>
         );
       })}
 
+      {/* Category cards */}
       {Object.entries(catCounts)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 3)
@@ -948,32 +406,9 @@ function StatsBar({ logs }: { logs: AuditLog[] }) {
           const cfg = CATEGORY_CONFIG[cat as AuditActionCategory];
           if (!cfg) return null;
           return (
-            <div
-              key={cat}
-              style={{
-                padding: "12px 16px",
-                background: cfg.bg,
-                border: `1px solid ${cfg.border}`,
-                borderRadius: 12,
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-              }}
-            >
-              <span style={{ fontSize: 16, fontWeight: 800, color: cfg.color }}>
-                {n}
-              </span>
-              <span
-                style={{
-                  fontSize: 10,
-                  color: cfg.color,
-                  opacity: 0.8,
-                  letterSpacing: "0.1em",
-                  fontWeight: 700,
-                }}
-              >
-                {cfg.label.toUpperCase()}
-              </span>
+            <div key={cat} style={cardStyle()}>
+              <span style={numStyle}>{n}</span>
+              <span style={labelStyle}>{cfg.label.toUpperCase()}</span>
             </div>
           );
         })}
@@ -1072,15 +507,14 @@ function LogRow({
         </div>
       </td>
 
-      {/* Category */}
+      {/* Category + Action — action is now prominently displayed */}
       <td style={{ padding: "12px 16px", verticalAlign: "middle" }}>
         <div style={{ marginBottom: 5 }}>
           <CategoryBadge category={log.category} />
         </div>
-        <div
-          style={{ fontSize: 10, color: C.textMuted, fontFamily: "monospace" }}
-        >
-          {log.action}
+        {/* Prominent action badge replacing the plain monospace text */}
+        <div style={{ marginTop: 4 }}>
+          <ActionBadge action={log.action} />
         </div>
       </td>
 
@@ -1225,7 +659,7 @@ export default function AuditLogsPage() {
   const cols = [
     { key: "timestamp", label: "Timestamp", w: 130 },
     { key: "actor", label: "Actor", w: 180 },
-    { key: "category", label: "Category", w: 140 },
+    { key: "category", label: "Category", w: 160 },
     { key: "description", label: "Description", w: undefined },
     { key: "status", label: "Status", w: 100 },
     { key: "meta", label: "Meta", w: 110 },
@@ -1272,14 +706,7 @@ export default function AuditLogsPage() {
             >
               Audit Logs
             </h1>
-            <p
-              style={{
-                fontSize: 13,
-                color: C.textMuted,
-                marginTop: 4,
-                margin: "4px 0 0",
-              }}
-            >
+            <p style={{ fontSize: 13, color: C.textMuted, margin: "4px 0 0" }}>
               Complete activity trail · All user and admin actions
             </p>
           </div>
@@ -1382,9 +809,9 @@ export default function AuditLogsPage() {
               padding: "14px 18px",
               borderRadius: 12,
               marginBottom: 20,
-              background: C.errorBg,
-              border: `1px solid ${C.error}33`,
-              color: C.error,
+              background: "#FEE2E2",
+              border: `1px solid #EF444433`,
+              color: "#EF4444",
               fontSize: 13,
             }}
           >
@@ -1484,7 +911,6 @@ export default function AuditLogsPage() {
 
               <tbody>
                 {loading && logs.length === 0 ? (
-                  // Skeleton loading
                   Array(8)
                     .fill(0)
                     .map((_, i) => (
@@ -1726,7 +1152,7 @@ export default function AuditLogsPage() {
         </div>
       </div>
 
-      {/* ── DETAIL MODAL ─────────────────────────────────────────────────── */}
+      {/* ── DETAIL MODAL — now a clean reusable component ──────────────── */}
       {selectedLog && (
         <LogDetailModal
           log={selectedLog}

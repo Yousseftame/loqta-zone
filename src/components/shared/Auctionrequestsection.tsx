@@ -3,6 +3,8 @@ import { db } from "@/firebase/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { useAuth } from "@/store/AuthContext/AuthContext";
 import { useTranslation } from "react-i18next";
+   import { auditLogger, buildActor } from "@/service/audit/auditLogger";
+   import { auth } from "@/firebase/firebase";
 
 // ── Design tokens (matching Contact page) ─────────────────────
 const GOLD = "#c9a96e";
@@ -603,6 +605,15 @@ export default function AuctionRequestSection() {
         matchedAuctionId: null,
         createdAt: serverTimestamp(),
       });
+         // 🔥 AUDIT LOG: auction request submitted
+         const currentUser = auth.currentUser;
+         if (currentUser) {
+           const actor = buildActor(currentUser, "user");
+           auditLogger.auctionRequestSubmitted(actor, form.productName.trim());
+         }
+      
+         setSubmittedName(form.productName.trim());
+         setSent(true);
 
       setSubmittedName(form.productName.trim());
       setSent(true);
