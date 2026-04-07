@@ -24,8 +24,8 @@
 
     /* Linting */
     "strict": true,
-    "noUnusedLocals": false,
-    "noUnusedParameters": false,
+    "noUnusedLocals": false,   // Allow unused variables
+    "noUnusedParameters": false,  // Allow unused function parameters
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true

@@ -4,36 +4,27 @@
  * ⚠️  Service workers are plain JS files — they CANNOT use import.meta.env.
  *     Config values must be hardcoded. These are NOT secret keys.
  *
- * ─── Fix Summary ──────────────────────────────────────────────────────────────
+ * ─── Root cause of duplicate notifications ───────────────────────────────────
  *
- * PROBLEM: Most notification types (auction_matched, auction_registered, etc.)
- * never showed as browser notifications, or showed twice.
+ * PROBLEM: Every notification showed TWICE in the browser.
  *
- * ROOT CAUSE 1 — Duplicate when app is in foreground:
- *   When the app tab is OPEN and focused, Firebase does NOT route the message
- *   through the service worker's onBackgroundMessage. Instead it fires the
- *   onMessage() handler inside the app. If the app's onMessage() handler also
- *   called showNotification(), you'd get two.
- *   FIX: The app's onMessage() handler (useFCM.ts) now does NOT show a browser
- *   notification. Only this SW shows notifications, and only when the app is
- *   in the background.
+ * ROOT CAUSE: The Cloud Functions send FCM messages with BOTH:
+ *   1. A top-level `notification` field  → browser auto-shows notification #1
+ *   2. A `webpush.notification` field    → service worker shows notification #2
  *
- * ROOT CAUSE 2 — Notifications silently dropped on some browsers:
- *   Chrome requires a valid absolute or relative URL in fcmOptions.link for
- *   click handling. When link was "/" or missing, some Chrome versions silently
- *   refused to show the notification at all.
- *   FIX: resolveUrl() now returns a proper relative path for every notification
- *   type. The click handler navigates to that URL.
+ * When FCM receives a message that has a `notification` field, Chrome
+ * automatically displays it WITHOUT going through the service worker at all.
+ * Then `onBackgroundMessage` fires and the SW shows it again → DUPLICATE.
  *
- * ROOT CAUSE 3 — Missing notification types in resolveUrl():
- *   auction_registered, auction_ended, voucher_created, bid_selected,
- *   last_offer_selected, last_offer_available were all missing or returning "/".
- *   FIX: All types now have explicit, correct deep-link paths.
+ * THE FIX IS IN THE CLOUD FUNCTIONS — remove the top-level `notification`
+ * field and remove `webpush.notification` from every sendEachForMulticast call.
+ * Keep only the `data` field. This SW then reads from `payload.data` and
+ * calls showNotification() exactly once.
  *
- * ROOT CAUSE 4 — Tag collision causing notifications to replace each other:
- *   All notifications used the same tag fallback "loqta-notif", so a second
- *   notification would silently replace the first (browser deduplication).
- *   FIX: Tag is now unique per message using timestamp + type.
+ * ─── Other fixes ─────────────────────────────────────────────────────────────
+ * - `clients` bare global → `self.clients` to fix linter error.
+ * - Unique tag per notification prevents silent browser deduplication.
+ * - resolveUrl() covers all notification types.
  */
 
 importScripts("https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js");
@@ -49,84 +40,82 @@ firebase.initializeApp({
   measurementId:     "G-0DEFWCEYTZ",
 });
 
-const messaging = firebase.messaging();
+var messaging = firebase.messaging();
 
 // ── Helper: resolve navigation URL from push data ─────────────────────────────
-// Every type must return a meaningful path. Chrome may silently drop
-// notifications that have no valid navigation target.
 function resolveUrl(data) {
   if (!data) return "/";
 
-  // Explicit url field always wins (set by most Cloud Functions)
   if (data.url && data.url !== "/") return data.url;
 
   switch (data.type) {
-    // User registered for an auction → go to the auction register page
     case "auction_registered":
       if (data.productId) return "/auctions/register/" + data.productId;
       if (data.auctionId) return "/auctions/" + data.auctionId;
-      return "/";
+      return "/auctions";
 
-    // Auction request matched → go to register page for that product
     case "auction_matched":
       if (data.productId) return "/auctions/register/" + data.productId;
       if (data.auctionId) return "/auctions/" + data.auctionId;
-      return "/";
+      return "/auctions";
 
-    // Auction ended — go to the live auction page (shows result)
     case "auction_ended":
       if (data.auctionId) return "/auctions/" + data.auctionId;
-      return "/";
+      return "/auctions";
 
-    // Last offer available → open the auction with the last offer modal
     case "last_offer_available":
       if (data.auctionId) return "/auctions/" + data.auctionId + "?lastOffer=1";
-      return "/";
+      return "/auctions";
 
-    // Last offer selected by admin → confirm purchase page
     case "last_offer_selected":
       if (data.auctionId) {
         var amount = data.winningBid ? "?amount=" + data.winningBid : "";
         return "/last-offer-confirm/" + data.auctionId + amount;
       }
-      return "/";
+      return "/auctions";
 
-    // Bid selected by admin as winner → same confirm page
     case "bid_selected":
       if (data.auctionId) {
         var amt = data.winningBid ? "?amount=" + data.winningBid : "";
         return "/last-offer-confirm/" + data.auctionId + amt;
       }
-      return "/";
+      return "/auctions";
 
-    // Payment confirmed → auction page
     case "payment_confirmed":
       if (data.auctionId) return "/auctions/" + data.auctionId;
-      return "/";
+      return "/auctions";
 
-    // New voucher → auctions listing so user can use it
     case "voucher_created":
-      return "/";
+      return "/auctions";
 
     default:
       if (data.auctionId) return "/auctions/" + data.auctionId;
-      return "/";
+      return "/auctions";
   }
 }
 
 // ── Background message handler ────────────────────────────────────────────────
-// This ONLY fires when the app is in the BACKGROUND (tab hidden or closed).
-// When the app is OPEN/FOREGROUND, Firebase routes to onMessage() inside the
-// app instead — so this will never cause a duplicate with the app's handler.
+// Fires ONLY when the app is in the background (tab hidden or closed).
+// When the app is OPEN, Firebase routes to onMessage() in the app instead.
+//
+// IMPORTANT: This will only fire (and show exactly 1 notification) when your
+// Cloud Functions send DATA-ONLY messages. If they include a `notification`
+// field, Chrome auto-shows it and this handler ALSO fires → 2 notifications.
 messaging.onBackgroundMessage(function(payload) {
-  var title = (payload.notification && payload.notification.title) || "Loqta Zone";
-  var body  = (payload.notification && payload.notification.body)  || "";
-  var data  = payload.data || {};
+  console.log("[SW] Background message received, type:", payload.data && payload.data.type);
+
+  var data = payload.data || {};
+
+  // Read title/body from data fields (data-only messages).
+  // Falls back to payload.notification during Cloud Function migration.
+  var title = data.title
+    || (payload.notification && payload.notification.title)
+    || "LOQTA ZONE";
+  var body = data.body
+    || (payload.notification && payload.notification.body)
+    || "";
 
   var url = resolveUrl(data);
-
-  // Use a unique tag per notification so they don't replace each other.
-  // Format: type-timestamp (e.g. "auction_ended-1712345678901")
   var tag = (data.type || "loqta") + "-" + Date.now();
 
   self.registration.showNotification(title, {
@@ -139,25 +128,27 @@ messaging.onBackgroundMessage(function(payload) {
   });
 });
 
-// ── Click handler: focus existing tab or open new one ────────────────────────
+// ── Notification click handler ────────────────────────────────────────────────
+// FIX: `self.clients` instead of bare `clients` — fixes the linter error
+// "Could not find name 'clients'. Did you mean 'client'?"
 self.addEventListener("notificationclick", function(event) {
   event.notification.close();
   var targetUrl = (event.notification.data && event.notification.data.url) || "/";
 
   event.waitUntil(
-    clients
+    self.clients
       .matchAll({ type: "window", includeUncontrolled: true })
       .then(function(clientList) {
-        // Try to find an existing tab for this origin
         for (var i = 0; i < clientList.length; i++) {
           var client = clientList[i];
-          if (client.url.includes(self.location.origin) && "focus" in client) {
+          if (client.url.indexOf(self.location.origin) !== -1 && "focus" in client) {
             client.navigate(targetUrl);
             return client.focus();
           }
         }
-        // No existing tab found — open a new one
-        return clients.openWindow(targetUrl);
+        if (self.clients.openWindow) {
+          return self.clients.openWindow(targetUrl);
+        }
       })
   );
 });

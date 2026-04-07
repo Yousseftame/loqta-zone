@@ -1,32 +1,8 @@
 /**
  * functions/src/Notifications/auctionEndedNotification.ts
  *
- * Trigger: onDocumentUpdated("auctions/{auctionId}")
- *
- * Fires when an auction resolves — winnerId transitions from null/undefined
- * to any value (real winner uid OR "NO_WINNER").
- *
- * What it does:
- *  1. Validates the transition is a fresh resolution
- *  2. Fetches the product title from the auction doc's productId
- *  3. Fetches all Participants in a single subcollection read
- *  4. Batch-writes one in-app notification per participant (winner included)
- *  5. Sends FCM push to all participant tokens in chunked multicast calls
- *  6. Stamps auctionEndedNotifiedAt on the auction doc for idempotency
- *
- * ─── Notification behaviour ─────────────────────────────────────────────────
- *  - NOT clickable / navigable — url field is intentionally omitted
- *  - type = "auction_ended"
- *  - Sent to ALL participants regardless of whether they won or lost
- *  - The winner already gets a separate bid_selected / last_offer_selected
- *    notification, so this one is purely a polite "thank you, see you soon"
- *
- * ─── Cost model ─────────────────────────────────────────────────────────────
- *  Reads  : 1 (product doc) + 1 (Participants query)
- *           + N user docs for FCM tokens (batched via Promise.all)
- *  Writes : 1 (auction idempotency stamp) + N (notification docs, batched)
- *           + token prune writes (only when dead tokens found)
- *  Fires ONCE per auction lifetime — negligible cost.
+ * FIX: DATA-ONLY FCM message — removed `notification` and `webpush.notification`.
+ * See auctionRegistrationNotification.ts for full explanation of the duplicate fix.
  */
 
 import { onDocumentUpdated } from "firebase-functions/v2/firestore";
@@ -67,23 +43,17 @@ export const onAuctionEnded = onDocumentUpdated(
 
     const auctionId = event.params.auctionId;
 
-    // ── 1. Guard: winnerId must have JUST been set (null/undefined → any value) ─
     const justResolved =
       (before.winnerId === null || before.winnerId === undefined) &&
       !!after.winnerId;
 
     if (!justResolved) return;
 
-    // ── 2. Idempotency guard ───────────────────────────────────────────────────
-    if (after.auctionEndedNotifiedAt) {
-      // console.log(`[auctionEnded] ${auctionId} already notified — skipping.`);
-      return;
-    }
+    if (after.auctionEndedNotifiedAt) return;
 
     const auctionNumber: number = after.auctionNumber ?? 0;
     const productId: string     = after.productId     ?? "";
 
-    // ── 3. Resolve product title ───────────────────────────────────────────────
     let productTitle = "";
     if (productId) {
       try {
@@ -91,12 +61,9 @@ export const onAuctionEnded = onDocumentUpdated(
         if (productSnap.exists) {
           productTitle = productSnap.data()?.title ?? "";
         }
-      } catch {
-        /* non-fatal — we'll show just the auction number */
-      }
+      } catch { /* non-fatal */ }
     }
 
-    // ── 4. Fetch all participants ──────────────────────────────────────────────
     let participantIds: string[] = [];
     try {
       const participantsSnap = await db
@@ -109,31 +76,23 @@ export const onAuctionEnded = onDocumentUpdated(
         .map((d) => d.data().userId ?? d.id)
         .filter((uid) => typeof uid === "string" && uid.length > 0);
     } catch (err) {
-      console.error(`[auctionEnded] Failed to fetch participants for ${auctionId}:`, err);
+      console.error(`[auctionEnded] Failed to fetch participants:`, err);
       return;
     }
 
     if (participantIds.length === 0) {
-      // console.log(`[auctionEnded] No participants for ${auctionId} — nothing to notify.`);
       await event.data!.after.ref.update({
         auctionEndedNotifiedAt: FieldValue.serverTimestamp(),
       });
       return;
     }
 
-    // ── 5. Build notification content ──────────────────────────────────────────
-    // The title and body are intentionally warm and non-transactional.
-    // Localization is handled client-side in NotificationBell (getLocalizedNotif).
-    // We store the raw data fields so the client can reconstruct any language.
-
     const titleEn = `Auction #${auctionNumber} Has Ended`;
     const bodyEn  = productTitle
       ? `Thank you for participating in the auction for "${productTitle}" (#${auctionNumber}). We hope to see you in our next auction soon! 🎉`
       : `Thank you for participating in Auction #${auctionNumber}. We hope to see you in our next auction soon! 🎉`;
 
-    // ── 6. Batch-write in-app notifications ───────────────────────────────────
-    let notifWritten = 0;
-
+    // Write in-app notifications
     await Promise.allSettled(
       chunk(participantIds, FIRESTORE_BATCH_MAX).map(async (uids) => {
         const batch = db.batch();
@@ -149,23 +108,16 @@ export const onAuctionEnded = onDocumentUpdated(
               title:         titleEn,
               message:       bodyEn,
               isRead:        false,
-              // url intentionally omitted — this notification is NOT clickable/navigable
               createdAt:     FieldValue.serverTimestamp(),
             },
           );
         });
-        try {
-          await batch.commit();
-          notifWritten += uids.length;
-        } catch (err) {
-          console.error("[auctionEnded] Batch write failed:", err);
-        }
+        try { await batch.commit(); }
+        catch (err) { console.error("[auctionEnded] Batch write failed:", err); }
       }),
     );
 
-    // console.log(`[auctionEnded] In-app notifications written: ${notifWritten}`);
-
-    // ── 7. Fetch FCM tokens for all participants ────────────────────────────────
+    // Fetch FCM tokens
     const tokenToUid = new Map<string, string>();
 
     await Promise.allSettled(
@@ -174,54 +126,36 @@ export const onAuctionEnded = onDocumentUpdated(
           const userSnap = await db.collection("users").doc(uid).get();
           if (!userSnap.exists) return;
           const rawTokens: string[] = userSnap.data()?.fcmTokens ?? [];
-          const unique = [
-            ...new Set(rawTokens.filter((t) => typeof t === "string" && t.length > 0)),
-          ];
+          const unique = [...new Set(rawTokens.filter((t) => typeof t === "string" && t.length > 0))];
           unique.forEach((t) => tokenToUid.set(t, uid));
-          // Self-heal duplicates while we're here
           if (unique.length < rawTokens.length) {
             await db.collection("users").doc(uid).update({ fcmTokens: unique });
           }
-        } catch {
-          /* non-fatal */
-        }
+        } catch { /* non-fatal */ }
       }),
     );
 
-    // ── 8. Send FCM in chunks ──────────────────────────────────────────────────
     const allTokens = Array.from(tokenToUid.keys());
-    let totalSent = 0, totalFailed = 0;
 
     if (allTokens.length > 0) {
       await Promise.allSettled(
         chunk(allTokens, FCM_CHUNK_SIZE).map(async (tokens) => {
           try {
+            // DATA-ONLY — no `notification` field, no `webpush.notification`
             const response = await messaging.sendEachForMulticast({
               tokens,
-              notification: { title: titleEn, body: bodyEn },
               data: {
                 type:          "auction_ended",
                 auctionId,
                 productId:     productId ?? "",
                 productTitle,
                 auctionNumber: String(auctionNumber),
+                title:         titleEn,
+                body:          bodyEn,
               },
-              webpush: {
-                notification: {
-                  title: titleEn,
-                  body:  bodyEn,
-                  icon:               "/loqta-removebg-preview.png",
-                  badge:              "/loqta-removebg-preview.png",
-                  requireInteraction: false,
-                },
-                // No fcmOptions.link — intentionally non-navigable
-              },
+              // No webpush.notification — auction_ended is non-navigable
             });
 
-            totalSent   += response.successCount;
-            totalFailed += response.failureCount;
-
-            // Prune dead tokens
             const deadByUid = new Map<string, string[]>();
             response.responses.forEach((res, idx) => {
               if (!res.success && DEAD_TOKEN_CODES.has(res.error?.code ?? "")) {
@@ -245,15 +179,11 @@ export const onAuctionEnded = onDocumentUpdated(
             }
           } catch (err) {
             console.error("[auctionEnded] FCM chunk error:", err);
-            totalFailed += tokens.length;
           }
         }),
       );
     }
 
-    // console.log(`[auctionEnded] FCM sent=${totalSent} failed=${totalFailed}`);
-
-    // ── 9. Idempotency stamp ────────────────────────────────────────────────────
     try {
       await event.data!.after.ref.update({
         auctionEndedNotifiedAt: FieldValue.serverTimestamp(),

@@ -1,13 +1,8 @@
 /**
  * functions/src/Notifications/voucherNotification.ts
  *
- * Trigger: onDocumentCreated("vouchers/{voucherId}")
- *
- * Always broadcasts to ALL users.
- * Stores structured fields for elegant bell rendering:
- *   - auctionItems: JSON string of [{productTitle, auctionNumber}] array
- *     so the bell can render each as a separate bullet point
- *   - auctionLine: plain string fallback for FCM body
+ * FIX: DATA-ONLY FCM message — removed `notification` and `webpush.notification`.
+ * See auctionRegistrationNotification.ts for full explanation of the duplicate fix.
  */
 
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
@@ -54,19 +49,10 @@ function buildNotification(
   expiryDate:     Date,
   maxUses:        number,
   auctionInfos:   { productTitle: string; auctionNumber: number }[],
-): {
-  title:        string;
-  body:         string;
-  voucherLabel: string;
-  auctionLine:  string;   // plain string for FCM body
-  auctionItems: string;   // JSON array for bell rendering
-  expiry:       string;
-  maxUses:      number;
-} {
+) {
   const expiry = formatExpiry(expiryDate);
   const label  = typeLabel(type, discountAmount);
 
-  // Plain string for FCM push body
   const auctionLine = auctionInfos.length > 0
     ? auctionInfos
         .slice(0, 4)
@@ -75,7 +61,6 @@ function buildNotification(
       + (auctionInfos.length > 4 ? ` & ${auctionInfos.length - 4} more` : "")
     : "All Auctions";
 
-  // JSON array for structured bell rendering (each item = one bullet)
   const auctionItems = JSON.stringify(
     auctionInfos.slice(0, 4).map((a) => ({
       productTitle:  a.productTitle,
@@ -94,49 +79,6 @@ function buildNotification(
   return { title, body, voucherLabel: label, auctionLine, auctionItems, expiry, maxUses };
 }
 
-async function sendChunk(
-  tokens:     string[],
-  title:      string,
-  body:       string,
-  data:       Record<string, string>,
-  tokenToUid: Map<string, string>,
-): Promise<{ sent: number; failed: number }> {
-  const response = await messaging.sendEachForMulticast({
-    tokens,
-    notification: { title, body },
-    data,
-    webpush: {
-      notification: {
-        title, body,
-        icon:  "/loqta-removebg-preview.png",
-        badge: "/loqta-removebg-preview.png",
-        requireInteraction: false,
-      },
-      fcmOptions: { link: "/auctions" },
-    },
-  });
-
-  const deadByUid = new Map<string, string[]>();
-  response.responses.forEach((res, idx) => {
-    if (!res.success && DEAD_TOKEN_CODES.has(res.error?.code ?? "")) {
-      const uid = tokenToUid.get(tokens[idx]);
-      if (uid) {
-        const arr = deadByUid.get(uid) ?? [];
-        arr.push(tokens[idx]);
-        deadByUid.set(uid, arr);
-      }
-    }
-  });
-  if (deadByUid.size > 0) {
-    await Promise.allSettled(
-      Array.from(deadByUid.entries()).map(([uid, dead]) =>
-        db.collection("users").doc(uid).update({ fcmTokens: FieldValue.arrayRemove(...dead) }),
-      ),
-    );
-  }
-  return { sent: response.successCount, failed: response.failureCount };
-}
-
 export const onVoucherCreated = onDocumentCreated(
   { document: "vouchers/{voucherId}", memory: "512MiB", timeoutSeconds: 120 },
   async (event) => {
@@ -145,10 +87,7 @@ export const onVoucherCreated = onDocumentCreated(
     if (!snap?.exists) return;
     const data = snap.data()!;
 
-    if (data.notifiedAt) {
-      // console.log(`[voucherNotification] ${voucherId} already notified — skipping.`);
-      return;
-    }
+    if (data.notifiedAt) return;
     if (!data.isActive) return;
 
     const expiryDate: Date =
@@ -161,7 +100,6 @@ export const onVoucherCreated = onDocumentCreated(
     const maxUses            =  data.maxUses        ?? 0;
     const applicableAuctions = Array.isArray(data.applicableAuctions) ? data.applicableAuctions : [];
 
-    // Resolve auction numbers + product titles
     const auctionInfos: { productTitle: string; auctionNumber: number }[] = [];
     if (applicableAuctions.length > 0) {
       try {
@@ -194,13 +132,6 @@ export const onVoucherCreated = onDocumentCreated(
     const { title, body, voucherLabel, auctionLine, auctionItems, expiry } =
       buildNotification(code, type, discountAmount, expiryDate, maxUses, auctionInfos);
 
-    const fcmData: Record<string, string> = {
-      type:        "voucher_created",
-      voucherId,
-      voucherCode: code,
-      url:         "/auctions",
-    };
-
     const usersSnap = await db.collection("users").get();
     if (usersSnap.empty) {
       await snap.ref.update({ notifiedAt: FieldValue.serverTimestamp() });
@@ -217,9 +148,7 @@ export const onVoucherCreated = onDocumentCreated(
       });
     });
 
-    // console.log(`[voucherNotification] ${allUids.length} users, ${tokenToUid.size} tokens`);
-
-    let inAppWritten = 0;
+    // Write in-app notifications
     await Promise.allSettled(
       chunk(allUids, FIRESTORE_BATCH_MAX).map(async (uids) => {
         const batch = db.batch();
@@ -232,7 +161,7 @@ export const onVoucherCreated = onDocumentCreated(
               voucherCode:  code,
               voucherLabel,
               auctionLine,
-              auctionItems, // JSON string — bell parses this for bullet rendering
+              auctionItems,
               expiry,
               maxUses,
               title,
@@ -243,31 +172,59 @@ export const onVoucherCreated = onDocumentCreated(
             },
           );
         });
-        try { await batch.commit(); inAppWritten += uids.length; }
+        try { await batch.commit(); }
         catch (err) { console.error("[voucherNotification] Batch write failed:", err); }
       }),
     );
 
-    // console.log(`[voucherNotification] In-app written: ${inAppWritten}`);
-
     const allTokens = Array.from(tokenToUid.keys());
-    let totalSent = 0, totalFailed = 0;
+
     if (allTokens.length > 0) {
       await Promise.allSettled(
         chunk(allTokens, FCM_CHUNK_SIZE).map(async (tokens) => {
           try {
-            const { sent, failed } = await sendChunk(tokens, title, body, fcmData, tokenToUid);
-            totalSent += sent; totalFailed += failed;
+            // DATA-ONLY — no `notification` field, no `webpush.notification`
+            const response = await messaging.sendEachForMulticast({
+              tokens,
+              data: {
+                type:        "voucher_created",
+                voucherId,
+                voucherCode: code,
+                title,
+                body,
+                url:         "/auctions",
+              },
+              webpush: {
+                fcmOptions: { link: "/auctions" },
+              },
+            });
+
+            const deadByUid = new Map<string, string[]>();
+            response.responses.forEach((res, idx) => {
+              if (!res.success && DEAD_TOKEN_CODES.has(res.error?.code ?? "")) {
+                const uid = tokenToUid.get(tokens[idx]);
+                if (uid) {
+                  const arr = deadByUid.get(uid) ?? [];
+                  arr.push(tokens[idx]);
+                  deadByUid.set(uid, arr);
+                }
+              }
+            });
+
+            if (deadByUid.size > 0) {
+              await Promise.allSettled(
+                Array.from(deadByUid.entries()).map(([uid, dead]) =>
+                  db.collection("users").doc(uid).update({ fcmTokens: FieldValue.arrayRemove(...dead) }),
+                ),
+              );
+            }
           } catch (err) {
             console.error("[voucherNotification] FCM chunk error:", err);
-            totalFailed += tokens.length;
           }
         }),
       );
-      // console.log(`[voucherNotification] FCM sent=${totalSent} failed=${totalFailed}`);
     }
 
     await snap.ref.update({ notifiedAt: FieldValue.serverTimestamp() });
-    // console.log(`[voucherNotification] Done for ${voucherId}`);
   },
 );
