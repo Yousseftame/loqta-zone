@@ -93,15 +93,15 @@ export const AuctionProvider = ({ children }: { children: ReactNode }) => {
         setAuctions((prev) => [auction, ...prev]);
         toast.success("Auction created successfully");
 
-        // 🔥 AUDIT LOG: admin auction created
-        if (user && role) {
-          const actor = buildActor(user, role as "admin" | "superAdmin");
-          auditLogger.adminAuctionCreated(
-            actor,
-            auction.id,
-            formData.productId ?? auction.id,
-          );
-        }
+        // // 🔥 AUDIT LOG: admin auction created
+        // if (user && role) {
+        //   const actor = buildActor(user, role as "admin" | "superAdmin");
+        //   auditLogger.adminAuctionCreated(
+        //     actor,
+        //     auction.id,
+        //     formData.productId ?? auction.id,
+        //   );
+        // }
 
         return auction;
       } catch (err: any) {
@@ -119,11 +119,11 @@ export const AuctionProvider = ({ children }: { children: ReactNode }) => {
         setAuctions((prev) => prev.map((a) => (a.id === id ? updated : a)));
         toast.success("Auction updated successfully");
 
-        // 🔥 AUDIT LOG: admin auction updated
-        if (user && role) {
-          const actor = buildActor(user, role as "admin" | "superAdmin");
-          auditLogger.adminAuctionUpdated(actor, id, formData.productId ?? id);
-        }
+        // // 🔥 AUDIT LOG: admin auction updated
+        // if (user && role) {
+        //   const actor = buildActor(user, role as "admin" | "superAdmin");
+        //   auditLogger.adminAuctionUpdated(actor, id, formData.productId ?? id);
+        // }
 
         return updated;
       } catch (err: any) {
@@ -143,15 +143,15 @@ export const AuctionProvider = ({ children }: { children: ReactNode }) => {
         setAuctions((prev) => prev.filter((a) => a.id !== id));
         toast.success("Auction deleted");
 
-        // 🔥 AUDIT LOG: admin auction deleted
-        if (user && role) {
-          const actor = buildActor(user, role as "admin" | "superAdmin");
-          auditLogger.adminAuctionDeleted(
-            actor,
-            id,
-            (auction as any)?.productTitle ?? "Auction",
-          );
-        }
+        // // 🔥 AUDIT LOG: admin auction deleted
+        // if (user && role) {
+        //   const actor = buildActor(user, role as "admin" | "superAdmin");
+        //   auditLogger.adminAuctionDeleted(
+        //     actor,
+        //     id,
+        //     (auction as any)?.productTitle ?? "Auction",
+        //   );
+        // }
       } catch (err: any) {
         toast.error(err?.message ?? "Failed to delete auction");
         throw err;

@@ -464,7 +464,7 @@ export default function AuctionForm() {
                           color: colors.textSecondary,
                         }}
                       >
-                        Auction Number
+                        Auction Number ( unchangeable once set )
                       </span>
                     )}
                   </Box>
