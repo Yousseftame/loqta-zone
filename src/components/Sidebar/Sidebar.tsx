@@ -25,6 +25,7 @@ import { signOut } from "firebase/auth";
 import { auth } from "@/firebase/firebase";
 import { useAuth } from "../../store/AuthContext/AuthContext";
 import { useContactFeedback } from "../../store/AdminContext/ContactFeedbackContext/ContactFeedbackContext";
+import { auditLogger, buildActor } from "@/service/audit/auditLogger";
 
 // ── Logout Confirmation Modal ─────────────────────────────────────────────────
 
@@ -352,6 +353,8 @@ const Sidebar = () => {
       await new Promise((resolve) => setTimeout(resolve, 2000));
       await signOut(auth);
       navigate("/login");
+      const actor = buildActor(user, role ?? "user");
+              auditLogger.adminLogout(actor);
     } catch (err) {
       console.error("[Sidebar] Logout error:", err);
       setLogoutLoading(false);

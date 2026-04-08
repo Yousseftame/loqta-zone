@@ -31,6 +31,7 @@ export type AuditActionType =
   | "GUEST_PAGE_VIEW"
   // Admin
   | "ADMIN_LOGIN"
+  | "ADMIN_LOGOUT"
   | "ADMIN_AUCTION_CREATED"
   | "ADMIN_AUCTION_UPDATED"
   | "ADMIN_AUCTION_DELETED"
@@ -146,11 +147,13 @@ export const ACTION_CATEGORY_MAP: Record<AuditActionType, AuditActionCategory> =
   LAST_OFFER_SUBMITTED:         "auction",
   AUCTION_REQUEST_SUBMITTED:    "auction",
   PROFILE_UPDATED:              "profile",
-  CONTACT_SUBMITTED:            "contact",   // ← NEW
-  FEEDBACK_SUBMITTED:           "contact",   // ← NEW
+  CONTACT_SUBMITTED:            "contact",   
+  FEEDBACK_SUBMITTED:           "contact",  
   GUEST_VISIT:                  "guest",
   GUEST_PAGE_VIEW:              "guest",
-  ADMIN_LOGIN:                  "admin",
+  ADMIN_LOGIN: "admin",
+  ADMIN_LOGOUT: "admin",
+
   ADMIN_AUCTION_CREATED:        "admin",
   ADMIN_AUCTION_UPDATED:        "admin",
   ADMIN_AUCTION_DELETED:        "admin",
@@ -187,11 +190,12 @@ export const ACTION_STATUS_MAP: Record<AuditActionType, AuditLog["status"]> = {
   LAST_OFFER_SUBMITTED:         "success",
   AUCTION_REQUEST_SUBMITTED:    "info",
   PROFILE_UPDATED:              "info",
-  CONTACT_SUBMITTED:            "info",   // ← NEW
-  FEEDBACK_SUBMITTED:           "info",   // ← NEW
+  CONTACT_SUBMITTED:            "info",   
+  FEEDBACK_SUBMITTED:           "info",   
   GUEST_VISIT:                  "info",
   GUEST_PAGE_VIEW:              "info",
-  ADMIN_LOGIN:                  "success",
+  ADMIN_LOGIN: "success",
+  ADMIN_LOGOUT: "info",
   ADMIN_AUCTION_CREATED:        "success",
   ADMIN_AUCTION_UPDATED:        "warning",
   ADMIN_AUCTION_DELETED:        "danger",
@@ -224,7 +228,7 @@ export const CATEGORY_CONFIG: Record<
   profile: { label: "Profile", color: "#7C3AED", bg: "#F5F3FF", border: "#DDD6FE" },
   guest:   { label: "Guest",   color: "#6B7280", bg: "#F9FAFB", border: "#E5E7EB" },
   admin:   { label: "Admin",   color: "#DC2626", bg: "#FEF2F2", border: "#FECACA" },
-  contact: { label: "Contact", color: "#0D9488", bg: "#F0FDFA", border: "#99F6E4" }, // ← NEW
+  contact: { label: "Contact", color: "#0D9488", bg: "#F0FDFA", border: "#99F6E4" }, 
   system:  { label: "System",  color: "#0D9488", bg: "#F0FDFA", border: "#99F6E4" },
 };
 

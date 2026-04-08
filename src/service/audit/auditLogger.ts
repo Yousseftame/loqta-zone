@@ -187,6 +187,13 @@ export const auditLogger = {
     });
   },
 
+  adminLogout(actor: AuditActor) {
+  clearSessionIp();
+  log("ADMIN_LOGOUT", actor, "User", `Admin ${actor.name} signed out`, {
+    entityId: actor.userId ?? undefined, entityName: actor.name,
+  });
+},
+
   logout(actor: AuditActor) {
     // Clear the session IP so the next login gets a fresh lookup
     clearSessionIp();
