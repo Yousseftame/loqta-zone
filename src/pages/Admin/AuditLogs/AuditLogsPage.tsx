@@ -25,6 +25,8 @@ import {
   ActionBadge,
   LogDetailModal,
 } from "./Logdetailmodal";
+import { Navigate } from "react-router-dom";
+import { useAuth } from "@/store/AuthContext/AuthContext";
 
 const PAGE_SIZE = 15;
 
@@ -642,6 +644,13 @@ export default function AuditLogsPage() {
     { key: "status", label: "Status", w: 100 },
     { key: "meta", label: "Meta", w: 110 },
   ];
+   const { role } = useAuth();
+
+   if (role !== "superAdmin") {
+     return <Navigate to="/admin/hero-slides" replace />;
+   }
+
+  
 
   return (
     <>

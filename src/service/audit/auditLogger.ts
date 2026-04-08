@@ -2,20 +2,27 @@
  * auditLogger.ts
  *
  * THE single utility imported across the codebase to log events.
- * All other files call logger.xxx() — never writeAuditLog() directly.
  *
- * Design:
- * - Zero dependencies on React/hooks — works in services, hooks, components
- * - Detects browser context for userAgent automatically
- * - Fire-and-forget: never throws, never blocks the caller
- * - IP detection via ipify (graceful fallback if unavailable)
+ * ── IP Detection Fix ──────────────────────────────────────────────────────────
+ * The previous version cached the IP at MODULE level — meaning if two users
+ * logged in on the same tab (logout → login), User B would get User A's IP.
  *
- * Usage example:
- *   import { auditLogger } from "@/service/audit/auditLogger";
+ * Fix: cache per browser SESSION using sessionStorage. Each new tab / session
+ * gets a fresh IP lookup. The cache is cleared on logout via clearSessionIp().
  *
- *   auditLogger.login({ userId: user.uid, name: "John", email: "john@x.com", role: "user" });
- *   auditLogger.bidPlaced(actor, auctionId, "iPhone 15", 5000);
- *   auditLogger.adminUserBlocked(adminActor, targetUserId, "Jane");
+ * Multiple IP providers are tried in order so a single provider outage
+ * doesn't silently drop the IP.
+ *
+ * ── User Agent ───────────────────────────────────────────────────────────────
+ * navigator.userAgent is captured at call-time (not module load time) so it
+ * always reflects the real browser making the request.
+ *
+ * ── Same IP on two PCs? ───────────────────────────────────────────────────────
+ * If two machines on the same home/office network show the same IP, that is
+ * CORRECT — they share one public IP via NAT/router. ipify returns the public
+ * IP seen by the internet, which is the same for every device behind a NAT.
+ * To distinguish devices you would need the private LAN IP (not possible from
+ * the browser for security reasons) or a device fingerprint.
  */
 
 import { writeAuditLog } from "./auditLogService";
@@ -31,22 +38,85 @@ import type {
   CreateAuditLogPayload,
 } from "./audit-log-data";
 
-// ─── IP detection (best-effort) ───────────────────────────────────────────────
+// ─── Session-scoped IP cache ──────────────────────────────────────────────────
+// Using sessionStorage means each new tab/session fetches a fresh IP.
+// This prevents cross-user IP leakage when a tab is reused across logouts.
 
-let cachedIp: string | undefined;
+const SESSION_IP_KEY = "audit_cached_ip";
+
+function getStoredIp(): string | null {
+  try { return sessionStorage.getItem(SESSION_IP_KEY); }
+  catch { return null; }
+}
+
+function storeIp(ip: string): void {
+  try { sessionStorage.setItem(SESSION_IP_KEY, ip); }
+  catch { /* non-fatal */ }
+}
+
+/** Call this on logout to ensure the next login gets a fresh IP lookup */
+export function clearSessionIp(): void {
+  try { sessionStorage.removeItem(SESSION_IP_KEY); }
+  catch { /* non-fatal */ }
+}
+
+// Multiple providers tried in order — first success wins
+const IP_PROVIDERS = [
+  { url: "https://api.ipify.org?format=json",           parse: (j: any) => j.ip   },
+  { url: "https://api64.ipify.org?format=json",         parse: (j: any) => j.ip   },
+  { url: "https://api.my-ip.io/v2/ip.json",             parse: (j: any) => j.ip   },
+  { url: "https://ipapi.co/json/",                      parse: (j: any) => j.ip   },
+];
+
+async function fetchIpFromProvider(provider: (typeof IP_PROVIDERS)[0]): Promise<string | null> {
+  try {
+    const res = await fetch(provider.url, {
+      signal: AbortSignal.timeout(4000),
+      // Prevent browser from serving a cached response from a previous session
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const ip = provider.parse(json);
+    return typeof ip === "string" && ip.length > 0 ? ip : null;
+  } catch {
+    return null;
+  }
+}
 
 async function getIpAddress(): Promise<string | undefined> {
-  if (cachedIp) return cachedIp;
-  try {
-    const res = await fetch("https://api.ipify.org?format=json", {
-      signal: AbortSignal.timeout(3000),
-    });
-    const json = await res.json();
-    cachedIp = json.ip;
-    return cachedIp;
-  } catch {
-    return undefined;
+  // 1. Return session-cached value (same user, same tab, multiple actions)
+  const stored = getStoredIp();
+  if (stored) return stored;
+
+  // 2. Try providers in order
+  for (const provider of IP_PROVIDERS) {
+    const ip = await fetchIpFromProvider(provider);
+    if (ip) {
+      storeIp(ip);
+      return ip;
+    }
   }
+
+  // 3. All providers failed — log without IP rather than blocking the write
+  console.warn("[AuditLogger] Could not determine IP address from any provider.");
+  return undefined;
+}
+
+// ─── User Agent capture ───────────────────────────────────────────────────────
+// Captured at call-time so it always reflects the actual browser.
+// navigator.userAgent is always available synchronously.
+
+function getUserAgent(): string | undefined {
+  if (typeof navigator === "undefined") return undefined;
+  return navigator.userAgent || undefined;
+}
+
+// ─── Current page route ───────────────────────────────────────────────────────
+
+function getCurrentRoute(): string | undefined {
+  if (typeof window === "undefined") return undefined;
+  return window.location.pathname || undefined;
 }
 
 // ─── Base log builder ─────────────────────────────────────────────────────────
@@ -63,25 +133,31 @@ async function log(
     changes?:    AuditChange[];
   },
 ): Promise<void> {
-  const [ipAddress] = await Promise.all([getIpAddress()]);
+  // Capture userAgent synchronously BEFORE the async IP fetch
+  // so we get the exact UA of the browser making this call
+  const userAgent = getUserAgent();
+  const route     = extra?.route ?? getCurrentRoute();
+
+  // IP fetch is async — run in parallel with nothing else blocking the log
+  const ipAddress = await getIpAddress();
 
   const payload: CreateAuditLogPayload = {
     actor,
     action,
-    category: ACTION_CATEGORY_MAP[action] ?? "system",
-    status:   ACTION_STATUS_MAP[action]   ?? "info",
+    category:   ACTION_CATEGORY_MAP[action] ?? "system",
+    status:     ACTION_STATUS_MAP[action]   ?? "info",
     description,
     entityType,
     entityId:   extra?.entityId,
     entityName: extra?.entityName,
-    route:      extra?.route ?? (typeof window !== "undefined" ? window.location.pathname : undefined),
+    route,
     changes:    extra?.changes,
     ipAddress,
-    userAgent:  typeof navigator !== "undefined" ? navigator.userAgent : undefined,
+    userAgent,
   };
 
-  // Fire-and-forget
-  writeAuditLog(payload).catch(() => {/* silent */});
+  // Fire-and-forget — never blocks the caller
+  writeAuditLog(payload).catch(() => { /* silent */ });
 }
 
 // ─── Guest actor helper ───────────────────────────────────────────────────────
@@ -100,19 +176,29 @@ export const auditLogger = {
   // ── Auth ──────────────────────────────────────────────────────────────────
 
   login(actor: AuditActor) {
-    log("LOGIN", actor, "User", `${actor.name} signed in`, { entityId: actor.userId ?? undefined, entityName: actor.name });
+    log("LOGIN", actor, "User", `${actor.name} signed in`, {
+      entityId: actor.userId ?? undefined, entityName: actor.name,
+    });
   },
 
   adminLogin(actor: AuditActor) {
-    log("ADMIN_LOGIN", actor, "User", `Admin ${actor.name} signed in`, { entityId: actor.userId ?? undefined, entityName: actor.name });
+    log("ADMIN_LOGIN", actor, "User", `Admin ${actor.name} signed in`, {
+      entityId: actor.userId ?? undefined, entityName: actor.name,
+    });
   },
 
   logout(actor: AuditActor) {
-    log("LOGOUT", actor, "User", `${actor.name} signed out`, { entityId: actor.userId ?? undefined, entityName: actor.name });
+    // Clear the session IP so the next login gets a fresh lookup
+    clearSessionIp();
+    log("LOGOUT", actor, "User", `${actor.name} signed out`, {
+      entityId: actor.userId ?? undefined, entityName: actor.name,
+    });
   },
 
   register(actor: AuditActor) {
-    log("REGISTER", actor, "User", `New account created: ${actor.email}`, { entityId: actor.userId ?? undefined, entityName: actor.name });
+    log("REGISTER", actor, "User", `New account created: ${actor.email}`, {
+      entityId: actor.userId ?? undefined, entityName: actor.name,
+    });
   },
 
   passwordResetRequest(email: string) {
@@ -120,14 +206,16 @@ export const auditLogger = {
     log("PASSWORD_RESET_REQUEST", actor, "User", `Password reset requested for ${email}`);
   },
 
-      passwordChanged(actor: AuditActor) {
-      log("PASSWORD_CHANGED", actor, "User",
-        `${actor.name} changed their password`,
-        { entityId: actor.userId ?? undefined });
-    },
+  passwordChanged(actor: AuditActor) {
+    log("PASSWORD_CHANGED", actor, "User", `${actor.name} changed their password`, {
+      entityId: actor.userId ?? undefined,
+    });
+  },
 
   emailVerified(actor: AuditActor) {
-    log("EMAIL_VERIFIED", actor, "User", `Email verified for ${actor.email}`, { entityId: actor.userId ?? undefined });
+    log("EMAIL_VERIFIED", actor, "User", `Email verified for ${actor.email}`, {
+      entityId: actor.userId ?? undefined,
+    });
   },
 
   // ── Auction ───────────────────────────────────────────────────────────────
@@ -169,19 +257,6 @@ export const auditLogger = {
     );
   },
 
-   /**
-   * Called after a contact form is submitted successfully.
-   *
-   * Works for both logged-in users and guests:
-   *   - If the caller has a Firebase user, pass their uid + role.
-   *   - For a guest submission, pass null/undefined for userId and role "guest".
-   *
-   * @param name       Submitter's name from the form
-   * @param email      Submitter's email from the form
-   * @param subject    Subject / topic selected in the form (optional)
-   * @param userId     Firebase uid if the user is logged in, otherwise null
-   * @param userRole   "user" | "guest" — defaults to "guest" if userId is null
-   */
   contactSubmitted(
     name: string,
     email: string,
@@ -195,28 +270,14 @@ export const auditLogger = {
       email:  email || "",
       role:   userRole,
     };
-
     const subjectLabel = subject && subject !== "" ? ` — subject: "${subject}"` : "";
-
     log(
-      "CONTACT_SUBMITTED",
-      actor,
-      "ContactMessage",
+      "CONTACT_SUBMITTED", actor, "ContactMessage",
       `Contact form submitted by ${actor.name} (${actor.email})${subjectLabel}`,
       { entityName: actor.name, route: "/contact" },
     );
   },
 
-  /**
-   * Called after a feedback form is submitted successfully.
-   *
-   * @param name       Submitter's name from the form
-   * @param email      Submitter's email from the form
-   * @param category   Feedback category selected in the form (optional)
-   * @param rating     Star rating 1–5 (optional)
-   * @param userId     Firebase uid if the user is logged in, otherwise null
-   * @param userRole   "user" | "guest"
-   */
   feedbackSubmitted(
     name: string,
     email: string,
@@ -231,14 +292,10 @@ export const auditLogger = {
       email:  email || "",
       role:   userRole,
     };
-
     const categoryLabel = category && category !== "" ? ` [${category}]` : "";
     const ratingLabel   = rating ? ` — ${rating}★` : "";
-
     log(
-      "FEEDBACK_SUBMITTED",
-      actor,
-      "FeedbackMessage",
+      "FEEDBACK_SUBMITTED", actor, "FeedbackMessage",
       `Feedback submitted by ${actor.name} (${actor.email})${categoryLabel}${ratingLabel}`,
       { entityName: actor.name, route: "/contact" },
     );
@@ -247,56 +304,47 @@ export const auditLogger = {
   // ── Guest ─────────────────────────────────────────────────────────────────
 
   guestVisit(route: string) {
-    log("GUEST_VISIT", GUEST_ACTOR, "Page",
-      `Guest visited ${route}`,
-      { route },
-    );
+    log("GUEST_VISIT", GUEST_ACTOR, "Page", `Guest visited ${route}`, { route });
   },
 
   // ── Admin: Auctions ───────────────────────────────────────────────────────
 
   adminAuctionCreated(actor: AuditActor, auctionId: string, auctionName: string) {
-    log("ADMIN_AUCTION_CREATED", actor, "Auction",
-      `Auction "${auctionName}" created`,
-      { entityId: auctionId, entityName: auctionName },
-    );
+    log("ADMIN_AUCTION_CREATED", actor, "Auction", `Auction "${auctionName}" created`, {
+      entityId: auctionId, entityName: auctionName,
+    });
   },
 
   adminAuctionUpdated(actor: AuditActor, auctionId: string, auctionName: string, changes?: AuditChange[]) {
-    log("ADMIN_AUCTION_UPDATED", actor, "Auction",
-      `Auction "${auctionName}" updated`,
-      { entityId: auctionId, entityName: auctionName, changes },
-    );
+    log("ADMIN_AUCTION_UPDATED", actor, "Auction", `Auction "${auctionName}" updated`, {
+      entityId: auctionId, entityName: auctionName, changes,
+    });
   },
 
   adminAuctionDeleted(actor: AuditActor, auctionId: string, auctionName: string) {
-    log("ADMIN_AUCTION_DELETED", actor, "Auction",
-      `Auction "${auctionName}" deleted`,
-      { entityId: auctionId, entityName: auctionName },
-    );
+    log("ADMIN_AUCTION_DELETED", actor, "Auction", `Auction "${auctionName}" deleted`, {
+      entityId: auctionId, entityName: auctionName,
+    });
   },
 
   // ── Admin: Products ───────────────────────────────────────────────────────
 
   adminProductCreated(actor: AuditActor, productId: string, productName: string) {
-    log("ADMIN_PRODUCT_CREATED", actor, "Product",
-      `Product "${productName}" created`,
-      { entityId: productId, entityName: productName },
-    );
+    log("ADMIN_PRODUCT_CREATED", actor, "Product", `Product "${productName}" created`, {
+      entityId: productId, entityName: productName,
+    });
   },
 
   adminProductUpdated(actor: AuditActor, productId: string, productName: string, changes?: AuditChange[]) {
-    log("ADMIN_PRODUCT_UPDATED", actor, "Product",
-      `Product "${productName}" updated`,
-      { entityId: productId, entityName: productName, changes },
-    );
+    log("ADMIN_PRODUCT_UPDATED", actor, "Product", `Product "${productName}" updated`, {
+      entityId: productId, entityName: productName, changes,
+    });
   },
 
   adminProductDeleted(actor: AuditActor, productId: string, productName: string) {
-    log("ADMIN_PRODUCT_DELETED", actor, "Product",
-      `Product "${productName}" deleted`,
-      { entityId: productId, entityName: productName },
-    );
+    log("ADMIN_PRODUCT_DELETED", actor, "Product", `Product "${productName}" deleted`, {
+      entityId: productId, entityName: productName,
+    });
   },
 
   // ── Admin: Users ──────────────────────────────────────────────────────────
@@ -318,44 +366,36 @@ export const auditLogger = {
   adminUserRoleChanged(actor: AuditActor, targetId: string, targetName: string, from: string, to: string) {
     log("ADMIN_USER_ROLE_CHANGED", actor, "User",
       `${targetName}'s role changed from "${from}" → "${to}" by ${actor.name}`,
-      {
-        entityId:   targetId,
-        entityName: targetName,
-        changes:    [{ field: "role", before: from, after: to }],
-      },
+      { entityId: targetId, entityName: targetName, changes: [{ field: "role", before: from, after: to }] },
     );
   },
 
   // ── Admin: Vouchers ───────────────────────────────────────────────────────
 
   adminVoucherCreated(actor: AuditActor, voucherId: string, code: string) {
-    log("ADMIN_VOUCHER_CREATED", actor, "Voucher",
-      `Voucher "${code}" created`,
-      { entityId: voucherId, entityName: code },
-    );
+    log("ADMIN_VOUCHER_CREATED", actor, "Voucher", `Voucher "${code}" created`, {
+      entityId: voucherId, entityName: code,
+    });
   },
 
   adminVoucherDeleted(actor: AuditActor, voucherId: string, code: string) {
-    log("ADMIN_VOUCHER_DELETED", actor, "Voucher",
-      `Voucher "${code}" deleted`,
-      { entityId: voucherId, entityName: code },
-    );
+    log("ADMIN_VOUCHER_DELETED", actor, "Voucher", `Voucher "${code}" deleted`, {
+      entityId: voucherId, entityName: code,
+    });
   },
 
   // ── Admin: Categories ─────────────────────────────────────────────────────
 
   adminCategoryCreated(actor: AuditActor, catId: string, catName: string) {
-    log("ADMIN_CATEGORY_CREATED", actor, "Category",
-      `Category "${catName}" created`,
-      { entityId: catId, entityName: catName },
-    );
+    log("ADMIN_CATEGORY_CREATED", actor, "Category", `Category "${catName}" created`, {
+      entityId: catId, entityName: catName,
+    });
   },
 
   adminCategoryDeleted(actor: AuditActor, catId: string, catName: string) {
-    log("ADMIN_CATEGORY_DELETED", actor, "Category",
-      `Category "${catName}" deleted`,
-      { entityId: catId, entityName: catName },
-    );
+    log("ADMIN_CATEGORY_DELETED", actor, "Category", `Category "${catName}" deleted`, {
+      entityId: catId, entityName: catName,
+    });
   },
 
   // ── Admin: Last Offers / Bids ─────────────────────────────────────────────

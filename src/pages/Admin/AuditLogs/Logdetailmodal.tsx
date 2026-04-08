@@ -464,7 +464,7 @@ export function MetaSection({
       rows={[
         ["IP Address", log.ipAddress ?? "—"],
         ["User Agent", log.userAgent ? truncate(log.userAgent, 50) : "—"],
-        ["Session ID", log.sessionId ?? "—"],
+        // ["Session ID", log.sessionId ?? "—"],
       ]}
     />
   );
