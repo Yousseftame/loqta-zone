@@ -12,6 +12,7 @@ import FinanceCards from "./components/FinanceCards";
 import FinanceCharts from "./components/FinanceCharts";
 import TransactionsTable from "./components/TransactionsTable";
 import AddTransactionModal from "./components/AddTransactionModal";
+import NetProfitLoss from "./components/NetProfitLoss";
 
 export default function FinancePage() {
   const { user, role } = useAuth();
@@ -149,6 +150,11 @@ export default function FinancePage() {
           {error}
         </Box>
       )}
+
+      {/* ── Net Profit & Loss ─────────────────────────────────────────────── */}
+      <Box sx={{ mb: 4 }}>
+        <NetProfitLoss transactions={transactions} loading={loading} />
+      </Box>
 
       {/* ── Balance Cards ─────────────────────────────────────────────────── */}
       <SectionLabel label="Balances" />
