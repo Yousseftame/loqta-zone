@@ -392,22 +392,23 @@ function SummaryCard({
             vs {sub}
           </div>
         ) : (
-          <div
-            style={{
-              display: "inline-block",
-              marginTop: 6,
-              background: "rgba(148,163,184,0.12)",
-              border: "1px solid rgba(148,163,184,0.2)",
-              borderRadius: 999,
-              padding: "3px 10px",
-              fontSize: "0.7rem",
-              fontWeight: 600,
-              color: "rgba(255,255,255,0.45)",
-              fontFamily: "system-ui,sans-serif",
-            }}
-          >
-            — No prior data
-          </div>
+        //   <div
+        //     style={{
+        //       display: "inline-block",
+        //       marginTop: 6,
+        //       background: "rgba(148,163,184,0.12)",
+        //       border: "1px solid rgba(148,163,184,0.2)",
+        //       borderRadius: 999,
+        //       padding: "3px 10px",
+        //       fontSize: "0.7rem",
+        //       fontWeight: 600,
+        //       color: "rgba(255,255,255,0.45)",
+        //       fontFamily: "system-ui,sans-serif",
+        //     }}
+        //   >
+        //     — No prior data
+                      //   </div>
+                      ""
         )}
       </div>
 
