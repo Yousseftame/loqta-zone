@@ -1,11 +1,10 @@
 /**
  * LeftRightSections.tsx — Two side-by-side slideshows below the hero
  *
- * Layout v4:
- *  - Container gutters match stats section (24px desktop)
- *  - Mobile: zero padding, zero gap — completely flush, no borders
- *  - Top gap between hero and this section (desktop only; mobile: none)
- *  - Panels 16:9 rectangular on desktop/tablet, 4:3 on mobile
+ * Fixed:
+ *  - Removed internal max-width / padding container — centering is now
+ *    handled by the shared wrapper in Home.tsx (90% width on desktop).
+ *  - Mobile: unchanged, fully flush, no borders, no gap, no space.
  */
 
 import React, { useEffect, useState, useCallback, useRef } from "react";
@@ -474,36 +473,29 @@ export default function LeftRightSections() {
   return (
     <>
       <style>{`
-        /* Full-width bg */
+        /* Full-width bg, no internal centering — Home.tsx wrapper handles that */
         .lrs-outer {
           width: 100%;
           background: #09111a;
           box-sizing: border-box;
         }
 
-        /* Desktop: top gap + match hero gutters (24px) */
+        /* Desktop: small top gap between hero and this section */
         @media (min-width: 640px) {
           .lrs-outer {
             padding-top: 1.5rem;
           }
-          .lrs-container {
-            max-width: 1500px;
-            margin: 0 auto;
-            padding: 0 24px;
-            box-sizing: border-box;
-          }
         }
 
-        /* Mobile: zero padding, zero gap — completely flush */
+        /* Mobile: zero gap, fully flush */
         @media (max-width: 639px) {
           .lrs-outer { padding-top: 0; }
-          .lrs-container { padding: 0; }
         }
 
         /* Panel row */
         .lrs-wrapper {
           display: flex;
-          gap: 4px;   /* thin separator between panels on desktop */
+          gap: 4px;
         }
 
         /* Each panel 16:9 on desktop */
@@ -526,29 +518,27 @@ export default function LeftRightSections() {
       `}</style>
 
       <div className="lrs-outer">
-        <div className="lrs-container">
-          <div className="lrs-wrapper">
-            {(leftLoading || leftSlides.length > 0) && (
-              <div className="lrs-panel">
-                <SlidePanel
-                  slides={leftSlides}
-                  loading={leftLoading}
-                  initialDelayMs={0}
-                  instanceId="left"
-                />
-              </div>
-            )}
-            {(rightLoading || rightSlides.length > 0) && (
-              <div className="lrs-panel">
-                <SlidePanel
-                  slides={rightSlides}
-                  loading={rightLoading}
-                  initialDelayMs={SLIDE_INTERVAL_MS / 2}
-                  instanceId="right"
-                />
-              </div>
-            )}
-          </div>
+        <div className="lrs-wrapper">
+          {(leftLoading || leftSlides.length > 0) && (
+            <div className="lrs-panel">
+              <SlidePanel
+                slides={leftSlides}
+                loading={leftLoading}
+                initialDelayMs={0}
+                instanceId="left"
+              />
+            </div>
+          )}
+          {(rightLoading || rightSlides.length > 0) && (
+            <div className="lrs-panel">
+              <SlidePanel
+                slides={rightSlides}
+                loading={rightLoading}
+                initialDelayMs={SLIDE_INTERVAL_MS / 2}
+                instanceId="right"
+              />
+            </div>
+          )}
         </div>
       </div>
     </>

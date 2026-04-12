@@ -1,9 +1,10 @@
 /**
  * HeroSections.tsx — Premium Slideshow
  *
- * v5:
- *  - Container matches stats section: max-width with auto margins, no aggressive side padding
- *  - Mobile: zero side padding, flush edge-to-edge
+ * Top-clip fix:
+ *  - .hs-outer has NO padding-top (padding shrinks the height budget → clips the image)
+ *  - .hs-root uses margin-top: NAVBAR_H so it sits below the fixed navbar
+ *    WITHOUT reducing its own height. The full image is always visible.
  */
 
 import React, { useEffect, useState, useCallback, useRef } from "react";
@@ -274,32 +275,25 @@ export default function HeroSections() {
   return (
     <>
       <style>{`
-        /* Outer: pushes everything below fixed navbar, full-width bg */
+        /*
+          hs-outer: no padding-top.
+          padding-top would eat into the visual height and clip the image top.
+        */
         .hs-outer {
           width: 100%;
           background: #09111a;
-          padding-top: ${NAVBAR_H}px;
           box-sizing: border-box;
         }
 
-        /* Container: matches stats section style — centered with consistent gutters */
-        .hs-container {
-          max-width: 1500px;
-          margin: 0 auto;
-          padding: 0 24px;   /* same comfortable gutter as stats section */
-          box-sizing: border-box;
-        }
-
-        /* Mobile: zero side padding, flush */
-        @media (max-width: 639px) {
-          .hs-container {
-            padding: 0;
-          }
-        }
-
+        /*
+          KEY FIX: margin-top pushes the section below the fixed navbar
+          without reducing its own height. The image is never clipped.
+          height: calc(100vh - NAVBAR_H) fills the remaining viewport.
+        */
         .hs-root {
           position: relative;
           width: 100%;
+          margin-top: ${NAVBAR_H}px;
           height: calc(100vh - ${NAVBAR_H}px);
           min-height: 400px;
           overflow: hidden;
@@ -312,10 +306,18 @@ export default function HeroSections() {
         .hs-root:active { cursor: grabbing; }
 
         @media (max-width: 639px) {
-          .hs-root { height: 70vw; min-height: 200px; }
+          .hs-root {
+            margin-top: ${NAVBAR_H}px;
+            height: 70vw;
+            min-height: 200px;
+          }
         }
         @media (min-width: 640px) and (max-width: 900px) {
-          .hs-root { height: auto; min-height: unset; aspect-ratio: 16 / 9; }
+          .hs-root {
+            height: auto;
+            min-height: unset;
+            aspect-ratio: 16 / 9;
+          }
         }
 
         .hs-slide { position: absolute; inset: 0; overflow: hidden; }
@@ -402,103 +404,101 @@ export default function HeroSections() {
       `}</style>
 
       <div className="hs-outer">
-        <div className="hs-container">
-          <section
-            className="hs-root"
-            onMouseEnter={() => {
-              pauseProgress();
-              pauseInterval();
-            }}
-            onMouseLeave={handleMouseLeaveSection}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-            aria-label="Hero image slideshow"
-          >
+        <section
+          className="hs-root"
+          onMouseEnter={() => {
+            pauseProgress();
+            pauseInterval();
+          }}
+          onMouseLeave={handleMouseLeaveSection}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          aria-label="Hero image slideshow"
+        >
+          <div
+            className={`hs-skeleton ${!slidesLoading ? "hs-skeleton--hidden" : ""}`}
+          />
+
+          {!slidesLoading && slides.length === 0 && (
             <div
-              className={`hs-skeleton ${!slidesLoading ? "hs-skeleton--hidden" : ""}`}
+              style={{
+                position: "absolute",
+                inset: 0,
+                background: "linear-gradient(135deg, #09111a, #1a2535)",
+              }}
             />
+          )}
 
-            {!slidesLoading && slides.length === 0 && (
-              <div
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  background: "linear-gradient(135deg, #09111a, #1a2535)",
-                }}
-              />
-            )}
-
-            {slides.length > 0 && (
-              <>
-                {animating && prevIdx !== null && slides[prevIdx] && (
-                  <div
-                    key={`prev-${slides[prevIdx].id}`}
-                    className={`hs-slide ${slideDir === "next" ? "hs-cur-next" : "hs-cur-prev"}`}
-                    style={{ zIndex: 1 }}
-                  >
-                    <img
-                      src={slides[prevIdx].imageUrl}
-                      alt=""
-                      aria-hidden="true"
-                      className="hs-img"
-                      draggable={false}
-                    />
-                  </div>
-                )}
+          {slides.length > 0 && (
+            <>
+              {animating && prevIdx !== null && slides[prevIdx] && (
                 <div
-                  key={`cur-${slides[current].id}`}
-                  className={`hs-slide ${animating ? (slideDir === "next" ? "hs-inc-next" : "hs-inc-prev") : ""}`}
-                  style={{ zIndex: 2 }}
+                  key={`prev-${slides[prevIdx].id}`}
+                  className={`hs-slide ${slideDir === "next" ? "hs-cur-next" : "hs-cur-prev"}`}
+                  style={{ zIndex: 1 }}
                 >
                   <img
-                    src={slides[current].imageUrl}
+                    src={slides[prevIdx].imageUrl}
                     alt=""
                     aria-hidden="true"
+                    className="hs-img"
                     draggable={false}
-                    className={`hs-img${!animating ? ` hs-img-initial${firstImageReady ? " hs-img-initial--in" : ""}` : ""}`}
                   />
                 </div>
-              </>
-            )}
-
-            <div className="hs-vignette" />
-            <div className="hs-edge-top" />
-            <div className="hs-edge-bottom" />
-
-            {slides.length > 1 && (
+              )}
               <div
-                className={`hs-dots ${mounted ? "hs-dots--in" : ""}`}
-                role="tablist"
-                aria-label="Slide navigation"
+                key={`cur-${slides[current].id}`}
+                className={`hs-slide ${animating ? (slideDir === "next" ? "hs-inc-next" : "hs-inc-prev") : ""}`}
+                style={{ zIndex: 2 }}
               >
-                {slides.map((slide, i) => (
-                  <button
-                    key={slide.id}
-                    role="tab"
-                    aria-selected={i === current}
-                    aria-label={`Go to slide ${i + 1}`}
-                    className={`hs-dot ${i === current ? "hs-dot--active" : ""}`}
-                    onClick={() => handleDot(i)}
-                  />
-                ))}
+                <img
+                  src={slides[current].imageUrl}
+                  alt=""
+                  aria-hidden="true"
+                  draggable={false}
+                  className={`hs-img${!animating ? ` hs-img-initial${firstImageReady ? " hs-img-initial--in" : ""}` : ""}`}
+                />
               </div>
-            )}
+            </>
+          )}
 
-            {slides.length > 1 && (
-              <div className={`hs-counter ${mounted ? "hs-counter--in" : ""}`}>
-                <span className="hs-counter-cur">
-                  {String(current + 1).padStart(2, "0")}
-                </span>
-                <span className="hs-counter-line" />
-                <span>{String(slides.length).padStart(2, "0")}</span>
-              </div>
-            )}
-          </section>
-        </div>
+          <div className="hs-vignette" />
+          <div className="hs-edge-top" />
+          <div className="hs-edge-bottom" />
+
+          {slides.length > 1 && (
+            <div
+              className={`hs-dots ${mounted ? "hs-dots--in" : ""}`}
+              role="tablist"
+              aria-label="Slide navigation"
+            >
+              {slides.map((slide, i) => (
+                <button
+                  key={slide.id}
+                  role="tab"
+                  aria-selected={i === current}
+                  aria-label={`Go to slide ${i + 1}`}
+                  className={`hs-dot ${i === current ? "hs-dot--active" : ""}`}
+                  onClick={() => handleDot(i)}
+                />
+              ))}
+            </div>
+          )}
+
+          {slides.length > 1 && (
+            <div className={`hs-counter ${mounted ? "hs-counter--in" : ""}`}>
+              <span className="hs-counter-cur">
+                {String(current + 1).padStart(2, "0")}
+              </span>
+              <span className="hs-counter-line" />
+              <span>{String(slides.length).padStart(2, "0")}</span>
+            </div>
+          )}
+        </section>
       </div>
     </>
   );
