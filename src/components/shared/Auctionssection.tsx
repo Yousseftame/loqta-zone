@@ -698,96 +698,136 @@ function HammerStamp() {
           width: 96,
           height: 96,
           borderRadius: "50%",
-          border: "4px solid rgba(200,30,30,0.92)",
+          border: "4px solid rgba(210,30,30,0.95)",
           boxShadow:
             "0 0 0 2px rgba(200,30,30,0.18), 0 0 28px rgba(200,30,30,0.45), inset 0 0 20px rgba(200,30,30,0.12)",
-          background: "rgba(10,6,6,0.52)",
+          background: "rgba(10,5,5,0.62)",
           backdropFilter: "blur(4px)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          filter: "contrast(1.08) saturate(1.1)",
-          transform: "scaleX(-1)",
+          position: "relative",
+          overflow: "hidden",
         }}
       >
+        {/* Inner thin ring */}
         <div
           style={{
             position: "absolute",
-            inset: 5,
+            inset: 6,
             borderRadius: "50%",
-            border: "1.5px solid rgba(200,30,30,0.45)",
+            border: "1.4px solid rgba(210,40,40,0.38)",
           }}
         />
-        <svg
-          width="54"
-          height="54"
-          viewBox="0 0 48 48"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-          style={{ position: "relative", zIndex: 1 }}
-        >
-          <rect
-            x="4"
-            y="16"
-            width="22"
-            height="9"
-            rx="2.5"
-            fill="rgba(200,30,30,0.22)"
-            stroke="rgba(220,40,40,0.95)"
-            strokeWidth="2.2"
-            transform="rotate(-45 15 20.5)"
-          />
-          <rect
-            x="4"
-            y="16"
-            width="7"
-            height="9"
-            rx="2"
-            fill="rgba(220,40,40,0.38)"
-            stroke="rgba(230,50,50,0.95)"
-            strokeWidth="2"
-            transform="rotate(-45 15 20.5)"
-          />
-          <line
-            x1="24"
-            y1="24"
-            x2="42"
-            y2="42"
-            stroke="rgba(220,40,40,0.9)"
-            strokeWidth="4"
-            strokeLinecap="round"
-          />
-          <line
-            x1="30"
-            y1="30"
-            x2="34"
-            y2="34"
-            stroke="rgba(200,30,30,0.55)"
-            strokeWidth="5"
-            strokeLinecap="round"
-          />
-          <rect
-            x="8"
-            y="42"
-            width="26"
-            height="4"
-            rx="2"
-            fill="rgba(200,30,30,0.35)"
-            stroke="rgba(210,40,40,0.8)"
-            strokeWidth="1.8"
-          />
-        </svg>
+        {/* Sphere highlight */}
         <div
           style={{
             position: "absolute",
             inset: 0,
             borderRadius: "50%",
             background:
-              "radial-gradient(ellipse at 30% 30%, rgba(255,255,255,0.04) 0%, transparent 60%)",
-            mixBlendMode: "overlay",
+              "radial-gradient(ellipse at 38% 35%, rgba(255,80,80,0.18) 0%, transparent 65%)",
           }}
         />
+
+        <svg
+          width="62"
+          height="62"
+          viewBox="0 0 62 62"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          style={{ position: "relative", zIndex: 1 }}
+        >
+          {/* Hammer group rotated -42deg around center 31,31 */}
+          <g transform="translate(31,31) rotate(-42)">
+            {/* Handle */}
+            <rect
+              x="-4.5"
+              y="12"
+              width="9"
+              height="52"
+              rx="4.5"
+              fill="rgba(180,25,25,0.30)"
+              stroke="rgba(230,45,45,0.92)"
+              strokeWidth="2"
+            />
+            {/* Handle highlight stripe */}
+            <rect
+              x="-1.5"
+              y="16"
+              width="3"
+              height="44"
+              rx="1.5"
+              fill="rgba(255,120,120,0.18)"
+            />
+            {/* Handle end cap */}
+            <rect
+              x="-5.5"
+              y="60"
+              width="11"
+              height="5"
+              rx="2.5"
+              fill="rgba(200,30,30,0.35)"
+              stroke="rgba(220,40,40,0.80)"
+              strokeWidth="1.5"
+            />
+            {/* Head main block */}
+            <rect
+              x="-20"
+              y="-22"
+              width="40"
+              height="36"
+              rx="5"
+              fill="rgba(190,25,25,0.28)"
+              stroke="rgba(230,40,40,0.96)"
+              strokeWidth="2.4"
+            />
+            {/* Striking face highlight (left side) */}
+            <rect
+              x="-20"
+              y="-22"
+              width="13"
+              height="36"
+              rx="4"
+              fill="rgba(230,45,45,0.38)"
+              stroke="rgba(240,55,55,0.90)"
+              strokeWidth="1.7"
+            />
+            {/* Neck join */}
+            <rect
+              x="-7"
+              y="12"
+              width="14"
+              height="5"
+              rx="2"
+              fill="rgba(210,35,35,0.55)"
+              stroke="rgba(230,45,45,0.80)"
+              strokeWidth="1.4"
+            />
+            {/* Top glint */}
+            <line
+              x1="-16"
+              y1="-18"
+              x2="16"
+              y2="-18"
+              stroke="rgba(255,130,130,0.22)"
+              strokeWidth="1.2"
+              strokeLinecap="round"
+            />
+            {/* Face edge glint */}
+            <line
+              x1="-20"
+              y1="-16"
+              x2="-20"
+              y2="10"
+              stroke="rgba(255,110,110,0.30)"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+            />
+          </g>
+        </svg>
       </div>
+
       <span
         style={{
           fontSize: 15,
