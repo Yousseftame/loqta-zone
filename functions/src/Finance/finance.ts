@@ -10,7 +10,8 @@
  * ─── Functions ───────────────────────────────────────────────────────────────
  * 1. onTransactionCreated  — updates finance_stats/dashboard on every new tx
  * 2. onTransactionDeleted  — reverses the aggregation when a tx is deleted
- * 3. rebuildFinanceStats   — HTTP callable, full rebuild from scratch (superAdmin)
+ * 3. onTransactionUpdated  — reverses old values then applies new values atomically
+ * 4. rebuildFinanceStats   — HTTP callable, full rebuild from scratch (superAdmin)
  *
  * ─── Transaction types handled ───────────────────────────────────────────────
  * "income"           → totalIncome++, monthlyIncome[m]++, cash/bankBalance++
@@ -18,7 +19,9 @@
  *                       cash/bankBalance--
  * "owner_withdrawal" → ownerBalance++, cash/bankBalance--
  *                       Does NOT touch totalIncome or totalExpenses.
- *                       Does NOT appear in monthlyIncome or monthlyExpenses.
+ * "owner_return"     → ownerBalance--, cash/bankBalance++
+ *                       REVERSE of owner_withdrawal — owner puts money back.
+ *                       Does NOT touch totalIncome or totalExpenses.
  * "transfer"         → source balance--, destination balance++
  *                       Does NOT touch totalIncome, totalExpenses, ownerBalance,
  *                       or any monthly arrays. Net effect on available balance = zero.
@@ -26,7 +29,7 @@
  *
  * ─── Accounting identity ─────────────────────────────────────────────────────
  *   totalIncome = cashBalance + bankBalance + ownerBalance + totalExpenses
- *   (transfers are neutral — they don't affect this identity)
+ *   (transfers and owner_return are neutral to this identity)
  *
  * ─── Safety ──────────────────────────────────────────────────────────────────
  * All balance/total updates use FieldValue.increment() — atomic, no race conditions.
@@ -34,7 +37,7 @@
  * the relevant month is touched, not the whole array.
  */
 
-import { onDocumentCreated, onDocumentDeleted } from "firebase-functions/v2/firestore";
+import { onDocumentCreated, onDocumentDeleted, onDocumentUpdated } from "firebase-functions/v2/firestore";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 
@@ -52,11 +55,16 @@ function monthIndex(data: Record<string, any>): number {
 
 // ─── Helper: build atomic increment update for one transaction ───────────────
 //
-// sign: +1 = apply transaction, -1 = reverse transaction (for delete trigger)
+// sign: +1 = apply transaction, -1 = reverse transaction (for delete/update trigger)
 //
 // owner_withdrawal:
 //   - Increments ownerBalance by amount (or decrements on delete)
 //   - Decrements cashBalance or bankBalance (or increments on delete)
+//   - Does NOT touch totalIncome, totalExpenses, or monthly arrays
+//
+// owner_return:
+//   - Decrements ownerBalance by amount (reverse of withdrawal)
+//   - Increments cashBalance or bankBalance
 //   - Does NOT touch totalIncome, totalExpenses, or monthly arrays
 //
 // transfer:
@@ -65,7 +73,7 @@ function monthIndex(data: Record<string, any>): number {
 //   - Net available balance effect = zero
 
 function buildUpdate(
-  type:       "income" | "expense" | "owner_withdrawal" | "transfer",
+  type:       "income" | "expense" | "owner_withdrawal" | "transfer" | "owner_return",
   method:     "cash" | "bank",
   category:   string,
   amount:     number,
@@ -79,33 +87,32 @@ function buildUpdate(
   };
 
   if (type === "income") {
-    // Money came into the business — goes into cash or bank
     update.totalIncome                = FieldValue.increment(amt);
     update[`monthlyIncome.${month}`]  = FieldValue.increment(amt);
     if (method === "cash") update.cashBalance = FieldValue.increment(amt);
     else                   update.bankBalance = FieldValue.increment(amt);
 
   } else if (type === "expense") {
-    // Operating cost — reduces cash or bank, tracked by category
     update.totalExpenses                       = FieldValue.increment(amt);
     update[`monthlyExpenses.${month}`]         = FieldValue.increment(amt);
     update[`expensesByCategory.${category}`]   = FieldValue.increment(amt);
-    // Expense debits the balance (sign already applied to amt, so negate for balance)
+    // Expense debits the balance (amt already includes sign)
     if (method === "cash") update.cashBalance = FieldValue.increment(-amt);
     else                   update.bankBalance = FieldValue.increment(-amt);
 
   } else if (type === "owner_withdrawal") {
-    // Owner takes money out of the business for personal use.
+    // Owner takes money OUT: ownerBalance increases, liquid balance decreases
     update.ownerBalance = FieldValue.increment(amt);
     if (method === "cash") update.cashBalance = FieldValue.increment(-amt);
     else                   update.bankBalance = FieldValue.increment(-amt);
 
+  } else if (type === "owner_return") {
+    // Owner puts money BACK: ownerBalance decreases, liquid balance increases
+    update.ownerBalance = FieldValue.increment(-amt);
+    if (method === "cash") update.cashBalance = FieldValue.increment(amt);
+    else                   update.bankBalance = FieldValue.increment(amt);
+
   } else if (type === "transfer") {
-    // Internal transfer between cash and bank.
-    // source (method) loses `amount`, destination (transferTo) gains `amount`.
-    // No totals, no monthly arrays, no ownerBalance — purely a balance shift.
-    // amt = amount * sign  →  on create(+1): source -= amount, dest += amount
-    //                         on delete(-1): source += amount, dest -= amount
     const dest = transferTo ?? (method === "cash" ? "bank" : "cash");
     if (method === "cash") {
       update.cashBalance = FieldValue.increment(-amt);  // source loses
@@ -122,6 +129,8 @@ function buildUpdate(
   return update;
 }
 
+const VALID_TYPES = ["income", "expense", "owner_withdrawal", "transfer", "owner_return"];
+
 // ─── 1. Transaction Created ──────────────────────────────────────────────────
 
 export const onTransactionCreated = onDocumentCreated(
@@ -131,15 +140,14 @@ export const onTransactionCreated = onDocumentCreated(
     if (!data) return;
 
     const { type, method, category, amount, transferTo } = data as {
-      type:       "income" | "expense" | "owner_withdrawal" | "transfer";
+      type:       "income" | "expense" | "owner_withdrawal" | "transfer" | "owner_return";
       method:     "cash" | "bank";
       category:   string;
       amount:     number;
       transferTo?: "cash" | "bank";
     };
 
-    // Guard: skip if type is unrecognised (defensive, should never happen)
-    if (!["income", "expense", "owner_withdrawal", "transfer"].includes(type)) {
+    if (!VALID_TYPES.includes(type)) {
       console.warn(`[onTransactionCreated] Unknown type="${type}" — skipping.`);
       return;
     }
@@ -160,36 +168,74 @@ export const onTransactionDeleted = onDocumentDeleted(
     if (!data) return;
 
     const { type, method, category, amount, transferTo } = data as {
-      type:       "income" | "expense" | "owner_withdrawal" | "transfer";
+      type:       "income" | "expense" | "owner_withdrawal" | "transfer" | "owner_return";
       method:     "cash" | "bank";
       category:   string;
       amount:     number;
       transferTo?: "cash" | "bank";
     };
 
-    if (!["income", "expense", "owner_withdrawal", "transfer"].includes(type)) {
+    if (!VALID_TYPES.includes(type)) {
       console.warn(`[onTransactionDeleted] Unknown type="${type}" — skipping.`);
       return;
     }
 
     const month  = monthIndex(data);
-    // sign = -1 reverses the original effect atomically
     const update = buildUpdate(type, method, category, amount, month, -1, transferTo);
 
     await STATS().set(update, { merge: true });
   },
 );
 
-// ─── 3. Rebuild Finance Stats (HTTP Callable, superAdmin only) ───────────────
-//
-// Scans ALL transactions and recomputes finance_stats/dashboard from scratch.
-// Safe to call at any time — overwrites the dashboard doc with the correct values.
-// Use this to fix any drift caused by missed triggers or legacy data.
+// ─── 3. Transaction Updated ──────────────────────────────────────────────────
+// Reverses the OLD transaction effect, then applies the NEW transaction effect.
+// This keeps the aggregated dashboard accurate after any edit.
+
+export const onTransactionUpdated = onDocumentUpdated(
+  { document: "transactions/{id}", memory: "256MiB" },
+  async (event) => {
+    const before = event.data?.before.data();
+    const after  = event.data?.after.data();
+    if (!before || !after) return;
+
+    // ── Reverse the OLD transaction ───────────────────────────────────────
+    const oldType     = before.type as "income" | "expense" | "owner_withdrawal" | "transfer" | "owner_return";
+    const oldMethod   = before.method   as "cash" | "bank";
+    const oldCategory = before.category as string;
+    const oldAmount   = before.amount   as number;
+    const oldMonth    = monthIndex(before);
+    const oldTransferTo = before.transferTo as "cash" | "bank" | undefined;
+
+    // ── Apply the NEW transaction ─────────────────────────────────────────
+    const newType     = after.type as "income" | "expense" | "owner_withdrawal" | "transfer" | "owner_return";
+    const newMethod   = after.method   as "cash" | "bank";
+    const newCategory = after.category as string;
+    const newAmount   = after.amount   as number;
+    const newMonth    = monthIndex(after);
+    const newTransferTo = after.transferTo as "cash" | "bank" | undefined;
+
+    if (!VALID_TYPES.includes(oldType) || !VALID_TYPES.includes(newType)) {
+      console.warn(`[onTransactionUpdated] Unknown type — skipping.`);
+      return;
+    }
+
+    // Build reverse of old and apply of new, then merge into one update object
+    const reverseOld = buildUpdate(oldType, oldMethod, oldCategory, oldAmount, oldMonth, -1, oldTransferTo);
+    const applyNew   = buildUpdate(newType, newMethod, newCategory, newAmount, newMonth,  1, newTransferTo);
+
+    // Merge: for each FieldValue.increment, we need to combine them.
+    // Since FieldValue.increment objects can't be added directly, we do two sequential writes.
+    const stats = STATS();
+    await stats.set(reverseOld, { merge: true });
+    await stats.set(applyNew,   { merge: true });
+  },
+);
+
+// ─── 4. Rebuild Finance Stats (HTTP Callable, superAdmin only) ───────────────
 
 export const rebuildFinanceStats = onCall(
   { memory: "512MiB" },
   async (request) => {
-    // ── Auth guard ────────────────────────────────────────────────────────────
     if (!request.auth) throw new HttpsError("unauthenticated", "Login required");
 
     const callerDoc = await db.collection("users").doc(request.auth.uid).get();
@@ -198,7 +244,6 @@ export const rebuildFinanceStats = onCall(
       throw new HttpsError("permission-denied", "SuperAdmin only");
     }
 
-    // ── Full scan ─────────────────────────────────────────────────────────────
     const snap = await db.collection("transactions").get();
 
     const stats = {
@@ -237,13 +282,17 @@ export const rebuildFinanceStats = onCall(
         else                   stats.bankBalance -= amount;
 
       } else if (type === "owner_withdrawal") {
-        // Owner draw: reduces liquid balance, tracked in ownerBalance
         stats.ownerBalance += amount;
         if (method === "cash") stats.cashBalance -= amount;
         else                   stats.bankBalance -= amount;
 
+      } else if (type === "owner_return") {
+        // Owner puts money BACK — reverse of withdrawal
+        stats.ownerBalance -= amount;
+        if (method === "cash") stats.cashBalance += amount;
+        else                   stats.bankBalance += amount;
+
       } else if (type === "transfer") {
-        // Internal transfer: source loses, destination gains — net zero on available balance
         const dest = transferTo ?? (method === "cash" ? "bank" : "cash");
         if (method === "cash") stats.cashBalance -= amount;
         else                   stats.bankBalance -= amount;

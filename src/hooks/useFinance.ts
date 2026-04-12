@@ -7,15 +7,14 @@
  *   transactions             — ALL docs ordered by createdAt desc, paginated client-side
  *
  * Pagination is done client-side after a full fetch so the TransactionsTable
- * can slice any page without additional Firestore reads. For very large datasets
- * (10k+ transactions) switch to server-side cursor pagination.
+ * can slice any page without additional Firestore reads.
  */
 
 import { useEffect, useState, useCallback } from "react";
 import {
   doc, collection,
   onSnapshot,
-  query, orderBy, addDoc,
+  query, orderBy, addDoc, updateDoc,
   serverTimestamp, Timestamp,
   type Unsubscribe,
 } from "firebase/firestore";
@@ -65,7 +64,6 @@ function parseTransaction(id: string, data: Record<string, any>): Transaction {
     createdAt:     toDate(data.createdAt),
     createdBy:     data.createdBy     ?? "",
     createdByName: data.createdByName ?? "",
-    // transfer-specific field — only present on transfer docs
     transferTo:    data.transferTo    ?? undefined,
   };
 }
@@ -77,6 +75,7 @@ export function useFinance() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading]           = useState(true);
   const [adding, setAdding]             = useState(false);
+  const [updating, setUpdating]         = useState(false);
   const [error, setError]               = useState<string | null>(null);
 
   useEffect(() => {
@@ -144,7 +143,6 @@ export function useFinance() {
         createdByName: adminName,
       };
 
-      // Only write transferTo for transfer transactions
       if (values.type === "transfer" && values.transferTo) {
         payload.transferTo = values.transferTo;
       }
@@ -155,5 +153,35 @@ export function useFinance() {
     }
   }, []);
 
-  return { stats, transactions, loading, adding, error, addTransaction };
+  // ─── Update transaction ────────────────────────────────────────────────────
+  // The Cloud Function onTransactionUpdated will reverse old values and apply new ones.
+  // createdAt is intentionally NOT updated — we preserve the original timestamp.
+  const updateTransaction = useCallback(async (
+    txId: string,
+    values: TransactionFormValues,
+    adminId: string,
+    adminName: string,
+  ) => {
+    setUpdating(true);
+    try {
+      const payload: Record<string, any> = {
+        type:          values.type,
+        amount:        Number(values.amount),
+        method:        values.method,
+        category:      values.category,
+        note:          values.note.trim(),
+        updatedBy:     adminId,
+        updatedByName: adminName,
+        updatedAt:     serverTimestamp(),
+        // transferTo: only set for transfer type, clear it for other types
+        transferTo:    values.type === "transfer" ? (values.transferTo ?? null) : null,
+      };
+
+      await updateDoc(doc(db, "transactions", txId), payload);
+    } finally {
+      setUpdating(false);
+    }
+  }, []);
+
+  return { stats, transactions, loading, adding, updating, error, addTransaction, updateTransaction };
 }

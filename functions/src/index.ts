@@ -68,8 +68,7 @@ export { onUserWritten, onProductWritten, onAuctionWritten,
 
  // ── Finance ──────────────────────────────────────────────────────────────────
         
-export { onTransactionCreated, onTransactionDeleted, rebuildFinanceStats } from "./Finance/finance";
-
+export { onTransactionCreated, onTransactionDeleted, onTransactionUpdated, rebuildFinanceStats } from "./Finance/finance";
 
 // ── Vouchers ──────────────────────────────────────────────────────────────────
 // applyVoucher  — atomic transaction: validates + applies voucher in one shot

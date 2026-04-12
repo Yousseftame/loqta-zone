@@ -1,34 +1,38 @@
 /**
  * src/pages/Admin/Finance/components/TransactionsTable.tsx
  *
- * Recent transactions table with columns:
- *   Date · Type · Category · Method · Note · Done By · Balance After · Amount
+ * Recent transactions table.
  *
- * Now shows ALL transactions with client-side pagination (10 rows per page),
- * using the same pagination UI as MarginReportTable.
+ * UPDATE 1 — Editable transactions:
+ *   Each row now has an ✏️ Edit button. Clicking it opens AddTransactionModal
+ *   in edit mode pre-filled with that transaction's values. On save, the Cloud
+ *   Function onTransactionUpdated reverses the old values and applies the new
+ *   ones atomically. The running "Balance After" column then recalculates
+ *   automatically because it is derived entirely from the live transactions list.
+ *
+ * UPDATE 2 — Balance validation:
+ *   AddTransactionModal now receives the live `stats` prop so it can validate
+ *   that the new values won't push any balance negative before saving.
  *
  * ─── Balance After calculation ────────────────────────────────────────────────
  * Anchors on current available balance and walks backwards through the
  * sorted-desc list, undoing each transaction.
  *
  * ─── Transfer rows ────────────────────────────────────────────────────────────
- * Transfers show a special "Method" cell: "💵 Cash → 🏦 Bank" (or reverse).
- * They show "0 EGP" in the Amount column with a neutral style since they
- * don't change available balance. Balance After stays the same before/after.
- *
- * ─── Row click ───────────────────────────────────────────────────────────────
- * Clicking any row opens a detail modal showing the full note and transaction info.
+ * Transfers show "—" in Balance After and "⇄ N EGP" in Amount (balance-neutral).
  */
 
 import { useState, useMemo } from "react";
-import { Box, Paper, Chip } from "@mui/material";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Box, Paper, Chip, IconButton, Tooltip } from "@mui/material";
+import { ChevronLeft, ChevronRight, Pencil } from "lucide-react";
 import { colors } from "../../Products/products-data";
 import {
   CATEGORY_LABEL,
   type Transaction,
   type FinanceStats,
+  type TransactionFormValues,
 } from "../finance-data";
+import AddTransactionModal from "./AddTransactionModal";
 
 const PAGE_SIZE = 10;
 
@@ -47,6 +51,7 @@ const TYPE_CHIP: Record<string, { label: string; bg: string; color: string }> =
     income: { label: "Income", bg: "#D1FAE5", color: "#065F46" },
     expense: { label: "Expense", bg: "#FEE2E2", color: "#991B1B" },
     owner_withdrawal: { label: "Owner", bg: "#FEF3C7", color: "#78350F" },
+    owner_return: { label: "↩ Return", bg: "#ECFDF5", color: "#065F46" },
     transfer: { label: "Transfer", bg: "#EDE9FE", color: "#4C1D95" },
   };
 
@@ -54,6 +59,7 @@ const AMOUNT_STYLE: Record<string, { color: string; sign: string }> = {
   income: { color: "#059669", sign: "+" },
   expense: { color: "#DC2626", sign: "−" },
   owner_withdrawal: { color: "#D97706", sign: "−" },
+  owner_return: { color: "#10B981", sign: "+" },
   transfer: { color: "#7C3AED", sign: "⇄ " },
 };
 
@@ -73,12 +79,15 @@ function fmtBalance(n: number): string {
   return n < 0 ? `−${abs}` : abs;
 }
 
-/** Build the method display string for a transaction row */
 function buildMethodDisplay(tx: Transaction): string {
   if (tx.type === "transfer") {
     const from = tx.method === "cash" ? "💵 Cash" : "🏦 Bank";
     const to = tx.transferTo === "cash" ? "💵 Cash" : "🏦 Bank";
     return `${from} → ${to}`;
+  }
+  if (tx.type === "owner_return") {
+    // For owner_return, method is the destination
+    return tx.method === "cash" ? "💵 Cash (in)" : "🏦 Bank (in)";
   }
   return tx.method === "cash" ? "💵 Cash" : "🏦 Bank";
 }
@@ -88,8 +97,11 @@ function buildMethodDisplay(tx: Transaction): string {
  * Transactions arrive sorted newest-first. We anchor on the current
  * available balance and walk backwards, undoing each transaction.
  *
- * Transfers are balance-neutral (they only shift between cash/bank,
- * not the combined available balance) so they don't move the running total.
+ * - income:           added to balance → subtract when going back
+ * - expense:          subtracted from balance → add back when going back
+ * - owner_withdrawal: subtracted from liquid balance → add back when going back
+ * - owner_return:     added to liquid balance → subtract when going back
+ * - transfer:         balance-neutral → carry forward unchanged
  */
 function computeRunningBalances(
   transactions: Transaction[],
@@ -104,10 +116,12 @@ function computeRunningBalances(
     if (prev.type === "income") {
       result[i] = result[i - 1] - prev.amount;
     } else if (prev.type === "transfer") {
-      // Transfer doesn't change combined available balance — carry forward
-      result[i] = result[i - 1];
+      result[i] = result[i - 1]; // neutral
+    } else if (prev.type === "owner_return") {
+      // owner_return added to liquid balance — subtract when going back
+      result[i] = result[i - 1] - prev.amount;
     } else {
-      // expense + owner_withdrawal both reduce available balance
+      // expense + owner_withdrawal both reduced available balance
       result[i] = result[i - 1] + prev.amount;
     }
   }
@@ -120,10 +134,12 @@ function TransactionDetailModal({
   tx,
   balance,
   onClose,
+  onEdit,
 }: {
   tx: Transaction;
   balance: number;
   onClose: () => void;
+  onEdit: () => void;
 }) {
   const isTransfer = tx.type === "transfer";
   const typeChip = TYPE_CHIP[tx.type] ?? TYPE_CHIP.income;
@@ -142,11 +158,12 @@ function TransactionDetailModal({
         ? "#DC2626"
         : tx.type === "owner_withdrawal"
           ? "#D97706"
-          : "#7C3AED";
+          : tx.type === "owner_return"
+            ? "#10B981"
+            : "#7C3AED";
 
   return (
     <>
-      {/* Backdrop */}
       <div
         onClick={onClose}
         style={{
@@ -158,8 +175,6 @@ function TransactionDetailModal({
           animation: "tdm-fadein 0.18s ease forwards",
         }}
       />
-
-      {/* Modal */}
       <div
         style={{
           position: "fixed",
@@ -186,17 +201,13 @@ function TransactionDetailModal({
               "tdm-slidein 0.22s cubic-bezier(0.34,1.56,0.64,1) forwards",
           }}
         >
-          {/* Top accent bar */}
           <div
             style={{
               height: 4,
               background: `linear-gradient(90deg, ${accentColor} 0%, ${accentColor}99 100%)`,
             }}
           />
-
-          {/* Body */}
           <div style={{ padding: "28px 28px 24px" }}>
-            {/* Header row: type chip + date */}
             <div
               style={{
                 display: "flex",
@@ -222,14 +233,12 @@ function TransactionDetailModal({
                   fontSize: "0.78rem",
                   color: "#64748B",
                   fontWeight: 500,
-                  fontFamily: "system-ui, sans-serif",
                 }}
               >
                 {fmtDate(tx.createdAt)}
               </span>
             </div>
 
-            {/* Amount */}
             <div
               style={{
                 fontSize: "2rem",
@@ -245,16 +254,10 @@ function TransactionDetailModal({
                 : `${amtStyle.sign}${tx.amount.toLocaleString("en-EG")} EGP`}
             </div>
 
-            {/* Divider */}
             <div
-              style={{
-                height: 1,
-                background: "#E2E8F0",
-                marginBottom: 18,
-              }}
+              style={{ height: 1, background: "#E2E8F0", marginBottom: 18 }}
             />
 
-            {/* Detail rows */}
             <div
               style={{
                 display: "flex",
@@ -276,8 +279,6 @@ function TransactionDetailModal({
                   valueColor={balNeg ? "#DC2626" : "#0f172a"}
                 />
               )}
-
-              {/* Note — full text, no truncation */}
               <div>
                 <span
                   style={{
@@ -285,7 +286,7 @@ function TransactionDetailModal({
                     fontWeight: 700,
                     color: "#94A3B8",
                     letterSpacing: "0.08em",
-                    textTransform: "uppercase",
+                    textTransform: "uppercase" as const,
                     display: "block",
                     marginBottom: 6,
                   }}
@@ -302,8 +303,8 @@ function TransactionDetailModal({
                     color: tx.note ? "#1E293B" : "#94A3B8",
                     lineHeight: 1.6,
                     fontStyle: tx.note ? "normal" : "italic",
-                    wordBreak: "break-word",
-                    whiteSpace: "pre-wrap",
+                    wordBreak: "break-word" as const,
+                    whiteSpace: "pre-wrap" as const,
                     minHeight: 44,
                   }}
                 >
@@ -312,44 +313,63 @@ function TransactionDetailModal({
               </div>
             </div>
 
-            {/* Close button */}
-            <button
-              onClick={onClose}
-              style={{
-                marginTop: 22,
-                width: "100%",
-                padding: "11px 0",
-                borderRadius: 10,
-                border: "1.5px solid #E2E8F0",
-                background: "#F8FAFC",
-                color: "#475569",
-                fontSize: "14px",
-                fontWeight: 600,
-                cursor: "pointer",
-                fontFamily: "system-ui, -apple-system, sans-serif",
-                transition: "all 0.18s ease",
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.background =
-                  "#F1F5F9";
-                (e.currentTarget as HTMLButtonElement).style.borderColor =
-                  "#CBD5E1";
-                (e.currentTarget as HTMLButtonElement).style.color = "#1E293B";
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.background =
-                  "#F8FAFC";
-                (e.currentTarget as HTMLButtonElement).style.borderColor =
-                  "#E2E8F0";
-                (e.currentTarget as HTMLButtonElement).style.color = "#475569";
-              }}
-            >
-              Close
-            </button>
+            <div style={{ display: "flex", gap: 10, marginTop: 22 }}>
+              <button
+                onClick={onEdit}
+                style={{
+                  flex: 1,
+                  padding: "11px 0",
+                  borderRadius: 10,
+                  border: "1.5px solid #BFDBFE",
+                  background: "#EFF6FF",
+                  color: "#1E40AF",
+                  fontSize: "14px",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  fontFamily: "system-ui, sans-serif",
+                  transition: "all 0.18s ease",
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.background =
+                    "#DBEAFE";
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.background =
+                    "#EFF6FF";
+                }}
+              >
+                ✏️ Edit
+              </button>
+              <button
+                onClick={onClose}
+                style={{
+                  flex: 1,
+                  padding: "11px 0",
+                  borderRadius: 10,
+                  border: "1.5px solid #E2E8F0",
+                  background: "#F8FAFC",
+                  color: "#475569",
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  fontFamily: "system-ui, sans-serif",
+                  transition: "all 0.18s ease",
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.background =
+                    "#F1F5F9";
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.background =
+                    "#F8FAFC";
+                }}
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       </div>
-
       <style>{`
         @keyframes tdm-fadein  { from { opacity: 0 } to { opacity: 1 } }
         @keyframes tdm-slidein { from { opacity: 0; transform: translateY(16px) scale(0.97) } to { opacity: 1; transform: translateY(0) scale(1) } }
@@ -406,22 +426,29 @@ interface Props {
   transactions: Transaction[];
   stats: FinanceStats;
   loading?: boolean;
+  updating?: boolean;
+  onUpdateTransaction?: (
+    txId: string,
+    values: TransactionFormValues,
+  ) => Promise<void>;
 }
 
 export default function TransactionsTable({
   transactions,
   stats,
   loading = false,
+  updating = false,
+  onUpdateTransaction,
 }: Props) {
   const [page, setPage] = useState(1);
   const [selectedTx, setSelectedTx] = useState<{
     tx: Transaction;
     balance: number;
   } | null>(null);
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null);
 
   const currentAvailable = stats.cashBalance + stats.bankBalance;
 
-  // Pre-compute ALL running balances (across the full list, not just current page)
   const allBalances = useMemo(
     () => computeRunningBalances(transactions, currentAvailable),
     [transactions, currentAvailable],
@@ -429,7 +456,6 @@ export default function TransactionsTable({
 
   const totalPages = Math.max(1, Math.ceil(transactions.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
-
   const pageStart = (safePage - 1) * PAGE_SIZE;
   const pageEnd = safePage * PAGE_SIZE;
   const pageData = transactions.slice(pageStart, pageEnd);
@@ -437,6 +463,32 @@ export default function TransactionsTable({
 
   const handlePrev = () => setPage((p) => Math.max(1, p - 1));
   const handleNext = () => setPage((p) => Math.min(totalPages, p + 1));
+
+  // Open detail modal
+  const handleRowClick = (tx: Transaction, bal: number) => {
+    setSelectedTx({ tx, balance: bal });
+  };
+
+  // Open edit modal from detail modal
+  const handleEditFromDetail = () => {
+    if (!selectedTx) return;
+    setEditingTx(selectedTx.tx);
+    setSelectedTx(null);
+  };
+
+  // Open edit modal directly from row's edit button
+  const handleEditFromRow = (e: React.MouseEvent, tx: Transaction) => {
+    e.stopPropagation();
+    setEditingTx(tx);
+  };
+
+  const handleEditClose = () => setEditingTx(null);
+
+  const handleEditSubmit = async (values: TransactionFormValues) => {
+    if (!editingTx || !onUpdateTransaction) return;
+    await onUpdateTransaction(editingTx.id, values);
+    setEditingTx(null);
+  };
 
   const HEADERS = [
     "Date",
@@ -447,6 +499,7 @@ export default function TransactionsTable({
     "Done By",
     "Balance After",
     "Amount",
+    "",
   ];
 
   return (
@@ -457,8 +510,21 @@ export default function TransactionsTable({
           tx={selectedTx.tx}
           balance={selectedTx.balance}
           onClose={() => setSelectedTx(null)}
+          onEdit={handleEditFromDetail}
         />
       )}
+
+      {/* ── Edit Modal ── */}
+      <AddTransactionModal
+        open={!!editingTx}
+        adding={false}
+        updating={updating}
+        onClose={handleEditClose}
+        onSubmit={async () => {}} // unused in edit mode
+        onUpdate={handleEditSubmit}
+        editingTx={editingTx}
+        stats={stats}
+      />
 
       <Paper
         elevation={0}
@@ -528,12 +594,11 @@ export default function TransactionsTable({
               fontFamily: "system-ui, sans-serif",
             }}
           >
-            {/* Column headers */}
             <thead>
               <tr style={{ background: "#F8FAFC" }}>
-                {HEADERS.map((h) => (
+                {HEADERS.map((h, hi) => (
                   <th
-                    key={h}
+                    key={h || `h-${hi}`}
                     style={{
                       padding: "10px 16px",
                       textAlign:
@@ -547,6 +612,7 @@ export default function TransactionsTable({
                       textTransform: "uppercase",
                       whiteSpace: "nowrap",
                       borderBottom: `1px solid ${colors.border}`,
+                      width: h === "" ? 40 : undefined,
                     }}
                   >
                     {h}
@@ -555,15 +621,13 @@ export default function TransactionsTable({
               </tr>
             </thead>
 
-            {/* Rows */}
             <tbody>
-              {/* ── Skeleton loading ── */}
               {loading ? (
                 Array(PAGE_SIZE)
                   .fill(0)
                   .map((_, i) => (
                     <tr key={i}>
-                      {Array(8)
+                      {Array(9)
                         .fill(0)
                         .map((_, j) => (
                           <td
@@ -589,7 +653,7 @@ export default function TransactionsTable({
               ) : transactions.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={8}
+                    colSpan={9}
                     style={{
                       padding: "40px 16px",
                       textAlign: "center",
@@ -608,25 +672,28 @@ export default function TransactionsTable({
                   const balNeg = bal < 0;
                   const methodLabel = buildMethodDisplay(tx);
 
-                  // For transfers: method chip spans the whole from→to string
-                  // with a purple style instead of the normal cash/bank chip
                   const methodChipStyle = isTransfer
                     ? { bg: "#EDE9FE", color: "#4C1D95" }
-                    : (METHOD_CHIP[tx.method] ?? METHOD_CHIP.cash);
+                    : tx.type === "owner_return"
+                      ? { bg: "#ECFDF5", color: "#065F46" }
+                      : (METHOD_CHIP[tx.method] ?? METHOD_CHIP.cash);
 
                   const doneBy =
                     tx.createdByName?.trim() ||
                     (tx.createdBy ? `${tx.createdBy.slice(0, 8)}…` : "—");
 
-                  // Global row index (for alternating background)
                   const globalIdx = pageStart + i;
                   const defaultBg = globalIdx % 2 === 0 ? "#fff" : "#FAFAFA";
-                  const hoverBg = isTransfer ? "#F5F3FF" : "#EFF6FF";
+                  const hoverBg = isTransfer
+                    ? "#F5F3FF"
+                    : tx.type === "owner_return"
+                      ? "#ECFDF5"
+                      : "#EFF6FF";
 
                   return (
                     <tr
                       key={tx.id}
-                      onClick={() => setSelectedTx({ tx, balance: bal })}
+                      onClick={() => handleRowClick(tx, bal)}
                       style={{
                         background: defaultBg,
                         transition: "background 0.15s",
@@ -689,7 +756,7 @@ export default function TransactionsTable({
                         {CATEGORY_LABEL[tx.category] ?? tx.category}
                       </td>
 
-                      {/* Method / Transfer direction */}
+                      {/* Method */}
                       <td
                         style={{
                           padding: "12px 16px",
@@ -711,7 +778,7 @@ export default function TransactionsTable({
                         </span>
                       </td>
 
-                      {/* Note — truncated in table, full in modal */}
+                      {/* Note */}
                       <td
                         style={{
                           padding: "12px 16px",
@@ -781,13 +848,7 @@ export default function TransactionsTable({
                               : balNeg
                                 ? "#FEE2E2"
                                 : "#F0FDF4",
-                            border: `1px solid ${
-                              isTransfer
-                                ? "#DDD6FE"
-                                : balNeg
-                                  ? "#FECACA"
-                                  : "#BBF7D0"
-                            }`,
+                            border: `1px solid ${isTransfer ? "#DDD6FE" : balNeg ? "#FECACA" : "#BBF7D0"}`,
                             borderRadius: 6,
                             padding: "3px 9px",
                           }}
@@ -808,7 +869,6 @@ export default function TransactionsTable({
                         }}
                       >
                         {isTransfer ? (
-                          /* show the transfer amount with neutral style */
                           <span style={{ fontWeight: 700, color: "#7C3AED" }}>
                             ⇄ {tx.amount.toLocaleString("en-EG")} EGP
                           </span>
@@ -818,6 +878,33 @@ export default function TransactionsTable({
                             {tx.amount.toLocaleString("en-EG")} EGP
                           </>
                         )}
+                      </td>
+
+                      {/* Edit button */}
+                      <td
+                        style={{
+                          padding: "6px 8px",
+                          borderBottom: `1px solid ${colors.border}`,
+                          textAlign: "center",
+                        }}
+                      >
+                        <Tooltip title="Edit transaction" placement="left">
+                          <IconButton
+                            size="small"
+                            onClick={(e) => handleEditFromRow(e, tx)}
+                            sx={{
+                              color: colors.textMuted,
+                              "&:hover": {
+                                color: colors.primary,
+                                bgcolor: colors.primaryBg,
+                              },
+                              borderRadius: 1.5,
+                              p: 0.75,
+                            }}
+                          >
+                            <Pencil size={13} />
+                          </IconButton>
+                        </Tooltip>
                       </td>
                     </tr>
                   );
@@ -842,7 +929,6 @@ export default function TransactionsTable({
               flexWrap: "wrap",
             }}
           >
-            {/* Row range label */}
             <span
               style={{
                 fontSize: "0.75rem",
@@ -861,9 +947,7 @@ export default function TransactionsTable({
               transactions
             </span>
 
-            {/* Controls */}
             <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
-              {/* Prev */}
               <button
                 onClick={handlePrev}
                 disabled={safePage === 1}
@@ -884,7 +968,6 @@ export default function TransactionsTable({
                 <ChevronLeft size={14} />
               </button>
 
-              {/* Page pills */}
               {Array.from({ length: totalPages }, (_, idx) => idx + 1)
                 .filter(
                   (p) =>
@@ -932,7 +1015,6 @@ export default function TransactionsTable({
                   ),
                 )}
 
-              {/* Next */}
               <button
                 onClick={handleNext}
                 disabled={safePage === totalPages}

@@ -13,11 +13,20 @@ import FinanceCharts from "./components/FinanceCharts";
 import TransactionsTable from "./components/TransactionsTable";
 import AddTransactionModal from "./components/AddTransactionModal";
 import NetProfitLoss from "./components/NetProfitLoss";
+import type { TransactionFormValues } from "./finance-data";
 
 export default function FinancePage() {
   const { user, role } = useAuth();
-  const { stats, transactions, loading, adding, error, addTransaction } =
-    useFinance();
+  const {
+    stats,
+    transactions,
+    loading,
+    adding,
+    updating,
+    error,
+    addTransaction,
+    updateTransaction,
+  } = useFinance();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [rebuilding, setRebuilding] = useState(false);
@@ -36,6 +45,25 @@ export default function FinancePage() {
     } finally {
       setRebuilding(false);
     }
+  };
+
+  // Called by the "+ Add Transaction" button modal (create mode)
+  const handleAddTransaction = async (values: TransactionFormValues) => {
+    await addTransaction(values, user?.uid ?? "", user?.displayName ?? "Admin");
+  };
+
+  // Called by the edit modal inside TransactionsTable
+  const handleUpdateTransaction = async (
+    txId: string,
+    values: TransactionFormValues,
+  ) => {
+    await updateTransaction(
+      txId,
+      values,
+      user?.uid ?? "",
+      user?.displayName ?? "Admin",
+    );
+    toast.success("Transaction updated successfully.");
   };
 
   return (
@@ -170,21 +198,22 @@ export default function FinancePage() {
 
       {/* ── Transactions ─────────────────────────────────────────────────── */}
       <SectionLabel label="Recent Transactions" />
-      {/* Pass stats so TransactionsTable can compute running available balance */}
       <TransactionsTable
         transactions={transactions}
         stats={stats}
         loading={loading}
+        updating={updating}
+        onUpdateTransaction={handleUpdateTransaction}
       />
 
-      {/* ── Modal ────────────────────────────────────────────────────────── */}
+      {/* ── Add Transaction Modal ─────────────────────────────────────────── */}
       <AddTransactionModal
         open={modalOpen}
         adding={adding}
+        updating={false}
         onClose={() => setModalOpen(false)}
-        onSubmit={(values) =>
-          addTransaction(values, user?.uid ?? "", user?.displayName ?? "Admin")
-        }
+        onSubmit={handleAddTransaction}
+        stats={stats}
       />
     </Box>
   );

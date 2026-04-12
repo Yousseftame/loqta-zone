@@ -4,7 +4,7 @@
  * Single source of truth for all Finance types.
  *
  * Firestore schema:
- *   transactions/{id}          — every income / expense / owner_withdrawal / transfer entry
+ *   transactions/{id}          — every income / expense / owner_withdrawal / transfer / owner_return entry
  *   finance_stats/dashboard    — pre-aggregated totals (Cloud Function only)
  *
  * ─── Accounting identity ─────────────────────────────────────────────────────
@@ -16,17 +16,24 @@
  * It simply decrements the source balance and increments the destination balance.
  * The `method` field = source ("cash" | "bank"), and `transferTo` field = destination.
  * Net effect on available balance = zero.
+ *
+ * ─── Owner Return ─────────────────────────────────────────────────────────────
+ * owner_return is the REVERSE of owner_withdrawal.
+ * Owner puts money BACK into the business (cash or bank).
+ * It decrements ownerBalance and increments cashBalance or bankBalance.
+ * Does NOT touch totalIncome or totalExpenses.
  */
 
 // ─── Enums ─────────────────────────────────────────────────────────────────
 
-export type TransactionType     = "income" | "expense" | "owner_withdrawal" | "transfer";
+export type TransactionType     = "income" | "expense" | "owner_withdrawal" | "transfer" | "owner_return";
 export type PaymentMethod       = "cash" | "bank";
 export type ExpenseCategory     = "ads" | "salary" | "products" | "maintenance" | "equipment" | "utilities" | "rent" | "other";
 export type IncomeCategory      = "auction_revenue" | "registration_fee" | "sponsorship" | "refund_received" | "other";
 export type OwnerCategory       = "owner_draw";
+export type OwnerReturnCategory = "owner_return";
 export type TransferCategory    = "cash_to_bank" | "bank_to_cash";
-export type TransactionCategory = ExpenseCategory | IncomeCategory | OwnerCategory | TransferCategory;
+export type TransactionCategory = ExpenseCategory | IncomeCategory | OwnerCategory | OwnerReturnCategory | TransferCategory;
 
 // ─── Transaction document ───────────────────────────────────────────────────
 
@@ -49,7 +56,7 @@ export interface Transaction {
 export interface FinanceStats {
   totalIncome: number;
   totalExpenses: number;
-  ownerBalance: number;       // cumulative owner withdrawals
+  ownerBalance: number;       // cumulative owner withdrawals minus owner returns
   cashBalance: number;
   bankBalance: number;
   monthlyIncome:   number[];  // index 0=Jan … 11=Dec, current year
@@ -108,6 +115,10 @@ export const OWNER_CATEGORIES: { value: OwnerCategory; label: string }[] = [
   { value: "owner_draw", label: "Owner Draw" },
 ];
 
+export const OWNER_RETURN_CATEGORIES: { value: OwnerReturnCategory; label: string }[] = [
+  { value: "owner_return", label: "Owner Return" },
+];
+
 export const TRANSFER_CATEGORIES: { value: TransferCategory; label: string }[] = [
   { value: "cash_to_bank", label: "Cash → Bank" },
   { value: "bank_to_cash", label: "Bank → Cash" },
@@ -124,8 +135,10 @@ export const CATEGORY_LABEL: Record<string, string> = {
   auction_revenue:   "Auction Revenue",
   registration_fee:  "Registration Fee",
   sponsorship:       "Sponsorship",
+  refund_received:   "Refund Received",
   other:             "Other",
   owner_draw:        "Owner Draw",
+  owner_return:      "Owner Return",
   cash_to_bank:      "Cash → Bank",
   bank_to_cash:      "Bank → Cash",
 };

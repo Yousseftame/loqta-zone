@@ -1,10 +1,25 @@
 /**
  * src/pages/Admin/Finance/components/AddTransactionModal.tsx
  *
- * Updated: accepts an optional `initialValues` prop so the modal can be
- * pre-filled from outside (e.g. after adding a product with a cost price).
- * When `initialValues` changes while the modal is closed, the form resets
- * to those values the next time it opens.
+ * Handles both CREATE and EDIT modes.
+ *
+ * Edit mode: pass `editingTx` prop. The modal pre-fills with the existing
+ * transaction values. On submit, calls `onUpdate` instead of `onSubmit`.
+ * The Cloud Function onTransactionUpdated handles reversing old + applying new.
+ *
+ * Balance Validation (Update 2):
+ * Before saving, we compute whether the transaction would push any balance
+ * negative. If so, we show a clear error and block the save.
+ * Rules:
+ *   - expense:          method balance must cover the amount
+ *   - owner_withdrawal: method balance must cover the amount
+ *   - transfer:         source balance must cover the amount
+ *   - owner_return:     ownerBalance must cover the amount (can't return more than withdrawn)
+ *   - income:           always allowed (money coming IN)
+ *
+ * Owner Return (Update 3):
+ * New "↩ Return" tab. Owner puts money BACK into cash or bank.
+ * Decrements ownerBalance, increments cash/bank.
  */
 
 import { useState, useEffect } from "react";
@@ -27,20 +42,24 @@ import {
   EXPENSE_CATEGORIES,
   INCOME_CATEGORIES,
   OWNER_CATEGORIES,
+  OWNER_RETURN_CATEGORIES,
   TRANSFER_CATEGORIES,
   type TransactionFormValues,
   type TransactionType,
   type PaymentMethod,
   type TransactionCategory,
   type TransferCategory,
+  type FinanceStats,
+  type Transaction,
 } from "../finance-data";
 
 // ─── Defaults by type ─────────────────────────────────────────────────────────
 
 const DEFAULT_CATEGORY_BY_TYPE: Record<TransactionType, TransactionCategory> = {
   income: "auction_revenue",
-  expense: "products", // ← default to "products" for expense (most common from product form)
+  expense: "products",
   owner_withdrawal: "owner_draw",
+  owner_return: "owner_return",
   transfer: "cash_to_bank",
 };
 
@@ -94,6 +113,15 @@ const TAB_CONFIG: Record<
     btnColor: "#D97706",
     btnHover: "#B45309",
   },
+  owner_return: {
+    label: "Return",
+    emoji: "↩️",
+    selectedBg: "#ECFDF5",
+    selectedColor: "#065F46",
+    selectedBorder: "#10B981",
+    btnColor: "#10B981",
+    btnHover: "#059669",
+  },
   transfer: {
     label: "Transfer",
     emoji: "🔄",
@@ -110,10 +138,16 @@ const TAB_CONFIG: Record<
 interface Props {
   open: boolean;
   adding: boolean;
+  updating?: boolean;
   onClose: () => void;
   onSubmit: (values: TransactionFormValues) => Promise<void>;
-  /** Optional pre-fill: when provided, the modal opens with these values loaded */
+  onUpdate?: (values: TransactionFormValues) => Promise<void>;
+  /** When provided, the modal opens in EDIT mode */
+  editingTx?: Transaction | null;
+  /** Optional pre-fill for new transactions (e.g. from product form) */
   initialValues?: Partial<TransactionFormValues>;
+  /** Current live stats — used for balance validation */
+  stats?: FinanceStats;
 }
 
 // ─── Helper: derive transferTo and category from method for transfers ─────────
@@ -128,6 +162,18 @@ function deriveTransferFields(method: PaymentMethod): {
   return { transferTo: "cash", category: "bank_to_cash" };
 }
 
+/** Build form from an existing transaction (edit mode) */
+function buildFormFromTx(tx: Transaction): TransactionFormValues {
+  return {
+    type: tx.type,
+    amount: String(tx.amount),
+    method: tx.method,
+    category: tx.category,
+    note: tx.note ?? "",
+    transferTo: tx.transferTo,
+  };
+}
+
 /** Merge EMPTY defaults with any provided initialValues */
 function buildInitialForm(
   init?: Partial<TransactionFormValues>,
@@ -136,10 +182,84 @@ function buildInitialForm(
   return {
     ...EMPTY,
     ...init,
-    // Ensure transferTo is set correctly for transfer type
     transferTo:
       init.type === "transfer" ? (init.transferTo ?? "bank") : EMPTY.transferTo,
   };
+}
+
+// ─── Balance validator ────────────────────────────────────────────────────────
+// Returns an error string if the transaction would cause a negative balance.
+// When editing, we need to account for the fact that the OLD transaction
+// will be reversed before the new one is applied.
+
+function validateBalance(
+  form: TransactionFormValues,
+  stats: FinanceStats | undefined,
+  editingTx: Transaction | null | undefined,
+): string | null {
+  if (!stats) return null;
+  const amount = Number(form.amount);
+  if (isNaN(amount) || amount <= 0) return null; // handled by amount validation
+
+  // When editing, compute the balance as if the OLD transaction was reversed first
+  let cashBalance = stats.cashBalance;
+  let bankBalance = stats.bankBalance;
+  let ownerBalance = stats.ownerBalance;
+
+  if (editingTx) {
+    const old = editingTx;
+    const oldAmt = old.amount;
+    // Reverse old transaction effect on balances
+    if (old.type === "income") {
+      if (old.method === "cash") cashBalance -= oldAmt;
+      else bankBalance -= oldAmt;
+    } else if (old.type === "expense") {
+      if (old.method === "cash") cashBalance += oldAmt;
+      else bankBalance += oldAmt;
+    } else if (old.type === "owner_withdrawal") {
+      if (old.method === "cash") cashBalance += oldAmt;
+      else bankBalance += oldAmt;
+      ownerBalance -= oldAmt;
+    } else if (old.type === "owner_return") {
+      if (old.method === "cash") cashBalance -= oldAmt;
+      else bankBalance -= oldAmt;
+      ownerBalance += oldAmt;
+    } else if (old.type === "transfer") {
+      const oldDest =
+        old.transferTo ?? (old.method === "cash" ? "bank" : "cash");
+      if (old.method === "cash") cashBalance += oldAmt;
+      else bankBalance += oldAmt;
+      if (oldDest === "cash") cashBalance -= oldAmt;
+      else bankBalance -= oldAmt;
+    }
+  }
+
+  // Now validate the NEW transaction against these adjusted balances
+  if (form.type === "expense") {
+    const sourceBalance = form.method === "cash" ? cashBalance : bankBalance;
+    if (sourceBalance - amount < 0) {
+      const sourceName = form.method === "cash" ? "Cash" : "Bank";
+      return `Insufficient ${sourceName} balance. Available: ${sourceBalance.toLocaleString("en-EG")} EGP, needed: ${amount.toLocaleString("en-EG")} EGP.`;
+    }
+  } else if (form.type === "owner_withdrawal") {
+    const sourceBalance = form.method === "cash" ? cashBalance : bankBalance;
+    if (sourceBalance - amount < 0) {
+      const sourceName = form.method === "cash" ? "Cash" : "Bank";
+      return `Insufficient ${sourceName} balance. Available: ${sourceBalance.toLocaleString("en-EG")} EGP, needed: ${amount.toLocaleString("en-EG")} EGP.`;
+    }
+  } else if (form.type === "transfer") {
+    const sourceBalance = form.method === "cash" ? cashBalance : bankBalance;
+    if (sourceBalance - amount < 0) {
+      const sourceName = form.method === "cash" ? "Cash" : "Bank";
+      return `Insufficient ${sourceName} balance for transfer. Available: ${sourceBalance.toLocaleString("en-EG")} EGP, needed: ${amount.toLocaleString("en-EG")} EGP.`;
+    }
+  } else if (form.type === "owner_return") {
+    if (ownerBalance - amount < 0) {
+      return `Owner return exceeds the owner balance. Owner balance: ${ownerBalance.toLocaleString("en-EG")} EGP, return amount: ${amount.toLocaleString("en-EG")} EGP.`;
+    }
+  }
+
+  return null;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -147,45 +267,54 @@ function buildInitialForm(
 export default function AddTransactionModal({
   open,
   adding,
+  updating = false,
   onClose,
   onSubmit,
+  onUpdate,
+  editingTx,
   initialValues,
+  stats,
 }: Props) {
-  const [form, setForm] = useState<TransactionFormValues>(
-    buildInitialForm(initialValues),
-  );
+  const isEditMode = !!editingTx;
+  const isBusy = adding || updating;
+
+  const [form, setForm] = useState<TransactionFormValues>(EMPTY);
   const [error, setError] = useState<string | null>(null);
 
-  // Re-initialise the form whenever initialValues changes (e.g. product was saved)
-  // Only applies when modal is closed so we don't reset a half-filled form
-  useEffect(() => {
-    if (!open) {
-      setForm(buildInitialForm(initialValues));
-      setError(null);
-    }
-  }, [initialValues, open]);
-
-  // Also reset when modal opens fresh with new initialValues
+  // Initialise form when modal opens or editingTx changes
   useEffect(() => {
     if (open) {
+      if (editingTx) {
+        setForm(buildFormFromTx(editingTx));
+      } else {
+        setForm(buildInitialForm(initialValues));
+      }
+      setError(null);
+    }
+  }, [open, editingTx]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Re-initialise when initialValues changes while modal is closed (new tx pre-fill)
+  useEffect(() => {
+    if (!open && !editingTx) {
       setForm(buildInitialForm(initialValues));
       setError(null);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [initialValues, open, editingTx]);
 
   const isTransfer = form.type === "transfer";
   const isOwner = form.type === "owner_withdrawal";
+  const isOwnerReturn = form.type === "owner_return";
 
-  // Categories depend on active type
   const categories =
     form.type === "expense"
       ? EXPENSE_CATEGORIES
       : form.type === "owner_withdrawal"
         ? OWNER_CATEGORIES
-        : form.type === "transfer"
-          ? TRANSFER_CATEGORIES
-          : INCOME_CATEGORIES;
+        : form.type === "owner_return"
+          ? OWNER_RETURN_CATEGORIES
+          : form.type === "transfer"
+            ? TRANSFER_CATEGORIES
+            : INCOME_CATEGORIES;
 
   const set = <K extends keyof TransactionFormValues>(
     k: K,
@@ -234,8 +363,23 @@ export default function AddTransactionModal({
       return;
     }
 
+    // ── Balance validation ─────────────────────────────────────────────────
+    const balanceError = validateBalance(
+      form,
+      stats,
+      isEditMode ? editingTx : null,
+    );
+    if (balanceError) {
+      setError(balanceError);
+      return;
+    }
+
     try {
-      await onSubmit(form);
+      if (isEditMode && onUpdate) {
+        await onUpdate(form);
+      } else {
+        await onSubmit(form);
+      }
       setForm(EMPTY);
       onClose();
     } catch (err: any) {
@@ -244,16 +388,36 @@ export default function AddTransactionModal({
   };
 
   const handleClose = () => {
-    if (adding) return;
+    if (isBusy) return;
     setForm(EMPTY);
     setError(null);
     onClose();
   };
 
   const tabCfg = TAB_CONFIG[form.type];
+  const hasPrefill =
+    !isEditMode && !!initialValues && Object.keys(initialValues).length > 0;
 
-  // Whether the modal was opened with a pre-fill (shows a helpful banner)
-  const hasPrefill = !!initialValues && Object.keys(initialValues).length > 0;
+  // Balance hint shown below amount field
+  const getBalanceHint = (): string | null => {
+    if (!stats) return null;
+    if (
+      form.type === "expense" ||
+      form.type === "owner_withdrawal" ||
+      form.type === "transfer"
+    ) {
+      const bal =
+        form.method === "cash" ? stats.cashBalance : stats.bankBalance;
+      const name = form.method === "cash" ? "Cash" : "Bank";
+      return `${name} available: ${bal.toLocaleString("en-EG")} EGP`;
+    }
+    if (form.type === "owner_return") {
+      return `Owner balance available: ${stats.ownerBalance.toLocaleString("en-EG")} EGP`;
+    }
+    return null;
+  };
+
+  const balanceHint = getBalanceHint();
 
   return (
     <Dialog
@@ -275,7 +439,11 @@ export default function AddTransactionModal({
           pb: 2,
         }}
       >
-        {hasPrefill ? "Log Product Expense" : "Add Transaction"}
+        {isEditMode
+          ? "✏️ Edit Transaction"
+          : hasPrefill
+            ? "Log Product Expense"
+            : "Add Transaction"}
       </DialogTitle>
 
       {/* ── Body ── */}
@@ -303,6 +471,24 @@ export default function AddTransactionModal({
             💡 The cost price from your new product has been pre-filled below.
             Review the details and click <strong>Save</strong> to log it as a
             product expense.
+          </Box>
+        )}
+
+        {/* Edit mode info banner */}
+        {isEditMode && (
+          <Box
+            sx={{
+              p: 1.5,
+              bgcolor: "#EFF6FF",
+              border: "1px solid #BFDBFE",
+              borderRadius: 2,
+              fontSize: "0.78rem",
+              color: "#1E40AF",
+              lineHeight: 1.5,
+            }}
+          >
+            ✏️ Editing this transaction will automatically recalculate all
+            affected balances.
           </Box>
         )}
 
@@ -338,12 +524,12 @@ export default function AddTransactionModal({
                 "& .MuiToggleButton-root": {
                   textTransform: "none",
                   fontWeight: 700,
-                  fontSize: "0.75rem",
+                  fontSize: "0.7rem",
                   borderRadius: "8px !important",
                   border: `1px solid ${colors.border} !important`,
-                  mx: 0.3,
-                  py: 0.9,
-                  px: 0.5,
+                  mx: 0.2,
+                  py: 0.8,
+                  px: 0.4,
                 },
               }}
             >
@@ -387,6 +573,19 @@ export default function AddTransactionModal({
               </ToggleButton>
 
               <ToggleButton
+                value="owner_return"
+                sx={{
+                  "&.Mui-selected": {
+                    bgcolor: `${TAB_CONFIG.owner_return.selectedBg} !important`,
+                    color: `${TAB_CONFIG.owner_return.selectedColor} !important`,
+                    borderColor: `${TAB_CONFIG.owner_return.selectedBorder} !important`,
+                  },
+                }}
+              >
+                ↩️ Return
+              </ToggleButton>
+
+              <ToggleButton
                 value="transfer"
                 sx={{
                   "&.Mui-selected": {
@@ -420,6 +619,31 @@ export default function AddTransactionModal({
             </Box>
           )}
 
+          {isOwnerReturn && (
+            <Box
+              sx={{
+                mt: 1.5,
+                p: 1.5,
+                bgcolor: "#ECFDF5",
+                border: "1px solid #A7F3D0",
+                borderRadius: 2,
+                fontSize: "0.75rem",
+                color: "#065F46",
+                lineHeight: 1.5,
+              }}
+            >
+              ↩️ <strong>Owner Return</strong> puts money back into the business
+              from the owner. It increases Cash or Bank balance and reduces the
+              owner balance.
+              {stats && (
+                <div style={{ marginTop: 4, fontWeight: 700 }}>
+                  Current owner balance:{" "}
+                  {stats.ownerBalance.toLocaleString("en-EG")} EGP
+                </div>
+              )}
+            </Box>
+          )}
+
           {isTransfer && (
             <Box
               sx={{
@@ -448,6 +672,10 @@ export default function AddTransactionModal({
           value={form.amount}
           onChange={(e) => set("amount", e.target.value)}
           inputProps={{ min: 0, step: "0.01" }}
+          helperText={balanceHint ?? undefined}
+          FormHelperTextProps={{
+            sx: { color: colors.textMuted, fontSize: "0.72rem" },
+          }}
           sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
         />
 
@@ -464,7 +692,11 @@ export default function AddTransactionModal({
                 handleTransferSourceChange(e.target.value as PaymentMethod)
               }
               sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
-              helperText="Money will be taken from this balance"
+              helperText={
+                stats
+                  ? `Available: ${(form.method === "cash" ? stats.cashBalance : stats.bankBalance).toLocaleString("en-EG")} EGP`
+                  : "Money will be taken from this balance"
+              }
             >
               <MenuItem value="cash">💵 Cash</MenuItem>
               <MenuItem value="bank">🏦 Bank</MenuItem>
@@ -518,8 +750,15 @@ export default function AddTransactionModal({
             />
           </Box>
         ) : (
+          /* For owner_return — "method" means the destination (where money goes INTO) */
           <TextField
-            label={isOwner ? "Source (debit from)" : "Payment Method"}
+            label={
+              isOwner
+                ? "Source (debit from)"
+                : isOwnerReturn
+                  ? "Destination (credit to)"
+                  : "Payment Method"
+            }
             select
             size="small"
             fullWidth
@@ -527,7 +766,11 @@ export default function AddTransactionModal({
             onChange={(e) => set("method", e.target.value as PaymentMethod)}
             sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
             helperText={
-              isOwner ? "The balance that will be reduced" : undefined
+              isOwner
+                ? "The balance that will be reduced"
+                : isOwnerReturn
+                  ? "The balance that will be increased"
+                  : undefined
             }
           >
             <MenuItem value="cash">💵 Cash</MenuItem>
@@ -580,7 +823,7 @@ export default function AddTransactionModal({
       >
         <Button
           onClick={handleClose}
-          disabled={adding}
+          disabled={isBusy}
           sx={{
             borderRadius: 2,
             textTransform: "none",
@@ -593,7 +836,7 @@ export default function AddTransactionModal({
         <Button
           variant="contained"
           onClick={handleSubmit}
-          disabled={adding}
+          disabled={isBusy}
           sx={{
             borderRadius: 2,
             textTransform: "none",
@@ -601,11 +844,13 @@ export default function AddTransactionModal({
             px: 3,
             bgcolor: tabCfg.btnColor,
             "&:hover": { bgcolor: tabCfg.btnHover },
-            minWidth: 140,
+            minWidth: 150,
           }}
         >
-          {adding ? (
+          {isBusy ? (
             <CircularProgress size={18} sx={{ color: "#fff" }} />
+          ) : isEditMode ? (
+            `Update ✏️`
           ) : (
             `Save ${tabCfg.emoji} ${tabCfg.label}`
           )}
