@@ -1,961 +1,566 @@
 /**
- * LeftSectionList.tsx — Admin panel page
+ * LeftRightSections.tsx — Two side-by-side slideshows below the hero
  *
- * Manages the Left Section slideshow images.
- * Full feature parity with HeroSlidesList:
- *  - Mobile-responsive layout
- *  - Touch + mouse drag-and-drop reorder
- *  - Upload zone with preview
- *  - Active/hidden toggle
- *  - Delete confirmation dialog
+ * Layout v3:
+ *  - Matches hero container: max-width 1280px, centered, 2px side padding
+ *  - Top gap (1.5rem) between hero and this section
+ *  - Panels are 16:9 rectangular on desktop/tablet
+ *  - Mobile: stacks vertically at 4:3 (poster-friendly)
  */
 
-import { useState, useRef, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
-  Box,
-  Button,
-  Paper,
-  Chip,
-  Switch,
-  IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  CircularProgress,
-} from "@mui/material";
+  fetchActiveLeftSectionSlides,
+  type LeftSectionSlide,
+} from "@/service/leftSection/leftSectionService";
 import {
-  Upload,
-  Trash2,
-  AlertTriangle,
-  GripVertical,
-  RefreshCw,
-  Eye,
-  EyeOff,
-  ImageIcon,
-  Plus,
-  PanelLeft,
-} from "lucide-react";
-import { useLeftSectionSlides } from "@/store/AdminContext/LeftSectionContext/LeftSectionContext";
-import type { LeftSectionSlide } from "@/service/leftSection/leftSectionService";
+  fetchActiveRightSectionSlides,
+  type RightSectionSlide,
+} from "@/service/rightSection/rightSectionService";
 
-// ─── Shared colour tokens ─────────────────────────────────────────────────────
-const colors = {
-  primary: "#2A4863",
-  primaryBg: "#EFF6FF",
-  primaryRing: "#DBEAFE",
-  primaryDark: "#1E40AF",
-  border: "#E2E8F0",
-  muted: "#F8FAFC",
-  textPrimary: "#0F172A",
-  textSecondary: "#64748B",
-  textMuted: "#94A3B8",
-  success: "#22C55E",
-  successBg: "#DCFCE7",
-  error: "#EF4444",
-  errorBg: "#FEE2E2",
-};
+const SLIDE_INTERVAL_MS = 5000;
+const ANIM_MS = 800;
 
-// ─── Touch + Mouse drag-reorder hook ─────────────────────────────────────────
-function useDragReorder(
-  items: LeftSectionSlide[],
-  onReorder: (orderedIds: string[]) => Promise<void>,
-) {
-  const draggingId = useRef<string | null>(null);
-  const [dragOverId, setDragOverId] = useState<string | null>(null);
-  const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
-
-  const handleDragStart = (id: string, idx: number) => {
-    draggingId.current = id;
-    setDraggingIdx(idx);
-  };
-
-  const handleDragOver = (e: React.DragEvent, id: string) => {
-    e.preventDefault();
-    if (draggingId.current !== id) setDragOverId(id);
-  };
-
-  const handleDrop = async (e: React.DragEvent, targetId: string) => {
-    e.preventDefault();
-    setDragOverId(null);
-    const sourceId = draggingId.current;
-    if (!sourceId || sourceId === targetId) return;
-    await _commitReorder(sourceId, targetId);
-  };
-
-  const handleDragEnd = () => {
-    draggingId.current = null;
-    setDragOverId(null);
-    setDraggingIdx(null);
-  };
-
-  const touchStartPos = useRef<{ x: number; y: number } | null>(null);
-  const touchSourceId = useRef<string | null>(null);
-  const touchClone = useRef<HTMLElement | null>(null);
-  const itemEls = useRef<Map<string, HTMLElement>>(new Map());
-
-  const registerItemEl = (id: string, el: HTMLElement | null) => {
-    if (el) itemEls.current.set(id, el);
-    else itemEls.current.delete(id);
-  };
-
-  const handleTouchStart = (e: React.TouchEvent, id: string) => {
-    const touch = e.touches[0];
-    touchStartPos.current = { x: touch.clientX, y: touch.clientY };
-    touchSourceId.current = id;
-
-    const el = itemEls.current.get(id);
-    if (el) {
-      const rect = el.getBoundingClientRect();
-      const clone = el.cloneNode(true) as HTMLElement;
-      clone.style.cssText = `
-        position: fixed;
-        left: ${rect.left}px;
-        top: ${rect.top}px;
-        width: ${rect.width}px;
-        opacity: 0.85;
-        pointer-events: none;
-        z-index: 9999;
-        transform: scale(1.02);
-        box-shadow: 0 8px 32px rgba(0,0,0,0.18);
-        border-radius: 8px;
-        transition: none;
-      `;
-      document.body.appendChild(clone);
-      touchClone.current = clone;
-    }
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!touchSourceId.current || !touchClone.current) return;
-    e.preventDefault();
-
-    const touch = e.touches[0];
-
-    if (touchClone.current && touchStartPos.current) {
-      const el = itemEls.current.get(touchSourceId.current!);
-      if (el) {
-        const rect = el.getBoundingClientRect();
-        touchClone.current.style.left = `${rect.left + (touch.clientX - touchStartPos.current.x)}px`;
-        touchClone.current.style.top = `${rect.top + (touch.clientY - touchStartPos.current.y)}px`;
-      }
-    }
-
-    touchClone.current.style.display = "none";
-    const target = document.elementFromPoint(touch.clientX, touch.clientY);
-    touchClone.current.style.display = "";
-
-    let hoveredId: string | null = null;
-    itemEls.current.forEach((el, id) => {
-      if (el.contains(target as Node) && id !== touchSourceId.current) {
-        hoveredId = id;
-      }
-    });
-    setDragOverId(hoveredId);
-  };
-
-  const handleTouchEnd = async () => {
-    if (touchClone.current) {
-      document.body.removeChild(touchClone.current);
-      touchClone.current = null;
-    }
-
-    const sourceId = touchSourceId.current;
-    const targetId = dragOverId;
-
-    setDragOverId(null);
-    touchSourceId.current = null;
-    touchStartPos.current = null;
-
-    if (sourceId && targetId && sourceId !== targetId) {
-      await _commitReorder(sourceId, targetId);
-    }
-  };
-
-  const _commitReorder = async (sourceId: string, targetId: string) => {
-    const ids = items.map((s) => s.id);
-    const from = ids.indexOf(sourceId);
-    const to = ids.indexOf(targetId);
-    if (from === -1 || to === -1) return;
-    const newIds = [...ids];
-    newIds.splice(from, 1);
-    newIds.splice(to, 0, sourceId);
-    await onReorder(newIds);
-  };
-
-  return {
-    handleDragStart,
-    handleDragOver,
-    handleDrop,
-    handleDragEnd,
-    handleTouchStart,
-    handleTouchMove,
-    handleTouchEnd,
-    registerItemEl,
-    dragOverId,
-    draggingIdx,
-  };
+interface AnySlide {
+  id: string;
+  imageUrl: string;
 }
 
-// ─── Upload zone ──────────────────────────────────────────────────────────────
-function UploadZone({ onUpload }: { onUpload: (file: File) => void }) {
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [dragOver, setDragOver] = useState(false);
-
-  const handleFiles = (files: FileList | null) => {
-    if (!files) return;
-    Array.from(files).forEach((f) => {
-      if (f.type.startsWith("image/")) onUpload(f);
-    });
-  };
-
-  return (
-    <Box
-      onClick={() => fileRef.current?.click()}
-      onDragOver={(e) => {
-        e.preventDefault();
-        setDragOver(true);
-      }}
-      onDragLeave={() => setDragOver(false)}
-      onDrop={(e) => {
-        e.preventDefault();
-        setDragOver(false);
-        handleFiles(e.dataTransfer.files);
-      }}
-      sx={{
-        border: `2px dashed ${dragOver ? colors.primary : colors.border}`,
-        borderRadius: 3,
-        p: { xs: 3, sm: 4 },
-        textAlign: "center",
-        cursor: "pointer",
-        bgcolor: dragOver ? colors.primaryBg : "#fff",
-        transition: "all 0.2s",
-        "&:hover": { borderColor: colors.primary, bgcolor: colors.primaryBg },
-      }}
-    >
-      <Upload
-        size={28}
-        style={{
-          color: colors.textMuted,
-          margin: "0 auto 10px",
-          display: "block",
-        }}
-      />
-      <p
-        style={{
-          margin: 0,
-          fontWeight: 600,
-          color: colors.textSecondary,
-          fontSize: "0.9rem",
-        }}
-      >
-        Click or drag & drop images here
-      </p>
-      <p
-        style={{
-          margin: "4px 0 0",
-          fontSize: "0.78rem",
-          color: colors.textMuted,
-        }}
-      >
-        PNG, JPG, WEBP — multiple files supported
-      </p>
-      <input
-        ref={fileRef}
-        type="file"
-        multiple
-        accept="image/*"
-        hidden
-        onChange={(e) => handleFiles(e.target.files)}
-      />
-    </Box>
-  );
+interface PanelProps {
+  slides: AnySlide[];
+  loading: boolean;
+  initialDelayMs?: number;
+  instanceId: string;
 }
 
-// ─── Main page ────────────────────────────────────────────────────────────────
-export default function LeftSectionList() {
-  const {
-    slides,
-    loading,
-    refreshSlides,
-    addSlide,
-    toggleActive,
-    reorder,
-    removeSlide,
-  } = useLeftSectionSlides();
+function SlidePanel({
+  slides,
+  loading,
+  initialDelayMs = 0,
+  instanceId,
+}: PanelProps) {
+  const [current, setCurrent] = useState(0);
+  const [prevIdx, setPrevIdx] = useState<number | null>(null);
+  const [slideDir, setSlideDir] = useState<"next" | "prev">("next");
+  const [animating, setAnimating] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [firstImageReady, setFirstImageReady] = useState(false);
+  const [progress, setProgress] = useState(0);
 
-  const [uploading, setUploading] = useState(false);
-  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
-  const [pendingPreviews, setPendingPreviews] = useState<string[]>([]);
-  const [deleteTarget, setDeleteTarget] = useState<LeftSectionSlide | null>(
-    null,
-  );
-  const [deleting, setDeleting] = useState(false);
+  const rafRef = useRef<number | null>(null);
+  const slideStartRef = useRef<number>(Date.now());
+  const pauseStartRef = useRef<number | null>(null);
+  const dragStartX = useRef<number | null>(null);
+  const dragStartY = useRef<number | null>(null);
+  const isHDrag = useRef(false);
+  const mouseDown = useRef(false);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const animTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const animLock = useRef(false);
 
-  const drag = useDragReorder(slides, reorder);
+  useEffect(() => {
+    if (slides.length === 0) return;
+    const img = new Image();
+    img.src = slides[0].imageUrl;
+    if (img.complete) setFirstImageReady(true);
+    else {
+      img.onload = () => setFirstImageReady(true);
+      img.onerror = () => setFirstImageReady(true);
+    }
+  }, [slides]);
 
-  const handleFileQueued = useCallback((file: File) => {
-    setPendingFiles((prev) => [...prev, file]);
-    setPendingPreviews((prev) => [...prev, URL.createObjectURL(file)]);
+  useEffect(() => {
+    if (slides.length < 2) return;
+    const img = new Image();
+    img.src = slides[(current + 1) % slides.length].imageUrl;
+  }, [current, slides]);
+
+  useEffect(() => {
+    const t = setTimeout(() => setMounted(true), 80);
+    return () => clearTimeout(t);
   }, []);
 
-  const removePending = (i: number) => {
-    URL.revokeObjectURL(pendingPreviews[i]);
-    setPendingFiles((prev) => prev.filter((_, idx) => idx !== i));
-    setPendingPreviews((prev) => prev.filter((_, idx) => idx !== i));
-  };
-
-  const handleUploadAll = async () => {
-    if (!pendingFiles.length) return;
-    setUploading(true);
-    for (const file of pendingFiles) {
-      try {
-        await addSlide({ imageFile: file, isActive: true });
-      } catch {}
+  const tickProgress = useCallback(() => {
+    if (pauseStartRef.current === null) {
+      const elapsed = Date.now() - slideStartRef.current;
+      setProgress(Math.min(elapsed / SLIDE_INTERVAL_MS, 1));
     }
-    pendingPreviews.forEach((url) => URL.revokeObjectURL(url));
-    setPendingFiles([]);
-    setPendingPreviews([]);
-    setUploading(false);
-  };
+    rafRef.current = requestAnimationFrame(tickProgress);
+  }, []);
 
-  const handleDelete = async () => {
-    if (!deleteTarget) return;
-    setDeleting(true);
-    try {
-      await removeSlide(deleteTarget);
-      setDeleteTarget(null);
-    } finally {
-      setDeleting(false);
+  useEffect(() => {
+    if (slides.length < 2) return;
+    slideStartRef.current = Date.now();
+    pauseStartRef.current = null;
+    setProgress(0);
+    rafRef.current = requestAnimationFrame(tickProgress);
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [slides.length, tickProgress]);
+
+  useEffect(() => {
+    const onVisChange = () => {
+      if (document.hidden) {
+        if (pauseStartRef.current === null) pauseStartRef.current = Date.now();
+      } else {
+        if (pauseStartRef.current !== null) {
+          slideStartRef.current += Date.now() - pauseStartRef.current;
+          pauseStartRef.current = null;
+        }
+      }
+    };
+    document.addEventListener("visibilitychange", onVisChange);
+    return () => document.removeEventListener("visibilitychange", onVisChange);
+  }, []);
+
+  const pauseProgress = useCallback(() => {
+    if (pauseStartRef.current === null) pauseStartRef.current = Date.now();
+  }, []);
+
+  const resumeProgress = useCallback(() => {
+    if (pauseStartRef.current !== null) {
+      slideStartRef.current += Date.now() - pauseStartRef.current;
+      pauseStartRef.current = null;
     }
+  }, []);
+
+  const resetProgress = useCallback(() => {
+    slideStartRef.current = Date.now();
+    setProgress(0);
+  }, []);
+
+  const goTo = useCallback(
+    (newIdx: number, dir: "next" | "prev") => {
+      if (animLock.current || newIdx === current || slides.length < 2) return;
+      animLock.current = true;
+      if (animTimer.current) clearTimeout(animTimer.current);
+      setPrevIdx(current);
+      setSlideDir(dir);
+      setCurrent(newIdx);
+      setAnimating(true);
+      resetProgress();
+      animTimer.current = setTimeout(() => {
+        setAnimating(false);
+        setPrevIdx(null);
+        animLock.current = false;
+      }, ANIM_MS);
+    },
+    [current, slides.length, resetProgress],
+  );
+
+  const goNext = useCallback(
+    () => goTo((current + 1) % slides.length, "next"),
+    [current, slides.length, goTo],
+  );
+  const goPrev = useCallback(
+    () => goTo((current - 1 + slides.length) % slides.length, "prev"),
+    [current, slides.length, goTo],
+  );
+
+  const pauseInterval = useCallback(() => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+  }, []);
+  const resumeInterval = useCallback(() => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    intervalRef.current = setInterval(goNext, SLIDE_INTERVAL_MS);
+  }, [goNext]);
+
+  useEffect(() => {
+    if (slides.length < 2) return;
+    const t = setTimeout(() => {
+      resetProgress();
+      intervalRef.current = setInterval(goNext, SLIDE_INTERVAL_MS);
+    }, initialDelayMs);
+    return () => {
+      clearTimeout(t);
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [slides.length, goNext, resetProgress, initialDelayMs]);
+
+  const startDrag = useCallback((x: number, y: number) => {
+    dragStartX.current = x;
+    dragStartY.current = y;
+    isHDrag.current = false;
+  }, []);
+
+  const moveDrag = useCallback((x: number, y: number) => {
+    if (dragStartX.current === null || dragStartY.current === null)
+      return false;
+    const dx = x - dragStartX.current;
+    const dy = y - dragStartY.current;
+    if (!isHDrag.current && Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 8)
+      isHDrag.current = true;
+    return isHDrag.current;
+  }, []);
+
+  const endDrag = useCallback(
+    (x: number) => {
+      if (dragStartX.current === null) return;
+      const dx = x - dragStartX.current;
+      if (isHDrag.current && Math.abs(dx) > 40) {
+        if (dx < 0) goNext();
+        else goPrev();
+        resumeInterval();
+      }
+      dragStartX.current = null;
+      dragStartY.current = null;
+      isHDrag.current = false;
+      mouseDown.current = false;
+    },
+    [goNext, goPrev, resumeInterval],
+  );
+
+  const handleTouchStart = useCallback(
+    (e: React.TouchEvent) => {
+      startDrag(e.touches[0].clientX, e.touches[0].clientY);
+    },
+    [startDrag],
+  );
+  const handleTouchMove = useCallback(
+    (e: React.TouchEvent) => {
+      const isH = moveDrag(e.touches[0].clientX, e.touches[0].clientY);
+      if (isH) e.preventDefault();
+    },
+    [moveDrag],
+  );
+  const handleTouchEnd = useCallback(
+    (e: React.TouchEvent) => {
+      endDrag(e.changedTouches[0].clientX);
+    },
+    [endDrag],
+  );
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      mouseDown.current = true;
+      startDrag(e.clientX, e.clientY);
+    },
+    [startDrag],
+  );
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent) => {
+      if (!mouseDown.current) return;
+      moveDrag(e.clientX, e.clientY);
+    },
+    [moveDrag],
+  );
+  const handleMouseUp = useCallback(
+    (e: React.MouseEvent) => {
+      endDrag(e.clientX);
+    },
+    [endDrag],
+  );
+  const handleMouseLeave = useCallback(
+    (e: React.MouseEvent) => {
+      resumeProgress();
+      resumeInterval();
+      if (mouseDown.current) endDrag(e.clientX);
+    },
+    [resumeProgress, resumeInterval, endDrag],
+  );
+
+  const handleDot = (i: number) => {
+    goTo(i, i > current ? "next" : "prev");
+    resumeInterval();
   };
 
-  const activeCount = slides.filter((s) => s.isActive).length;
-
-  if (loading) {
-    return (
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          minHeight: "60vh",
-        }}
-      >
-        <CircularProgress sx={{ color: colors.primary }} />
-      </Box>
-    );
-  }
+  const id = instanceId;
 
   return (
-    <Box
-      sx={{
-        mx: "auto",
-        p: { xs: 1.5, sm: 2, md: 3 },
-        bgcolor: "#F8FAFC",
-        minHeight: "100vh",
-      }}
-    >
-      {/* ── Header ── */}
-      <Box
-        sx={{
-          mb: 3,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 2,
+    <>
+      <style>{`
+        .lrs-root-${id} {
+          position: relative; width: 100%; height: 100%;
+          overflow: hidden; background: #09111a;
+          touch-action: pan-y; cursor: grab;
+          user-select: none; -webkit-user-select: none;
+        }
+        .lrs-root-${id}:active { cursor: grabbing; }
+
+        .lrs-slide-${id} { position: absolute; inset: 0; overflow: hidden; }
+
+        .lrs-img-${id} {
+          position: absolute; inset: 0; width: 100%; height: 100%;
+          object-fit: cover; object-position: center;
+          display: block; -webkit-user-drag: none; pointer-events: none;
+        }
+        .lrs-img-init-${id} { opacity: 0; transition: opacity 1.1s cubic-bezier(0.4,0,0.2,1); }
+        .lrs-img-init-in-${id} { opacity: 1; }
+
+        .lrs-cur-next-${id} { animation: lrs-cur-next-${id} ${ANIM_MS}ms cubic-bezier(0.4,0,0.2,1) forwards; }
+        .lrs-cur-prev-${id} { animation: lrs-cur-prev-${id} ${ANIM_MS}ms cubic-bezier(0.4,0,0.2,1) forwards; }
+        @keyframes lrs-cur-next-${id} { from{transform:translateX(0)} to{transform:translateX(-100%)} }
+        @keyframes lrs-cur-prev-${id} { from{transform:translateX(0)} to{transform:translateX(100%)} }
+        .lrs-inc-next-${id} { animation: lrs-inc-next-${id} ${ANIM_MS}ms cubic-bezier(0.4,0,0.2,1) forwards; }
+        .lrs-inc-prev-${id} { animation: lrs-inc-prev-${id} ${ANIM_MS}ms cubic-bezier(0.4,0,0.2,1) forwards; }
+        @keyframes lrs-inc-next-${id} { from{transform:translateX(100%)} to{transform:translateX(0)} }
+        @keyframes lrs-inc-prev-${id} { from{transform:translateX(-100%)} to{transform:translateX(0)} }
+
+        .lrs-vignette-${id} {
+          position: absolute; inset: 0;
+          background: radial-gradient(ellipse at center, transparent 48%, rgba(0,0,0,0.35) 100%);
+          z-index: 10; pointer-events: none;
+        }
+        .lrs-edge-bottom-${id} {
+          position: absolute; bottom: 0; left: 0; right: 0; height: 120px;
+          background: linear-gradient(to top, rgba(9,17,26,0.52), transparent);
+          z-index: 11; pointer-events: none;
+        }
+        .lrs-edge-top-${id} {
+          position: absolute; top: 0; left: 0; right: 0; height: 80px;
+          background: linear-gradient(to bottom, rgba(9,17,26,0.38), transparent);
+          z-index: 11; pointer-events: none;
+        }
+
+        .lrs-dots-${id} {
+          position: absolute;
+          bottom: clamp(12px, 2.8vh, 28px);
+          left: 50%; transform: translateX(-50%);
+          z-index: 20; display: flex; gap: 6px; align-items: center;
+          opacity: 0; transition: opacity 0.9s ease 0.8s;
+        }
+        .lrs-dots-in-${id} { opacity: 1; }
+        .lrs-dot-${id} {
+          width: 7px; height: 7px; border-radius: 50%;
+          background: rgba(255,255,255,0.35);
+          transition: all 0.3s cubic-bezier(0.22,1,0.36,1);
+          cursor: pointer; border: none; padding: 0; flex-shrink: 0;
+        }
+        .lrs-dot-${id}:hover { background: rgba(255,255,255,0.68); transform: scale(1.25); }
+        .lrs-dot-active-${id} { width: 22px; height: 7px; border-radius: 4px; background: rgba(255,255,255,0.90); transform: none; }
+
+        .lrs-counter-${id} {
+          position: absolute;
+          bottom: clamp(14px, 2.8vh, 28px);
+          right: clamp(12px, 2.5vw, 28px);
+          z-index: 20;
+          font-family: 'Outfit', system-ui, sans-serif;
+          font-size: clamp(9px, 0.9vw, 12px); font-weight: 300;
+          color: rgba(255,255,255,0.35); letter-spacing: 0.2em;
+          display: flex; align-items: center; gap: 5px;
+          pointer-events: none; opacity: 0; transition: opacity 0.9s ease 1s;
+        }
+        .lrs-counter-in-${id} { opacity: 1; }
+        .lrs-counter-cur-${id} { font-size: clamp(13px, 1.3vw, 18px); font-weight: 700; color: rgba(255,255,255,0.70); }
+        .lrs-counter-line-${id} { width: 12px; height: 1px; background: rgba(255,255,255,0.22); }
+
+        .lrs-skeleton-${id} {
+          position: absolute; inset: 0;
+          background: linear-gradient(110deg, #09111a 30%, #141e2b 50%, #09111a 70%);
+          background-size: 200% 100%;
+          animation: lrs-shimmer-${id} 1.8s infinite;
+          transition: opacity 0.8s ease;
+        }
+        .lrs-skeleton-hidden-${id} { opacity: 0; pointer-events: none; }
+        @keyframes lrs-shimmer-${id} {
+          0%   { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+      `}</style>
+
+      <div
+        className={`lrs-root-${id}`}
+        onMouseEnter={() => {
+          pauseProgress();
+          pauseInterval();
         }}
+        onMouseLeave={handleMouseLeave}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        aria-label="Section image slideshow"
       >
-        <div>
-          <h1
+        <div
+          className={`lrs-skeleton-${id} ${!loading ? `lrs-skeleton-hidden-${id}` : ""}`}
+        />
+
+        {!loading && slides.length === 0 && (
+          <div
             style={{
-              color: colors.primary,
-              margin: 0,
-              fontSize: "clamp(1.25rem, 4vw, 1.75rem)",
-              fontWeight: 700,
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
+              position: "absolute",
+              inset: 0,
+              background: "linear-gradient(135deg, #09111a, #1a2535)",
             }}
-          >
-            <PanelLeft
-              size={24}
-              style={{ display: "inline", verticalAlign: "middle" }}
-            />
-            Left Section Slides
-          </h1>
-          <p
-            style={{
-              color: colors.textSecondary,
-              margin: "4px 0 0",
-              fontSize: "0.8rem",
-            }}
-          >
-            Manage homepage left panel slideshow
-          </p>
-        </div>
-        <IconButton
-          onClick={refreshSlides}
-          sx={{
-            color: colors.primary,
-            border: `1px solid ${colors.border}`,
-            borderRadius: 2,
-            flexShrink: 0,
-          }}
-          title="Refresh"
-        >
-          <RefreshCw size={18} />
-        </IconButton>
-      </Box>
-
-      {/* ── Stat cards ── */}
-      <Box
-        sx={{
-          display: "grid",
-          gap: 2,
-          gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" },
-          mb: 3,
-        }}
-      >
-        {[
-          {
-            label: "Total",
-            value: slides.length,
-            icon: <ImageIcon size={20} />,
-          },
-          { label: "Active", value: activeCount, icon: <Eye size={20} /> },
-        ].map(({ label, value, icon }) => (
-          <Paper
-            key={label}
-            elevation={0}
-            sx={{
-              p: { xs: 2, md: 3 },
-              borderRadius: 3,
-              background: `linear-gradient(135deg, ${colors.primary} 0%, #3D6A8A 100%)`,
-              color: "#fff",
-            }}
-          >
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
-            >
-              <div>
-                <p
-                  style={{
-                    fontSize: "0.65rem",
-                    fontWeight: 600,
-                    opacity: 0.8,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.06em",
-                    margin: 0,
-                  }}
-                >
-                  {label}
-                </p>
-                <p
-                  style={{
-                    fontSize: "1.75rem",
-                    fontWeight: 700,
-                    margin: "2px 0 0",
-                  }}
-                >
-                  {value}
-                </p>
-              </div>
-              <Box
-                sx={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: "50%",
-                  background: "rgba(255,255,255,0.2)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
-                }}
-              >
-                {icon}
-              </Box>
-            </Box>
-          </Paper>
-        ))}
-      </Box>
-
-      {/* ── Upload zone ── */}
-      <Paper
-        elevation={0}
-        sx={{
-          borderRadius: 3,
-          border: `1px solid ${colors.border}`,
-          overflow: "hidden",
-          mb: 3,
-        }}
-      >
-        <Box
-          sx={{
-            px: 2.5,
-            py: 2,
-            borderBottom: `1px solid ${colors.border}`,
-            bgcolor: colors.primaryBg,
-            display: "flex",
-            alignItems: "center",
-            gap: 1.5,
-          }}
-        >
-          <Plus size={16} style={{ color: colors.primary }} />
-          <span
-            style={{
-              fontWeight: 700,
-              color: colors.primary,
-              fontSize: "0.9rem",
-            }}
-          >
-            Add New Slides
-          </span>
-        </Box>
-        <Box sx={{ p: { xs: 2, sm: 3 } }}>
-          <UploadZone onUpload={handleFileQueued} />
-          {pendingPreviews.length > 0 && (
-            <Box sx={{ mt: 2 }}>
-              <p
-                style={{
-                  fontSize: "0.78rem",
-                  fontWeight: 600,
-                  color: colors.textSecondary,
-                  marginBottom: 10,
-                }}
-              >
-                Ready to upload ({pendingPreviews.length}):
-              </p>
-              <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap", mb: 2 }}>
-                {pendingPreviews.map((url, i) => (
-                  <Box
-                    key={url}
-                    sx={{ position: "relative", width: 80, height: 54 }}
-                  >
-                    <Box
-                      component="img"
-                      src={url}
-                      sx={{
-                        width: 80,
-                        height: 54,
-                        borderRadius: 2,
-                        objectFit: "cover",
-                        border: `2px dashed ${colors.primary}`,
-                      }}
-                    />
-                    <button
-                      onClick={() => removePending(i)}
-                      style={{
-                        position: "absolute",
-                        top: -6,
-                        right: -6,
-                        width: 20,
-                        height: 20,
-                        borderRadius: "50%",
-                        background: colors.error,
-                        border: "none",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        color: "#fff",
-                        padding: 0,
-                      }}
-                    >
-                      <span style={{ fontSize: 12, lineHeight: 1 }}>×</span>
-                    </button>
-                  </Box>
-                ))}
-              </Box>
-              <Button
-                onClick={handleUploadAll}
-                disabled={uploading}
-                variant="contained"
-                size="small"
-                startIcon={
-                  uploading ? (
-                    <CircularProgress size={14} color="inherit" />
-                  ) : (
-                    <Upload size={14} />
-                  )
-                }
-                sx={{
-                  bgcolor: colors.primary,
-                  textTransform: "none",
-                  fontWeight: 600,
-                  borderRadius: 2,
-                  "&:hover": { bgcolor: "#111" },
-                }}
-              >
-                {uploading
-                  ? "Uploading…"
-                  : `Upload ${pendingPreviews.length} slide${pendingPreviews.length > 1 ? "s" : ""}`}
-              </Button>
-            </Box>
-          )}
-        </Box>
-      </Paper>
-
-      {/* ── Slides list ── */}
-      <Paper
-        elevation={0}
-        sx={{
-          borderRadius: 3,
-          border: `1px solid ${colors.border}`,
-          overflow: "hidden",
-        }}
-      >
-        <Box
-          sx={{
-            px: 2.5,
-            py: 2,
-            borderBottom: `1px solid ${colors.border}`,
-            bgcolor: colors.primaryBg,
-            display: "flex",
-            alignItems: "center",
-            gap: 1.5,
-          }}
-        >
-          <PanelLeft size={16} style={{ color: colors.primary }} />
-          <span
-            style={{
-              fontWeight: 700,
-              color: colors.primary,
-              fontSize: "0.9rem",
-            }}
-          >
-            Slides ({slides.length})
-          </span>
-          <span
-            style={{
-              marginLeft: "auto",
-              fontSize: "0.72rem",
-              color: colors.textMuted,
-              display: "flex",
-              alignItems: "center",
-              gap: 3,
-            }}
-          >
-            <GripVertical size={12} style={{ display: "inline" }} /> Hold to
-            reorder
-          </span>
-        </Box>
-
-        {slides.length === 0 ? (
-          <Box sx={{ p: 6, textAlign: "center" }}>
-            <ImageIcon
-              size={40}
-              style={{
-                color: colors.textMuted,
-                margin: "0 auto 10px",
-                display: "block",
-              }}
-            />
-            <p
-              style={{
-                color: colors.textSecondary,
-                fontWeight: 600,
-                margin: 0,
-              }}
-            >
-              No slides yet
-            </p>
-            <p
-              style={{
-                color: colors.textMuted,
-                fontSize: "0.82rem",
-                margin: "4px 0 0",
-              }}
-            >
-              Upload your first left section image above
-            </p>
-          </Box>
-        ) : (
-          <Box
-            sx={{
-              p: { xs: 1.5, sm: 2 },
-              display: "flex",
-              flexDirection: "column",
-              gap: 1.5,
-            }}
-          >
-            {slides.map((slide, index) => (
-              <Box
-                key={slide.id}
-                ref={(el) =>
-                  drag.registerItemEl(slide.id, el as HTMLElement | null)
-                }
-                draggable
-                onDragStart={() => drag.handleDragStart(slide.id, index)}
-                onDragOver={(e) => drag.handleDragOver(e, slide.id)}
-                onDrop={(e) => drag.handleDrop(e, slide.id)}
-                onDragEnd={drag.handleDragEnd}
-                onTouchStart={(e) => drag.handleTouchStart(e, slide.id)}
-                onTouchMove={drag.handleTouchMove}
-                onTouchEnd={drag.handleTouchEnd}
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: { xs: 1, sm: 2 },
-                  p: { xs: 1, sm: 1.5 },
-                  borderRadius: 2,
-                  border: `1px solid ${drag.dragOverId === slide.id ? colors.primary : colors.border}`,
-                  bgcolor:
-                    drag.dragOverId === slide.id ? colors.primaryBg : "#fff",
-                  transition: "all 0.15s",
-                  cursor: "grab",
-                  userSelect: "none",
-                  touchAction: "none",
-                  "&:active": { cursor: "grabbing" },
-                }}
-              >
-                <GripVertical
-                  size={18}
-                  style={{
-                    color: colors.textMuted,
-                    flexShrink: 0,
-                    minWidth: 18,
-                  }}
-                />
-
-                <Box
-                  sx={{
-                    width: 26,
-                    height: 26,
-                    borderRadius: "50%",
-                    bgcolor: colors.primaryBg,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: "0.7rem",
-                      fontWeight: 700,
-                      color: colors.primary,
-                    }}
-                  >
-                    {index + 1}
-                  </span>
-                </Box>
-
-                <Box
-                  component="img"
-                  src={slide.imageUrl}
-                  alt={`left-slide-${index + 1}`}
-                  sx={{
-                    width: { xs: 64, sm: 110, md: 140 },
-                    height: { xs: 42, sm: 64, md: 80 },
-                    borderRadius: 1.5,
-                    objectFit: "cover",
-                    border: `1px solid ${colors.border}`,
-                    flexShrink: 0,
-                  }}
-                />
-
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <p
-                    style={{
-                      margin: 0,
-                      fontWeight: 600,
-                      fontSize: "0.82rem",
-                      color: colors.textPrimary,
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                    }}
-                  >
-                    Slide {index + 1}
-                  </p>
-                  <p
-                    style={{
-                      margin: "2px 0 0",
-                      fontSize: "0.7rem",
-                      color: colors.textMuted,
-                    }}
-                  >
-                    Added {slide.createdAt.toLocaleDateString()}
-                  </p>
-                </Box>
-
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: { xs: 0, sm: 1 },
-                    flexShrink: 0,
-                  }}
-                >
-                  <Chip
-                    icon={
-                      slide.isActive ? <Eye size={11} /> : <EyeOff size={11} />
-                    }
-                    label={slide.isActive ? "Visible" : "Hidden"}
-                    size="small"
-                    sx={{
-                      bgcolor: slide.isActive ? colors.successBg : "#F1F5F9",
-                      color: slide.isActive ? colors.success : colors.textMuted,
-                      fontWeight: 700,
-                      fontSize: "0.65rem",
-                      display: { xs: "none", sm: "flex" },
-                      height: 22,
-                    }}
-                  />
-                  <Switch
-                    checked={slide.isActive}
-                    onChange={(e) => toggleActive(slide.id, e.target.checked)}
-                    size="small"
-                    sx={{
-                      "& .MuiSwitch-switchBase.Mui-checked": {
-                        color: colors.primary,
-                      },
-                      "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track":
-                        { bgcolor: colors.primary },
-                    }}
-                  />
-                </Box>
-
-                <IconButton
-                  size="small"
-                  onClick={() => setDeleteTarget(slide)}
-                  sx={{
-                    color: colors.error,
-                    "&:hover": { bgcolor: colors.errorBg },
-                    borderRadius: 1.5,
-                    flexShrink: 0,
-                    p: { xs: 0.5, sm: 1 },
-                  }}
-                  title="Delete slide"
-                >
-                  <Trash2 size={15} />
-                </IconButton>
-              </Box>
-            ))}
-          </Box>
+          />
         )}
-      </Paper>
 
-      {/* ── Delete dialog ── */}
-      <Dialog
-        open={!!deleteTarget}
-        onClose={() => !deleting && setDeleteTarget(null)}
-        maxWidth="sm"
-        fullWidth
-        PaperProps={{ sx: { borderRadius: 3, mx: 2 } }}
-      >
-        <DialogTitle
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            gap: 1.5,
-            color: colors.error,
-            fontSize: "1rem",
-          }}
-        >
-          <AlertTriangle size={20} /> Confirm Deletion
-        </DialogTitle>
-        <DialogContent>
-          {deleteTarget && (
-            <Box
-              sx={{
-                display: "flex",
-                gap: 2,
-                alignItems: "flex-start",
-                flexDirection: { xs: "column", sm: "row" },
-              }}
-            >
-              <Box
-                component="img"
-                src={deleteTarget.imageUrl}
-                sx={{
-                  width: { xs: "100%", sm: 120 },
-                  height: { xs: 120, sm: 75 },
-                  borderRadius: 2,
-                  objectFit: "cover",
-                  border: `1px solid ${colors.border}`,
-                  flexShrink: 0,
-                }}
-              />
-              <div>
-                <p
-                  style={{
-                    margin: 0,
-                    color: colors.textPrimary,
-                    fontWeight: 600,
-                  }}
-                >
-                  Delete this slide?
-                </p>
-                <p
-                  style={{
-                    margin: "6px 0 0",
-                    fontSize: "0.875rem",
-                    color: colors.textSecondary,
-                  }}
-                >
-                  This will permanently remove the image from Storage and the
-                  left section slideshow.
-                </p>
+        {slides.length > 0 && (
+          <>
+            {animating && prevIdx !== null && slides[prevIdx] && (
+              <div
+                key={`prev-${slides[prevIdx].id}`}
+                className={`lrs-slide-${id} ${slideDir === "next" ? `lrs-cur-next-${id}` : `lrs-cur-prev-${id}`}`}
+                style={{ zIndex: 1 }}
+              >
+                <img
+                  src={slides[prevIdx].imageUrl}
+                  alt=""
+                  aria-hidden="true"
+                  className={`lrs-img-${id}`}
+                  draggable={false}
+                />
               </div>
-            </Box>
-          )}
-          <Box
-            sx={{
-              mt: 2,
-              bgcolor: colors.errorBg,
-              border: `1px solid ${colors.error}`,
-              borderRadius: 2,
-              p: 2,
-            }}
+            )}
+            <div
+              key={`cur-${slides[current].id}`}
+              className={`lrs-slide-${id} ${animating ? (slideDir === "next" ? `lrs-inc-next-${id}` : `lrs-inc-prev-${id}`) : ""}`}
+              style={{ zIndex: 2 }}
+            >
+              <img
+                src={slides[current].imageUrl}
+                alt=""
+                aria-hidden="true"
+                draggable={false}
+                className={`lrs-img-${id}${!animating ? ` lrs-img-init-${id}${firstImageReady ? ` lrs-img-init-in-${id}` : ""}` : ""}`}
+              />
+            </div>
+          </>
+        )}
+
+        <div className={`lrs-vignette-${id}`} />
+        <div className={`lrs-edge-top-${id}`} />
+        <div className={`lrs-edge-bottom-${id}`} />
+
+        {slides.length > 1 && (
+          <div
+            className={`lrs-dots-${id} ${mounted ? `lrs-dots-in-${id}` : ""}`}
+            role="tablist"
+            aria-label="Slide navigation"
           >
-            <p style={{ fontSize: "0.85rem", color: colors.error, margin: 0 }}>
-              <strong>Warning:</strong> This action cannot be undone.
-            </p>
-          </Box>
-        </DialogContent>
-        <DialogActions sx={{ p: { xs: 2, sm: 3 }, gap: 1 }}>
-          <Button
-            onClick={() => setDeleteTarget(null)}
-            disabled={deleting}
-            variant="outlined"
-            sx={{
-              textTransform: "none",
-              borderColor: colors.border,
-              color: colors.textPrimary,
-              borderRadius: 2,
-            }}
+            {slides.map((slide, i) => (
+              <button
+                key={slide.id}
+                role="tab"
+                aria-selected={i === current}
+                aria-label={`Go to slide ${i + 1}`}
+                className={`lrs-dot-${id} ${i === current ? `lrs-dot-active-${id}` : ""}`}
+                onClick={() => handleDot(i)}
+              />
+            ))}
+          </div>
+        )}
+
+        {slides.length > 1 && (
+          <div
+            className={`lrs-counter-${id} ${mounted ? `lrs-counter-in-${id}` : ""}`}
           >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleDelete}
-            disabled={deleting}
-            variant="contained"
-            startIcon={
-              deleting ? (
-                <CircularProgress size={14} color="inherit" />
-              ) : (
-                <Trash2 size={15} />
-              )
-            }
-            sx={{
-              textTransform: "none",
-              bgcolor: colors.error,
-              "&:hover": { bgcolor: "#DC2626" },
-              borderRadius: 2,
-              minWidth: 100,
-            }}
-          >
-            {deleting ? "Deleting…" : "Delete"}
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+            <span className={`lrs-counter-cur-${id}`}>
+              {String(current + 1).padStart(2, "0")}
+            </span>
+            <span className={`lrs-counter-line-${id}`} />
+            <span>{String(slides.length).padStart(2, "0")}</span>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+export default function LeftRightSections() {
+  const [leftSlides, setLeftSlides] = useState<LeftSectionSlide[]>([]);
+  const [rightSlides, setRightSlides] = useState<RightSectionSlide[]>([]);
+  const [leftLoading, setLeftLoading] = useState(true);
+  const [rightLoading, setRightLoading] = useState(true);
+
+  useEffect(() => {
+    fetchActiveLeftSectionSlides()
+      .then(setLeftSlides)
+      .catch((err) =>
+        console.error("[LeftRightSections] left fetch error:", err),
+      )
+      .finally(() => setLeftLoading(false));
+
+    fetchActiveRightSectionSlides()
+      .then(setRightSlides)
+      .catch((err) =>
+        console.error("[LeftRightSections] right fetch error:", err),
+      )
+      .finally(() => setRightLoading(false));
+  }, []);
+
+  const bothEmpty =
+    !leftLoading &&
+    !rightLoading &&
+    leftSlides.length === 0 &&
+    rightSlides.length === 0;
+  if (bothEmpty) return null;
+
+  return (
+    <>
+      <style>{`
+        /* ── Outer: full-width bg + top gap ─────────────────────── */
+        .lrs-outer {
+          width: 100%;
+          background: #09111a;
+          padding-top: 1.5rem;
+          box-sizing: border-box;
+        }
+
+        /* ── Container: matches hero — centered, max-width, 2px sides ── */
+        .lrs-container {
+          max-width: 1280px;
+          margin: 0 auto;
+          padding: 0 2px;
+          box-sizing: border-box;
+        }
+
+        /* ── Inner row ───────────────────────────────────────────── */
+        .lrs-wrapper {
+          display: flex;
+          gap: 4px;
+        }
+
+        /* ── Each panel: rectangular 16:9 ────────────────────────── */
+        .lrs-panel {
+          flex: 1;
+          min-width: 0;
+          aspect-ratio: 16 / 9;
+        }
+
+        /* Mobile: stack, poster-friendly 4:3 */
+        @media (max-width: 639px) {
+          .lrs-outer { padding-top: 1rem; }
+          .lrs-container { padding: 0 2px; }
+          .lrs-wrapper { flex-direction: column; gap: 4px; }
+          .lrs-panel { flex: none; width: 100%; aspect-ratio: 4 / 3; }
+        }
+
+        /* Tablet */
+        @media (min-width: 640px) and (max-width: 1023px) {
+          .lrs-panel { aspect-ratio: 16 / 9; }
+        }
+      `}</style>
+
+      <div className="lrs-outer">
+        <div className="lrs-container">
+          <div className="lrs-wrapper">
+            {(leftLoading || leftSlides.length > 0) && (
+              <div className="lrs-panel">
+                <SlidePanel
+                  slides={leftSlides}
+                  loading={leftLoading}
+                  initialDelayMs={0}
+                  instanceId="left"
+                />
+              </div>
+            )}
+            {(rightLoading || rightSlides.length > 0) && (
+              <div className="lrs-panel">
+                <SlidePanel
+                  slides={rightSlides}
+                  loading={rightLoading}
+                  initialDelayMs={SLIDE_INTERVAL_MS / 2}
+                  instanceId="right"
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
   );
 }

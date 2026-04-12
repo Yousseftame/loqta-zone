@@ -148,8 +148,7 @@ const Navbar = () => {
             WebkitBackdropFilter: "blur(12px)",
             boxShadow: "0 4px 24px rgba(0,0,0,.4)",
             borderBottom: "1px solid rgba(229,224,198,.07)",
-            opacity: bgProgress,
-            transition: "opacity 0.45s cubic-bezier(0.4, 0, 0.2, 1)",
+            opacity: 1,
             pointerEvents: "none",
           }}
         />
@@ -642,7 +641,7 @@ const Navbar = () => {
                   justifyContent: "center",
                   borderRadius: 13,
                   padding: 13,
-                  fontSize:15,
+                  fontSize: 15,
                 }}
               >
                 {t("auth.signIn")}

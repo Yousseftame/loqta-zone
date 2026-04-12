@@ -1,15 +1,11 @@
 /**
  * LeftRightSections.tsx — Two side-by-side slideshows below the hero
  *
- * Each panel is a full clone of HeroSections logic:
- *  - rAF progress bar (tab-switch safe, hover-pause safe)
- *  - Mouse + touch swipe on all screen sizes
- *  - Keyboard navigation (arrow keys control whichever panel is hovered/focused)
- *  - Vignette, skeleton, first-image fade-in, dots, counter
- *  - Auto-advance every 5s (offset: left starts at 0ms, right at 2500ms)
- *
- * On mobile (< 640px): stacks vertically, each panel full width.
- * On tablet+: side by side, equal width, 4px gap.
+ * Layout v4:
+ *  - Container gutters match stats section (24px desktop)
+ *  - Mobile: zero padding, zero gap — completely flush, no borders
+ *  - Top gap between hero and this section (desktop only; mobile: none)
+ *  - Panels 16:9 rectangular on desktop/tablet, 4:3 on mobile
  */
 
 import React, { useEffect, useState, useCallback, useRef } from "react";
@@ -25,21 +21,16 @@ import {
 const SLIDE_INTERVAL_MS = 5000;
 const ANIM_MS = 800;
 
-// ─── Generic slide type for the panel ────────────────────────────────────────
 interface AnySlide {
   id: string;
   imageUrl: string;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Single panel — self-contained, identical logic to HeroSections
-// ─────────────────────────────────────────────────────────────────────────────
 interface PanelProps {
   slides: AnySlide[];
   loading: boolean;
-  /** Stagger the initial auto-advance so the two panels don't change in sync */
   initialDelayMs?: number;
-  instanceId: string; // for CSS keyframe namespacing
+  instanceId: string;
 }
 
 function SlidePanel({
@@ -59,17 +50,14 @@ function SlidePanel({
   const rafRef = useRef<number | null>(null);
   const slideStartRef = useRef<number>(Date.now());
   const pauseStartRef = useRef<number | null>(null);
-
   const dragStartX = useRef<number | null>(null);
   const dragStartY = useRef<number | null>(null);
   const isHDrag = useRef(false);
   const mouseDown = useRef(false);
-
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const animTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const animLock = useRef(false);
 
-  // ── Preload first image ──────────────────────────────────────────────────
   useEffect(() => {
     if (slides.length === 0) return;
     const img = new Image();
@@ -81,20 +69,17 @@ function SlidePanel({
     }
   }, [slides]);
 
-  // ── Preload next image ───────────────────────────────────────────────────
   useEffect(() => {
     if (slides.length < 2) return;
     const img = new Image();
     img.src = slides[(current + 1) % slides.length].imageUrl;
   }, [current, slides]);
 
-  // ── Smooth mount ─────────────────────────────────────────────────────────
   useEffect(() => {
     const t = setTimeout(() => setMounted(true), 80);
     return () => clearTimeout(t);
   }, []);
 
-  // ── rAF progress loop ────────────────────────────────────────────────────
   const tickProgress = useCallback(() => {
     if (pauseStartRef.current === null) {
       const elapsed = Date.now() - slideStartRef.current;
@@ -114,7 +99,6 @@ function SlidePanel({
     };
   }, [slides.length, tickProgress]);
 
-  // ── Tab visibility ───────────────────────────────────────────────────────
   useEffect(() => {
     const onVisChange = () => {
       if (document.hidden) {
@@ -130,7 +114,6 @@ function SlidePanel({
     return () => document.removeEventListener("visibilitychange", onVisChange);
   }, []);
 
-  // ── Pause/resume helpers ─────────────────────────────────────────────────
   const pauseProgress = useCallback(() => {
     if (pauseStartRef.current === null) pauseStartRef.current = Date.now();
   }, []);
@@ -147,7 +130,6 @@ function SlidePanel({
     setProgress(0);
   }, []);
 
-  // ── Core transition ──────────────────────────────────────────────────────
   const goTo = useCallback(
     (newIdx: number, dir: "next" | "prev") => {
       if (animLock.current || newIdx === current || slides.length < 2) return;
@@ -176,11 +158,9 @@ function SlidePanel({
     [current, slides.length, goTo],
   );
 
-  // ── Auto-advance ─────────────────────────────────────────────────────────
   const pauseInterval = useCallback(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
   }, []);
-
   const resumeInterval = useCallback(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
     intervalRef.current = setInterval(goNext, SLIDE_INTERVAL_MS);
@@ -198,7 +178,6 @@ function SlidePanel({
     };
   }, [slides.length, goNext, resetProgress, initialDelayMs]);
 
-  // ── Drag helpers ─────────────────────────────────────────────────────────
   const startDrag = useCallback((x: number, y: number) => {
     dragStartX.current = x;
     dragStartY.current = y;
@@ -208,8 +187,8 @@ function SlidePanel({
   const moveDrag = useCallback((x: number, y: number) => {
     if (dragStartX.current === null || dragStartY.current === null)
       return false;
-    const dx = x - dragStartX.current;
-    const dy = y - dragStartY.current;
+    const dx = x - dragStartX.current,
+      dy = y - dragStartY.current;
     if (!isHDrag.current && Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 8)
       isHDrag.current = true;
     return isHDrag.current;
@@ -232,14 +211,12 @@ function SlidePanel({
     [goNext, goPrev, resumeInterval],
   );
 
-  // Touch handlers
   const handleTouchStart = useCallback(
     (e: React.TouchEvent) => {
       startDrag(e.touches[0].clientX, e.touches[0].clientY);
     },
     [startDrag],
   );
-
   const handleTouchMove = useCallback(
     (e: React.TouchEvent) => {
       const isH = moveDrag(e.touches[0].clientX, e.touches[0].clientY);
@@ -247,15 +224,12 @@ function SlidePanel({
     },
     [moveDrag],
   );
-
   const handleTouchEnd = useCallback(
     (e: React.TouchEvent) => {
       endDrag(e.changedTouches[0].clientX);
     },
     [endDrag],
   );
-
-  // Mouse handlers
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       mouseDown.current = true;
@@ -263,7 +237,6 @@ function SlidePanel({
     },
     [startDrag],
   );
-
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
       if (!mouseDown.current) return;
@@ -271,14 +244,12 @@ function SlidePanel({
     },
     [moveDrag],
   );
-
   const handleMouseUp = useCallback(
     (e: React.MouseEvent) => {
       endDrag(e.clientX);
     },
     [endDrag],
   );
-
   const handleMouseLeave = useCallback(
     (e: React.MouseEvent) => {
       resumeProgress();
@@ -292,53 +263,26 @@ function SlidePanel({
     goTo(i, i > current ? "next" : "prev");
     resumeInterval();
   };
-
   const id = instanceId;
-  const progressWidth = `${Math.min(progress * 100, 100)}%`;
 
   return (
     <>
       <style>{`
-        /* ── Panel root ───────────────────────────────────────── */
         .lrs-root-${id} {
-          position: relative;
-          width: 100%;
-          height: 100%;
-          overflow: hidden;
-          background: #09111a;
-          touch-action: pan-y;
-          cursor: grab;
-          user-select: none;
-          -webkit-user-select: none;
+          position: relative; width: 100%; height: 100%;
+          overflow: hidden; background: #09111a;
+          touch-action: pan-y; cursor: grab;
+          user-select: none; -webkit-user-select: none;
         }
         .lrs-root-${id}:active { cursor: grabbing; }
-
-        /* ── Slide layer ──────────────────────────────────────── */
-        .lrs-slide-${id} {
-          position: absolute;
-          inset: 0;
-          overflow: hidden;
-        }
-
-        /* ── Image ────────────────────────────────────────────── */
+        .lrs-slide-${id} { position: absolute; inset: 0; overflow: hidden; }
         .lrs-img-${id} {
-          position: absolute;
-          inset: 0;
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          object-position: center;
-          display: block;
-          -webkit-user-drag: none;
-          pointer-events: none;
+          position: absolute; inset: 0; width: 100%; height: 100%;
+          object-fit: cover; object-position: center;
+          display: block; -webkit-user-drag: none; pointer-events: none;
         }
-        .lrs-img-init-${id} {
-          opacity: 0;
-          transition: opacity 1.1s cubic-bezier(0.4,0,0.2,1);
-        }
+        .lrs-img-init-${id} { opacity: 0; transition: opacity 1.1s cubic-bezier(0.4,0,0.2,1); }
         .lrs-img-init-in-${id} { opacity: 1; }
-
-        /* ── Slide animations ─────────────────────────────────── */
         .lrs-cur-next-${id} { animation: lrs-cur-next-${id} ${ANIM_MS}ms cubic-bezier(0.4,0,0.2,1) forwards; }
         .lrs-cur-prev-${id} { animation: lrs-cur-prev-${id} ${ANIM_MS}ms cubic-bezier(0.4,0,0.2,1) forwards; }
         @keyframes lrs-cur-next-${id} { from{transform:translateX(0)} to{transform:translateX(-100%)} }
@@ -347,8 +291,6 @@ function SlidePanel({
         .lrs-inc-prev-${id} { animation: lrs-inc-prev-${id} ${ANIM_MS}ms cubic-bezier(0.4,0,0.2,1) forwards; }
         @keyframes lrs-inc-next-${id} { from{transform:translateX(100%)} to{transform:translateX(0)} }
         @keyframes lrs-inc-prev-${id} { from{transform:translateX(-100%)} to{transform:translateX(0)} }
-
-        /* ── Overlays ─────────────────────────────────────────── */
         .lrs-vignette-${id} {
           position: absolute; inset: 0;
           background: radial-gradient(ellipse at center, transparent 48%, rgba(0,0,0,0.35) 100%);
@@ -364,27 +306,10 @@ function SlidePanel({
           background: linear-gradient(to bottom, rgba(9,17,26,0.38), transparent);
           z-index: 11; pointer-events: none;
         }
-
-        /* ── Progress bar ─────────────────────────────────────── */
-        // .lrs-prog-track-${id} {
-        //   position: absolute;
-        //   bottom: 0; left: 0; right: 0; height: 2px;
-        //   background: rgba(255,255,255,0.12);
-        //   z-index: 20; pointer-events: none;
-        // }
-        .lrs-prog-fill-${id} {
-          height: 100%;
-          background: rgba(255,255,255,0.75);
-          transition: none;
-        }
-
-        /* ── Dots ─────────────────────────────────────────────── */
         .lrs-dots-${id} {
-          position: absolute;
-          bottom: clamp(12px, 2.8vh, 28px);
+          position: absolute; bottom: clamp(12px, 2.8vh, 28px);
           left: 50%; transform: translateX(-50%);
-          z-index: 20;
-          display: flex; gap: 6px; align-items: center;
+          z-index: 20; display: flex; gap: 6px; align-items: center;
           opacity: 0; transition: opacity 0.9s ease 0.8s;
         }
         .lrs-dots-in-${id} { opacity: 1; }
@@ -395,44 +320,25 @@ function SlidePanel({
           cursor: pointer; border: none; padding: 0; flex-shrink: 0;
         }
         .lrs-dot-${id}:hover { background: rgba(255,255,255,0.68); transform: scale(1.25); }
-        .lrs-dot-active-${id} {
-          width: 22px; height: 7px; border-radius: 4px;
-          background: rgba(255,255,255,0.90); transform: none;
-        }
-
-        /* ── Counter ──────────────────────────────────────────── */
+        .lrs-dot-active-${id} { width: 22px; height: 7px; border-radius: 4px; background: rgba(255,255,255,0.90); transform: none; }
         .lrs-counter-${id} {
-          position: absolute;
-          bottom: clamp(14px, 2.8vh, 28px);
-          right: clamp(12px, 2.5vw, 28px);
-          z-index: 20;
-          font-family: 'Outfit', system-ui, sans-serif;
+          position: absolute; bottom: clamp(14px, 2.8vh, 28px); right: clamp(12px, 2.5vw, 28px);
+          z-index: 20; font-family: 'Outfit', system-ui, sans-serif;
           font-size: clamp(9px, 0.9vw, 12px); font-weight: 300;
           color: rgba(255,255,255,0.35); letter-spacing: 0.2em;
           display: flex; align-items: center; gap: 5px;
-          pointer-events: none;
-          opacity: 0; transition: opacity 0.9s ease 1s;
+          pointer-events: none; opacity: 0; transition: opacity 0.9s ease 1s;
         }
         .lrs-counter-in-${id} { opacity: 1; }
-        .lrs-counter-cur-${id} {
-          font-size: clamp(13px, 1.3vw, 18px); font-weight: 700;
-          color: rgba(255,255,255,0.70);
-        }
+        .lrs-counter-cur-${id} { font-size: clamp(13px, 1.3vw, 18px); font-weight: 700; color: rgba(255,255,255,0.70); }
         .lrs-counter-line-${id} { width: 12px; height: 1px; background: rgba(255,255,255,0.22); }
-
-        /* ── Skeleton ─────────────────────────────────────────── */
         .lrs-skeleton-${id} {
           position: absolute; inset: 0;
           background: linear-gradient(110deg, #09111a 30%, #141e2b 50%, #09111a 70%);
-          background-size: 200% 100%;
-          animation: lrs-shimmer-${id} 1.8s infinite;
-          transition: opacity 0.8s ease;
+          background-size: 200% 100%; animation: lrs-shimmer-${id} 1.8s infinite; transition: opacity 0.8s ease;
         }
         .lrs-skeleton-hidden-${id} { opacity: 0; pointer-events: none; }
-        @keyframes lrs-shimmer-${id} {
-          0%   { background-position: 200% 0; }
-          100% { background-position: -200% 0; }
-        }
+        @keyframes lrs-shimmer-${id} { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
       `}</style>
 
       <div
@@ -450,12 +356,10 @@ function SlidePanel({
         onTouchEnd={handleTouchEnd}
         aria-label="Section image slideshow"
       >
-        {/* Skeleton */}
         <div
           className={`lrs-skeleton-${id} ${!loading ? `lrs-skeleton-hidden-${id}` : ""}`}
         />
 
-        {/* Fallback */}
         {!loading && slides.length === 0 && (
           <div
             style={{
@@ -466,7 +370,6 @@ function SlidePanel({
           />
         )}
 
-        {/* Slides */}
         {slides.length > 0 && (
           <>
             {animating && prevIdx !== null && slides[prevIdx] && (
@@ -494,32 +397,16 @@ function SlidePanel({
                 alt=""
                 aria-hidden="true"
                 draggable={false}
-                className={`lrs-img-${id}${
-                  !animating
-                    ? ` lrs-img-init-${id}${firstImageReady ? ` lrs-img-init-in-${id}` : ""}`
-                    : ""
-                }`}
+                className={`lrs-img-${id}${!animating ? ` lrs-img-init-${id}${firstImageReady ? ` lrs-img-init-in-${id}` : ""}` : ""}`}
               />
             </div>
           </>
         )}
 
-        {/* Overlays */}
         <div className={`lrs-vignette-${id}`} />
         <div className={`lrs-edge-top-${id}`} />
         <div className={`lrs-edge-bottom-${id}`} />
 
-        {/* Progress bar */}
-        {/* {slides.length > 1 && (
-          <div className={`lrs-prog-track-${id}`}>
-            <div
-              className={`lrs-prog-fill-${id}`}
-              style={{ width: progressWidth }}
-            />
-          </div>
-        )} */}
-
-        {/* Dots */}
         {slides.length > 1 && (
           <div
             className={`lrs-dots-${id} ${mounted ? `lrs-dots-in-${id}` : ""}`}
@@ -539,7 +426,6 @@ function SlidePanel({
           </div>
         )}
 
-        {/* Counter */}
         {slides.length > 1 && (
           <div
             className={`lrs-counter-${id} ${mounted ? `lrs-counter-in-${id}` : ""}`}
@@ -556,9 +442,6 @@ function SlidePanel({
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Exported component — wrapper with data fetching + layout
-// ─────────────────────────────────────────────────────────────────────────────
 export default function LeftRightSections() {
   const [leftSlides, setLeftSlides] = useState<LeftSectionSlide[]>([]);
   const [rightSlides, setRightSlides] = useState<RightSectionSlide[]>([]);
@@ -581,74 +464,92 @@ export default function LeftRightSections() {
       .finally(() => setRightLoading(false));
   }, []);
 
-  // Don't render the row at all if both sections have no images and finished loading
   const bothEmpty =
     !leftLoading &&
     !rightLoading &&
     leftSlides.length === 0 &&
     rightSlides.length === 0;
-
   if (bothEmpty) return null;
 
   return (
     <>
       <style>{`
-        .lrs-wrapper {
+        /* Full-width bg */
+        .lrs-outer {
           width: 100%;
           background: #09111a;
-          display: flex;
-          gap: 4px;
+          box-sizing: border-box;
         }
 
-        /* Each panel's aspect ratio */
+        /* Desktop: top gap + match hero gutters (24px) */
+        @media (min-width: 640px) {
+          .lrs-outer {
+            padding-top: 1.5rem;
+          }
+          .lrs-container {
+            max-width: 1500px;
+            margin: 0 auto;
+            padding: 0 24px;
+            box-sizing: border-box;
+          }
+        }
+
+        /* Mobile: zero padding, zero gap — completely flush */
+        @media (max-width: 639px) {
+          .lrs-outer { padding-top: 0; }
+          .lrs-container { padding: 0; }
+        }
+
+        /* Panel row */
+        .lrs-wrapper {
+          display: flex;
+          gap: 4px;   /* thin separator between panels on desktop */
+        }
+
+        /* Each panel 16:9 on desktop */
         .lrs-panel {
           flex: 1;
           min-width: 0;
-          /* Tall on mobile, 16:9 on desktop */
-          aspect-ratio: 4 / 3;
+          aspect-ratio: 16 / 9;
         }
 
+        /* Mobile: stack vertically, no gap, 4:3 */
         @media (max-width: 639px) {
-          .lrs-wrapper {
-            flex-direction: column;
-            gap: 4px;
-          }
-          .lrs-panel {
-            flex: none;
-            width: 100%;
-            aspect-ratio: 16 / 9;
-          }
+          .lrs-wrapper { flex-direction: column; gap: 0; }
+          .lrs-panel { flex: none; width: 100%; aspect-ratio: 4 / 3; }
         }
 
+        /* Tablet */
         @media (min-width: 640px) and (max-width: 1023px) {
-          .lrs-panel {
-            aspect-ratio: 3 / 2;
-          }
+          .lrs-panel { aspect-ratio: 16 / 9; }
         }
       `}</style>
 
-      <div className="lrs-wrapper">
-        {/* Only render a panel if it has content or is still loading */}
-        {(leftLoading || leftSlides.length > 0) && (
-          <div className="lrs-panel">
-            <SlidePanel
-              slides={leftSlides}
-              loading={leftLoading}
-              initialDelayMs={0}
-              instanceId="left"
-            />
+      <div className="lrs-outer">
+        <div className="lrs-container">
+          <div className="lrs-wrapper">
+            {(leftLoading || leftSlides.length > 0) && (
+              <div className="lrs-panel">
+                <SlidePanel
+                  slides={leftSlides}
+                  loading={leftLoading}
+                  initialDelayMs={0}
+                  instanceId="left"
+                />
+              </div>
+            )}
+            {(rightLoading || rightSlides.length > 0) && (
+              <div className="lrs-panel">
+                <SlidePanel
+                  slides={rightSlides}
+                  loading={rightLoading}
+                  initialDelayMs={SLIDE_INTERVAL_MS / 2}
+                  instanceId="right"
+                />
+              </div>
+            )}
           </div>
-        )}
-        {(rightLoading || rightSlides.length > 0) && (
-          <div className="lrs-panel">
-            <SlidePanel
-              slides={rightSlides}
-              loading={rightLoading}
-              initialDelayMs={SLIDE_INTERVAL_MS / 2}
-              instanceId="right"
-            />
-          </div>
-        )}
+        </div>
       </div>
     </>
   );
