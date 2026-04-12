@@ -139,6 +139,23 @@ export default function AuctionForm() {
     setErrors((e) => ({ ...e, auctionNumber: "" }));
   }, [form.productId, usedAuctionNumbers, isEdit]);
 
+  // ── Auto-populate starting price from selected product (add mode only) ────────
+  // In edit mode we keep the saved starting price.
+  useEffect(() => {
+    if (isEdit) return; // don't override on edit
+    if (!form.productId) {
+      // Clear starting price when no product is selected
+      setForm((f) => ({ ...f, startingPrice: "" }));
+      return;
+    }
+
+    const selectedProduct = products.find((p) => p.id === form.productId);
+    if (selectedProduct) {
+      setForm((f) => ({ ...f, startingPrice: String(selectedProduct.price) }));
+      setErrors((e) => ({ ...e, startingPrice: "" }));
+    }
+  }, [form.productId, products, isEdit]);
+
   // ── Status preview ───────────────────────────────────────────────────────────
   const previewStatus = useMemo(() => {
     if (!form.startTime || !form.endTime) return null;
@@ -161,7 +178,7 @@ export default function AuctionForm() {
       isNaN(Number(form.startingPrice)) ||
       Number(form.startingPrice) < 0
     )
-      e.startingPrice = "Enter a valid starting price";
+      e.startingPrice = "Starting price is invalid";
     if (
       !form.minimumIncrement ||
       isNaN(Number(form.minimumIncrement)) ||
@@ -234,6 +251,9 @@ export default function AuctionForm() {
   const minDateTime = nowDatetimeLocal();
   const autoNumber = Number(form.auctionNumber);
   const isNumberConflict = usedAuctionNumbers.has(autoNumber);
+
+  // ── Derive selected product for display ──────────────────────────────────────
+  const selectedProduct = products.find((p) => p.id === form.productId);
 
   return (
     <Box
@@ -352,11 +372,13 @@ export default function AuctionForm() {
                     ...f,
                     productId: e.target.value,
                     auctionNumber: "",
+                    // startingPrice is handled by the useEffect above
                   }));
                   setErrors((er) => ({
                     ...er,
                     productId: "",
                     auctionNumber: "",
+                    startingPrice: "",
                   }));
                 }}
                 sx={selectSx}
@@ -413,12 +435,11 @@ export default function AuctionForm() {
 
             {/* Auction Number — auto-assigned, read-only display */}
             <Box>
-             
               {!form.productId ? (
                 // No product selected yet
                 <Box
                   sx={{
-                    height: 40, 
+                    height: 40,
                     border: `1px solid ${colors.border}`,
                     borderRadius: 1,
                     bgcolor: "#F8FAFC",
@@ -505,7 +526,7 @@ export default function AuctionForm() {
             </Box>
           </Box>
 
-          {/* Row 2 — Starting Price + Min Increment */}
+          {/* Row 2 — Starting Price (auto from product) + Min Increment */}
           <Box
             sx={{
               display: "grid",
@@ -513,17 +534,94 @@ export default function AuctionForm() {
               gap: 2.5,
             }}
           >
-            <TextField
-              label="Starting Price *"
-              size="small"
-              type="number"
-              fullWidth
-              value={form.startingPrice}
-              onChange={(e) => field("startingPrice", e.target.value)}
-              error={!!errors.startingPrice}
-              helperText={errors.startingPrice}
-              sx={inputSx}
-            />
+            {/* Starting Price — auto-populated from product, read-only display */}
+            <Box>
+              <p
+                style={{
+                  fontSize: "0.75rem",
+                  color: colors.textSecondary,
+                  fontWeight: 600,
+                  marginBottom: 6,
+                }}
+              >
+                Starting Price
+              </p>
+              {!form.productId ? (
+                <Box
+                  sx={{
+                    height: 40,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: 1,
+                    bgcolor: "#F8FAFC",
+                    display: "flex",
+                    alignItems: "center",
+                    px: 1.5,
+                  }}
+                >
+                  <span
+                    style={{ fontSize: "0.85rem", color: colors.textMuted }}
+                  >
+                    Select a product first
+                  </span>
+                </Box>
+              ) : (
+                <Box
+                  sx={{
+                    height: 40,
+                    border: `1.5px solid ${colors.primary}`,
+                    borderRadius: 1,
+                    bgcolor: colors.primaryBg,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    px: 1.5,
+                    gap: 1,
+                  }}
+                >
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <span
+                      style={{
+                        fontSize: "1.05rem",
+                        fontWeight: 700,
+                        color: colors.primary,
+                      }}
+                    >
+                      {form.startingPrice
+                        ? `${Number(form.startingPrice).toLocaleString()} EGP`
+                        : "—"}
+                    </span>
+                  </Box>
+                  <span
+                    style={{ fontSize: "0.72rem", color: colors.textMuted }}
+                  >
+                    From product price ( unchangeable once set )
+                  </span>
+                </Box>
+              )}
+              {errors.startingPrice && (
+                <p
+                  style={{
+                    fontSize: "0.75rem",
+                    color: colors.error,
+                    margin: "3px 0 0 14px",
+                  }}
+                >
+                  {errors.startingPrice}
+                </p>
+              )}
+              {isEdit && form.productId && (
+                <p
+                  style={{
+                    fontSize: "0.72rem",
+                    color: colors.textMuted,
+                    margin: "3px 0 0 2px",
+                  }}
+                >
+                  Starting price is locked while editing.
+                </p>
+              )}
+            </Box>
+
             <TextField
               label="Minimum Increment *"
               size="small"
@@ -858,7 +956,7 @@ export default function AuctionForm() {
               <strong>Note:</strong>{" "}
               {isEdit
                 ? "Changes will be applied immediately. The auction status is automatically updated based on the start and end times."
-                : "The auction number is assigned automatically as the next available number for the selected product. The status (upcoming / live / ended) is calculated from your chosen times."}
+                : "The auction number and starting price are assigned automatically from the selected product. The status (upcoming / live / ended) is calculated from your chosen times."}
             </p>
           </Box>
         </Box>
