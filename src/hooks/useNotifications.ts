@@ -58,6 +58,7 @@ export interface AppNotification {
   entryType?: string;
   // ── auction_created specific ──
   startDate?: string;
+  productThumbnail?: string;
   createdAt: Date;
 }
 
@@ -86,23 +87,24 @@ export function useNotifications() {
           snap.docs.map((d) => {
             const data = d.data();
             return {
-              id:            d.id,
-              type:          (data.type as NotificationType) ?? "promo",
-              title:         data.title         ?? "",
-              message:       data.message       ?? "",
-              isRead:        data.isRead        ?? false,
-              auctionId:     data.auctionId     ?? undefined,
-              requestId:     data.requestId     ?? undefined,
-              productId:     data.productId     ?? undefined,
-              productName:   data.productName   ?? undefined,
-              url:           data.url           ?? undefined,
-              productTitle:  data.productTitle  ?? undefined,
-              winnerName:    data.winnerName    ?? undefined,
-              winningBid:    data.winningBid    ?? undefined,
-              auctionNumber: data.auctionNumber ?? undefined,
-              entryFee:      data.entryFee      ?? undefined,
-              entryType:     data.entryType     ?? undefined,
-              startDate:     data.startDate     ?? undefined,
+              id:               d.id,
+              type:             (data.type as NotificationType) ?? "promo",
+              title:            data.title            ?? "",
+              message:          data.message          ?? "",
+              isRead:           data.isRead           ?? false,
+              auctionId:        data.auctionId        ?? undefined,
+              requestId:        data.requestId        ?? undefined,
+              productId:        data.productId        ?? undefined,
+              productName:      data.productName      ?? undefined,
+              url:              data.url              ?? undefined,
+              productTitle:     data.productTitle     ?? undefined,
+              winnerName:       data.winnerName       ?? undefined,
+              winningBid:       data.winningBid       ?? undefined,
+              auctionNumber:    data.auctionNumber    ?? undefined,
+              entryFee:         data.entryFee         ?? undefined,
+              entryType:        data.entryType        ?? undefined,
+              startDate:        data.startDate        ?? undefined,
+              productThumbnail: data.productThumbnail ?? undefined,
               createdAt:
                 data.createdAt instanceof Timestamp
                   ? data.createdAt.toDate()

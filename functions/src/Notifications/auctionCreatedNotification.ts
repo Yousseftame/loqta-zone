@@ -67,13 +67,16 @@ export const onAuctionCreated = onDocumentCreated(
     const auctionNumber: number = data.auctionNumber ?? 0;
     const productId: string     = data.productId     ?? "";
 
-    // ── Resolve product title ──────────────────────────────────────────────
-    let productTitle = "";
+    // ── Resolve product title + thumbnail ──────────────────────────────────
+    let productTitle     = "";
+    let productThumbnail = "";
     if (productId) {
       try {
         const productSnap = await db.collection("products").doc(productId).get();
         if (productSnap.exists) {
-          productTitle = productSnap.data()?.title ?? "";
+          productTitle     = productSnap.data()?.title     ?? "";
+          productThumbnail = productSnap.data()?.thumbnail ?? "";
+          if (productThumbnail === "null") productThumbnail = "";
         }
       } catch { /* non-fatal */ }
     }
@@ -137,17 +140,18 @@ export const onAuctionCreated = onDocumentCreated(
           batch.set(
             db.collection("users").doc(uid).collection("notifications").doc(),
             {
-              type:          "auction_created",
+              type:             "auction_created",
               auctionId,
-              productId:     productId ?? "",
+              productId:        productId ?? "",
               productTitle,
+              productThumbnail,
               auctionNumber,
               startDate,
-              title:         titleEn,
-              message:       bodyEn,
-              isRead:        false,
-              url:           deepLink,
-              createdAt:     FieldValue.serverTimestamp(),
+              title:            titleEn,
+              message:          bodyEn,
+              isRead:           false,
+              url:              deepLink,
+              createdAt:        FieldValue.serverTimestamp(),
             },
           );
         });
@@ -167,15 +171,16 @@ export const onAuctionCreated = onDocumentCreated(
             const response = await messaging.sendEachForMulticast({
               tokens,
               data: {
-                type:          "auction_created",
+                type:             "auction_created",
                 auctionId,
-                productId:     productId ?? "",
+                productId:        productId ?? "",
                 productTitle,
-                auctionNumber: String(auctionNumber),
+                productThumbnail,
+                auctionNumber:    String(auctionNumber),
                 startDate,
-                title:         titleEn,
-                body:          bodyEn,
-                url:           deepLink,
+                title:            titleEn,
+                body:             bodyEn,
+                url:              deepLink,
               },
               webpush: {
                 fcmOptions: { link: deepLink },

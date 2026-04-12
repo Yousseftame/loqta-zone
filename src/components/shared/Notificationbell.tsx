@@ -3,8 +3,8 @@
  *
  * auction_created:
  * - New type — fires when admin creates an auction, sent to all users
- * - AuctionCreatedIcon: gold-bordered circle with gavel motif, pulse dot
- * - FormattedAuctionCreatedMessage: product name, auction #, start date pill, "Register Now" CTA
+ * - AuctionCreatedIcon: shows product thumbnail image (circle crop); falls back to gavel icon
+ * - FormattedAuctionCreatedMessage: simplified — product name, auction #, plain-text date, plain-text CTA
  * - Clickable — navigates to /auctions/{productId}
  * - Localized via t("notifications.auctionCreated.*")
  *
@@ -885,8 +885,8 @@ function FormattedAuctionEndedMessage({
 }
 
 // ── FormattedAuctionCreatedMessage ────────────────────────────────────────────
-// Elegant card showing product name, auction number, start date pill,
-// and a gold "Register Now" CTA button.
+// Simple layout: product name + number, plain-text date, plain-text gold CTA.
+// No pill boxes.
 function FormattedAuctionCreatedMessage({
   notif,
   t,
@@ -901,27 +901,17 @@ function FormattedAuctionCreatedMessage({
   const productTitle = (data.productTitle ?? "") as string;
   const startDate = (data.startDate ?? "") as string;
 
-  const localMessage = productTitle
-    ? t("notifications.auctionCreated.message", {
-        product: productTitle,
-        num: auctionNum,
-        date: startDate,
-      })
-    : t("notifications.auctionCreated.messageGeneric", {
-        num: auctionNum,
-        date: startDate,
-      });
-
   return (
     <div
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: 6,
+        gap: 4,
         marginBottom: 4,
         direction: isRTL ? "rtl" : "ltr",
       }}
     >
+      {/* Product name + auction number */}
       {productTitle && (
         <p
           style={{
@@ -939,8 +929,8 @@ function FormattedAuctionCreatedMessage({
               style={{
                 color: "rgba(201,169,110,0.42)",
                 fontWeight: 500,
-                marginLeft: isRTL ? 0 : 6,
-                marginRight: isRTL ? 6 : 0,
+                marginLeft: isRTL ? 0 : 5,
+                marginRight: isRTL ? 5 : 0,
                 fontSize: "11px",
               }}
             >
@@ -950,62 +940,38 @@ function FormattedAuctionCreatedMessage({
         </p>
       )}
 
-      <p className="nf-item-msg" style={{ marginBottom: 0 }}>
-        {localMessage}
-      </p>
-
+      {/* Start date — plain inline text */}
       {startDate && (
-        <div
+        <p
           style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 5,
-            background: "rgba(201,169,110,0.07)",
-            border: "1px solid rgba(201,169,110,0.2)",
-            borderRadius: 6,
-            padding: "4px 10px",
-            alignSelf: "flex-start",
+            fontFamily: "'Jost',sans-serif",
+            fontSize: "11.5px",
+            color: "rgba(229,224,198,0.42)",
+            margin: 0,
+            lineHeight: 1.4,
           }}
         >
-          <span
-            style={{
-              fontSize: "11px",
-              fontFamily: "'Jost',sans-serif",
-              fontWeight: 600,
-              color: "rgba(201,169,110,0.75)",
-              letterSpacing: "0.03em",
-            }}
-          >
-            🗓 {startDate}
+          {isRTL ? "يبدأ" : "Starts"}{" "}
+          <span style={{ color: "rgba(229,224,198,0.68)", fontWeight: 500 }}>
+            {startDate}
           </span>
-        </div>
+        </p>
       )}
 
-      <div
+      {/* Register CTA — gold text only, no box */}
+      <p
         style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 5,
-          background: "rgba(201,169,110,0.12)",
-          border: "1px solid rgba(201,169,110,0.3)",
-          borderRadius: 6,
-          padding: "4px 10px",
-          alignSelf: "flex-start",
+          fontFamily: "'Jost',sans-serif",
+          fontSize: "11px",
+          fontWeight: 800,
+          letterSpacing: "0.08em",
+          color: "#c9a96e",
+          margin: 0,
+          marginTop: 2,
         }}
       >
-        <span
-          style={{
-            fontSize: "11px",
-            fontFamily: "'Jost',sans-serif",
-            fontWeight: 800,
-            letterSpacing: "0.1em",
-            textTransform: "uppercase" as const,
-            color: "#c9a96e",
-          }}
-        >
-          {isRTL ? "✦ سجّل الآن →" : "✦ Register Now →"}
-        </span>
-      </div>
+        ✦ {isRTL ? "سجّل الآن ←" : "Register now →"}
+      </p>
     </div>
   );
 }
@@ -1140,9 +1106,15 @@ function AuctionEndedIcon({ isUnread }: { isUnread: boolean }) {
 }
 
 // ── AuctionCreatedIcon ────────────────────────────────────────────────────────
-// Vibrant gold-bordered circle with a gavel spark motif.
-// Signals excitement — an opportunity has just arrived.
-function AuctionCreatedIcon({ isUnread }: { isUnread: boolean }) {
+// Shows the product thumbnail image (circle crop) if available.
+// Falls back to a gavel icon when no image URL is provided.
+function AuctionCreatedIcon({
+  isUnread,
+  imageUrl,
+}: {
+  isUnread: boolean;
+  imageUrl?: string;
+}) {
   return (
     <div
       style={{
@@ -1150,47 +1122,55 @@ function AuctionCreatedIcon({ isUnread }: { isUnread: boolean }) {
         height: 44,
         borderRadius: "50%",
         background: "linear-gradient(135deg,#1a1200 0%,#0d0900 100%)",
-        border: "2.5px solid rgba(201,169,110,0.65)",
-        boxShadow: isUnread
-          ? "0 0 20px rgba(201,169,110,0.38), 0 4px 14px rgba(0,0,0,0.45)"
-          : "0 4px 10px rgba(0,0,0,0.35)",
+        border: `2.5px solid ${isUnread ? "rgba(201,169,110,0.75)" : "rgba(201,169,110,0.4)"}`,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         flexShrink: 0,
         marginTop: 1,
         position: "relative" as const,
+        overflow: "hidden" as const,
       }}
     >
-      {/* Gavel icon */}
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-        <path
-          d="M14 2L22 10"
-          stroke="rgba(201,169,110,0.9)"
-          strokeWidth="2.5"
-          strokeLinecap="round"
+      {imageUrl ? (
+        <img
+          src={imageUrl}
+          alt=""
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            borderRadius: "50%",
+          }}
         />
-        <path
-          d="M8.5 8.5L15.5 15.5"
-          stroke="rgba(201,169,110,0.75)"
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
-        <path
-          d="M3 21L10 14"
-          stroke="rgba(201,169,110,0.85)"
-          strokeWidth="2.2"
-          strokeLinecap="round"
-        />
-        <path
-          d="M10 14L14.5 9.5"
-          stroke="rgba(201,169,110,0.55)"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-        />
-        <circle cx="20" cy="4" r="1.2" fill="rgba(201,169,110,0.8)" />
-        <circle cx="17" cy="7" r="0.8" fill="rgba(201,169,110,0.5)" />
-      </svg>
+      ) : (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <path
+            d="M14 2L22 10"
+            stroke="rgba(201,169,110,0.9)"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+          />
+          <path
+            d="M8.5 8.5L15.5 15.5"
+            stroke="rgba(201,169,110,0.75)"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+          <path
+            d="M3 21L10 14"
+            stroke="rgba(201,169,110,0.85)"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+          />
+          <path
+            d="M10 14L14.5 9.5"
+            stroke="rgba(201,169,110,0.55)"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+          />
+        </svg>
+      )}
       {isUnread && (
         <span
           style={{
@@ -1579,7 +1559,10 @@ export const NotificationBell = () => {
                       ) : isAuctionEndedType ? (
                         <AuctionEndedIcon isUnread={!notif.isRead} />
                       ) : isAuctionCreatedType ? (
-                        <AuctionCreatedIcon isUnread={!notif.isRead} />
+                        <AuctionCreatedIcon
+                          isUnread={!notif.isRead}
+                          imageUrl={(notif as any).productThumbnail ?? ""}
+                        />
                       ) : (
                         <div
                           className="nf-icon"
