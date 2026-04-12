@@ -1167,21 +1167,26 @@
       "exp": "Exp. {{date}}",
       "usesOnly": "Limited quantity"
     },
-     "lastOfferAvailable": {
+    "lastOfferAvailable": {
       "title": "Last offer open — {{product}}",
       "titleGeneric": "Last offer opportunity"
     },
     "auctionRegistered": {
       "title": "✔️ Registered · Auction #{{num}}",
-      "goodLuck": "✦ Good luck · tap to view auction" 
+      "goodLuck": "✦ Good luck · tap to view auction"
     },
     "auctionEnded": {
       "titleProduct": "{{product}} Has Ended",
       "message": "Thank you for joining the auction for \"{{product}}\" (#{{num}}). Hope to see you at our next one! 🎉",
       "messageGeneric": "Thank you for participating in Auction #{{num}}. Hope to see you at our next one! 🎉",
       "seeYouSoon": "✦ See you at the next auction →"
+    },
+    "auctionCreated": {
+      "titleProduct": "New Auction — {{product}}",
+      "title": "New Auction #{{num}} Is Live",
+      "message": "Auction #{{num}} for \"{{product}}\" starts {{date}}. Register now!",
+      "messageGeneric": "Auction #{{num}} starts {{date}}. Register now!"
     }
-    
   },
   "profilePage": {
     "breadcrumb": "My Profile",

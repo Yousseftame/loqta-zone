@@ -1,7 +1,7 @@
 /**
  * src/hooks/useNotifications.ts
  *
- * Updated: added "auction_ended" to NotificationType.
+ * Updated: added "auction_created" to NotificationType.
  */
 
 import { useEffect, useState, useCallback } from "react";
@@ -33,7 +33,8 @@ export type NotificationType =
   | "voucher_created"
   | "last_offer_available"
   | "auction_registered"
-  | "auction_ended";
+  | "auction_ended"
+  | "auction_created";
 
 
 export interface AppNotification {
@@ -51,10 +52,12 @@ export interface AppNotification {
   productTitle?: string;
   winnerName?: string;
   winningBid?: number;
-  // ── auction_registered fields ──
+  // ── auction_registered / auction_created fields ──
   auctionNumber?: number;
   entryFee?: number;
   entryType?: string;
+  // ── auction_created specific ──
+  startDate?: string;
   createdAt: Date;
 }
 
@@ -99,6 +102,7 @@ export function useNotifications() {
               auctionNumber: data.auctionNumber ?? undefined,
               entryFee:      data.entryFee      ?? undefined,
               entryType:     data.entryType     ?? undefined,
+              startDate:     data.startDate     ?? undefined,
               createdAt:
                 data.createdAt instanceof Timestamp
                   ? data.createdAt.toDate()

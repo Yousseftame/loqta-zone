@@ -22,6 +22,13 @@ export { onUserCreated, setUserRole, blockUser, deleteUser, createAdminAccount }
 // ── Notifications ────────────────────────────────────────────────────────────
 export { onAuctionRequestUpdated } from "./Notifications/notifications";
 
+
+
+// auction created — notifies ALL users when a new auction is created (admin action)
+export { onAuctionCreated } from "./Notifications/auctionCreatedNotification";
+
+
+
 // Auction ended — notifies ALL participants when an auction resolves (winner or no winner).
 // Non-clickable thank-you message: "Auction #N has ended, see you at the next one!"
 export { onAuctionEnded } from "./Notifications/auctionEndedNotification";

@@ -1,23 +1,14 @@
 /**
  * src/components/shared/Notificationbell.tsx
  *
- * auction_ended:
- * - New type added — styled elegantly like payment_confirmed (non-clickable)
- * - AuctionEndedIcon: a soft dark-gold circular icon with a gavel/flag motif
- * - FormattedAuctionEndedMessage: renders product name, auction number, warm farewell text
- * - Non-clickable — clicking does nothing, navigates nowhere
- * - Localized via t("notifications.auctionEnded.*")
+ * auction_created:
+ * - New type — fires when admin creates an auction, sent to all users
+ * - AuctionCreatedIcon: gold-bordered circle with gavel motif, pulse dot
+ * - FormattedAuctionCreatedMessage: product name, auction #, start date pill, "Register Now" CTA
+ * - Clickable — navigates to /auctions/{productId}
+ * - Localized via t("notifications.auctionCreated.*")
  *
- * voucher_created localization:
- * - getLocalizedNotif now handles voucher_created — title uses t("notifications.voucherCreated.title/titleGeneric")
- * - FormattedVoucherMessage accepts { notif, t, isRTL } and uses t() for all UI strings
- * - CopyableCode accepts { code, t } and uses t() for "tap to copy" / "✓ copied"
- * - All other notification types unchanged
- *
- * auction_registered:
- * - New type added — styled like payment_confirmed (elegant + non-clickable icon)
- * - FormattedRegistrationMessage renders product name, auction number, entry fee
- * - Navigates to /auctions/register/{productId} on click
+ * All previous types unchanged.
  */
 
 import { useState, useEffect, useRef } from "react";
@@ -127,18 +118,31 @@ function getLocalizedNotif(
         message: notif.message,
       };
     }
-      case "auction_ended": {
-        const num     = (data.auctionNumber ?? 0) as number;
-        const product = (data.productTitle ?? "") as string;
-        return {
-          title: product
-            ? t("notifications.auctionEnded.titleProduct", { product })
-            : t("notifications.auctionEnded.title", { num }),
-          message: product
-            ? t("notifications.auctionEnded.message", { product, num })
-            : t("notifications.auctionEnded.messageGeneric", { num }),
-        };
-      }
+    case "auction_ended": {
+      const num = (data.auctionNumber ?? 0) as number;
+      const product = (data.productTitle ?? "") as string;
+      return {
+        title: product
+          ? t("notifications.auctionEnded.titleProduct", { product })
+          : t("notifications.auctionEnded.title", { num }),
+        message: product
+          ? t("notifications.auctionEnded.message", { product, num })
+          : t("notifications.auctionEnded.messageGeneric", { num }),
+      };
+    }
+    case "auction_created": {
+      const num = (data.auctionNumber ?? 0) as number;
+      const product = (data.productTitle ?? "") as string;
+      const date = (data.startDate ?? "") as string;
+      return {
+        title: product
+          ? t("notifications.auctionCreated.titleProduct", { product })
+          : t("notifications.auctionCreated.title", { num }),
+        message: product
+          ? t("notifications.auctionCreated.message", { product, num, date })
+          : t("notifications.auctionCreated.messageGeneric", { num, date }),
+      };
+    }
     default:
       return { title: notif.title, message: notif.message };
   }
@@ -831,9 +835,6 @@ function FormattedAuctionEndedMessage({
   const auctionNum = (data.auctionNumber ?? 0) as number;
   const productTitle = (data.productTitle ?? "") as string;
 
-  // Re-derive the localized message the same way getLocalizedNotif does,
-  // so we always show the freshly-translated string (not the raw English
-  // stored in Firestore).
   const localMessage = productTitle
     ? t("notifications.auctionEnded.message", {
         product: productTitle,
@@ -851,12 +852,10 @@ function FormattedAuctionEndedMessage({
         direction: isRTL ? "rtl" : "ltr",
       }}
     >
-      {/* Plain message text — no box, just like a normal notification body */}
       <p className="nf-item-msg" style={{ marginBottom: 0 }}>
         {localMessage}
       </p>
 
-      {/* Warm farewell pill */}
       <div
         style={{
           display: "inline-flex",
@@ -879,6 +878,132 @@ function FormattedAuctionEndedMessage({
           }}
         >
           {t("notifications.auctionEnded.seeYouSoon")}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ── FormattedAuctionCreatedMessage ────────────────────────────────────────────
+// Elegant card showing product name, auction number, start date pill,
+// and a gold "Register Now" CTA button.
+function FormattedAuctionCreatedMessage({
+  notif,
+  t,
+  isRTL,
+}: {
+  notif: AppNotification;
+  t: (key: string, opts?: Record<string, any>) => string;
+  isRTL: boolean;
+}) {
+  const data = notif as any;
+  const auctionNum = (data.auctionNumber ?? 0) as number;
+  const productTitle = (data.productTitle ?? "") as string;
+  const startDate = (data.startDate ?? "") as string;
+
+  const localMessage = productTitle
+    ? t("notifications.auctionCreated.message", {
+        product: productTitle,
+        num: auctionNum,
+        date: startDate,
+      })
+    : t("notifications.auctionCreated.messageGeneric", {
+        num: auctionNum,
+        date: startDate,
+      });
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 6,
+        marginBottom: 4,
+        direction: isRTL ? "rtl" : "ltr",
+      }}
+    >
+      {productTitle && (
+        <p
+          style={{
+            fontFamily: "'Jost',sans-serif",
+            fontSize: "12.5px",
+            fontWeight: 600,
+            color: "rgba(201,169,110,0.95)",
+            margin: 0,
+            lineHeight: 1.4,
+          }}
+        >
+          {productTitle}
+          {auctionNum > 0 && (
+            <span
+              style={{
+                color: "rgba(201,169,110,0.42)",
+                fontWeight: 500,
+                marginLeft: isRTL ? 0 : 6,
+                marginRight: isRTL ? 6 : 0,
+                fontSize: "11px",
+              }}
+            >
+              · #{auctionNum}
+            </span>
+          )}
+        </p>
+      )}
+
+      <p className="nf-item-msg" style={{ marginBottom: 0 }}>
+        {localMessage}
+      </p>
+
+      {startDate && (
+        <div
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 5,
+            background: "rgba(201,169,110,0.07)",
+            border: "1px solid rgba(201,169,110,0.2)",
+            borderRadius: 6,
+            padding: "4px 10px",
+            alignSelf: "flex-start",
+          }}
+        >
+          <span
+            style={{
+              fontSize: "11px",
+              fontFamily: "'Jost',sans-serif",
+              fontWeight: 600,
+              color: "rgba(201,169,110,0.75)",
+              letterSpacing: "0.03em",
+            }}
+          >
+            🗓 {startDate}
+          </span>
+        </div>
+      )}
+
+      <div
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 5,
+          background: "rgba(201,169,110,0.12)",
+          border: "1px solid rgba(201,169,110,0.3)",
+          borderRadius: 6,
+          padding: "4px 10px",
+          alignSelf: "flex-start",
+        }}
+      >
+        <span
+          style={{
+            fontSize: "11px",
+            fontFamily: "'Jost',sans-serif",
+            fontWeight: 800,
+            letterSpacing: "0.1em",
+            textTransform: "uppercase" as const,
+            color: "#c9a96e",
+          }}
+        >
+          {isRTL ? "✦ سجّل الآن →" : "✦ Register Now →"}
         </span>
       </div>
     </div>
@@ -966,8 +1091,6 @@ function AuctionRegisteredIcon({ isUnread }: { isUnread: boolean }) {
 }
 
 // ── AuctionEndedIcon ──────────────────────────────────────────────────────────
-// Elegant dark-gold circular icon with a subtle gavel silhouette.
-// Deliberately muted — this is a farewell, not a celebration.
 function AuctionEndedIcon({ isUnread }: { isUnread: boolean }) {
   return (
     <div
@@ -988,7 +1111,6 @@ function AuctionEndedIcon({ isUnread }: { isUnread: boolean }) {
         position: "relative" as const,
       }}
     >
-      {/* Hourglass / time-ended SVG */}
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
         <path
           d="M5 2h14M5 22h14M6 2v5l6 5-6 5v5M18 2v5l-6 5 6 5v5"
@@ -1008,6 +1130,77 @@ function AuctionEndedIcon({ isUnread }: { isUnread: boolean }) {
             height: 9,
             borderRadius: "50%",
             background: "rgba(201,169,110,0.8)",
+            border: "2px solid #080d1a",
+            animation: "nfDotPulse 1.8s ease-in-out infinite",
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── AuctionCreatedIcon ────────────────────────────────────────────────────────
+// Vibrant gold-bordered circle with a gavel spark motif.
+// Signals excitement — an opportunity has just arrived.
+function AuctionCreatedIcon({ isUnread }: { isUnread: boolean }) {
+  return (
+    <div
+      style={{
+        width: 44,
+        height: 44,
+        borderRadius: "50%",
+        background: "linear-gradient(135deg,#1a1200 0%,#0d0900 100%)",
+        border: "2.5px solid rgba(201,169,110,0.65)",
+        boxShadow: isUnread
+          ? "0 0 20px rgba(201,169,110,0.38), 0 4px 14px rgba(0,0,0,0.45)"
+          : "0 4px 10px rgba(0,0,0,0.35)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexShrink: 0,
+        marginTop: 1,
+        position: "relative" as const,
+      }}
+    >
+      {/* Gavel icon */}
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+        <path
+          d="M14 2L22 10"
+          stroke="rgba(201,169,110,0.9)"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+        />
+        <path
+          d="M8.5 8.5L15.5 15.5"
+          stroke="rgba(201,169,110,0.75)"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+        <path
+          d="M3 21L10 14"
+          stroke="rgba(201,169,110,0.85)"
+          strokeWidth="2.2"
+          strokeLinecap="round"
+        />
+        <path
+          d="M10 14L14.5 9.5"
+          stroke="rgba(201,169,110,0.55)"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+        />
+        <circle cx="20" cy="4" r="1.2" fill="rgba(201,169,110,0.8)" />
+        <circle cx="17" cy="7" r="0.8" fill="rgba(201,169,110,0.5)" />
+      </svg>
+      {isUnread && (
+        <span
+          style={{
+            position: "absolute",
+            bottom: -2,
+            right: -2,
+            width: 9,
+            height: 9,
+            borderRadius: "50%",
+            background: "#c9a96e",
             border: "2px solid #080d1a",
             animation: "nfDotPulse 1.8s ease-in-out infinite",
           }}
@@ -1173,10 +1366,16 @@ const TYPE_CONFIG: Record<
     border: "rgba(201,169,110,0.28)",
   },
   auction_ended: {
-    Icon: null, // uses AuctionEndedIcon
+    Icon: null,
     color: "rgba(201,169,110,0.55)",
     bg: "rgba(201,169,110,0.05)",
     border: "rgba(201,169,110,0.18)",
+  },
+  auction_created: {
+    Icon: null, // uses AuctionCreatedIcon
+    color: "#c9a96e",
+    bg: "rgba(201,169,110,0.08)",
+    border: "rgba(201,169,110,0.3)",
   },
 };
 
@@ -1228,8 +1427,17 @@ export const NotificationBell = () => {
       markRead(notif.id);
       return;
     }
+
     markRead(notif.id);
     setOpen(false);
+
+    // auction_created — navigate to the product's auction page
+    if (notif.type === "auction_created") {
+      const d = notif as any;
+      const pid = d.productId ?? "";
+      if (pid) navigate(`/auctions/register/${pid}`);
+      return;
+    }
 
     // auction_registered — navigate to the register page for this product
     if (notif.type === "auction_registered") {
@@ -1313,8 +1521,8 @@ export const NotificationBell = () => {
                     notif.type === "last_offer_available";
                   const isRegisteredType = notif.type === "auction_registered";
                   const isAuctionEndedType = notif.type === "auction_ended";
+                  const isAuctionCreatedType = notif.type === "auction_created";
 
-                  // auction_ended is NOT clickable (same as payment_confirmed, voucher_created)
                   const isClickable =
                     !isPaymentConfirmed &&
                     !isVoucherType &&
@@ -1336,6 +1544,7 @@ export const NotificationBell = () => {
                         isVoucherType ? "voucher-item" : "",
                         isRegisteredType ? "registered-item" : "",
                         isAuctionEndedType ? "ended-item" : "",
+                        isAuctionCreatedType ? "auction-created-item" : "",
                       ]
                         .filter(Boolean)
                         .join(" ")}
@@ -1351,7 +1560,9 @@ export const NotificationBell = () => {
                                 ? " nf-unread-teal"
                                 : isAuctionEndedType
                                   ? " nf-unread-gold-dim"
-                                  : ""
+                                  : isAuctionCreatedType
+                                    ? " nf-unread-gold-bright"
+                                    : ""
                           }`}
                         />
                       )}
@@ -1367,6 +1578,8 @@ export const NotificationBell = () => {
                         <AuctionRegisteredIcon isUnread={!notif.isRead} />
                       ) : isAuctionEndedType ? (
                         <AuctionEndedIcon isUnread={!notif.isRead} />
+                      ) : isAuctionCreatedType ? (
+                        <AuctionCreatedIcon isUnread={!notif.isRead} />
                       ) : (
                         <div
                           className="nf-icon"
@@ -1427,6 +1640,12 @@ export const NotificationBell = () => {
                           />
                         ) : isAuctionEndedType ? (
                           <FormattedAuctionEndedMessage
+                            notif={notif}
+                            t={t}
+                            isRTL={isRTL}
+                          />
+                        ) : isAuctionCreatedType ? (
+                          <FormattedAuctionCreatedMessage
                             notif={notif}
                             t={t}
                             isRTL={isRTL}
@@ -1560,11 +1779,15 @@ const CSS = `
 .nf-item.registered-item.unread{background:rgba(56,189,210,0.03);}
 .nf-item.ended-item{cursor:default;}
 .nf-item.ended-item.unread{background:rgba(201,169,110,0.025);}
+.nf-item.auction-created-item{cursor:pointer;}
+.nf-item.auction-created-item.unread{background:rgba(201,169,110,0.045);}
+.nf-item.auction-created-item:hover{background:rgba(201,169,110,0.06);}
 .nf-unread-bar{position:absolute;left:0;top:12%;bottom:12%;width:3px;border-radius:0 3px 3px 0;background:linear-gradient(180deg,#c9a96e,#b8944e);box-shadow:0 0 8px rgba(201,169,110,0.65);}
 .nf-unread-bar.nf-unread-green{background:linear-gradient(180deg,#4ade80,#22c55e);box-shadow:0 0 8px rgba(74,222,128,0.65);}
 .nf-unread-bar.nf-unread-gold{background:linear-gradient(180deg,#c9a96e,#b8944e);box-shadow:0 0 10px rgba(201,169,110,0.7);}
 .nf-unread-bar.nf-unread-teal{background:linear-gradient(180deg,#38bdd2,#0e9ab5);box-shadow:0 0 10px rgba(56,189,210,0.65);}
 .nf-unread-bar.nf-unread-gold-dim{background:linear-gradient(180deg,rgba(201,169,110,0.55),rgba(184,148,78,0.4));box-shadow:0 0 6px rgba(201,169,110,0.3);}
+.nf-unread-bar.nf-unread-gold-bright{background:linear-gradient(180deg,#c9a96e,#e6c27e);box-shadow:0 0 12px rgba(201,169,110,0.75);}
 .nf-icon{width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;position:relative;}
 .nf-icon-pulse{position:absolute;bottom:-2px;right:-2px;width:9px;height:9px;border-radius:50%;border:2px solid #080d1a;animation:nfDotPulse 1.8s ease-in-out infinite;}
 .nf-body{flex:1;min-width:0;}
