@@ -927,11 +927,11 @@ function FormattedAuctionCreatedMessage({
           {auctionNum > 0 && (
             <span
               style={{
-                color: "rgba(201,169,110,0.42)",
+                color: "rgba(201,169,110,0.82)",
                 fontWeight: 500,
                 marginLeft: isRTL ? 0 : 5,
                 marginRight: isRTL ? 5 : 0,
-                fontSize: "11px",
+                fontSize: "12px",
               }}
             >
               · #{auctionNum}
@@ -970,7 +970,8 @@ function FormattedAuctionCreatedMessage({
           marginTop: 2,
         }}
       >
-        ✦ {isRTL ? "سجّل الآن ←" : "Register now →"}
+        ✦{" "}
+        {isRTL ? " سجل الآن وقدم عرضك ←" : "Register now and place your bid →"}
       </p>
     </div>
   );

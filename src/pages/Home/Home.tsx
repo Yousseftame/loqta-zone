@@ -7,7 +7,6 @@ import { Navigation, Pagination, Autoplay } from "swiper/modules";
 import HeroSections from "@/components/HomeSections/HeroSections";
 import { Typography } from "@mui/material";
 import AuctionSwiper from "@/components/shared/AuctionSwiper";
-import StatsSection from "@/components/shared/Statssection";
 import HowItWorksSection from "@/components/shared/Howitworkssection";
 import AuctionsSection from "@/components/shared/Auctionssection";
 import AuctionRequestSection from "@/components/shared/Auctionrequestsection";
@@ -48,7 +47,6 @@ export default function Home() {
 
       <LiveAuctionsSection />
       <AuctionSwiper />
-      <StatsSection />
       <AuctionsSection />
     </>
   );
