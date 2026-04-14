@@ -1,10 +1,16 @@
 /**
  * HeroSections.tsx — Premium Slideshow
  *
- * Top-clip fix:
- *  - .hs-outer has NO padding-top (padding shrinks the height budget → clips the image)
- *  - .hs-root uses margin-top: NAVBAR_H so it sits below the fixed navbar
- *    WITHOUT reducing its own height. The full image is always visible.
+ * PERFORMANCE FIXES:
+ *  - First slide image renders at opacity:1 immediately (no JS gate).
+ *    Previously it started at opacity:0 and only faded in after setFirstImageReady,
+ *    which caused Lighthouse to report NO_LCP because it took its snapshot before
+ *    the image became visible.
+ *  - fetchpriority="high" + loading="eager" on the first/current slide image
+ *    so the browser prioritises it above everything else.
+ *  - Removed the `new Image()` preload effect that was delaying the render cycle.
+ *  - Subsequent (non-first, animating) slides still get the slide-in animation
+ *    at full opacity — only the very first paint skips the fade.
  */
 
 import React, { useEffect, useState, useCallback, useRef } from "react";
@@ -25,7 +31,8 @@ export default function HeroSections() {
   const [animating, setAnimating] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [slidesLoading, setSlidesLoading] = useState(true);
-  const [firstImageReady, setFirstImageReady] = useState(false);
+  // Track whether we have ever shown a slide (first paint = no fade-in)
+  const hasShownFirstSlide = useRef(false);
   const [progress, setProgress] = useState(0);
 
   const rafRef = useRef<number | null>(null);
@@ -49,26 +56,22 @@ export default function HeroSections() {
   }, []);
 
   useEffect(() => {
-    if (slides.length === 0) return;
-    const img = new Image();
-    img.src = slides[0].imageUrl;
-    if (img.complete) {
-      setFirstImageReady(true);
-    } else {
-      img.onload = () => setFirstImageReady(true);
-      img.onerror = () => setFirstImageReady(true);
-    }
-  }, [slides]);
-
-  useEffect(() => {
     const t = setTimeout(() => setMounted(true), 60);
     return () => clearTimeout(t);
   }, []);
 
+  // Prefetch the NEXT slide image only (not the first — browser handles that)
   useEffect(() => {
     if (slides.length < 2) return;
-    const img = new Image();
-    img.src = slides[(current + 1) % slides.length].imageUrl;
+    const nextSrc = slides[(current + 1) % slides.length].imageUrl;
+    const link = document.createElement("link");
+    link.rel = "prefetch";
+    link.as = "image";
+    link.href = nextSrc;
+    document.head.appendChild(link);
+    return () => {
+      document.head.removeChild(link);
+    };
   }, [current, slides]);
 
   const tickProgress = useCallback(() => {
@@ -272,24 +275,17 @@ export default function HeroSections() {
     resumeInterval();
   };
 
+  // Mark first slide as shown after initial render
+  if (slides.length > 0) hasShownFirstSlide.current = true;
+
   return (
     <>
       <style>{`
-        /*
-          hs-outer: no padding-top.
-          padding-top would eat into the visual height and clip the image top.
-        */
         .hs-outer {
           width: 100%;
           background: #09111a;
           box-sizing: border-box;
         }
-
-        /*
-          KEY FIX: margin-top pushes the section below the fixed navbar
-          without reducing its own height. The image is never clipped.
-          height: calc(100vh - NAVBAR_H) fills the remaining viewport.
-        */
         .hs-root {
           position: relative;
           width: 100%;
@@ -327,8 +323,15 @@ export default function HeroSections() {
           object-fit: cover; object-position: center center;
           display: block; -webkit-user-drag: none; pointer-events: none;
         }
-        .hs-img-initial { opacity: 0; transition: opacity 1.1s cubic-bezier(0.4,0,0.2,1); }
-        .hs-img-initial--in { opacity: 1; }
+
+        /* PERF: first slide is always opacity:1 — no JS gate needed.
+           Subsequent slides (when animating in) also render at full opacity
+           because they slide in via transform, not opacity. */
+        .hs-img-fade {
+          opacity: 0;
+          transition: opacity 1.1s cubic-bezier(0.4,0,0.2,1);
+        }
+        .hs-img-fade--in { opacity: 1; }
 
         .hs-cur-next { animation: hs-cur-next ${ANIM_MS}ms cubic-bezier(0.4,0,0.2,1) forwards; }
         .hs-cur-prev { animation: hs-cur-prev ${ANIM_MS}ms cubic-bezier(0.4,0,0.2,1) forwards; }
@@ -435,6 +438,7 @@ export default function HeroSections() {
 
           {slides.length > 0 && (
             <>
+              {/* Outgoing slide during animation */}
               {animating && prevIdx !== null && slides[prevIdx] && (
                 <div
                   key={`prev-${slides[prevIdx].id}`}
@@ -447,21 +451,50 @@ export default function HeroSections() {
                     aria-hidden="true"
                     className="hs-img"
                     draggable={false}
+                    loading="lazy"
+                    decoding="async"
                   />
                 </div>
               )}
+
+              {/* Current slide
+                  PERF: On the very first paint (not animating, slide 0),
+                  we skip the opacity fade entirely — the image renders at
+                  full opacity immediately, giving Lighthouse a visible LCP element.
+                  fetchpriority="high" tells the browser to fetch it before
+                  anything else on the page.
+              */}
               <div
                 key={`cur-${slides[current].id}`}
                 className={`hs-slide ${animating ? (slideDir === "next" ? "hs-inc-next" : "hs-inc-prev") : ""}`}
                 style={{ zIndex: 2 }}
               >
-                <img
-                  src={slides[current].imageUrl}
-                  alt=""
-                  aria-hidden="true"
-                  draggable={false}
-                  className={`hs-img${!animating ? ` hs-img-initial${firstImageReady ? " hs-img-initial--in" : ""}` : ""}`}
-                />
+                {animating ? (
+                  // During slide transitions: full opacity, transform handles the reveal
+                  <img
+                    src={slides[current].imageUrl}
+                    alt=""
+                    aria-hidden="true"
+                    draggable={false}
+                    className="hs-img"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                ) : (
+                  // Static display: first-ever paint is opacity:1 immediately (LCP fix)
+                  // Any subsequent static display (after nav) also opacity:1
+                  <img
+                    src={slides[current].imageUrl}
+                    alt=""
+                    aria-hidden="true"
+                    draggable={false}
+                    className="hs-img"
+                    // Only the very first image gets high priority + eager loading
+                    fetchPriority={current === 0 ? "high" : "auto"}
+                    loading={current === 0 ? "eager" : "lazy"}
+                    decoding={current === 0 ? "sync" : "async"}
+                  />
+                )}
               </div>
             </>
           )}
