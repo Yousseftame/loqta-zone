@@ -1,14 +1,13 @@
 /**
  * LeftRightSections.tsx — Two side-by-side slideshows below the hero
  *
- * PERFORMANCE FIXES:
+ * PERFORMANCE NOTES:
  *  - Firestore fetches are deferred via requestIdleCallback (falls back to
  *    setTimeout 200ms) so they don't compete with the hero LCP image fetch.
  *  - All panel images use loading="lazy" + decoding="async" — they are
  *    below the fold so the browser should not fetch them eagerly.
- *  - Removed the opacity:0 / new Image() first-image gate (same LCP
- *    pattern fixed in HeroSections). Panel images render at full opacity;
- *    they are below the fold so this doesn't affect LCP.
+ *  - These panels are below the fold and do NOT affect LCP — no changes
+ *    needed here beyond the idle-defer already in place.
  */
 
 import React, { useEffect, useState, useCallback, useRef } from "react";
@@ -197,9 +196,8 @@ function SlidePanel({
   );
 
   const handleTouchStart = useCallback(
-    (e: React.TouchEvent) => {
-      startDrag(e.touches[0].clientX, e.touches[0].clientY);
-    },
+    (e: React.TouchEvent) =>
+      startDrag(e.touches[0].clientX, e.touches[0].clientY),
     [startDrag],
   );
   const handleTouchMove = useCallback(
@@ -210,9 +208,7 @@ function SlidePanel({
     [moveDrag],
   );
   const handleTouchEnd = useCallback(
-    (e: React.TouchEvent) => {
-      endDrag(e.changedTouches[0].clientX);
-    },
+    (e: React.TouchEvent) => endDrag(e.changedTouches[0].clientX),
     [endDrag],
   );
   const handleMouseDown = useCallback(
@@ -230,9 +226,7 @@ function SlidePanel({
     [moveDrag],
   );
   const handleMouseUp = useCallback(
-    (e: React.MouseEvent) => {
-      endDrag(e.clientX);
-    },
+    (e: React.MouseEvent) => endDrag(e.clientX),
     [endDrag],
   );
   const handleMouseLeave = useCallback(
@@ -248,6 +242,7 @@ function SlidePanel({
     goTo(i, i > current ? "next" : "prev");
     resumeInterval();
   };
+
   const id = instanceId;
 
   return (
@@ -377,7 +372,6 @@ function SlidePanel({
               className={`lrs-slide-${id} ${animating ? (slideDir === "next" ? `lrs-inc-next-${id}` : `lrs-inc-prev-${id}`) : ""}`}
               style={{ zIndex: 2 }}
             >
-              {/* PERF: all panel images are below the fold — always lazy */}
               <img
                 src={slides[current].imageUrl}
                 alt=""
@@ -446,8 +440,6 @@ export default function LeftRightSections() {
   const [rightLoading, setRightLoading] = useState(true);
 
   useEffect(() => {
-    // PERF: Defer these Firestore fetches until the browser is idle so they
-    // don't compete with the hero image / LCP fetch on initial load.
     runWhenIdle(() => {
       fetchActiveLeftSectionSlides()
         .then(setLeftSlides)

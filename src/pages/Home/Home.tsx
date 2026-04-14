@@ -1,16 +1,13 @@
 /**
  * Home.tsx
  *
- * PERFORMANCE FIXES:
- *  - LiveAuctionsSection, AuctionSwiper, AuctionsSection are now lazily
+ * PERFORMANCE NOTES:
+ *  - LiveAuctionsSection, AuctionSwiper, AuctionsSection are lazily
  *    imported (React.lazy) so their JS is NOT included in the initial bundle.
  *  - Each section only mounts once its placeholder sentinel enters the
- *    viewport (IntersectionObserver with rootMargin "200px" so it loads
+ *    viewport (IntersectionObserver with rootMargin "300px" so it loads
  *    slightly before the user reaches it). Until then it renders a
  *    lightweight placeholder div — zero Firestore reads, zero JS parse cost.
- *  - Removed unused imports (CurvedLoop, AnimatedThemeToggler, Swiper,
- *    Typography, HowItWorksSection, AuctionRequestSection, useRef, useTranslation)
- *    that were adding to bundle size for nothing.
  */
 
 import React, { lazy, Suspense, useEffect, useRef, useState } from "react";
@@ -18,7 +15,6 @@ import HeroSections from "@/components/HomeSections/HeroSections";
 import LeftRightSections from "@/components/HomeSections/LeftRightSections";
 
 // ─── Lazy-loaded below-fold sections ─────────────────────────────────────────
-// These chunks are only downloaded when the user scrolls near them.
 const LiveAuctionsSection = lazy(
   () => import("@/components/shared/LiveAuctionssection"),
 );
