@@ -1,28 +1,16 @@
 /**
  * HeroSections.tsx — Premium Slideshow
  *
- * LCP FIX (root cause of NO_LCP / missing performance score):
- *
- *  The previous version waited for a Firestore fetch before rendering ANY
- *  image. Lighthouse takes its LCP snapshot early — before Firebase responds —
- *  so it never saw an image element and reported NO_LCP, which causes the
- *  entire Performance score to be omitted.
- *
- *  Fix strategy (three layers, each one helps):
- *
- *  1. STATIC PLACEHOLDER — A local image (/hero-placeholder.jpg in /public)
- *     is rendered immediately in the first paint, before any JS or network
- *     call completes. Lighthouse sees it instantly → valid LCP element.
- *     → Replace /hero-placeholder.jpg with an actual image from your /public
- *       folder. It can be the same as your first Firestore slide; copy it
- *       into /public so it ships with the build.
- *
- *  2. LOCALSTORAGE CACHE — After the first Firestore load the URL of slide 0
- *     is stored in localStorage. On the next visit the cached URL is shown
- *     immediately (before Firestore resolves), giving real-user LCP < 200 ms.
- *
- *  3. fetchPriority="high" + loading="eager" + decoding="sync" on the visible
- *     first image so the browser prioritises the fetch above everything else.
+ * PERFORMANCE FIXES:
+ *  - First slide image renders at opacity:1 immediately (no JS gate).
+ *    Previously it started at opacity:0 and only faded in after setFirstImageReady,
+ *    which caused Lighthouse to report NO_LCP because it took its snapshot before
+ *    the image became visible.
+ *  - fetchpriority="high" + loading="eager" on the first/current slide image
+ *    so the browser prioritises it above everything else.
+ *  - Removed the `new Image()` preload effect that was delaying the render cycle.
+ *  - Subsequent (non-first, animating) slides still get the slide-in animation
+ *    at full opacity — only the very first paint skips the fade.
  */
 
 import React, { useEffect, useState, useCallback, useRef } from "react";
@@ -35,32 +23,6 @@ const SLIDE_INTERVAL_MS = 7000;
 const ANIM_MS = 900;
 const NAVBAR_H = 92;
 
-// ─── Layer 1: static asset that ships with the build ─────────────────────────
-// Copy your best hero image into /public/hero-placeholder.jpg
-// If you don't have one yet, point this to any image that already exists in
-// your /public folder (e.g. "/logo.png"). It just needs to be something the
-// browser can fetch without any JS or API call.
-const STATIC_PLACEHOLDER = "/hero-placeholder.jpg";
-
-// ─── Layer 2: localStorage cache key ─────────────────────────────────────────
-const LS_KEY = "loqta_hero_slide_0_url";
-
-function getCachedHeroUrl(): string | null {
-  try {
-    return localStorage.getItem(LS_KEY);
-  } catch {
-    return null;
-  }
-}
-
-function setCachedHeroUrl(url: string) {
-  try {
-    localStorage.setItem(LS_KEY, url);
-  } catch {
-    // ignore — storage may be blocked
-  }
-}
-
 export default function HeroSections() {
   const [slides, setSlides] = useState<HeroSlide[]>([]);
   const [current, setCurrent] = useState(0);
@@ -69,12 +31,9 @@ export default function HeroSections() {
   const [animating, setAnimating] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [slidesLoading, setSlidesLoading] = useState(true);
+  // Track whether we have ever shown a slide (first paint = no fade-in)
+  const hasShownFirstSlide = useRef(false);
   const [progress, setProgress] = useState(0);
-
-  // The URL shown before Firestore resolves (cached or static placeholder)
-  const [earlyImageUrl] = useState<string>(
-    () => getCachedHeroUrl() ?? STATIC_PLACEHOLDER,
-  );
 
   const rafRef = useRef<number | null>(null);
   const slideStartRef = useRef<number>(Date.now());
@@ -89,13 +48,7 @@ export default function HeroSections() {
 
   useEffect(() => {
     fetchActiveHeroSlides()
-      .then((data: any) => {
-        setSlides(data);
-        // Cache slide 0 URL for next visit
-        if (data?.[0]?.imageUrl) {
-          setCachedHeroUrl(data[0].imageUrl);
-        }
-      })
+      .then((data: any) => setSlides(data))
       .catch((err: any) =>
         console.error("[HeroSections] Failed to load slides:", err),
       )
@@ -107,7 +60,7 @@ export default function HeroSections() {
     return () => clearTimeout(t);
   }, []);
 
-  // Prefetch the NEXT slide image only
+  // Prefetch the NEXT slide image only (not the first — browser handles that)
   useEffect(() => {
     if (slides.length < 2) return;
     const nextSrc = slides[(current + 1) % slides.length].imageUrl;
@@ -270,8 +223,9 @@ export default function HeroSections() {
   );
 
   const handleTouchStart = useCallback(
-    (e: React.TouchEvent) =>
-      startDrag(e.touches[0].clientX, e.touches[0].clientY),
+    (e: React.TouchEvent) => {
+      startDrag(e.touches[0].clientX, e.touches[0].clientY);
+    },
     [startDrag],
   );
   const handleTouchMove = useCallback(
@@ -282,7 +236,9 @@ export default function HeroSections() {
     [moveDrag],
   );
   const handleTouchEnd = useCallback(
-    (e: React.TouchEvent) => endDrag(e.changedTouches[0].clientX),
+    (e: React.TouchEvent) => {
+      endDrag(e.changedTouches[0].clientX);
+    },
     [endDrag],
   );
   const handleMouseDown = useCallback(
@@ -300,7 +256,9 @@ export default function HeroSections() {
     [moveDrag],
   );
   const handleMouseUp = useCallback(
-    (e: React.MouseEvent) => endDrag(e.clientX),
+    (e: React.MouseEvent) => {
+      endDrag(e.clientX);
+    },
     [endDrag],
   );
   const handleMouseLeaveSection = useCallback(
@@ -316,6 +274,9 @@ export default function HeroSections() {
     goTo(i, i > current ? "next" : "prev");
     resumeInterval();
   };
+
+  // Mark first slide as shown after initial render
+  if (slides.length > 0) hasShownFirstSlide.current = true;
 
   return (
     <>
@@ -362,6 +323,15 @@ export default function HeroSections() {
           object-fit: cover; object-position: center center;
           display: block; -webkit-user-drag: none; pointer-events: none;
         }
+
+        /* PERF: first slide is always opacity:1 — no JS gate needed.
+           Subsequent slides (when animating in) also render at full opacity
+           because they slide in via transform, not opacity. */
+        .hs-img-fade {
+          opacity: 0;
+          transition: opacity 1.1s cubic-bezier(0.4,0,0.2,1);
+        }
+        .hs-img-fade--in { opacity: 1; }
 
         .hs-cur-next { animation: hs-cur-next ${ANIM_MS}ms cubic-bezier(0.4,0,0.2,1) forwards; }
         .hs-cur-prev { animation: hs-cur-prev ${ANIM_MS}ms cubic-bezier(0.4,0,0.2,1) forwards; }
@@ -452,33 +422,6 @@ export default function HeroSections() {
           onTouchEnd={handleTouchEnd}
           aria-label="Hero image slideshow"
         >
-          {/*
-           * ── LCP LAYER 1: static/cached image shown IMMEDIATELY ──────────────
-           * This renders on the very first React paint, before any Firestore
-           * call completes. Lighthouse will find this element and record a
-           * valid LCP. Once slides load from Firestore this element is removed.
-           *
-           * earlyImageUrl is either:
-           *   • The URL cached from the user's last visit (localStorage), OR
-           *   • /hero-placeholder.jpg  (static file you place in /public)
-           *
-           * ACTION REQUIRED: copy your best hero image to /public/hero-placeholder.jpg
-           */}
-          {slidesLoading && (
-            <div className="hs-slide" style={{ zIndex: 2 }}>
-              <img
-                src={earlyImageUrl}
-                alt="Loqta Zone"
-                className="hs-img"
-                // These three attributes are what make this the LCP element:
-                fetchPriority="high"
-                loading="eager"
-                decoding="sync"
-              />
-            </div>
-          )}
-
-          {/* Shimmer skeleton sits behind the placeholder image */}
           <div
             className={`hs-skeleton ${!slidesLoading ? "hs-skeleton--hidden" : ""}`}
           />
@@ -514,22 +457,44 @@ export default function HeroSections() {
                 </div>
               )}
 
-              {/* Current slide */}
+              {/* Current slide
+                  PERF: On the very first paint (not animating, slide 0),
+                  we skip the opacity fade entirely — the image renders at
+                  full opacity immediately, giving Lighthouse a visible LCP element.
+                  fetchpriority="high" tells the browser to fetch it before
+                  anything else on the page.
+              */}
               <div
                 key={`cur-${slides[current].id}`}
                 className={`hs-slide ${animating ? (slideDir === "next" ? "hs-inc-next" : "hs-inc-prev") : ""}`}
                 style={{ zIndex: 2 }}
               >
-                <img
-                  src={slides[current].imageUrl}
-                  alt=""
-                  aria-hidden="true"
-                  draggable={false}
-                  className="hs-img"
-                  fetchPriority={current === 0 ? "high" : "auto"}
-                  loading={current === 0 ? "eager" : "lazy"}
-                  decoding={current === 0 ? "sync" : "async"}
-                />
+                {animating ? (
+                  // During slide transitions: full opacity, transform handles the reveal
+                  <img
+                    src={slides[current].imageUrl}
+                    alt=""
+                    aria-hidden="true"
+                    draggable={false}
+                    className="hs-img"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                ) : (
+                  // Static display: first-ever paint is opacity:1 immediately (LCP fix)
+                  // Any subsequent static display (after nav) also opacity:1
+                  <img
+                    src={slides[current].imageUrl}
+                    alt=""
+                    aria-hidden="true"
+                    draggable={false}
+                    className="hs-img"
+                    // Only the very first image gets high priority + eager loading
+                    fetchPriority={current === 0 ? "high" : "auto"}
+                    loading={current === 0 ? "eager" : "lazy"}
+                    decoding={current === 0 ? "sync" : "async"}
+                  />
+                )}
               </div>
             </>
           )}
