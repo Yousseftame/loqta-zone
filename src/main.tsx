@@ -20,6 +20,7 @@ import { LastOfferProvider } from './store/AdminContext/LastOfferContext/LastOff
 import { HeroSlideProvider } from './store/AdminContext/HeroSlideContext/HeroSlideContext.tsx';
 import { LeftSectionProvider } from './store/AdminContext/LeftSectionContext/LeftSectionContext.tsx';
 import { RightSectionProvider } from './store/AdminContext/RightSectionContext/RightSectionContext.tsx';
+import { SupplierProvider } from './store/AdminContext/SupplierContext/SupplierContext.tsx';
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -34,6 +35,7 @@ createRoot(document.getElementById("root")!).render(
       <AuthProvider>
         <CategoryProvider>
           <ProductProvider>
+            <SupplierProvider>
             <AuctionProvider>
               <VoucherProvider>
                 <AuctionRequestProvider>
@@ -54,7 +56,8 @@ createRoot(document.getElementById("root")!).render(
                   </ContactFeedbackProvider>
                 </AuctionRequestProvider>
               </VoucherProvider>
-            </AuctionProvider>
+          </AuctionProvider>
+          </SupplierProvider>
           </ProductProvider>
         </CategoryProvider>
       </AuthProvider>

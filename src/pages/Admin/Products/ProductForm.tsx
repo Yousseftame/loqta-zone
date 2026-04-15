@@ -32,6 +32,7 @@ import {
 } from "./products-data";
 import { useProducts } from "@/store/AdminContext/ProductContext/ProductsCotnext";
 import { useCategories } from "@/store/AdminContext/CategoryContext/CategoryContext";
+import { useSuppliers } from "@/store/AdminContext/SupplierContext/SupplierContext";
 
 const inputSx = {
   "& .MuiOutlinedInput-root": {
@@ -71,6 +72,7 @@ export default function ProductForm() {
   const isEdit = Boolean(id);
   const { getProduct, addProduct, editProduct } = useProducts();
   const { categories } = useCategories();
+  const { suppliers } = useSuppliers();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState<ProductFormData>(DEFAULT_FORM_DATA);
@@ -82,6 +84,7 @@ export default function ProductForm() {
   const [newImagePreviews, setNewImagePreviews] = useState<string[]>([]);
 
   const activeCategories = categories.filter((c) => c.isActive);
+  const activeSuppliers = suppliers.filter((s) => s.isActive);
 
   useEffect(() => {
     if (!isEdit || !id) return;
@@ -95,6 +98,7 @@ export default function ProductForm() {
           brand: p.brand,
           model: p.model,
           category: p.category,
+          supplierId: p.supplierId, // NEW
           description: p.description,
           price: String(p.price),
           actualPrice: String(p.actualPrice ?? ""),
@@ -195,20 +199,17 @@ export default function ProductForm() {
       setErrors(e);
       return;
     }
+
     setSaving(true);
     try {
       if (isEdit && id) {
-        // Edit path — just navigate back, no expense prompt
         await editProduct(id, form, originalImages);
         navigate("/admin/Products");
       } else {
-        // Add path — after success, navigate to ProductsList with prefill state
-        // so AddTransactionModal opens automatically
         await addProduct(form);
 
         const costPrice = Number(form.actualPrice.trim());
         if (costPrice > 0) {
-          // Pass the prefill data via location state; ProductsList reads it on mount
           navigate("/admin/Products", {
             state: {
               openExpenseModal: true,
@@ -444,7 +445,62 @@ export default function ProductForm() {
             </FormControl>
           </Box>
 
-          {/* Row 3 — Starting Price + Cost Price */}
+          {/* Row 3 — Supplier */}
+          <FormControl size="small" fullWidth>
+            <InputLabel sx={{ "&.Mui-focused": { color: colors.primary } }}>
+              Supplier
+            </InputLabel>
+            <Select
+              value={form.supplierId}
+              label="Supplier"
+              onChange={(e) => field("supplierId", e.target.value)}
+              sx={selectSx}
+            >
+              <MenuItem value="">
+                <em style={{ color: colors.textMuted }}>
+                  No supplier selected
+                </em>
+              </MenuItem>
+              {activeSuppliers.length === 0 && (
+                <MenuItem disabled value="__none__">
+                  <em>No active suppliers found</em>
+                </MenuItem>
+              )}
+              {activeSuppliers.map((sup) => (
+                <MenuItem key={sup.id} value={sup.id}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <span style={{ fontWeight: 600, fontSize: "0.875rem" }}>
+                      {sup.name}
+                    </span>
+                    {sup.contactPerson && (
+                      <span
+                        style={{ fontSize: "0.75rem", color: colors.textMuted }}
+                      >
+                        — {sup.contactPerson}
+                      </span>
+                    )}
+                  </Box>
+                </MenuItem>
+              ))}
+            </Select>
+            <FormHelperText>
+              Optional — select the supplier this product comes from.{" "}
+              {activeSuppliers.length === 0 && (
+                <span
+                  onClick={() => navigate("/admin/suppliers/add")}
+                  style={{
+                    cursor: "pointer",
+                    textDecoration: "underline",
+                    color: colors.primary,
+                  }}
+                >
+                  Add a supplier first.
+                </span>
+              )}
+            </FormHelperText>
+          </FormControl>
+
+          {/* Row 4 — Starting Price + Cost Price */}
           <Box
             sx={{
               display: "grid",
@@ -513,7 +569,7 @@ export default function ProductForm() {
             />
           </Box>
 
-          {/* Row 4 — Quantity */}
+          {/* Row 5 — Quantity */}
           <Box
             sx={{
               display: "grid",
@@ -534,7 +590,7 @@ export default function ProductForm() {
             />
           </Box>
 
-          {/* Row 5 — isActive toggle */}
+          {/* Row 6 — isActive toggle */}
           <Box>
             <FormControlLabel
               control={

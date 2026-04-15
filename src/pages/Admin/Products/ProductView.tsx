@@ -26,7 +26,7 @@ import {
   Clock,
   CheckCircle2,
   Lock,
-  TrendingUp,
+  Truck,
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { colors, getAvatarColor } from "./products-data";
@@ -34,6 +34,7 @@ import type { Product } from "./products-data";
 import { useProducts } from "@/store/AdminContext/ProductContext/ProductsCotnext";
 import { useAuctions } from "@/store/AdminContext/AuctionContext/AuctionContext";
 import { useCategories } from "@/store/AdminContext/CategoryContext/CategoryContext";
+import { useSuppliers } from "@/store/AdminContext/SupplierContext/SupplierContext";
 import {
   getAuctionStatusStyle,
   type AuctionStatus,
@@ -54,6 +55,7 @@ export default function ProductView() {
   const { getProduct, removeProduct } = useProducts();
   const { auctions } = useAuctions();
   const { categories } = useCategories();
+  const { suppliers } = useSuppliers();
 
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
@@ -66,6 +68,12 @@ export default function ProductView() {
     if (!categoryId) return "—";
     const found = categories.find((c) => c.id === categoryId);
     return found ? found.name.en : categoryId;
+  };
+
+  const getSupplierName = (supplierId: string): string => {
+    if (!supplierId) return "—";
+    const found = suppliers.find((s) => s.id === supplierId);
+    return found ? found.name : supplierId;
   };
 
   useEffect(() => {
@@ -129,17 +137,6 @@ export default function ProductView() {
       </Box>
     );
   }
-
-  const inventoryValue = (product.price * product.quantity).toFixed(2);
-
-  // Profit margin (only shown if actualPrice > 0)
-  const margin =
-    product.actualPrice > 0
-      ? (
-          ((product.price - product.actualPrice) / product.actualPrice) *
-          100
-        ).toFixed(1)
-      : null;
 
   return (
     <Box
@@ -270,6 +267,9 @@ export default function ProductView() {
                 `Brand: ${product.brand}`,
                 `Model: ${product.model}`,
                 `Category: ${getCategoryName(product.category)}`,
+                ...(product.supplierId
+                  ? [`Supplier: ${getSupplierName(product.supplierId)}`]
+                  : []),
               ].map((tag) => (
                 <span
                   key={tag}
@@ -333,7 +333,7 @@ export default function ProductView() {
         >
           {[
             {
-              label: "starting Price",
+              label: "Starting Price",
               value: `${product.price.toFixed(2)} EGP`,
               icon: <DollarSign size={16} />,
               color: colors.primary,
@@ -349,13 +349,6 @@ export default function ProductView() {
               color: "#7C3AED",
               adminOnly: true,
             },
-            // {
-            //   label: "Margin",
-            //   value: margin !== null ? `${margin}%` : "—",
-            //   icon: <TrendingUp size={16} />,
-            //   color: "#0EA5E9",
-            //   adminOnly: true,
-            // },
             {
               label: "Quantity",
               value:
@@ -830,7 +823,7 @@ export default function ProductView() {
             </span>
           </Box>
 
-          {/* starting Price */}
+          {/* Supplier — NEW */}
           <Box>
             <p
               style={{
@@ -842,7 +835,46 @@ export default function ProductView() {
                 letterSpacing: "0.04em",
               }}
             >
-              starting Price
+              Supplier
+            </p>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <Truck size={14} style={{ color: colors.textMuted }} />
+              {product.supplierId ? (
+                <span
+                  style={{
+                    fontSize: "0.875rem",
+                    color: colors.primary,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    textDecoration: "underline",
+                  }}
+                  onClick={() =>
+                    navigate(`/admin/suppliers/${product.supplierId}`)
+                  }
+                >
+                  {getSupplierName(product.supplierId)}
+                </span>
+              ) : (
+                <span style={{ fontSize: "0.875rem", color: colors.textMuted }}>
+                  —
+                </span>
+              )}
+            </Box>
+          </Box>
+
+          {/* Starting Price */}
+          <Box>
+            <p
+              style={{
+                margin: "0 0 8px",
+                fontSize: "0.75rem",
+                color: colors.textMuted,
+                fontWeight: 600,
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
+              }}
+            >
+              Starting Price
             </p>
             <span
               style={{
@@ -906,19 +938,6 @@ export default function ProductView() {
                 ? `${product.actualPrice.toFixed(2)} EGP`
                 : "—"}
             </span>
-            {/* {margin !== null && (
-              <span
-                style={{
-                  marginLeft: 8,
-                  fontSize: "0.78rem",
-                  color: Number(margin) >= 0 ? colors.success : colors.error,
-                  fontWeight: 600,
-                }}
-              >
-                {Number(margin) >= 0 ? "+" : ""}
-                {margin}% margin
-              </span>
-            )} */}
           </Box>
 
           {/* Date Added */}
@@ -1091,9 +1110,8 @@ export default function ProductView() {
                 }}
               >
                 <strong>Note:</strong> This product has {linkedAuctions.length}{" "}
-                linked auction
-                {linkedAuctions.length > 1 ? "s" : ""}. Those auctions will not
-                be automatically deleted.
+                linked auction{linkedAuctions.length > 1 ? "s" : ""}. Those
+                auctions will not be automatically deleted.
               </p>
             </Box>
           )}

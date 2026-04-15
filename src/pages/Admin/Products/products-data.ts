@@ -6,9 +6,10 @@ export interface Product {
   brand: string;
   model: string;
   category: string;
+  supplierId: string;       // NEW — Firestore ID of the supplier
   description: string;
-  price: number;        // selling / auction start price (visible everywhere)
-  actualPrice: number;  // cost price — admin panel only
+  price: number;            // selling / auction start price (visible everywhere)
+  actualPrice: number;      // cost price — admin panel only
   quantity: number;
   isActive: boolean;
   isArchived: boolean;
@@ -26,9 +27,10 @@ export interface ProductFormData {
   brand: string;
   model: string;
   category: string;
+  supplierId: string;       // NEW
   description: string;
-  price: string;        // selling price
-  actualPrice: string;  // cost price (admin only)
+  price: string;            // selling price
+  actualPrice: string;      // cost price (admin only)
   quantity: string;
   isActive: boolean;
   features: string[];
@@ -72,6 +74,7 @@ export const DEFAULT_FORM_DATA: ProductFormData = {
   brand: "",
   model: "",
   category: "",
+  supplierId: "",           // NEW
   description: "",
   price: "",
   actualPrice: "",

@@ -19,6 +19,7 @@ import {
   X,
   PanelLeft,
   PanelRight,
+  Truck,
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { signOut } from "firebase/auth";
@@ -403,6 +404,14 @@ const Sidebar = () => {
       path: "/admin/categories",
       roles: ["admin", "superAdmin"],
     },
+    {
+      id: "Suppliers",
+      label: "Suppliers",
+      icon: Truck,
+      path: "/admin/suppliers",
+      roles: ["admin", "superAdmin"],
+    },
+
     {
       id: "Products",
       label: "Products",

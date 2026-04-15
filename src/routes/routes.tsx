@@ -98,6 +98,9 @@ const LastOfferConfirmPage = lazy(
 
 import { createBrowserRouter } from "react-router-dom";
 import AuditLogsPage from "@/pages/Admin/AuditLogs/AuditLogsPage";
+import SuppliersList from "@/pages/Admin/Suppliers/SuppliersList";
+import SupplierForm from "@/pages/Admin/Suppliers/SupplierForm";
+import SupplierView from "@/pages/Admin/Suppliers/SupplierView";
 
 export const routes = createBrowserRouter([
   {
@@ -173,6 +176,24 @@ export const routes = createBrowserRouter([
             <CategoryForm />
           </PermissionRoute>
         ),
+      },
+
+      // ── suppliers ─────────────────────────────────────────────────────────
+      {
+        path: "suppliers",
+        element: <SuppliersList />,
+      },
+      {
+        path: "suppliers/add",
+        element: <SupplierForm />,
+      },
+      {
+        path: "suppliers/:id",
+        element: <SupplierView />,
+      },
+      {
+        path: "suppliers/:id/edit",
+        element: <SupplierForm />,
       },
 
       // ── Products ─────────────────────────────────────────────────────────
@@ -380,11 +401,7 @@ export const routes = createBrowserRouter([
 
       {
         path: "/admin/audit-logs",
-        element: (
-         
-            <AuditLogsPage />
-        
-        ),
+        element: <AuditLogsPage />,
       },
 
       // ── Scheduling / Payment ──────────────────────────────────────────────

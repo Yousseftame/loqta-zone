@@ -27,30 +27,31 @@ const COLLECTION = "products";
 function docToProduct(id: string, data: Record<string, any>): Product {
   return {
     id,
-    title: data.title ?? "",
-    brand: data.brand ?? "",
-    model: data.model ?? "",
-    category: data.category ?? "",
-    description: data.description ?? "",
-    price: data.price ?? 0,
-    actualPrice: data.actualPrice ?? 0,   // new field — defaults to 0 for legacy docs
-    quantity: data.quantity ?? 0,
-    isActive: data.isActive ?? true,
-    isArchived: data.isArchived ?? false,
-    features: Array.isArray(data.features) ? data.features : [],
-    images: Array.isArray(data.images) ? data.images : [],
-    thumbnail: !data.thumbnail || data.thumbnail === "null" ? null : data.thumbnail,
+    title:         data.title         ?? "",
+    brand:         data.brand         ?? "",
+    model:         data.model         ?? "",
+    category:      data.category      ?? "",
+    supplierId:    data.supplierId     ?? "",   // NEW — defaults to "" for legacy docs
+    description:   data.description   ?? "",
+    price:         data.price         ?? 0,
+    actualPrice:   data.actualPrice   ?? 0,
+    quantity:      data.quantity      ?? 0,
+    isActive:      data.isActive      ?? true,
+    isArchived:    data.isArchived     ?? false,
+    features:      Array.isArray(data.features) ? data.features : [],
+    images:        Array.isArray(data.images)   ? data.images   : [],
+    thumbnail:     !data.thumbnail || data.thumbnail === "null" ? null : data.thumbnail,
     totalAuctions: data.totalAuctions ?? 0,
-    createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
-    updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date(),
-    createdBy: data.createdBy ?? "",
+    createdAt:     data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
+    updatedAt:     data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date(),
+    createdBy:     data.createdBy     ?? "",
   };
 }
 
 async function uploadImage(productId: string, file: File): Promise<string> {
-  const safeName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+  const safeName   = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
   const storageRef = ref(storage, `products/${productId}/${safeName}`);
-  const snapshot = await uploadBytes(storageRef, file);
+  const snapshot   = await uploadBytes(storageRef, file);
   return getDownloadURL(snapshot.ref);
 }
 
@@ -64,8 +65,6 @@ async function deleteImageByUrl(url: string): Promise<void> {
 }
 
 // ─── Safe numeric parser ──────────────────────────────────────────────────────
-// Trims whitespace and parses the FULL string — avoids partial-value bugs
-// from controlled inputs that fire onChange mid-keystroke.
 function parseNum(val: string): number {
   const trimmed = String(val).trim();
   const n = Number(trimmed);
@@ -76,10 +75,7 @@ function parseNum(val: string): number {
 
 export async function fetchProducts(): Promise<Product[]> {
   try {
-    const q = query(
-      collection(db, COLLECTION),
-      orderBy("createdAt", "desc")
-    );
+    const q    = query(collection(db, COLLECTION), orderBy("createdAt", "desc"));
     const snap = await getDocs(q);
     return snap.docs.map((d) => docToProduct(d.id, d.data()));
   } catch (err: any) {
@@ -102,29 +98,29 @@ export async function createProduct(
   formData: ProductFormData,
   createdByUid: string,
 ): Promise<Product> {
-  // Use parseNum to avoid partial-value / float precision issues
-  const price = parseNum(formData.price);
+  const price       = parseNum(formData.price);
   const actualPrice = parseNum(formData.actualPrice);
-  const quantity = parseNum(formData.quantity);
+  const quantity    = parseNum(formData.quantity);
 
   const payload: Record<string, any> = {
-    title: formData.title,
-    brand: formData.brand,
-    model: formData.model,
-    category: formData.category,
-    description: formData.description,
+    title:         formData.title,
+    brand:         formData.brand,
+    model:         formData.model,
+    category:      formData.category,
+    supplierId:    formData.supplierId,   // NEW
+    description:   formData.description,
     price,
     actualPrice,
     quantity,
-    isActive: formData.isActive,
-    isArchived: false,
-    features: formData.features,
-    images: [],
-    thumbnail: null,
+    isActive:      formData.isActive,
+    isArchived:    false,
+    features:      formData.features,
+    images:        [],
+    thumbnail:     null,
     totalAuctions: 0,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-    createdBy: createdByUid,
+    createdAt:     serverTimestamp(),
+    updatedAt:     serverTimestamp(),
+    createdBy:     createdByUid,
   };
 
   const docRef = await addDoc(collection(db, COLLECTION), payload);
@@ -142,31 +138,32 @@ export async function createProduct(
 
   if (uploadedUrls.length > 0) {
     await updateDoc(docRef, {
-      images: uploadedUrls,
+      images:    uploadedUrls,
       thumbnail: uploadedUrls[0],
     });
   }
 
   const now = new Date();
   return {
-    id: docRef.id,
-    title: formData.title,
-    brand: formData.brand,
-    model: formData.model,
-    category: formData.category,
-    description: formData.description,
+    id:            docRef.id,
+    title:         formData.title,
+    brand:         formData.brand,
+    model:         formData.model,
+    category:      formData.category,
+    supplierId:    formData.supplierId,
+    description:   formData.description,
     price,
     actualPrice,
     quantity,
-    isActive: formData.isActive,
-    isArchived: false,
-    features: formData.features,
-    images: uploadedUrls,
-    thumbnail: uploadedUrls[0] ?? null,
+    isActive:      formData.isActive,
+    isArchived:    false,
+    features:      formData.features,
+    images:        uploadedUrls,
+    thumbnail:     uploadedUrls[0] ?? null,
     totalAuctions: 0,
-    createdAt: now,
-    updatedAt: now,
-    createdBy: createdByUid,
+    createdAt:     now,
+    updatedAt:     now,
+    createdBy:     createdByUid,
   };
 }
 
@@ -177,9 +174,9 @@ export async function updateProduct(
   formData: ProductFormData,
   previousImages: string[],
 ): Promise<Product> {
-  const price = parseNum(formData.price);
+  const price       = parseNum(formData.price);
   const actualPrice = parseNum(formData.actualPrice);
-  const quantity = parseNum(formData.quantity);
+  const quantity    = parseNum(formData.quantity);
 
   // Upload new images
   const newUrls: string[] = [];
@@ -211,41 +208,43 @@ export async function updateProduct(
   const thumbnail = thumbnailIsValid ? formData.thumbnail : (finalImages[0] ?? null);
 
   await updateDoc(doc(db, COLLECTION, id), {
-    title: formData.title,
-    brand: formData.brand,
-    model: formData.model,
-    category: formData.category,
+    title:       formData.title,
+    brand:       formData.brand,
+    model:       formData.model,
+    category:    formData.category,
+    supplierId:  formData.supplierId,   // NEW
     description: formData.description,
     price,
     actualPrice,
     quantity,
-    isActive: formData.isActive,
-    features: formData.features,
-    images: finalImages,
-    thumbnail: thumbnail ?? null,
-    updatedAt: serverTimestamp(),
+    isActive:    formData.isActive,
+    features:    formData.features,
+    images:      finalImages,
+    thumbnail:   thumbnail ?? null,
+    updatedAt:   serverTimestamp(),
   });
 
   const now = new Date();
   return {
     id,
-    title: formData.title,
-    brand: formData.brand,
-    model: formData.model,
-    category: formData.category,
-    description: formData.description,
+    title:         formData.title,
+    brand:         formData.brand,
+    model:         formData.model,
+    category:      formData.category,
+    supplierId:    formData.supplierId,
+    description:   formData.description,
     price,
     actualPrice,
     quantity,
-    isActive: formData.isActive,
-    isArchived: false,
-    features: formData.features,
-    images: finalImages,
+    isActive:      formData.isActive,
+    isArchived:    false,
+    features:      formData.features,
+    images:        finalImages,
     thumbnail,
     totalAuctions: 0,
-    createdAt: new Date(),
-    updatedAt: now,
-    createdBy: "",
+    createdAt:     new Date(),
+    updatedAt:     now,
+    createdBy:     "",
   };
 }
 
