@@ -2,17 +2,79 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/loqta.jpeg" />
+
+    <!-- ── Preconnect to external origins BEFORE any resource fetch ── -->
+    <!-- This eliminates the connection setup time for Google Fonts and Firebase -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <!-- ── Preconnect to Firebase (your Firestore/Storage domain) ── -->
+    <!-- Replace YOUR_PROJECT_ID with your actual Firebase project ID -->
+    <link rel="preconnect" href="https://firestore.googleapis.com" />
+    <link rel="preconnect" href="https://storage.googleapis.com" />
+
+    <!-- ── Preload the LCP image (your static logo) ── -->
+    <!-- This tells the browser to fetch this image at highest priority,
+         before it even discovers it in the HTML. Critical for LCP score. -->
+    <link rel="preload" href="/loqta-removebg-preview.png" as="image" fetchpriority="high" />
+
+    <!-- ── Viewport ── -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LOQTA ZONE</title>
+
+    <!-- ── Favicon ── -->
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+
+    <title>Loqta Zone</title>
+
+    <!-- ── Google Fonts: load NON-BLOCKING ──
+         The standard Google Fonts embed is render-blocking because it uses
+         <link rel="stylesheet"> which pauses rendering until it downloads.
+
+         Fix: use font-display=swap + load asynchronously via JS.
+         This way fonts load after paint — text shows in system font first,
+         then swaps to the custom font. No render block. -->
     <style>
-    
-      html, body, #root {
-        background-color: #080603 !important;
+      /* Critical inline CSS: defines font stacks so text renders immediately
+         in a fallback font before Google Fonts arrive. */
+      :root {
+        --font-serif: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+        --font-sans: 'Jost', 'Outfit', system-ui, -apple-system, sans-serif;
+        --font-mono: 'Share Tech Mono', 'Courier New', monospace;
+      }
+
+      /* Prevent FOUC: body background before React mounts */
+      body {
+        background: #09111a;
         margin: 0;
         padding: 0;
       }
+
+      /* Prevent layout shift from scrollbar appearing */
+      html {
+        overflow-y: scroll;
+      }
     </style>
+
+    <!-- Load Google Fonts asynchronously (non-blocking) -->
+    <!-- We use the media="print" trick: the browser loads print stylesheets
+         asynchronously, then we switch to "all" once loaded -->
+    <link
+      rel="stylesheet"
+      media="print"
+      onload="this.media='all'"
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,600;0,700;1,300;1,600;1,700;1,900&family=Jost:wght@200;300;400;500;600;700;800&family=Share+Tech+Mono&family=Outfit:wght@300;400;500;600;700;800;900&display=swap"
+    />
+    <!-- Fallback for no-JS: this loads synchronously only if JS is disabled -->
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,600;0,700;1,300;1,600;1,700;1,900&family=Jost:wght@200;300;400;500;600;700;800&family=Share+Tech+Mono&family=Outfit:wght@300;400;500;600;700;800;900&display=swap"
+      />
+    </noscript>
+
+    <!-- ── DNS prefetch for other third-party origins ── -->
+    <link rel="dns-prefetch" href="https://identitytoolkit.googleapis.com" />
+    <link rel="dns-prefetch" href="https://securetoken.googleapis.com" />
   </head>
   <body>
     <div id="root"></div>
