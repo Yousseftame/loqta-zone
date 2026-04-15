@@ -4,27 +4,21 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
 /**
- * PERFORMANCE FIXES:
+ * PERFORMANCE FIXES v2:
  *
- * manualChunks — splits the bundle so the browser can cache stable
- * vendor libraries independently from your app code:
- *   • firebase   — large, changes rarely
- *   • mui        — large, changes rarely
- *   • swiper     — medium, changes rarely
- *   • i18n       — medium, changes rarely
- *   • vendor     — everything else from node_modules
+ * The previous config produced a 913 KB "vendor" chunk because it caught
+ * everything not explicitly named. We now explicitly split:
  *
- * Without splitting, a single-byte change to your app code busts the
- * cache for the entire ~2 MB bundle. With splitting, only the changed
- * chunk needs to be re-downloaded.
- *
- * minify: "terser" — produces ~15-20% smaller output than esbuild
- * (the Vite default) at the cost of a slightly longer build time.
- *
- * cssCodeSplit — each lazy chunk gets only the CSS it needs, so the
- * initial page doesn't pay for styles from lazy-loaded sections.
- *
- * reportCompressedSize: false — speeds up the build (cosmetic only).
+ *   react-core   — react + react-dom (always needed, load first, small-ish)
+ *   router       — react-router-dom
+ *   motion       — framer-motion / motion (large animation library)
+ *   lucide       — lucide-react (icon library, can be huge)
+ *   firebase     — firebase SDK (large, stable)
+ *   mui          — @mui + @emotion
+ *   swiper       — swiper
+ *   i18n         — i18next + react-i18next
+ *   gsap         — gsap
+ *   vendor       — everything else (now much smaller)
  */
 export default defineConfig({
   plugins: [react(), tailwindcss()],
@@ -44,39 +38,86 @@ export default defineConfig({
     minify: "terser",
     cssCodeSplit: true,
     reportCompressedSize: false,
+    chunkSizeWarningLimit: 600,
 
     terserOptions: {
       compress: {
-        drop_console: true,   // removes all console.log in production
+        drop_console: true,
         drop_debugger: true,
         pure_funcs: ["console.info", "console.debug", "console.warn"],
+        passes: 2,
       },
+      mangle: true,
     },
 
     rollupOptions: {
       output: {
         manualChunks(id: string) {
-          // Firebase — keep all firebase/* together, it's tightly coupled
-          if (id.includes("node_modules/firebase") || id.includes("node_modules/@firebase")) {
+          // React core — tiny, critical, always cached
+          if (
+            id.includes("node_modules/react/") ||
+            id.includes("node_modules/react-dom/") ||
+            id.includes("node_modules/scheduler/")
+          ) {
+            return "react-core";
+          }
+
+          // Router
+          if (
+            id.includes("node_modules/react-router") ||
+            id.includes("node_modules/@remix-run")
+          ) {
+            return "router";
+          }
+
+          // Animation libraries
+          if (
+            id.includes("node_modules/framer-motion") ||
+            id.includes("node_modules/motion")
+          ) {
+            return "motion";
+          }
+
+          // Icon library
+          if (id.includes("node_modules/lucide-react")) {
+            return "lucide";
+          }
+
+          // Firebase
+          if (
+            id.includes("node_modules/firebase") ||
+            id.includes("node_modules/@firebase")
+          ) {
             return "firebase";
           }
+
           // Material UI
-          if (id.includes("node_modules/@mui") || id.includes("node_modules/@emotion")) {
+          if (
+            id.includes("node_modules/@mui") ||
+            id.includes("node_modules/@emotion")
+          ) {
             return "mui";
           }
+
           // Swiper
           if (id.includes("node_modules/swiper")) {
             return "swiper";
           }
+
           // i18n
-          if (id.includes("node_modules/i18next") || id.includes("node_modules/react-i18next")) {
+          if (
+            id.includes("node_modules/i18next") ||
+            id.includes("node_modules/react-i18next")
+          ) {
             return "i18n";
           }
-          // GSAP (used in Tact Innovations / SplitText)
+
+          // GSAP
           if (id.includes("node_modules/gsap")) {
             return "gsap";
           }
-          // Everything else from node_modules
+
+          // Everything else — now much smaller
           if (id.includes("node_modules")) {
             return "vendor";
           }

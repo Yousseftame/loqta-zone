@@ -1,25 +1,41 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 
 interface SplashScreenProps {
   onComplete: () => void;
-  minDuration?: number; // ms — keep splash visible for at least this long
+  minDuration?: number;
+}
+
+function shouldSkipSplash(): boolean {
+  try {
+    if (sessionStorage.getItem("sp_shown") === "1") return true;
+    sessionStorage.setItem("sp_shown", "1");
+  } catch {
+    return true;
+  }
+  return false;
 }
 
 export default function SplashScreen({
   onComplete,
   minDuration = 2800,
 }: SplashScreenProps) {
-  const [phase, setPhase] = useState<"enter" | "hold" | "exit">("enter");
+  const [phase, setPhase] = useState<"enter" | "hold" | "exit" | "done">(
+    "enter",
+  );
+  const skipped = useRef(shouldSkipSplash());
 
   useEffect(() => {
-    // Phase 1 — enter animations play (750ms)
+    if (skipped.current) {
+      onComplete();
+      return;
+    }
+
     const holdTimer = setTimeout(() => setPhase("hold"), 750);
-
-    // Phase 2 — hold for minDuration, then exit
     const exitTimer = setTimeout(() => setPhase("exit"), minDuration);
-
-    // Phase 3 — after exit animation (900ms), notify parent
-    const doneTimer = setTimeout(() => onComplete(), minDuration + 900);
+    const doneTimer = setTimeout(() => {
+      setPhase("done");
+      onComplete();
+    }, minDuration + 900);
 
     return () => {
       clearTimeout(holdTimer);
@@ -28,12 +44,13 @@ export default function SplashScreen({
     };
   }, [minDuration, onComplete]);
 
+  if (skipped.current || phase === "done") return null;
+
   return (
     <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,700;1,300;1,700;1,900&family=Jost:wght@200;300;400&display=swap');
 
-        /* ── Root overlay ── */
         .sp-root {
           position: fixed;
           inset: 0;
@@ -44,9 +61,9 @@ export default function SplashScreen({
           justify-content: center;
           overflow: hidden;
           pointer-events: none;
+          will-change: transform;
         }
 
-        /* Exit: two panels split vertically and slide away */
         .sp-panel-top,
         .sp-panel-bot {
           position: absolute;
@@ -55,13 +72,13 @@ export default function SplashScreen({
           background: #080603;
           z-index: 2;
           transition: transform 0.9s cubic-bezier(0.76, 0, 0.24, 1);
+          will-change: transform;
         }
         .sp-panel-top { top: 0; transform: translateY(0); }
         .sp-panel-bot { bottom: 0; transform: translateY(0); }
         .sp-root.exiting .sp-panel-top { transform: translateY(-100%); }
         .sp-root.exiting .sp-panel-bot { transform: translateY(100%); }
 
-        /* ── Film grain ── */
         .sp-grain {
           position: absolute;
           inset: 0;
@@ -72,7 +89,6 @@ export default function SplashScreen({
           background-size: 200px 200px;
         }
 
-        /* ── Ambient radial glow ── */
         .sp-glow {
           position: absolute;
           top: 50%; left: 50%;
@@ -89,7 +105,6 @@ export default function SplashScreen({
           50%      { opacity: 1;   transform: translate(-50%,-50%) scale(1.1); }
         }
 
-        /* ── Decorative rings ── */
         .sp-ring {
           position: absolute;
           top: 50%; left: 50%;
@@ -107,7 +122,6 @@ export default function SplashScreen({
           50%      { opacity: 1; }
         }
 
-        /* ── Top & bottom edge lines ── */
         .sp-edge-line {
           position: absolute;
           left: 0; right: 0;
@@ -122,7 +136,6 @@ export default function SplashScreen({
         .sp-root.holding .sp-edge-line,
         .sp-root.exiting .sp-edge-line { opacity: 1; }
 
-        /* ── Centre content wrapper ── */
         .sp-center {
           position: relative;
           z-index: 5;
@@ -132,7 +145,6 @@ export default function SplashScreen({
           gap: 0;
         }
 
-        /* ── Eyebrow ── */
         .sp-eyebrow {
           display: flex;
           align-items: center;
@@ -156,7 +168,6 @@ export default function SplashScreen({
           color: rgba(201,169,110,0.7);
         }
 
-        /* ── Logo mark (diamond) ── */
         .sp-mark {
           width: 44px; height: 44px;
           border: 1.5px solid rgba(201,169,110,0.45);
@@ -178,7 +189,6 @@ export default function SplashScreen({
           to   { opacity: 1; transform: rotate(45deg) scale(1); }
         }
 
-        /* ── Wordmark ── */
         .sp-word-loqta {
           font-family: 'Cormorant Garamond', Georgia, serif;
           font-size: clamp(72px, 16vw, 132px);
@@ -213,7 +223,6 @@ export default function SplashScreen({
           to   { opacity: 1; transform: translateY(0) skewY(0); }
         }
 
-        /* ── Gold rule ── */
         .sp-rule {
           height: 1px;
           background: linear-gradient(90deg, transparent, rgba(201,169,110,0.5), transparent);
@@ -227,7 +236,6 @@ export default function SplashScreen({
           to   { width: 100%; opacity: 1; }
         }
 
-        /* ── Tagline ── */
         .sp-tagline {
           font-family: 'Jost', sans-serif;
           font-size: 9.5px;
@@ -240,7 +248,6 @@ export default function SplashScreen({
           animation: sp-fade-up 0.8s ease 1.3s forwards;
         }
 
-        /* ── Progress bar ── */
         .sp-progress-wrap {
           width: clamp(160px, 28vw, 260px);
           margin-top: 44px;
@@ -288,7 +295,6 @@ export default function SplashScreen({
           color: rgba(229,224,198,0.22);
         }
 
-        /* ── Corner ornaments ── */
         .sp-corner {
           position: absolute;
           width: 32px; height: 32px;
@@ -311,13 +317,11 @@ export default function SplashScreen({
           border-bottom: 1px solid rgba(201,169,110,0.35);
           border-right: 1px solid rgba(201,169,110,0.35); }
 
-        /* ── Generic fade-up ── */
         @keyframes sp-fade-up {
           from { opacity: 0; transform: translateY(12px); }
           to   { opacity: 1; transform: translateY(0); }
         }
 
-        /* ── Season label (bottom right) ── */
         .sp-season {
           position: absolute;
           bottom: 44px; right: 44px;
@@ -341,7 +345,6 @@ export default function SplashScreen({
           margin: 6px 0 0 auto;
         }
 
-        /* ── Left vertical label ── */
         .sp-vertical {
           position: absolute;
           left: 40px;
@@ -372,37 +375,22 @@ export default function SplashScreen({
       `}</style>
 
       <div
-        className={`sp-root ${
-          phase === "exit" ? "exiting" : phase === "hold" ? "holding" : ""
-        }`}
+        className={`sp-root ${phase === "exit" ? "exiting" : phase === "hold" ? "holding" : ""}`}
       >
-        {/* Split-exit panels */}
         <div className="sp-panel-top" />
         <div className="sp-panel-bot" />
-
-        {/* Atmosphere */}
         <div className="sp-glow" />
         <div className="sp-grain" />
-
-        {/* Decorative rings */}
         <div className="sp-ring sp-ring-1" />
         <div className="sp-ring sp-ring-2" />
         <div className="sp-ring sp-ring-3" />
-
-        {/* Edge lines */}
         <div className="sp-edge-line sp-edge-top" />
         <div className="sp-edge-line sp-edge-bot" />
-
-        {/* Corner ornaments */}
         <div className="sp-corner sp-corner-tl" />
         <div className="sp-corner sp-corner-tr" />
         <div className="sp-corner sp-corner-bl" />
         <div className="sp-corner sp-corner-br" />
-
-        {/* Vertical label */}
         <div className="sp-vertical">Auction · Luxury · Experience</div>
-
-        {/* Season / edition label */}
         <div className="sp-season">
           <span className="sp-season-label">Editorial Direction</span>
           <span className="sp-season-label" style={{ opacity: 0.5 }}>
@@ -410,32 +398,19 @@ export default function SplashScreen({
           </span>
           <div className="sp-season-accent" />
         </div>
-
-        {/* ── Centre wordmark ── */}
         <div className="sp-center">
-          {/* Eyebrow */}
           <div className="sp-eyebrow">
             <div className="sp-eyebrow-line" />
             <span className="sp-eyebrow-text">Welcome to</span>
             <div className="sp-eyebrow-line right" />
           </div>
-
-          {/* Diamond mark */}
           <div className="sp-mark">
             <div className="sp-mark-inner" />
           </div>
-
-          {/* Wordmark */}
           <span className="sp-word-loqta">Loqta</span>
           <span className="sp-word-zone">Zone</span>
-
-          {/* Rule */}
           <div className="sp-rule" />
-
-          {/* Tagline */}
           <div className="sp-tagline">Bid · Win · Own</div>
-
-          {/* Progress */}
           <div className="sp-progress-wrap">
             <div className="sp-progress-track">
               <div className="sp-progress-fill" />
