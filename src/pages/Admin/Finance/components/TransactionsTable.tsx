@@ -17,8 +17,9 @@
  * UPDATE 3 — Split payment grouping:
  *   Transactions sharing a `groupId` are visually grouped with a colored
  *   left border and a "Part N of M" badge. The first part of a group shows
- *   a "🔀 Split" header row above it. Clicking any part opens its detail
- *   modal as normal.
+ *   a "🔀 Split" header row above it. Split parts within a group are always
+ *   sorted by their part number (Part 1, Part 2, Part 3...) regardless of
+ *   the order Firestore returns them.
  *
  * ─── Balance After calculation ────────────────────────────────────────────────
  * Anchors on current available balance and walks backwards through the
@@ -100,6 +101,69 @@ function buildMethodDisplay(tx: Transaction): string {
     return tx.method === "cash" ? "💵 Cash (in)" : "🏦 Bank (in)";
   }
   return tx.method === "cash" ? "💵 Cash" : "🏦 Bank";
+}
+
+/**
+ * Extract the part number from a splitLabel string like "Part 3 of 5" → 3.
+ * Returns Infinity if it can't parse, so unparseable labels sort to the end.
+ */
+function parseSplitPartNumber(splitLabel: string | undefined): number {
+  if (!splitLabel) return Infinity;
+  const match = splitLabel.match(/^Part\s+(\d+)/i);
+  return match ? parseInt(match[1], 10) : Infinity;
+}
+
+/**
+ * Re-order transactions so that split parts within the same group are
+ * sorted by their part number (1, 2, 3…) while keeping non-split
+ * transactions and group ordering intact.
+ *
+ * Strategy:
+ * - Walk through the array maintaining original inter-group order.
+ * - When we encounter the first part of a new group, collect ALL parts
+ *   of that group from the array, sort them by part number, and emit
+ *   them in order before moving on.
+ */
+function sortSplitPartsInOrder(transactions: Transaction[]): Transaction[] {
+  const result: Transaction[] = [];
+  const emittedGroups = new Set<string>();
+
+  // Build a quick lookup: groupId → all transactions in that group
+  const groupMap = new Map<string, Transaction[]>();
+  for (const tx of transactions) {
+    if (tx.groupId) {
+      const arr = groupMap.get(tx.groupId) ?? [];
+      arr.push(tx);
+      groupMap.set(tx.groupId, arr);
+    }
+  }
+
+  // Sort each group's parts by part number once
+  for (const [gid, parts] of groupMap.entries()) {
+    groupMap.set(
+      gid,
+      [...parts].sort(
+        (a, b) =>
+          parseSplitPartNumber(a.splitLabel) -
+          parseSplitPartNumber(b.splitLabel),
+      ),
+    );
+  }
+
+  for (const tx of transactions) {
+    if (!tx.groupId) {
+      // Non-split transaction: emit as-is
+      result.push(tx);
+    } else if (!emittedGroups.has(tx.groupId)) {
+      // First encounter of this group: emit all sorted parts
+      emittedGroups.add(tx.groupId);
+      const sorted = groupMap.get(tx.groupId) ?? [];
+      result.push(...sorted);
+    }
+    // Subsequent parts of an already-emitted group: skip (already added above)
+  }
+
+  return result;
 }
 
 /**
@@ -604,23 +668,32 @@ export default function TransactionsTable({
 
   const currentAvailable = stats.cashBalance + stats.bankBalance;
 
-  const allBalances = useMemo(
-    () => computeRunningBalances(transactions, currentAvailable),
-    [transactions, currentAvailable],
+  // ── Sort split parts within groups, keeping overall order intact ──────────
+  const sortedTransactions = useMemo(
+    () => sortSplitPartsInOrder(transactions),
+    [transactions],
   );
 
-  const totalPages = Math.max(1, Math.ceil(transactions.length / PAGE_SIZE));
+  const allBalances = useMemo(
+    () => computeRunningBalances(sortedTransactions, currentAvailable),
+    [sortedTransactions, currentAvailable],
+  );
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(sortedTransactions.length / PAGE_SIZE),
+  );
   const safePage = Math.min(page, totalPages);
   const pageStart = (safePage - 1) * PAGE_SIZE;
   const pageEnd = safePage * PAGE_SIZE;
-  const pageData = transactions.slice(pageStart, pageEnd);
+  const pageData = sortedTransactions.slice(pageStart, pageEnd);
   const pageBalances = allBalances.slice(pageStart, pageEnd);
 
-  // Build a map of groupId → all transactions in that group (from the full list,
-  // not just current page) so the header row can show correct totals.
+  // Build a map of groupId → all transactions in that group (from the full
+  // sorted list) so the header row shows correct totals in part order.
   const groupMap = useMemo(() => {
     const map = new Map<string, Transaction[]>();
-    for (const tx of transactions) {
+    for (const tx of sortedTransactions) {
       if (tx.groupId) {
         const arr = map.get(tx.groupId) ?? [];
         arr.push(tx);
@@ -628,7 +701,7 @@ export default function TransactionsTable({
       }
     }
     return map;
-  }, [transactions]);
+  }, [sortedTransactions]);
 
   const handlePrev = () => setPage((p) => Math.max(1, p - 1));
   const handleNext = () => setPage((p) => Math.min(totalPages, p + 1));
@@ -737,9 +810,9 @@ export default function TransactionsTable({
                 fontSize: "0.68rem",
               }}
             />
-            {transactions.length > 0 && (
+            {sortedTransactions.length > 0 && (
               <Chip
-                label={`${transactions.length} total`}
+                label={`${sortedTransactions.length} total`}
                 size="small"
                 sx={{
                   bgcolor: colors.primaryBg,
@@ -819,7 +892,7 @@ export default function TransactionsTable({
                         ))}
                     </tr>
                   ))
-              ) : transactions.length === 0 ? (
+              ) : sortedTransactions.length === 0 ? (
                 <tr>
                   <td
                     colSpan={9}
@@ -1169,11 +1242,11 @@ export default function TransactionsTable({
             >
               Showing{" "}
               <strong style={{ color: colors.textPrimary }}>
-                {pageStart + 1}–{Math.min(pageEnd, transactions.length)}
+                {pageStart + 1}–{Math.min(pageEnd, sortedTransactions.length)}
               </strong>{" "}
               of{" "}
               <strong style={{ color: colors.textPrimary }}>
-                {transactions.length}
+                {sortedTransactions.length}
               </strong>{" "}
               transactions
             </span>

@@ -11,12 +11,13 @@
  * Before saving, we compute whether the transaction would push any balance
  * negative. If so, we show a clear error and block the save.
  *
- * ─── Split Payment (NEW) ──────────────────────────────────────────────────────
+ * ─── Split Payment ────────────────────────────────────────────────────────────
  * Available for income and expense types only (not owner/transfer/return).
  * A "Split Payment" toggle reveals a multi-part editor where the admin can
- * add 2–5 payment parts, each with its own method (cash/bank) and amount.
- * On submit, each part is saved as a separate Firestore doc sharing a groupId.
- * The total of all parts is validated against available balances before saving.
+ * add any number of payment parts (minimum 2), each with its own method
+ * (cash/bank) and amount. On submit, each part is saved as a separate
+ * Firestore doc sharing a groupId. The total of all parts is validated
+ * against available balances before saving.
  */
 
 import { useState, useEffect } from "react";
@@ -34,7 +35,6 @@ import {
   Box,
   Alert,
   Switch,
-  FormControlLabel,
   IconButton,
   Tooltip,
 } from "@mui/material";
@@ -254,7 +254,6 @@ function validateBalance(
 
   // ── Split payment validation ───────────────────────────────────────────────
   if (form.isSplit && form.splits && form.splits.length > 0) {
-    // Accumulate total debits per method
     let cashDebit = 0;
     let bankDebit = 0;
     for (const part of form.splits) {
@@ -338,8 +337,7 @@ function SplitEditor({
   };
 
   const addPart = () => {
-    if (splits.length >= 5) return; // max 5 parts
-    // Default to the method that hasn't been used yet, or alternate
+    // Alternate between bank and cash for the new part
     const usedMethods = splits.map((s) => s.method);
     const nextMethod: PaymentMethod =
       usedMethods.filter((m) => m === "bank").length <=
@@ -474,29 +472,27 @@ function SplitEditor({
         );
       })}
 
-      {/* Add part button */}
-      {splits.length < 5 && (
-        <Button
-          size="small"
-          startIcon={<PlusCircle size={14} />}
-          onClick={addPart}
-          sx={{
-            textTransform: "none",
-            fontWeight: 700,
-            fontSize: "0.75rem",
-            color: colors.primary,
-            borderRadius: 2,
-            border: `1.5px dashed ${colors.border}`,
-            py: 0.75,
-            "&:hover": {
-              bgcolor: colors.primaryBg,
-              borderColor: colors.primary,
-            },
-          }}
-        >
-          Add Part ({splits.length}/5)
-        </Button>
-      )}
+      {/* Add part button — no maximum cap */}
+      <Button
+        size="small"
+        startIcon={<PlusCircle size={14} />}
+        onClick={addPart}
+        sx={{
+          textTransform: "none",
+          fontWeight: 700,
+          fontSize: "0.75rem",
+          color: colors.primary,
+          borderRadius: 2,
+          border: `1.5px dashed ${colors.border}`,
+          py: 0.75,
+          "&:hover": {
+            bgcolor: colors.primaryBg,
+            borderColor: colors.primary,
+          },
+        }}
+      >
+        Add Part ({splits.length} parts)
+      </Button>
 
       {/* Summary totals */}
       {grandTotal > 0 && (
@@ -661,7 +657,6 @@ export default function AddTransactionModal({
         type: newType,
         category: DEFAULT_CATEGORY_BY_TYPE[newType],
         transferTo: undefined,
-        // Reset split state when switching to a non-split-allowed type
         isSplit: newSplitAllowed ? p.isSplit : false,
         splits: newSplitAllowed ? p.splits : [],
       }));
@@ -684,7 +679,7 @@ export default function AddTransactionModal({
         ...p,
         isSplit: true,
         splits: buildDefaultSplits(),
-        amount: "", // clear single amount
+        amount: "",
       }));
     } else {
       setForm((p) => ({
