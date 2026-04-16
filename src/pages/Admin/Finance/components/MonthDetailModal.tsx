@@ -1,9 +1,13 @@
 /**
  * MonthDetailModal.tsx
  *
- * Modal that shows all transactions for a specific calendar month,
- * grouped and summarised like a financial receipt/invoice.
- * Called from NetProfitLoss when the user clicks a month row.
+ * Changes in this version:
+ * 1. Split payment parts are sorted by part number (Part 1, 2, 3… in order).
+ * 2. Split parts sharing a groupId are visually grouped inside a single
+ *    bordered container with a group header showing totals — making it easy
+ *    to distinguish two adjacent split groups from one another.
+ * 3. Full mobile responsiveness: wrapping flex layouts, smaller text on
+ *    narrow screens, truncation replaced with wrapping where needed.
  */
 
 import { useMemo } from "react";
@@ -20,17 +24,14 @@ import {
   Layers,
 } from "lucide-react";
 import { colors } from "../../Products/products-data";
-import {
-  CATEGORY_LABEL,
-  type Transaction,
-} from "../finance-data";
+import { CATEGORY_LABEL, type Transaction } from "../finance-data";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface MonthDetailModalProps {
   open: boolean;
   onClose: () => void;
-  monthLabel: string; // e.g. "April 2026"
+  monthLabel: string;
   transactions: Transaction[];
   net: number;
   income: number;
@@ -39,21 +40,6 @@ interface MonthDetailModalProps {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const MONTH_NAMES = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-];
 
 function fmtEGP(n: number): string {
   return `${Math.abs(n).toLocaleString("en-EG")} EGP`;
@@ -69,6 +55,13 @@ function fmtTime(d: Date | null): string {
   return d.toLocaleTimeString("en-EG", { hour: "2-digit", minute: "2-digit" });
 }
 
+/** Extract numeric part number from "Part 3 of 8" → 3 */
+function parseSplitPartNumber(label: string | undefined): number {
+  if (!label) return Infinity;
+  const m = label.match(/^Part\s+(\d+)/i);
+  return m ? parseInt(m[1], 10) : Infinity;
+}
+
 const TYPE_CONFIG: Record<
   string,
   {
@@ -78,6 +71,8 @@ const TYPE_CONFIG: Record<
     sign: string;
     bg: string;
     border: string;
+    groupHeaderBg: string;
+    groupHeaderBorder: string;
   }
 > = {
   income: {
@@ -86,6 +81,8 @@ const TYPE_CONFIG: Record<
     amountColor: "#059669",
     bg: "#ECFDF5",
     border: "#A7F3D0",
+    groupHeaderBg: "#D1FAE5",
+    groupHeaderBorder: "#6EE7B7",
     icon: <ArrowUpCircle size={13} color="#059669" />,
   },
   expense: {
@@ -94,6 +91,8 @@ const TYPE_CONFIG: Record<
     amountColor: "#DC2626",
     bg: "#FEF2F2",
     border: "#FECACA",
+    groupHeaderBg: "#FEE2E2",
+    groupHeaderBorder: "#FCA5A5",
     icon: <ArrowDownCircle size={13} color="#DC2626" />,
   },
   owner_withdrawal: {
@@ -102,6 +101,8 @@ const TYPE_CONFIG: Record<
     amountColor: "#D97706",
     bg: "#FFFBEB",
     border: "#FDE68A",
+    groupHeaderBg: "#FEF3C7",
+    groupHeaderBorder: "#FCD34D",
     icon: <UserMinus size={13} color="#D97706" />,
   },
   owner_return: {
@@ -110,6 +111,8 @@ const TYPE_CONFIG: Record<
     amountColor: "#10B981",
     bg: "#ECFDF5",
     border: "#6EE7B7",
+    groupHeaderBg: "#D1FAE5",
+    groupHeaderBorder: "#A7F3D0",
     icon: <UserPlus size={13} color="#10B981" />,
   },
   transfer: {
@@ -118,9 +121,13 @@ const TYPE_CONFIG: Record<
     amountColor: "#7C3AED",
     bg: "#F5F3FF",
     border: "#DDD6FE",
+    groupHeaderBg: "#EDE9FE",
+    groupHeaderBorder: "#C4B5FD",
     icon: <ArrowLeftRight size={13} color="#7C3AED" />,
   },
 };
+
+// ─── Summary Row ──────────────────────────────────────────────────────────────
 
 function SummaryRow({
   label,
@@ -145,6 +152,8 @@ function SummaryRow({
         borderRadius: 10,
         background: bg,
         marginBottom: 6,
+        flexWrap: "wrap",
+        gap: 6,
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -169,6 +178,431 @@ function SummaryRow({
   );
 }
 
+// ─── Single transaction row (non-split or individual split part) ──────────────
+
+function TxRow({
+  tx,
+  cfg,
+  isLast,
+  isInsideGroup,
+  partIndex,
+}: {
+  tx: Transaction;
+  cfg: (typeof TYPE_CONFIG)[string];
+  isLast: boolean;
+  isInsideGroup: boolean;
+  partIndex?: number;
+}) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "flex-start",
+        padding: "10px 14px",
+        borderBottom: isLast ? "none" : "1px solid #F1F5F9",
+        background: isInsideGroup
+          ? partIndex !== undefined && partIndex % 2 === 0
+            ? "#ffffff"
+            : cfg.bg + "50"
+          : "#ffffff",
+        gap: 10,
+        flexWrap: "wrap",
+      }}
+    >
+      {/* Date & time */}
+      <div style={{ flexShrink: 0, minWidth: 46, textAlign: "center" }}>
+        <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#1E293B" }}>
+          {fmtDate(tx.createdAt)}
+        </div>
+        <div style={{ fontSize: "0.62rem", color: "#94A3B8", marginTop: 1 }}>
+          {fmtTime(tx.createdAt)}
+        </div>
+      </div>
+
+      {/* Divider */}
+      <div
+        style={{
+          width: 1,
+          height: 30,
+          background: "#E2E8F0",
+          flexShrink: 0,
+          alignSelf: "center",
+        }}
+      />
+
+      {/* Category & note */}
+      <div style={{ flex: 1, minWidth: 100 }}>
+        <div
+          style={{
+            fontSize: "0.78rem",
+            fontWeight: 600,
+            color: "#1E293B",
+            wordBreak: "break-word",
+          }}
+        >
+          {CATEGORY_LABEL[tx.category] ?? tx.category}
+        </div>
+        {tx.note && (
+          <div
+            style={{
+              fontSize: "0.68rem",
+              color: "#94A3B8",
+              marginTop: 2,
+              wordBreak: "break-word",
+            }}
+          >
+            {tx.note}
+          </div>
+        )}
+      </div>
+
+      {/* Method badge */}
+      <div
+        style={{
+          fontSize: "0.62rem",
+          fontWeight: 700,
+          flexShrink: 0,
+          background: tx.method === "cash" ? "#DBEAFE" : "#D1FAE5",
+          color: tx.method === "cash" ? "#1E40AF" : "#065F46",
+          borderRadius: 5,
+          padding: "2px 7px",
+          alignSelf: "center",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {tx.method === "cash" ? "💵 Cash" : "🏦 Bank"}
+        {tx.type === "transfer" && tx.transferTo && (
+          <> → {tx.transferTo === "cash" ? "💵" : "🏦"}</>
+        )}
+      </div>
+
+      {/* Amount */}
+      <div
+        style={{
+          flexShrink: 0,
+          minWidth: 80,
+          textAlign: "right",
+          fontSize: "0.85rem",
+          fontWeight: 800,
+          color: cfg.amountColor,
+          fontFamily: "system-ui,sans-serif",
+          alignSelf: "center",
+        }}
+      >
+        {cfg.sign} {tx.amount.toLocaleString("en-EG")} EGP
+      </div>
+    </div>
+  );
+}
+
+// ─── Split group card ─────────────────────────────────────────────────────────
+
+function SplitGroupCard({
+  parts,
+  cfg,
+  groupIndex,
+}: {
+  parts: Transaction[];
+  cfg: (typeof TYPE_CONFIG)[string];
+  groupIndex: number;
+}) {
+  const sortedParts = [...parts].sort(
+    (a, b) =>
+      parseSplitPartNumber(a.splitLabel) - parseSplitPartNumber(b.splitLabel),
+  );
+
+  const total = sortedParts.reduce((s, p) => s + p.amount, 0);
+  const cashTotal = sortedParts
+    .filter((p) => p.method === "cash")
+    .reduce((s, p) => s + p.amount, 0);
+  const bankTotal = sortedParts
+    .filter((p) => p.method === "bank")
+    .reduce((s, p) => s + p.amount, 0);
+
+  const firstTx = sortedParts[0];
+
+  return (
+    <div
+      style={{
+        borderRadius: 12,
+        border: `2px solid ${cfg.groupHeaderBorder}`,
+        overflow: "hidden",
+        background: "#fff",
+        marginBottom: 10,
+      }}
+    >
+      {/* Group header */}
+      <div
+        style={{
+          background: cfg.groupHeaderBg,
+          padding: "8px 14px",
+          borderBottom: `1px solid ${cfg.groupHeaderBorder}`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: 6,
+        }}
+      >
+        {/* Left: icon + label + date */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            flexWrap: "wrap",
+          }}
+        >
+          {/* Split badge */}
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+              background: "#7C3AED",
+              color: "#fff",
+              borderRadius: 999,
+              padding: "2px 9px",
+              fontSize: "0.65rem",
+              fontWeight: 800,
+              letterSpacing: "0.04em",
+              whiteSpace: "nowrap",
+            }}
+          >
+            🔀 Split · {sortedParts.length} parts
+          </span>
+
+          {/* Date */}
+          <span
+            style={{
+              fontSize: "0.68rem",
+              color: "#64748B",
+              fontWeight: 500,
+              whiteSpace: "nowrap",
+            }}
+          >
+            {fmtDate(firstTx?.createdAt)} {fmtTime(firstTx?.createdAt)}
+          </span>
+        </div>
+
+        {/* Right: method breakdown + total */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            flexWrap: "wrap",
+          }}
+        >
+          {cashTotal > 0 && (
+            <span
+              style={{
+                fontSize: "0.68rem",
+                fontWeight: 700,
+                color: "#1E40AF",
+                background: "#DBEAFE",
+                borderRadius: 5,
+                padding: "2px 7px",
+                whiteSpace: "nowrap",
+              }}
+            >
+              💵 {cashTotal.toLocaleString("en-EG")} EGP
+            </span>
+          )}
+          {bankTotal > 0 && (
+            <span
+              style={{
+                fontSize: "0.68rem",
+                fontWeight: 700,
+                color: "#065F46",
+                background: "#D1FAE5",
+                borderRadius: 5,
+                padding: "2px 7px",
+                whiteSpace: "nowrap",
+              }}
+            >
+              🏦 {bankTotal.toLocaleString("en-EG")} EGP
+            </span>
+          )}
+          <span
+            style={{
+              fontSize: "0.78rem",
+              fontWeight: 800,
+              color: cfg.amountColor,
+              fontFamily: "system-ui,sans-serif",
+              whiteSpace: "nowrap",
+            }}
+          >
+            = {cfg.sign} {total.toLocaleString("en-EG")} EGP
+          </span>
+        </div>
+      </div>
+
+      {/* Parts list */}
+      {sortedParts.map((tx, idx) => {
+        const isLast = idx === sortedParts.length - 1;
+        return (
+          <div key={tx.id}>
+            {/* Part number pill */}
+            <div
+              style={{
+                padding: "4px 14px 0",
+                background: cfg.bg + "60",
+              }}
+            >
+              <span
+                style={{
+                  display: "inline-block",
+                  fontSize: "0.6rem",
+                  fontWeight: 800,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase" as const,
+                  background: cfg.amountColor,
+                  color: "#fff",
+                  borderRadius: 999,
+                  padding: "1px 8px",
+                }}
+              >
+                {tx.splitLabel ?? `Part ${idx + 1}`}
+              </span>
+            </div>
+            <TxRow
+              tx={tx}
+              cfg={cfg}
+              isLast={isLast}
+              isInsideGroup
+              partIndex={idx}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Transaction group section (one type: income / expense / …) ──────────────
+
+function TypeSection({
+  type,
+  txs,
+  cfg,
+}: {
+  type: string;
+  txs: Transaction[];
+  cfg: (typeof TYPE_CONFIG)[string];
+}) {
+  // Separate split parts from standalone transactions
+  const groupMap = new Map<string, Transaction[]>();
+  const standalone: Transaction[] = [];
+
+  for (const tx of txs) {
+    if (tx.groupId) {
+      const arr = groupMap.get(tx.groupId) ?? [];
+      arr.push(tx);
+      groupMap.set(tx.groupId, arr);
+    } else {
+      standalone.push(tx);
+    }
+  }
+
+  // Build ordered list: standalone txs interleaved with split groups
+  // preserving the original insertion order (first part seen = group position)
+  type Item =
+    | { kind: "standalone"; tx: Transaction }
+    | { kind: "group"; groupId: string; parts: Transaction[] };
+
+  const items: Item[] = [];
+  const emittedGroups = new Set<string>();
+
+  for (const tx of txs) {
+    if (!tx.groupId) {
+      items.push({ kind: "standalone", tx });
+    } else if (!emittedGroups.has(tx.groupId)) {
+      emittedGroups.add(tx.groupId);
+      items.push({
+        kind: "group",
+        groupId: tx.groupId,
+        parts: groupMap.get(tx.groupId) ?? [],
+      });
+    }
+  }
+
+  const typeTotal = txs.reduce((s, t) => s + t.amount, 0);
+
+  return (
+    <div style={{ padding: "16px 24px 0" }}>
+      {/* Section header */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: 10,
+          flexWrap: "wrap",
+          gap: 6,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 7,
+            fontSize: "0.7rem",
+            fontWeight: 800,
+            letterSpacing: "0.1em",
+            textTransform: "uppercase" as const,
+            color: "#64748B",
+          }}
+        >
+          {cfg.icon}
+          {cfg.label}s ({txs.length})
+        </div>
+        <span
+          style={{
+            fontSize: "0.82rem",
+            fontWeight: 700,
+            color: cfg.amountColor,
+            whiteSpace: "nowrap",
+          }}
+        >
+          {cfg.sign} {fmtEGP(typeTotal)}
+        </span>
+      </div>
+
+      {/* Items */}
+      {items.map((item, i) => {
+        if (item.kind === "group") {
+          return (
+            <SplitGroupCard
+              key={item.groupId}
+              parts={item.parts}
+              cfg={cfg}
+              groupIndex={i}
+            />
+          );
+        }
+
+        // Standalone transaction (no group)
+        const isLast = i === items.length - 1;
+        return (
+          <div
+            key={item.tx.id}
+            style={{
+              borderRadius: 12,
+              border: `1px solid ${cfg.border}`,
+              overflow: "hidden",
+              background: "#fff",
+              marginBottom: 10,
+            }}
+          >
+            <TxRow tx={item.tx} cfg={cfg} isLast isInsideGroup={false} />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function MonthDetailModal({
@@ -183,7 +617,6 @@ export default function MonthDetailModal({
 }: MonthDetailModalProps) {
   if (!open) return null;
 
-  // Group transactions by type for the receipt view
   const grouped = useMemo(() => {
     const groups: Record<string, Transaction[]> = {
       income: [],
@@ -200,7 +633,6 @@ export default function MonthDetailModal({
 
   const isProfit = net > 0;
   const isLoss = net < 0;
-
   const accentColor = isLoss ? "#DC2626" : isProfit ? "#059669" : "#64748B";
   const accentBg = isLoss ? "#FEF2F2" : isProfit ? "#ECFDF5" : "#F8FAFC";
   const statusLabel = isLoss
@@ -208,7 +640,6 @@ export default function MonthDetailModal({
     : isProfit
       ? "📈 Profit"
       : "➖ Break-even";
-
   const transactionCount = transactions.length;
 
   return (
@@ -235,7 +666,7 @@ export default function MonthDetailModal({
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          padding: 16,
+          padding: 12,
           pointerEvents: "none",
         }}
       >
@@ -248,7 +679,7 @@ export default function MonthDetailModal({
               "0 32px 80px rgba(15,23,42,0.2), 0 0 0 1px rgba(226,232,240,0.8)",
             width: "100%",
             maxWidth: 680,
-            maxHeight: "90vh",
+            maxHeight: "92vh",
             overflow: "hidden",
             display: "flex",
             flexDirection: "column",
@@ -259,43 +690,55 @@ export default function MonthDetailModal({
           {/* ── Header ── */}
           <div
             style={{
-              padding: "20px 24px 16px",
+              padding: "16px 20px 14px",
               borderBottom: `1px solid ${colors.border}`,
               background: "linear-gradient(135deg, #EFF6FF 0%, #F0FDF4 100%)",
               display: "flex",
               alignItems: "flex-start",
               justifyContent: "space-between",
+              gap: 12,
               flexShrink: 0,
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                minWidth: 0,
+              }}
+            >
               <div
                 style={{
-                  width: 42,
-                  height: 42,
-                  borderRadius: 12,
+                  width: 38,
+                  height: 38,
+                  borderRadius: 10,
                   background: accentColor,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
+                  flexShrink: 0,
                 }}
               >
-                <Receipt size={20} color="#fff" />
+                <Receipt size={18} color="#fff" />
               </div>
-              <div>
+              <div style={{ minWidth: 0 }}>
                 <div
                   style={{
-                    fontSize: "1.1rem",
+                    fontSize: "clamp(0.88rem, 2.5vw, 1.05rem)",
                     fontWeight: 800,
                     color: "#0F172A",
                     fontFamily: "system-ui, sans-serif",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
                   }}
                 >
                   {monthLabel} — Monthly Report
                 </div>
                 <div
                   style={{
-                    fontSize: "0.72rem",
+                    fontSize: "0.7rem",
                     color: "#64748B",
                     fontWeight: 500,
                     marginTop: 2,
@@ -310,8 +753,8 @@ export default function MonthDetailModal({
             <button
               onClick={onClose}
               style={{
-                width: 32,
-                height: 32,
+                width: 30,
+                height: 30,
                 borderRadius: 8,
                 border: `1px solid ${colors.border}`,
                 background: "#fff",
@@ -320,6 +763,7 @@ export default function MonthDetailModal({
                 alignItems: "center",
                 justifyContent: "center",
                 color: "#94A3B8",
+                flexShrink: 0,
                 transition: "all 0.15s",
               }}
               onMouseEnter={(e) => {
@@ -329,43 +773,43 @@ export default function MonthDetailModal({
                 (e.currentTarget as HTMLButtonElement).style.color = "#94A3B8";
               }}
             >
-              <X size={16} />
+              <X size={15} />
             </button>
           </div>
 
           {/* ── Scrollable Body ── */}
           <div style={{ overflowY: "auto", flex: 1 }}>
-            {/* ── Net Summary Banner ── */}
-            <div style={{ padding: "20px 24px 0" }}>
+            {/* Net Summary Banner */}
+            <div style={{ padding: "16px 20px 0" }}>
               <div
                 style={{
-                  borderRadius: 16,
+                  borderRadius: 14,
                   background: accentBg,
                   border: `2px solid ${accentColor}22`,
-                  padding: "18px 20px",
+                  padding: "16px 18px",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
                   flexWrap: "wrap",
-                  gap: 12,
+                  gap: 10,
                 }}
               >
                 <div>
                   <div
                     style={{
-                      fontSize: "0.65rem",
+                      fontSize: "0.6rem",
                       fontWeight: 800,
                       letterSpacing: "0.14em",
-                      textTransform: "uppercase",
+                      textTransform: "uppercase" as const,
                       color: "#94A3B8",
-                      marginBottom: 6,
+                      marginBottom: 5,
                     }}
                   >
-                    Net Profit &amp; Loss
+                    Net Profit & Loss
                   </div>
                   <div
                     style={{
-                      fontSize: "2rem",
+                      fontSize: "clamp(1.5rem, 5vw, 2rem)",
                       fontWeight: 900,
                       color: accentColor,
                       fontFamily: "system-ui,sans-serif",
@@ -381,10 +825,11 @@ export default function MonthDetailModal({
                   style={{
                     background: accentColor,
                     color: "#fff",
-                    borderRadius: 10,
-                    padding: "8px 16px",
-                    fontSize: "0.78rem",
+                    borderRadius: 9,
+                    padding: "7px 14px",
+                    fontSize: "0.75rem",
                     fontWeight: 700,
+                    whiteSpace: "nowrap",
                   }}
                 >
                   {statusLabel}
@@ -392,16 +837,16 @@ export default function MonthDetailModal({
               </div>
             </div>
 
-            {/* ── Summary Breakdown ── */}
-            <div style={{ padding: "16px 24px 0" }}>
+            {/* Summary Breakdown */}
+            <div style={{ padding: "14px 20px 0" }}>
               <div
                 style={{
-                  fontSize: "0.65rem",
+                  fontSize: "0.62rem",
                   fontWeight: 800,
                   letterSpacing: "0.12em",
-                  textTransform: "uppercase",
+                  textTransform: "uppercase" as const,
                   color: "#94A3B8",
-                  marginBottom: 10,
+                  marginBottom: 9,
                 }}
               >
                 Summary
@@ -428,20 +873,22 @@ export default function MonthDetailModal({
                 icon={<UserMinus size={15} color="#D97706" />}
               />
 
-              {/* Divider with formula */}
+              {/* Formula */}
               <div
                 style={{
-                  margin: "12px 0",
-                  padding: "10px 14px",
+                  margin: "10px 0",
+                  padding: "9px 12px",
                   background: "#F8FAFC",
                   borderRadius: 8,
                   border: `1px solid ${colors.border}`,
-                  fontSize: "0.72rem",
+                  fontSize: "0.7rem",
                   color: "#64748B",
                   fontWeight: 500,
+                  overflowX: "auto",
+                  whiteSpace: "nowrap",
                 }}
               >
-                <span style={{ fontFamily: "monospace", fontSize: "0.78rem" }}>
+                <span style={{ fontFamily: "monospace", fontSize: "0.75rem" }}>
                   Net = {income.toLocaleString("en-EG")} −{" "}
                   {expenses.toLocaleString("en-EG")} −{" "}
                   {ownerDraws.toLocaleString("en-EG")} ={" "}
@@ -453,7 +900,7 @@ export default function MonthDetailModal({
               </div>
             </div>
 
-            {/* ── Transaction Groups ── */}
+            {/* Transaction Groups by Type */}
             {(
               [
                 "income",
@@ -466,197 +913,9 @@ export default function MonthDetailModal({
               const txs = grouped[type];
               if (!txs || txs.length === 0) return null;
               const cfg = TYPE_CONFIG[type];
-              const typeTotal = txs.reduce((s, t) => s + t.amount, 0);
-
-              return (
-                <div key={type} style={{ padding: "16px 24px 0" }}>
-                  {/* Group header */}
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      marginBottom: 8,
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 7,
-                        fontSize: "0.7rem",
-                        fontWeight: 800,
-                        letterSpacing: "0.1em",
-                        textTransform: "uppercase",
-                        color: "#64748B",
-                      }}
-                    >
-                      {cfg.icon}
-                      {cfg.label}s ({txs.length})
-                    </div>
-                    <span
-                      style={{
-                        fontSize: "0.82rem",
-                        fontWeight: 700,
-                        color: cfg.amountColor,
-                      }}
-                    >
-                      {cfg.sign} {fmtEGP(typeTotal)}
-                    </span>
-                  </div>
-
-                  {/* Transaction rows */}
-                  <div
-                    style={{
-                      borderRadius: 12,
-                      border: `1px solid ${cfg.border}`,
-                      overflow: "hidden",
-                      background: "#fff",
-                    }}
-                  >
-                    {txs.map((tx, idx) => {
-                      const isSplit = !!tx.groupId;
-                      const isLast = idx === txs.length - 1;
-                      return (
-                        <div
-                          key={tx.id}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            padding: "10px 14px",
-                            borderBottom: isLast ? "none" : `1px solid #F1F5F9`,
-                            background: idx % 2 === 0 ? "#fff" : cfg.bg + "50",
-                            gap: 12,
-                            transition: "background 0.12s",
-                          }}
-                        >
-                          {/* Date & time */}
-                          <div
-                            style={{
-                              flexShrink: 0,
-                              textAlign: "center",
-                              minWidth: 50,
-                            }}
-                          >
-                            <div
-                              style={{
-                                fontSize: "0.72rem",
-                                fontWeight: 700,
-                                color: "#1E293B",
-                              }}
-                            >
-                              {fmtDate(tx.createdAt)}
-                            </div>
-                            <div
-                              style={{
-                                fontSize: "0.62rem",
-                                color: "#94A3B8",
-                                marginTop: 1,
-                              }}
-                            >
-                              {fmtTime(tx.createdAt)}
-                            </div>
-                          </div>
-
-                          {/* Divider */}
-                          <div
-                            style={{
-                              width: 1,
-                              height: 30,
-                              background: "#E2E8F0",
-                              flexShrink: 0,
-                            }}
-                          />
-
-                          {/* Category & note */}
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div
-                              style={{
-                                fontSize: "0.78rem",
-                                fontWeight: 600,
-                                color: "#1E293B",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                whiteSpace: "nowrap",
-                              }}
-                            >
-                              {CATEGORY_LABEL[tx.category] ?? tx.category}
-                              {isSplit && tx.splitLabel && (
-                                <span
-                                  style={{
-                                    marginLeft: 6,
-                                    fontSize: "0.62rem",
-                                    fontWeight: 700,
-                                    background: "#F5F3FF",
-                                    color: "#7C3AED",
-                                    borderRadius: 4,
-                                    padding: "1px 5px",
-                                  }}
-                                >
-                                  🔀 {tx.splitLabel}
-                                </span>
-                              )}
-                            </div>
-                            {tx.note && (
-                              <div
-                                style={{
-                                  fontSize: "0.68rem",
-                                  color: "#94A3B8",
-                                  marginTop: 2,
-                                  overflow: "hidden",
-                                  textOverflow: "ellipsis",
-                                  whiteSpace: "nowrap",
-                                }}
-                              >
-                                {tx.note}
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Method badge */}
-                          <div
-                            style={{
-                              fontSize: "0.62rem",
-                              fontWeight: 700,
-                              flexShrink: 0,
-                              background:
-                                tx.method === "cash" ? "#DBEAFE" : "#D1FAE5",
-                              color:
-                                tx.method === "cash" ? "#1E40AF" : "#065F46",
-                              borderRadius: 5,
-                              padding: "2px 7px",
-                            }}
-                          >
-                            {tx.method === "cash" ? "💵" : "🏦"}{" "}
-                            {tx.method === "cash" ? "Cash" : "Bank"}
-                            {type === "transfer" && tx.transferTo && (
-                              <> → {tx.transferTo === "cash" ? "💵" : "🏦"}</>
-                            )}
-                          </div>
-
-                          {/* Amount */}
-                          <div
-                            style={{
-                              flexShrink: 0,
-                              minWidth: 90,
-                              textAlign: "right",
-                              fontSize: "0.85rem",
-                              fontWeight: 800,
-                              color: cfg.amountColor,
-                              fontFamily: "system-ui,sans-serif",
-                            }}
-                          >
-                            {cfg.sign} {tx.amount.toLocaleString("en-EG")} EGP
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
+              return <TypeSection key={type} type={type} txs={txs} cfg={cfg} />;
             })}
 
-            {/* Empty state */}
             {transactionCount === 0 && (
               <div
                 style={{
@@ -670,27 +929,28 @@ export default function MonthDetailModal({
               </div>
             )}
 
-            {/* Bottom padding */}
-            <div style={{ height: 24 }} />
+            <div style={{ height: 20 }} />
           </div>
 
           {/* ── Footer ── */}
           <div
             style={{
-              padding: "14px 24px",
+              padding: "12px 20px",
               borderTop: `1px solid ${colors.border}`,
               background: "#F8FAFC",
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
               flexShrink: 0,
+              flexWrap: "wrap",
+              gap: 8,
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
               <Layers size={13} color="#94A3B8" />
               <span
                 style={{
-                  fontSize: "0.72rem",
+                  fontSize: "0.7rem",
                   color: "#94A3B8",
                   fontWeight: 500,
                 }}
@@ -702,12 +962,12 @@ export default function MonthDetailModal({
             <button
               onClick={onClose}
               style={{
-                padding: "8px 20px",
+                padding: "7px 18px",
                 borderRadius: 8,
                 border: `1.5px solid ${colors.border}`,
                 background: "#fff",
                 color: "#374151",
-                fontSize: "0.8rem",
+                fontSize: "0.78rem",
                 fontWeight: 700,
                 cursor: "pointer",
                 transition: "all 0.15s",
