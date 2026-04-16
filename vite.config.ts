@@ -33,7 +33,7 @@ export default defineConfig({
   },
 
   server: {
-    host: true,
+      host: "localhost",
     port: 5173,
     headers: {
       // Long cache for all assets in dev too

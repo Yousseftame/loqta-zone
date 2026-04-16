@@ -14,6 +14,12 @@
  *   AddTransactionModal now receives the live `stats` prop so it can validate
  *   that the new values won't push any balance negative before saving.
  *
+ * UPDATE 3 — Split payment grouping:
+ *   Transactions sharing a `groupId` are visually grouped with a colored
+ *   left border and a "Part N of M" badge. The first part of a group shows
+ *   a "🔀 Split" header row above it. Clicking any part opens its detail
+ *   modal as normal.
+ *
  * ─── Balance After calculation ────────────────────────────────────────────────
  * Anchors on current available balance and walks backwards through the
  * sorted-desc list, undoing each transaction.
@@ -63,6 +69,11 @@ const AMOUNT_STYLE: Record<string, { color: string; sign: string }> = {
   transfer: { color: "#7C3AED", sign: "⇄ " },
 };
 
+// Split group accent color
+const SPLIT_ACCENT = "#7C3AED";
+const SPLIT_BG = "#F5F3FF";
+const SPLIT_BORDER = "#DDD6FE";
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function fmtDate(d: Date | null) {
@@ -86,7 +97,6 @@ function buildMethodDisplay(tx: Transaction): string {
     return `${from} → ${to}`;
   }
   if (tx.type === "owner_return") {
-    // For owner_return, method is the destination
     return tx.method === "cash" ? "💵 Cash (in)" : "🏦 Bank (in)";
   }
   return tx.method === "cash" ? "💵 Cash" : "🏦 Bank";
@@ -96,12 +106,6 @@ function buildMethodDisplay(tx: Transaction): string {
  * Reconstructs running available balance for every transaction.
  * Transactions arrive sorted newest-first. We anchor on the current
  * available balance and walk backwards, undoing each transaction.
- *
- * - income:           added to balance → subtract when going back
- * - expense:          subtracted from balance → add back when going back
- * - owner_withdrawal: subtracted from liquid balance → add back when going back
- * - owner_return:     added to liquid balance → subtract when going back
- * - transfer:         balance-neutral → carry forward unchanged
  */
 function computeRunningBalances(
   transactions: Transaction[],
@@ -118,7 +122,6 @@ function computeRunningBalances(
     } else if (prev.type === "transfer") {
       result[i] = result[i - 1]; // neutral
     } else if (prev.type === "owner_return") {
-      // owner_return added to liquid balance — subtract when going back
       result[i] = result[i - 1] - prev.amount;
     } else {
       // expense + owner_withdrawal both reduced available balance
@@ -126,6 +129,132 @@ function computeRunningBalances(
     }
   }
   return result;
+}
+
+// ─── Split group header row ───────────────────────────────────────────────────
+
+function SplitGroupHeaderRow({
+  groupId,
+  colSpan,
+  parts,
+}: {
+  groupId: string;
+  colSpan: number;
+  parts: Transaction[];
+}) {
+  const total = parts.reduce((s, p) => s + p.amount, 0);
+  const typeChip = TYPE_CHIP[parts[0]?.type] ?? TYPE_CHIP.income;
+  const cashTotal = parts
+    .filter((p) => p.method === "cash")
+    .reduce((s, p) => s + p.amount, 0);
+  const bankTotal = parts
+    .filter((p) => p.method === "bank")
+    .reduce((s, p) => s + p.amount, 0);
+
+  return (
+    <tr>
+      <td
+        colSpan={colSpan}
+        style={{
+          padding: "8px 16px 6px",
+          background: SPLIT_BG,
+          borderTop: `2px solid ${SPLIT_ACCENT}`,
+          borderBottom: `1px solid ${SPLIT_BORDER}`,
+        }}
+      >
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 1.5,
+            flexWrap: "wrap",
+          }}
+        >
+          {/* Split badge */}
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 5,
+              background: SPLIT_ACCENT,
+              color: "#fff",
+              borderRadius: 999,
+              padding: "3px 10px",
+              fontSize: "0.7rem",
+              fontWeight: 800,
+              letterSpacing: "0.05em",
+            }}
+          >
+            🔀 Split · {parts.length} parts
+          </span>
+
+          {/* Type */}
+          <span
+            style={{
+              background: typeChip.bg,
+              color: typeChip.color,
+              borderRadius: 999,
+              padding: "3px 10px",
+              fontSize: "0.7rem",
+              fontWeight: 700,
+            }}
+          >
+            {typeChip.label}
+          </span>
+
+          {/* Method breakdown */}
+          <Box
+            sx={{
+              display: "flex",
+              gap: 1,
+              ml: "auto",
+              flexWrap: "wrap",
+              alignItems: "center",
+            }}
+          >
+            {cashTotal > 0 && (
+              <span
+                style={{
+                  fontSize: "0.72rem",
+                  fontWeight: 700,
+                  color: "#1E40AF",
+                  background: "#DBEAFE",
+                  borderRadius: 6,
+                  padding: "2px 8px",
+                }}
+              >
+                💵 {cashTotal.toLocaleString("en-EG")} EGP
+              </span>
+            )}
+            {bankTotal > 0 && (
+              <span
+                style={{
+                  fontSize: "0.72rem",
+                  fontWeight: 700,
+                  color: "#065F46",
+                  background: "#D1FAE5",
+                  borderRadius: 6,
+                  padding: "2px 8px",
+                }}
+              >
+                🏦 {bankTotal.toLocaleString("en-EG")} EGP
+              </span>
+            )}
+            <span
+              style={{
+                fontSize: "0.78rem",
+                fontWeight: 800,
+                color: SPLIT_ACCENT,
+                marginLeft: 4,
+              }}
+            >
+              Total: {total.toLocaleString("en-EG")} EGP
+            </span>
+          </Box>
+        </Box>
+      </td>
+    </tr>
+  );
 }
 
 // ─── Transaction Detail Modal ─────────────────────────────────────────────────
@@ -142,6 +271,7 @@ function TransactionDetailModal({
   onEdit: () => void;
 }) {
   const isTransfer = tx.type === "transfer";
+  const isSplitPart = !!tx.groupId;
   const typeChip = TYPE_CHIP[tx.type] ?? TYPE_CHIP.income;
   const amtStyle = AMOUNT_STYLE[tx.type] ?? AMOUNT_STYLE.income;
   const methodLabel = buildMethodDisplay(tx);
@@ -204,7 +334,7 @@ function TransactionDetailModal({
           <div
             style={{
               height: 4,
-              background: `linear-gradient(90deg, ${accentColor} 0%, ${accentColor}99 100%)`,
+              background: `linear-gradient(90deg, ${isSplitPart ? SPLIT_ACCENT : accentColor} 0%, ${isSplitPart ? SPLIT_ACCENT : accentColor}99 100%)`,
             }}
           />
           <div style={{ padding: "28px 28px 24px" }}>
@@ -216,18 +346,36 @@ function TransactionDetailModal({
                 marginBottom: 20,
               }}
             >
-              <span
-                style={{
-                  background: typeChip.bg,
-                  color: typeChip.color,
-                  borderRadius: 999,
-                  padding: "4px 14px",
-                  fontSize: "0.78rem",
-                  fontWeight: 700,
-                }}
-              >
-                {typeChip.label}
-              </span>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span
+                  style={{
+                    background: typeChip.bg,
+                    color: typeChip.color,
+                    borderRadius: 999,
+                    padding: "4px 14px",
+                    fontSize: "0.78rem",
+                    fontWeight: 700,
+                  }}
+                >
+                  {typeChip.label}
+                </span>
+                {/* Split badge in detail modal */}
+                {isSplitPart && tx.splitLabel && (
+                  <span
+                    style={{
+                      background: SPLIT_BG,
+                      color: SPLIT_ACCENT,
+                      border: `1px solid ${SPLIT_BORDER}`,
+                      borderRadius: 999,
+                      padding: "4px 10px",
+                      fontSize: "0.7rem",
+                      fontWeight: 700,
+                    }}
+                  >
+                    🔀 {tx.splitLabel}
+                  </span>
+                )}
+              </div>
               <span
                 style={{
                   fontSize: "0.78rem",
@@ -277,6 +425,13 @@ function TransactionDetailModal({
                   label="Balance After"
                   value={`${fmtBalance(balance)} EGP`}
                   valueColor={balNeg ? "#DC2626" : "#0f172a"}
+                />
+              )}
+              {isSplitPart && tx.splitLabel && (
+                <DetailRow
+                  label="Split Part"
+                  value={tx.splitLabel}
+                  valueColor={SPLIT_ACCENT}
                 />
               )}
               <div>
@@ -461,22 +616,33 @@ export default function TransactionsTable({
   const pageData = transactions.slice(pageStart, pageEnd);
   const pageBalances = allBalances.slice(pageStart, pageEnd);
 
+  // Build a map of groupId → all transactions in that group (from the full list,
+  // not just current page) so the header row can show correct totals.
+  const groupMap = useMemo(() => {
+    const map = new Map<string, Transaction[]>();
+    for (const tx of transactions) {
+      if (tx.groupId) {
+        const arr = map.get(tx.groupId) ?? [];
+        arr.push(tx);
+        map.set(tx.groupId, arr);
+      }
+    }
+    return map;
+  }, [transactions]);
+
   const handlePrev = () => setPage((p) => Math.max(1, p - 1));
   const handleNext = () => setPage((p) => Math.min(totalPages, p + 1));
 
-  // Open detail modal
   const handleRowClick = (tx: Transaction, bal: number) => {
     setSelectedTx({ tx, balance: bal });
   };
 
-  // Open edit modal from detail modal
   const handleEditFromDetail = () => {
     if (!selectedTx) return;
     setEditingTx(selectedTx.tx);
     setSelectedTx(null);
   };
 
-  // Open edit modal directly from row's edit button
   const handleEditFromRow = (e: React.MouseEvent, tx: Transaction) => {
     e.stopPropagation();
     setEditingTx(tx);
@@ -501,6 +667,9 @@ export default function TransactionsTable({
     "Amount",
     "",
   ];
+
+  // Track which group IDs have already had their header row rendered on this page
+  const renderedGroupHeaders = new Set<string>();
 
   return (
     <>
@@ -666,6 +835,7 @@ export default function TransactionsTable({
               ) : (
                 pageData.map((tx, i) => {
                   const isTransfer = tx.type === "transfer";
+                  const isSplitPart = !!tx.groupId;
                   const typeChip = TYPE_CHIP[tx.type] ?? TYPE_CHIP.income;
                   const amtStyle = AMOUNT_STYLE[tx.type] ?? AMOUNT_STYLE.income;
                   const bal = pageBalances[i];
@@ -683,14 +853,43 @@ export default function TransactionsTable({
                     (tx.createdBy ? `${tx.createdBy.slice(0, 8)}…` : "—");
 
                   const globalIdx = pageStart + i;
-                  const defaultBg = globalIdx % 2 === 0 ? "#fff" : "#FAFAFA";
-                  const hoverBg = isTransfer
-                    ? "#F5F3FF"
-                    : tx.type === "owner_return"
-                      ? "#ECFDF5"
-                      : "#EFF6FF";
 
-                  return (
+                  // ── Determine row background ──────────────────────────────
+                  const defaultBg = isSplitPart
+                    ? SPLIT_BG
+                    : globalIdx % 2 === 0
+                      ? "#fff"
+                      : "#FAFAFA";
+
+                  const hoverBg = isSplitPart
+                    ? "#EDE9FE"
+                    : isTransfer
+                      ? "#F5F3FF"
+                      : tx.type === "owner_return"
+                        ? "#ECFDF5"
+                        : "#EFF6FF";
+
+                  // ── Check if we need to render a split group header ───────
+                  const rows: React.ReactNode[] = [];
+                  if (
+                    isSplitPart &&
+                    tx.groupId &&
+                    !renderedGroupHeaders.has(tx.groupId)
+                  ) {
+                    renderedGroupHeaders.add(tx.groupId);
+                    const groupParts = groupMap.get(tx.groupId) ?? [];
+                    rows.push(
+                      <SplitGroupHeaderRow
+                        key={`split-header-${tx.groupId}`}
+                        groupId={tx.groupId}
+                        colSpan={HEADERS.length}
+                        parts={groupParts}
+                      />,
+                    );
+                  }
+
+                  // ── The transaction row itself ────────────────────────────
+                  rows.push(
                     <tr
                       key={tx.id}
                       onClick={() => handleRowClick(tx, bal)}
@@ -698,6 +897,10 @@ export default function TransactionsTable({
                         background: defaultBg,
                         transition: "background 0.15s",
                         cursor: "pointer",
+                        // Split parts get a colored left border
+                        borderLeft: isSplitPart
+                          ? `3px solid ${SPLIT_ACCENT}`
+                          : undefined,
                       }}
                       onMouseEnter={(e) => {
                         (
@@ -729,19 +932,45 @@ export default function TransactionsTable({
                           borderBottom: `1px solid ${colors.border}`,
                         }}
                       >
-                        <span
-                          style={{
-                            background: typeChip.bg,
-                            color: typeChip.color,
-                            borderRadius: 999,
-                            padding: "3px 10px",
-                            fontSize: "0.72rem",
-                            fontWeight: 700,
-                            whiteSpace: "nowrap",
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 0.75,
+                            flexWrap: "wrap",
                           }}
                         >
-                          {typeChip.label}
-                        </span>
+                          <span
+                            style={{
+                              background: typeChip.bg,
+                              color: typeChip.color,
+                              borderRadius: 999,
+                              padding: "3px 10px",
+                              fontSize: "0.72rem",
+                              fontWeight: 700,
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {typeChip.label}
+                          </span>
+                          {/* Split part badge */}
+                          {isSplitPart && tx.splitLabel && (
+                            <span
+                              style={{
+                                background: SPLIT_BG,
+                                color: SPLIT_ACCENT,
+                                border: `1px solid ${SPLIT_BORDER}`,
+                                borderRadius: 999,
+                                padding: "2px 7px",
+                                fontSize: "0.62rem",
+                                fontWeight: 700,
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {tx.splitLabel}
+                            </span>
+                          )}
+                        </Box>
                       </td>
 
                       {/* Category */}
@@ -906,8 +1135,10 @@ export default function TransactionsTable({
                           </IconButton>
                         </Tooltip>
                       </td>
-                    </tr>
+                    </tr>,
                   );
+
+                  return rows;
                 })
               )}
             </tbody>

@@ -8,6 +8,12 @@
  *
  * Pagination is done client-side after a full fetch so the TransactionsTable
  * can slice any page without additional Firestore reads.
+ *
+ * ─── Split Payment ────────────────────────────────────────────────────────────
+ * When isSplit=true, addTransaction fires one addDoc per split part in a
+ * writeBatch. All parts share a groupId (UUID) so the UI can group them.
+ * Each part is a fully independent Firestore document — the Cloud Function
+ * trigger handles each one separately, keeping aggregation correct.
  */
 
 import { useEffect, useState, useCallback } from "react";
@@ -16,6 +22,7 @@ import {
   onSnapshot,
   query, orderBy, addDoc, updateDoc,
   serverTimestamp, Timestamp,
+  writeBatch,
   type Unsubscribe,
 } from "firebase/firestore";
 import { db } from "@/firebase/firebase";
@@ -26,6 +33,15 @@ import {
   type TransactionFormValues,
   toDate,
 } from "@/pages/Admin/Finance/finance-data";
+
+// ─── Simple UUID generator (no external dependency) ──────────────────────────
+function generateGroupId(): string {
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
 
 // ─── Parser ───────────────────────────────────────────────────────────────────
 
@@ -65,6 +81,9 @@ function parseTransaction(id: string, data: Record<string, any>): Transaction {
     createdBy:     data.createdBy     ?? "",
     createdByName: data.createdByName ?? "",
     transferTo:    data.transferTo    ?? undefined,
+    groupId:       data.groupId       ?? undefined,
+    splitLabel:    data.splitLabel    ?? undefined,
+    splitTotal:    data.splitTotal    ?? undefined,
   };
 }
 
@@ -125,6 +144,8 @@ export function useFinance() {
   }, []);
 
   // ─── Add transaction ───────────────────────────────────────────────────────
+  // Handles both single and split payment modes.
+  // Split: one Firestore doc per split part, all sharing a groupId.
   const addTransaction = useCallback(async (
     values: TransactionFormValues,
     adminId: string,
@@ -132,22 +153,52 @@ export function useFinance() {
   ) => {
     setAdding(true);
     try {
-      const payload: Record<string, any> = {
-        type:          values.type,
-        amount:        Number(values.amount),
-        method:        values.method,
-        category:      values.category,
-        note:          values.note.trim(),
-        createdAt:     serverTimestamp(),
-        createdBy:     adminId,
-        createdByName: adminName,
-      };
+      const isSplit = values.isSplit && values.splits && values.splits.length > 1;
 
-      if (values.type === "transfer" && values.transferTo) {
-        payload.transferTo = values.transferTo;
+      if (isSplit && values.splits) {
+        // ── Split payment: write one doc per part in a batch ────────────────
+        const groupId = generateGroupId();
+        const totalParts = values.splits.length;
+        const batch = writeBatch(db);
+
+        values.splits.forEach((part, index) => {
+          const ref = doc(collection(db, "transactions"));
+          const payload: Record<string, any> = {
+            type:          values.type,
+            amount:        Number(part.amount),
+            method:        part.method,
+            category:      values.category,
+            note:          values.note.trim(),
+            createdAt:     serverTimestamp(),
+            createdBy:     adminId,
+            createdByName: adminName,
+            groupId,
+            splitLabel:    `Part ${index + 1} of ${totalParts}`,
+            splitTotal:    totalParts,
+          };
+          batch.set(ref, payload);
+        });
+
+        await batch.commit();
+      } else {
+        // ── Single payment: same as before ──────────────────────────────────
+        const payload: Record<string, any> = {
+          type:          values.type,
+          amount:        Number(values.amount),
+          method:        values.method,
+          category:      values.category,
+          note:          values.note.trim(),
+          createdAt:     serverTimestamp(),
+          createdBy:     adminId,
+          createdByName: adminName,
+        };
+
+        if (values.type === "transfer" && values.transferTo) {
+          payload.transferTo = values.transferTo;
+        }
+
+        await addDoc(collection(db, "transactions"), payload);
       }
-
-      await addDoc(collection(db, "transactions"), payload);
     } finally {
       setAdding(false);
     }
@@ -156,6 +207,7 @@ export function useFinance() {
   // ─── Update transaction ────────────────────────────────────────────────────
   // The Cloud Function onTransactionUpdated will reverse old values and apply new ones.
   // createdAt is intentionally NOT updated — we preserve the original timestamp.
+  // Split transactions cannot be edited as a group — each part is edited individually.
   const updateTransaction = useCallback(async (
     txId: string,
     values: TransactionFormValues,

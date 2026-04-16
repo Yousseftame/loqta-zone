@@ -22,6 +22,14 @@
  * Owner puts money BACK into the business (cash or bank).
  * It decrements ownerBalance and increments cashBalance or bankBalance.
  * Does NOT touch totalIncome or totalExpenses.
+ *
+ * ─── Split Payment ───────────────────────────────────────────────────────────
+ * A split transaction allows one logical transaction to be paid via multiple
+ * payment methods (e.g. 5000 EGP from bank + 2000 EGP from cash).
+ * Each split part is saved as its own Firestore document but they share a
+ * `groupId` field (UUID) so they can be visually grouped in the UI.
+ * The Cloud Function handles each doc independently via triggers — no backend
+ * changes needed. Split is only available for income and expense types.
  */
 
 // ─── Enums ─────────────────────────────────────────────────────────────────
@@ -34,6 +42,15 @@ export type OwnerCategory       = "owner_draw";
 export type OwnerReturnCategory = "owner_return";
 export type TransferCategory    = "cash_to_bank" | "bank_to_cash";
 export type TransactionCategory = ExpenseCategory | IncomeCategory | OwnerCategory | OwnerReturnCategory | TransferCategory;
+
+// ─── Split payment part ──────────────────────────────────────────────────────
+
+export interface SplitPart {
+  /** Unique key for React list rendering only */
+  key: string;
+  method: PaymentMethod;
+  amount: string;
+}
 
 // ─── Transaction document ───────────────────────────────────────────────────
 
@@ -49,6 +66,18 @@ export interface Transaction {
   createdByName?: string;
   /** Only present for type="transfer" — the destination balance */
   transferTo?: PaymentMethod;
+  /**
+   * Present when this transaction is part of a split payment group.
+   * All parts of one logical split share the same groupId.
+   */
+  groupId?: string;
+  /**
+   * Human-readable label for the split part, e.g. "Part 1 of 3".
+   * Stored on the doc for display purposes.
+   */
+  splitLabel?: string;
+  /** Total number of parts in the split group (stored for UI convenience) */
+  splitTotal?: number;
 }
 
 // ─── finance_stats/dashboard ────────────────────────────────────────────────
@@ -75,6 +104,10 @@ export interface TransactionFormValues {
   note: string;
   /** Only used when type="transfer" */
   transferTo?: PaymentMethod;
+  /** Whether split payment mode is active */
+  isSplit?: boolean;
+  /** The individual split parts (only used when isSplit=true) */
+  splits?: SplitPart[];
 }
 
 // ─── Defaults ───────────────────────────────────────────────────────────────
