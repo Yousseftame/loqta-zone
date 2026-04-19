@@ -12,7 +12,6 @@ export default defineConfig({
     },
   },
    server: {
-    host: true,   // مهم جداً
     port: 5173
   }
 })

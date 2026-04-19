@@ -1,24 +1,13 @@
 /**
  * functions/src/Notifications/auctionRegistrationNotification.ts
  *
- * FIX: Changed sendEachForMulticast to DATA-ONLY — removed the top-level
- * `notification` field and `webpush.notification` entirely.
- *
- * WHY THIS FIXES DUPLICATES:
- * When FCM receives a message with a `notification` field, Chrome automatically
- * shows it as a browser notification — without going through the service worker.
- * The service worker's onBackgroundMessage then ALSO fires and shows it again.
- * Result: 2 notifications per message.
- *
- * With data-only messages, Chrome does NOT auto-show anything. Only the
- * service worker's onBackgroundMessage fires, and it shows exactly 1 notification.
- *
- * The SW reads title/body from payload.data.title and payload.data.body.
+ * i18n change: uses resolveProductTitle() for product.title.
  */
 
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { getMessaging } from "firebase-admin/messaging";
+import { resolveProductTitle } from "../shared/i18nHelpers";
 
 const db        = getFirestore();
 const messaging = getMessaging();
@@ -32,11 +21,7 @@ const DEAD_TOKEN_CODES = new Set([
 ]);
 
 export const onAuctionRegistration = onDocumentCreated(
-  {
-    document:       "auctions/{auctionId}/Participants/{userId}",
-    timeoutSeconds: 60,
-    memory:         "256MiB",
-  },
+  { document: "auctions/{auctionId}/Participants/{userId}", timeoutSeconds: 60, memory: "256MiB" },
   async (event) => {
     const snap      = event.data;
     const auctionId = event.params.auctionId;
@@ -71,7 +56,8 @@ export const onAuctionRegistration = onDocumentCreated(
     try {
       const productSnap = await db.collection("products").doc(productId).get();
       if (productSnap.exists) {
-        productTitle = productSnap.data()?.title ?? "the item";
+        // ← i18n
+        productTitle = resolveProductTitle(productSnap.data()?.title) || "the item";
       }
     } catch { /* non-fatal */ }
 
@@ -84,35 +70,15 @@ export const onAuctionRegistration = onDocumentCreated(
     const body  = `You've successfully joined the auction for "${productTitle}" (#${auctionNumber}) with ${feeLabel}. Good luck!`;
 
     try {
-      const notifRef = db
-        .collection("users")
-        .doc(userId)
-        .collection("notifications")
-        .doc();
-
-      await notifRef.set({
-        type:          "auction_registered",
-        auctionId,
-        productId,
-        productTitle,
-        auctionNumber,
-        entryFee,
-        entryType,
-        title,
-        message:       body,
-        isRead:        false,
-        url:           deepLink,
-        createdAt:     FieldValue.serverTimestamp(),
+      await db.collection("users").doc(userId).collection("notifications").doc().set({
+        type: "auction_registered", auctionId, productId, productTitle, auctionNumber,
+        entryFee, entryType, title, message: body, isRead: false, url: deepLink,
+        createdAt: FieldValue.serverTimestamp(),
       });
 
       const userSnap = await db.collection("users").doc(userId).get();
-      const rawTokens: string[] = userSnap.exists
-        ? (userSnap.data()?.fcmTokens ?? [])
-        : [];
-
-      const uniqueTokens = [
-        ...new Set(rawTokens.filter((t) => typeof t === "string" && t.length > 0)),
-      ];
+      const rawTokens: string[] = userSnap.exists ? (userSnap.data()?.fcmTokens ?? []) : [];
+      const uniqueTokens = [...new Set(rawTokens.filter((t) => typeof t === "string" && t.length > 0))];
 
       if (uniqueTokens.length < rawTokens.length) {
         await db.collection("users").doc(userId).update({ fcmTokens: uniqueTokens });
@@ -123,44 +89,24 @@ export const onAuctionRegistration = onDocumentCreated(
         return;
       }
 
-      // ── DATA-ONLY message — no `notification` field, no `webpush.notification` ──
-      // This prevents Chrome from auto-showing the notification.
-      // The SW reads title/body from data.title and data.body.
       const fcmResponse = await messaging.sendEachForMulticast({
         tokens: uniqueTokens,
-        data: {
-          type:          "auction_registered",
-          auctionId,
-          productId,
-          productTitle,
-          auctionNumber: String(auctionNumber),
-          title,           // SW reads this
-          body,            // SW reads this
-          url:             deepLink,
-        },
-        webpush: {
-          fcmOptions: { link: deepLink },
-        },
+        data: { type: "auction_registered", auctionId, productId, productTitle,
+          auctionNumber: String(auctionNumber), title, body, url: deepLink },
+        webpush: { fcmOptions: { link: deepLink } },
       });
 
       const deadTokens: string[] = [];
       fcmResponse.responses.forEach((res, idx) => {
-        if (!res.success) {
-          const code = res.error?.code ?? "";
-          if (DEAD_TOKEN_CODES.has(code)) deadTokens.push(uniqueTokens[idx]);
-        }
+        if (!res.success && DEAD_TOKEN_CODES.has(res.error?.code ?? ""))
+          deadTokens.push(uniqueTokens[idx]);
       });
 
       if (deadTokens.length > 0) {
-        await db.collection("users").doc(userId).update({
-          fcmTokens: FieldValue.arrayRemove(...deadTokens),
-        });
+        await db.collection("users").doc(userId).update({ fcmTokens: FieldValue.arrayRemove(...deadTokens) });
       }
 
-      await snap.ref.update({
-        notifiedRegistrationAt: FieldValue.serverTimestamp(),
-      });
-
+      await snap.ref.update({ notifiedRegistrationAt: FieldValue.serverTimestamp() });
     } catch (err) {
       console.error(`[auctionRegistration] Error for uid=${userId}:`, err);
     }

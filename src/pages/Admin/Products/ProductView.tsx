@@ -1,3 +1,7 @@
+/**
+ * ProductView.tsx — updated for i18n product title/description/features.
+ * Uses resolveTitle() from products-data for all display of localized fields.
+ */
 import { useEffect, useState, useMemo } from "react";
 import {
   Button,
@@ -27,9 +31,10 @@ import {
   CheckCircle2,
   Lock,
   Truck,
+  Globe,
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
-import { colors, getAvatarColor } from "./products-data";
+import { colors, getAvatarColor, resolveTitle } from "./products-data";
 import type { Product } from "./products-data";
 import { useProducts } from "@/store/AdminContext/ProductContext/ProductsCotnext";
 import { useAuctions } from "@/store/AdminContext/AuctionContext/AuctionContext";
@@ -64,16 +69,16 @@ export default function ProductView() {
   const [done, setDone] = useState(false);
   const [activeImg, setActiveImg] = useState<string | null>(null);
 
-  const getCategoryName = (categoryId: string): string => {
-    if (!categoryId) return "—";
-    const found = categories.find((c) => c.id === categoryId);
-    return found ? found.name.en : categoryId;
+  const getCategoryName = (cid: string) => {
+    if (!cid) return "—";
+    const found = categories.find((c) => c.id === cid);
+    return found ? found.name.en : cid;
   };
 
-  const getSupplierName = (supplierId: string): string => {
-    if (!supplierId) return "—";
-    const found = suppliers.find((s) => s.id === supplierId);
-    return found ? found.name : supplierId;
+  const getSupplierName = (sid: string) => {
+    if (!sid) return "—";
+    const found = suppliers.find((s) => s.id === sid);
+    return found ? found.name : sid;
   };
 
   useEffect(() => {
@@ -138,6 +143,11 @@ export default function ProductView() {
     );
   }
 
+  const titleEn = resolveTitle(product.title, "en");
+  const titleAr = resolveTitle(product.title, "ar");
+  const descEn = resolveTitle(product.description, "en");
+  const descAr = resolveTitle(product.description, "ar");
+
   return (
     <Box
       sx={{
@@ -193,7 +203,7 @@ export default function ProductView() {
             <Box
               component="img"
               src={activeImg}
-              alt={product.title}
+              alt={titleEn}
               onError={(e: any) => {
                 e.currentTarget.style.display = "none";
               }}
@@ -218,7 +228,7 @@ export default function ProductView() {
                 border: "2px solid rgba(255,255,255,0.4)",
               }}
             >
-              {product.title.charAt(0)}
+              {titleEn.charAt(0)}
             </Avatar>
           )}
 
@@ -240,7 +250,7 @@ export default function ProductView() {
                   fontWeight: 700,
                 }}
               >
-                {product.title}
+                {titleEn}
               </h1>
               <Chip
                 label={product.isActive ? "Active" : "Inactive"}
@@ -253,6 +263,20 @@ export default function ProductView() {
                 }}
               />
             </Box>
+            {titleAr && (
+              <p
+                style={{
+                  margin: "2px 0 4px",
+                  color: "rgba(255,255,255,0.85)",
+                  fontSize: "0.95rem",
+                  direction: "rtl",
+                  textAlign: "left",
+                  fontWeight: 500,
+                }}
+              >
+                {titleAr}
+              </p>
+            )}
             <p
               style={{
                 margin: 0,
@@ -260,7 +284,7 @@ export default function ProductView() {
                 fontSize: "0.875rem",
               }}
             >
-              {product.description}
+              {descEn}
             </p>
             <Box sx={{ display: "flex", gap: 1, mt: 1.5, flexWrap: "wrap" }}>
               {[
@@ -323,7 +347,7 @@ export default function ProductView() {
           </Box>
         </Box>
 
-        {/* ── Stats row ── */}
+        {/* Stats row */}
         <Box
           sx={{
             display: "grid",
@@ -378,11 +402,6 @@ export default function ProductView() {
                   xs: i % 2 === 0 ? `1px solid ${colors.border}` : "none",
                   sm: i < 4 ? `1px solid ${colors.border}` : "none",
                 },
-                borderBottom: {
-                  xs: i < 4 ? `1px solid ${colors.border}` : "none",
-                  sm: "none",
-                },
-                position: "relative",
                 ...(adminOnly && { bgcolor: "#FFFBEB" }),
               }}
             >
@@ -434,7 +453,7 @@ export default function ProductView() {
         </Box>
       </Paper>
 
-      {/* ── Images Gallery ── */}
+      {/* Images Gallery */}
       {product.images && product.images.length > 0 && (
         <Paper
           elevation={0}
@@ -499,9 +518,6 @@ export default function ProductView() {
                     component="img"
                     src={url}
                     alt="thumb"
-                    onError={(e: any) => {
-                      e.currentTarget.opacity = "0.3";
-                    }}
                     sx={{ width: "100%", height: "100%", objectFit: "cover" }}
                   />
                 </Box>
@@ -511,7 +527,7 @@ export default function ProductView() {
         </Paper>
       )}
 
-      {/* ── Linked Auctions ── */}
+      {/* Linked Auctions */}
       <Paper
         elevation={0}
         sx={{
@@ -588,15 +604,6 @@ export default function ProductView() {
               }}
             >
               No auctions yet
-            </p>
-            <p
-              style={{
-                color: colors.textMuted,
-                fontSize: "0.85rem",
-                margin: "4px 0 0",
-              }}
-            >
-              This product has no linked auctions.
             </p>
           </Box>
         ) : (
@@ -741,7 +748,7 @@ export default function ProductView() {
         )}
       </Paper>
 
-      {/* ── Details Card ── */}
+      {/* Details Card */}
       <Paper
         elevation={0}
         sx={{
@@ -773,7 +780,7 @@ export default function ProductView() {
             gap: 3,
           }}
         >
-          {/* Active */}
+          {/* Status */}
           <Box>
             <p
               style={{
@@ -785,7 +792,7 @@ export default function ProductView() {
                 letterSpacing: "0.04em",
               }}
             >
-              Active
+              Status
             </p>
             <Chip
               label={product.isActive ? "Active" : "Inactive"}
@@ -823,7 +830,7 @@ export default function ProductView() {
             </span>
           </Box>
 
-          {/* Supplier — NEW */}
+          {/* Supplier */}
           <Box>
             <p
               style={{
@@ -862,7 +869,7 @@ export default function ProductView() {
             </Box>
           </Box>
 
-          {/* Starting Price */}
+          {/* Price */}
           <Box>
             <p
               style={{
@@ -887,7 +894,7 @@ export default function ProductView() {
             </span>
           </Box>
 
-          {/* Cost / Actual Price — admin only, amber tint */}
+          {/* Cost Price */}
           <Box
             sx={{
               bgcolor: "#FFFBEB",
@@ -968,45 +975,9 @@ export default function ProductView() {
             </Box>
           </Box>
 
-          {/* Total Auctions */}
-          <Box>
-            <p
-              style={{
-                margin: "0 0 8px",
-                fontSize: "0.75rem",
-                color: colors.textMuted,
-                fontWeight: 600,
-                textTransform: "uppercase",
-                letterSpacing: "0.04em",
-              }}
-            >
-              Total Auctions
-            </p>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <Gavel size={14} style={{ color: colors.textMuted }} />
-              <span
-                style={{
-                  fontSize: "0.9rem",
-                  color: colors.textPrimary,
-                  fontWeight: 700,
-                }}
-              >
-                {linkedAuctions.length}
-              </span>
-              {linkedAuctions.length > 0 && (
-                <span style={{ fontSize: "0.75rem", color: colors.textMuted }}>
-                  ({linkedAuctions.filter((a) => a.status === "live").length}{" "}
-                  live,{" "}
-                  {linkedAuctions.filter((a) => a.status === "upcoming").length}{" "}
-                  upcoming)
-                </span>
-              )}
-            </Box>
-          </Box>
-
           {/* Features */}
           {product.features && product.features.length > 0 && (
-            <Box>
+            <Box sx={{ gridColumn: { sm: "1 / -1" } }}>
               <p
                 style={{
                   margin: "0 0 8px",
@@ -1019,22 +990,47 @@ export default function ProductView() {
               >
                 Features
               </p>
-              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-                {product.features.map((f, i) => (
-                  <span
-                    key={i}
-                    style={{
-                      fontSize: "0.78rem",
-                      background: colors.primaryBg,
-                      color: colors.primary,
-                      padding: "3px 10px",
-                      borderRadius: 99,
-                      fontWeight: 600,
-                    }}
-                  >
-                    {f}
-                  </span>
-                ))}
+              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.5 }}>
+                {product.features.map((f, i) => {
+                  const en = typeof f === "string" ? f : f.en;
+                  const ar = typeof f === "string" ? "" : f.ar;
+                  return (
+                    <Box
+                      key={i}
+                      sx={{
+                        bgcolor: colors.primaryBg,
+                        border: `1px solid ${colors.primaryRing}`,
+                        borderRadius: 2,
+                        px: 1.5,
+                        py: 0.75,
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: "0.78rem",
+                          color: colors.primary,
+                          fontWeight: 600,
+                          display: "block",
+                        }}
+                      >
+                        {en}
+                      </span>
+                      {ar && (
+                        <span
+                          style={{
+                            fontSize: "0.72rem",
+                            color: colors.textMuted,
+                            display: "block",
+                            direction: "rtl",
+                            textAlign: "right",
+                          }}
+                        >
+                          {ar}
+                        </span>
+                      )}
+                    </Box>
+                  );
+                })}
               </Box>
             </Box>
           )}
@@ -1053,23 +1049,85 @@ export default function ProductView() {
             >
               Description
             </p>
-            <Box sx={{ bgcolor: colors.muted, borderRadius: 2, p: 2 }}>
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: "0.9rem",
-                  color: colors.textSecondary,
-                  lineHeight: 1.6,
-                }}
-              >
-                {product.description}
-              </p>
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+                gap: 2,
+              }}
+            >
+              <Box sx={{ bgcolor: colors.muted, borderRadius: 2, p: 2 }}>
+                <Box
+                  sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}
+                >
+                  <Globe size={12} style={{ color: colors.textMuted }} />
+                  <span
+                    style={{
+                      fontSize: "0.68rem",
+                      color: colors.textMuted,
+                      fontWeight: 600,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                    }}
+                  >
+                    English
+                  </span>
+                </Box>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: "0.9rem",
+                    color: colors.textSecondary,
+                    lineHeight: 1.6,
+                  }}
+                >
+                  {descEn}
+                </p>
+              </Box>
+              {descAr && (
+                <Box sx={{ bgcolor: colors.muted, borderRadius: 2, p: 2 }}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1,
+                      mb: 1,
+                      justifyContent: "flex-end",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: "0.68rem",
+                        color: colors.textMuted,
+                        fontWeight: 600,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.05em",
+                      }}
+                    >
+                      العربية
+                    </span>
+                    <Globe size={12} style={{ color: colors.textMuted }} />
+                  </Box>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: "0.9rem",
+                      color: colors.textSecondary,
+                      lineHeight: 1.6,
+                      direction: "rtl",
+                      textAlign: "right",
+                    }}
+                  >
+                    {descAr}
+                  </p>
+                </Box>
+              )}
             </Box>
           </Box>
         </Box>
       </Paper>
 
-      {/* ── Delete Dialog ── */}
+      {/* Delete Dialog */}
       <Dialog
         open={deleteDialog}
         onClose={() => !deleting && setDeleteDialog(false)}
@@ -1089,8 +1147,8 @@ export default function ProductView() {
         </DialogTitle>
         <DialogContent>
           <p style={{ color: colors.textPrimary, marginBottom: 16 }}>
-            Are you sure you want to delete <strong>{product.title}</strong>?
-            This will also remove all product images.
+            Are you sure you want to delete <strong>{titleEn}</strong>? This
+            will also remove all product images.
           </p>
           {linkedAuctions.length > 0 && (
             <Box

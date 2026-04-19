@@ -1,19 +1,15 @@
 /**
  * functions/src/Notifications/auctionCreatedNotification.ts
  *
- * Fires when a new auction document is created.
- * Sends an in-app notification + FCM push to ALL regular users (role === "user").
- *
- * Guard: auctionCreatedNotifiedAt stamp prevents re-firing if the function
- * retries or the document is re-created.
- *
- * FIX: DATA-ONLY FCM message — no `notification` field, no `webpush.notification`.
- * See auctionRegistrationNotification.ts for the full duplicate-prevention explanation.
+ * i18n change: product.title is now { en, ar } instead of a plain string.
+ * Use resolveProductTitle() from shared/i18nHelpers to extract the EN value
+ * (and legacy plain-string docs continue to work unchanged).
  */
 
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
 import { getMessaging } from "firebase-admin/messaging";
+import { resolveProductTitle } from "../shared/i18nHelpers";
 
 const db        = getFirestore();
 const messaging = getMessaging();
@@ -37,20 +33,16 @@ function chunk<T>(arr: T[], size: number): T[][] {
 
 function formatDate(date: Date): string {
   return date.toLocaleDateString("en-EG", {
-    day:   "numeric",
-    month: "short",
-    year:  "numeric",
-    hour:  "2-digit",
+    day:    "numeric",
+    month:  "short",
+    year:   "numeric",
+    hour:   "2-digit",
     minute: "2-digit",
   });
 }
 
 export const onAuctionCreated = onDocumentCreated(
-  {
-    document:       "auctions/{auctionId}",
-    timeoutSeconds: 120,
-    memory:         "512MiB",
-  },
+  { document: "auctions/{auctionId}", timeoutSeconds: 120, memory: "512MiB" },
   async (event) => {
     const snap      = event.data;
     const auctionId = event.params.auctionId;
@@ -58,10 +50,7 @@ export const onAuctionCreated = onDocumentCreated(
     if (!snap?.exists) return;
     const data = snap.data()!;
 
-    // ── Idempotency guard ──────────────────────────────────────────────────
     if (data.auctionCreatedNotifiedAt) return;
-
-    // Only notify for active auctions
     if (!data.isActive) return;
 
     const auctionNumber: number = data.auctionNumber ?? 0;
@@ -74,14 +63,14 @@ export const onAuctionCreated = onDocumentCreated(
       try {
         const productSnap = await db.collection("products").doc(productId).get();
         if (productSnap.exists) {
-          productTitle     = productSnap.data()?.title     ?? "";
+          // ← i18n: resolve from { en, ar } or legacy plain string
+          productTitle     = resolveProductTitle(productSnap.data()?.title);
           productThumbnail = productSnap.data()?.thumbnail ?? "";
           if (productThumbnail === "null") productThumbnail = "";
         }
       } catch { /* non-fatal */ }
     }
 
-    // ── Resolve start date ─────────────────────────────────────────────────
     let startDate = "—";
     try {
       const startTime = data.startTime instanceof Timestamp
@@ -90,26 +79,19 @@ export const onAuctionCreated = onDocumentCreated(
       startDate = formatDate(startTime);
     } catch { /* non-fatal */ }
 
-    // ── Fetch all regular users ────────────────────────────────────────────
     let usersSnap;
     try {
-      usersSnap = await db
-        .collection("users")
-        .where("role", "==", "user")
-        .get();
+      usersSnap = await db.collection("users").where("role", "==", "user").get();
     } catch (err) {
       console.error("[auctionCreated] Failed to fetch users:", err);
       return;
     }
 
     if (usersSnap.empty) {
-      await snap.ref.update({
-        auctionCreatedNotifiedAt: FieldValue.serverTimestamp(),
-      });
+      await snap.ref.update({ auctionCreatedNotifiedAt: FieldValue.serverTimestamp() });
       return;
     }
 
-    // ── Build notification content ─────────────────────────────────────────
     const deepLink = `/auctions/register/${productId}`;
 
     const titleEn = productTitle
@@ -120,7 +102,6 @@ export const onAuctionCreated = onDocumentCreated(
       ? `Auction #${auctionNumber} for "${productTitle}" starts ${startDate}. Register now and place your bid!`
       : `Auction #${auctionNumber} starts ${startDate}. Register now and place your bid!`;
 
-    // ── Build token map + uid list ─────────────────────────────────────────
     const tokenToUid = new Map<string, string>();
     const allUids: string[] = [];
 
@@ -132,7 +113,6 @@ export const onAuctionCreated = onDocumentCreated(
       });
     });
 
-    // ── Write in-app notifications (batched) ───────────────────────────────
     await Promise.allSettled(
       chunk(allUids, FIRESTORE_BATCH_MAX).map(async (uids) => {
         const batch = db.batch();
@@ -160,14 +140,12 @@ export const onAuctionCreated = onDocumentCreated(
       }),
     );
 
-    // ── Send FCM pushes (chunked) ──────────────────────────────────────────
     const allTokens = Array.from(tokenToUid.keys());
 
     if (allTokens.length > 0) {
       await Promise.allSettled(
         chunk(allTokens, FCM_CHUNK_SIZE).map(async (tokens) => {
           try {
-            // DATA-ONLY — no `notification` field, no `webpush.notification`
             const response = await messaging.sendEachForMulticast({
               tokens,
               data: {
@@ -182,12 +160,9 @@ export const onAuctionCreated = onDocumentCreated(
                 body:             bodyEn,
                 url:              deepLink,
               },
-              webpush: {
-                fcmOptions: { link: deepLink },
-              },
+              webpush: { fcmOptions: { link: deepLink } },
             });
 
-            // ── Prune dead tokens ────────────────────────────────────────
             const deadByUid = new Map<string, string[]>();
             response.responses.forEach((res, idx) => {
               if (!res.success && DEAD_TOKEN_CODES.has(res.error?.code ?? "")) {
@@ -216,11 +191,8 @@ export const onAuctionCreated = onDocumentCreated(
       );
     }
 
-    // ── Stamp idempotency guard ────────────────────────────────────────────
     try {
-      await snap.ref.update({
-        auctionCreatedNotifiedAt: FieldValue.serverTimestamp(),
-      });
+      await snap.ref.update({ auctionCreatedNotifiedAt: FieldValue.serverTimestamp() });
     } catch (err) {
       console.error("[auctionCreated] Failed to stamp auctionCreatedNotifiedAt:", err);
     }

@@ -1,13 +1,13 @@
 /**
  * functions/src/Notifications/auctionEndedNotification.ts
  *
- * FIX: DATA-ONLY FCM message — removed `notification` and `webpush.notification`.
- * See auctionRegistrationNotification.ts for full explanation of the duplicate fix.
+ * i18n change: uses resolveProductTitle() for product.title.
  */
 
 import { onDocumentUpdated } from "firebase-functions/v2/firestore";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { getMessaging } from "firebase-admin/messaging";
+import { resolveProductTitle } from "../shared/i18nHelpers";
 
 const db        = getFirestore();
 const messaging = getMessaging();
@@ -30,11 +30,7 @@ function chunk<T>(arr: T[], size: number): T[][] {
 }
 
 export const onAuctionEnded = onDocumentUpdated(
-  {
-    document:       "auctions/{auctionId}",
-    timeoutSeconds: 120,
-    memory:         "512MiB",
-  },
+  { document: "auctions/{auctionId}", timeoutSeconds: 120, memory: "512MiB" },
   async (event) => {
     const before = event.data?.before.data();
     const after  = event.data?.after.data();
@@ -48,7 +44,6 @@ export const onAuctionEnded = onDocumentUpdated(
       !!after.winnerId;
 
     if (!justResolved) return;
-
     if (after.auctionEndedNotifiedAt) return;
 
     const auctionNumber: number = after.auctionNumber ?? 0;
@@ -59,7 +54,8 @@ export const onAuctionEnded = onDocumentUpdated(
       try {
         const productSnap = await db.collection("products").doc(productId).get();
         if (productSnap.exists) {
-          productTitle = productSnap.data()?.title ?? "";
+          // ← i18n
+          productTitle = resolveProductTitle(productSnap.data()?.title);
         }
       } catch { /* non-fatal */ }
     }
@@ -67,23 +63,17 @@ export const onAuctionEnded = onDocumentUpdated(
     let participantIds: string[] = [];
     try {
       const participantsSnap = await db
-        .collection("auctions")
-        .doc(auctionId)
-        .collection("Participants")
-        .get();
-
+        .collection("auctions").doc(auctionId).collection("Participants").get();
       participantIds = participantsSnap.docs
         .map((d) => d.data().userId ?? d.id)
         .filter((uid) => typeof uid === "string" && uid.length > 0);
     } catch (err) {
-      console.error(`[auctionEnded] Failed to fetch participants:`, err);
+      console.error("[auctionEnded] Failed to fetch participants:", err);
       return;
     }
 
     if (participantIds.length === 0) {
-      await event.data!.after.ref.update({
-        auctionEndedNotifiedAt: FieldValue.serverTimestamp(),
-      });
+      await event.data!.after.ref.update({ auctionEndedNotifiedAt: FieldValue.serverTimestamp() });
       return;
     }
 
@@ -92,24 +82,15 @@ export const onAuctionEnded = onDocumentUpdated(
       ? `Thank you for participating in the auction for "${productTitle}" (#${auctionNumber}). We hope to see you in our next auction soon! 🎉`
       : `Thank you for participating in Auction #${auctionNumber}. We hope to see you in our next auction soon! 🎉`;
 
-    // Write in-app notifications
     await Promise.allSettled(
       chunk(participantIds, FIRESTORE_BATCH_MAX).map(async (uids) => {
         const batch = db.batch();
         uids.forEach((uid) => {
           batch.set(
             db.collection("users").doc(uid).collection("notifications").doc(),
-            {
-              type:          "auction_ended",
-              auctionId,
-              productId:     productId ?? "",
-              productTitle,
-              auctionNumber,
-              title:         titleEn,
-              message:       bodyEn,
-              isRead:        false,
-              createdAt:     FieldValue.serverTimestamp(),
-            },
+            { type: "auction_ended", auctionId, productId: productId ?? "", productTitle,
+              auctionNumber, title: titleEn, message: bodyEn, isRead: false,
+              createdAt: FieldValue.serverTimestamp() },
           );
         });
         try { await batch.commit(); }
@@ -117,7 +98,6 @@ export const onAuctionEnded = onDocumentUpdated(
       }),
     );
 
-    // Fetch FCM tokens
     const tokenToUid = new Map<string, string>();
 
     await Promise.allSettled(
@@ -141,19 +121,10 @@ export const onAuctionEnded = onDocumentUpdated(
       await Promise.allSettled(
         chunk(allTokens, FCM_CHUNK_SIZE).map(async (tokens) => {
           try {
-            // DATA-ONLY — no `notification` field, no `webpush.notification`
             const response = await messaging.sendEachForMulticast({
               tokens,
-              data: {
-                type:          "auction_ended",
-                auctionId,
-                productId:     productId ?? "",
-                productTitle,
-                auctionNumber: String(auctionNumber),
-                title:         titleEn,
-                body:          bodyEn,
-              },
-              // No webpush.notification — auction_ended is non-navigable
+              data: { type: "auction_ended", auctionId, productId: productId ?? "",
+                productTitle, auctionNumber: String(auctionNumber), title: titleEn, body: bodyEn },
             });
 
             const deadByUid = new Map<string, string[]>();
@@ -171,9 +142,7 @@ export const onAuctionEnded = onDocumentUpdated(
             if (deadByUid.size > 0) {
               await Promise.allSettled(
                 Array.from(deadByUid.entries()).map(([uid, dead]) =>
-                  db.collection("users").doc(uid).update({
-                    fcmTokens: FieldValue.arrayRemove(...dead),
-                  }),
+                  db.collection("users").doc(uid).update({ fcmTokens: FieldValue.arrayRemove(...dead) }),
                 ),
               );
             }
@@ -185,9 +154,7 @@ export const onAuctionEnded = onDocumentUpdated(
     }
 
     try {
-      await event.data!.after.ref.update({
-        auctionEndedNotifiedAt: FieldValue.serverTimestamp(),
-      });
+      await event.data!.after.ref.update({ auctionEndedNotifiedAt: FieldValue.serverTimestamp() });
     } catch (err) {
       console.error("[auctionEnded] Failed to stamp auctionEndedNotifiedAt:", err);
     }

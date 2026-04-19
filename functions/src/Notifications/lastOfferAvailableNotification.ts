@@ -1,13 +1,13 @@
 /**
  * functions/src/Notifications/lastOfferAvailableNotification.ts
  *
- * FIX: DATA-ONLY FCM message — removed `notification` and `webpush.notification`.
- * See auctionRegistrationNotification.ts for full explanation of the duplicate fix.
+ * i18n change: uses resolveProductTitle() for product.title.
  */
 
 import { onDocumentUpdated } from "firebase-functions/v2/firestore";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { getMessaging } from "firebase-admin/messaging";
+import { resolveProductTitle } from "../shared/i18nHelpers";
 
 const db        = getFirestore();
 const messaging = getMessaging();
@@ -30,11 +30,7 @@ function chunk<T>(arr: T[], size: number): T[][] {
 }
 
 export const onAuctionResolvedLastOffer = onDocumentUpdated(
-  {
-    document:       "auctions/{auctionId}",
-    timeoutSeconds: 120,
-    memory:         "512MiB",
-  },
+  { document: "auctions/{auctionId}", timeoutSeconds: 120, memory: "512MiB" },
   async (event) => {
     const before = event.data?.before.data();
     const after  = event.data?.after.data();
@@ -72,7 +68,8 @@ export const onAuctionResolvedLastOffer = onDocumentUpdated(
       try {
         const productSnap = await db.collection("products").doc(productId).get();
         if (productSnap.exists) {
-          productTitle = productSnap.data()?.title ?? "the item";
+          // ← i18n
+          productTitle = resolveProductTitle(productSnap.data()?.title) || "the item";
         }
       } catch { /* non-fatal */ }
     }
@@ -80,16 +77,12 @@ export const onAuctionResolvedLastOffer = onDocumentUpdated(
     let participantIds: string[] = [];
     try {
       const participantsSnap = await db
-        .collection("auctions")
-        .doc(auctionId)
-        .collection("Participants")
-        .get();
-
+        .collection("auctions").doc(auctionId).collection("Participants").get();
       participantIds = participantsSnap.docs
         .map((d) => d.data().userId ?? d.id)
         .filter((uid) => typeof uid === "string" && uid.length > 0);
     } catch (err) {
-      console.error(`[lastOfferAvailable] Failed to fetch participants:`, err);
+      console.error("[lastOfferAvailable] Failed to fetch participants:", err);
       return;
     }
 
@@ -109,26 +102,15 @@ export const onAuctionResolvedLastOffer = onDocumentUpdated(
       `If they don't complete payment, one of the last offers will be selected. ` +
       `Submit yours now — tap to place your offer.`;
 
-    // Write in-app notifications
     await Promise.allSettled(
       chunk(recipientIds, FIRESTORE_BATCH_MAX).map(async (uids) => {
         const batch = db.batch();
         uids.forEach((uid) => {
           batch.set(
             db.collection("users").doc(uid).collection("notifications").doc(),
-            {
-              type:         "last_offer_available",
-              auctionId,
-              productId:    productId ?? "",
-              productTitle,
-              winnerName,
-              winningBid,
-              title,
-              message:      body,
-              isRead:       false,
-              url:          deepLink,
-              createdAt:    FieldValue.serverTimestamp(),
-            },
+            { type: "last_offer_available", auctionId, productId: productId ?? "",
+              productTitle, winnerName, winningBid, title, message: body,
+              isRead: false, url: deepLink, createdAt: FieldValue.serverTimestamp() },
           );
         });
         try { await batch.commit(); }
@@ -136,7 +118,6 @@ export const onAuctionResolvedLastOffer = onDocumentUpdated(
       }),
     );
 
-    // Fetch FCM tokens
     const tokenToUid = new Map<string, string>();
 
     await Promise.allSettled(
@@ -160,23 +141,11 @@ export const onAuctionResolvedLastOffer = onDocumentUpdated(
       await Promise.allSettled(
         chunk(allTokens, FCM_CHUNK_SIZE).map(async (tokens) => {
           try {
-            // DATA-ONLY — no `notification` field, no `webpush.notification`
             const response = await messaging.sendEachForMulticast({
               tokens,
-              data: {
-                type:         "last_offer_available",
-                auctionId,
-                productId:    productId ?? "",
-                productTitle,
-                winnerName,
-                winningBid:   String(winningBid),
-                title,
-                body,
-                url:          deepLink,
-              },
-              webpush: {
-                fcmOptions: { link: deepLink },
-              },
+              data: { type: "last_offer_available", auctionId, productId: productId ?? "",
+                productTitle, winnerName, winningBid: String(winningBid), title, body, url: deepLink },
+              webpush: { fcmOptions: { link: deepLink } },
             });
 
             const deadByUid = new Map<string, string[]>();
@@ -194,9 +163,7 @@ export const onAuctionResolvedLastOffer = onDocumentUpdated(
             if (deadByUid.size > 0) {
               await Promise.allSettled(
                 Array.from(deadByUid.entries()).map(([uid, dead]) =>
-                  db.collection("users").doc(uid).update({
-                    fcmTokens: FieldValue.arrayRemove(...dead),
-                  }),
+                  db.collection("users").doc(uid).update({ fcmTokens: FieldValue.arrayRemove(...dead) }),
                 ),
               );
             }
@@ -208,9 +175,7 @@ export const onAuctionResolvedLastOffer = onDocumentUpdated(
     }
 
     try {
-      await event.data!.after.ref.update({
-        lastOfferNotifiedAt: FieldValue.serverTimestamp(),
-      });
+      await event.data!.after.ref.update({ lastOfferNotifiedAt: FieldValue.serverTimestamp() });
     } catch (err) {
       console.error("[lastOfferAvailable] Failed to stamp lastOfferNotifiedAt:", err);
     }

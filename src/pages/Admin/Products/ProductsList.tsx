@@ -18,7 +18,6 @@ import {
   Avatar,
   Paper,
   Box,
-  TableContainer,
   CircularProgress,
 } from "@mui/material";
 import {
@@ -30,13 +29,17 @@ import {
   Edit,
   Trash2,
   Package,
-  DollarSign,
   ShoppingBag,
   RefreshCw,
   CheckCircle2,
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { type Product, colors, getAvatarColor } from "./products-data";
+import {
+  type Product,
+  colors,
+  getAvatarColor,
+  resolveTitle,
+} from "./products-data";
 import { useProducts } from "@/store/AdminContext/ProductContext/ProductsCotnext";
 import { useCategories } from "@/store/AdminContext/CategoryContext/CategoryContext";
 import { usePermissions } from "@/permissions/usePermissions";
@@ -63,42 +66,37 @@ export default function ProductsList() {
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [loadingDelete, setLoadingDelete] = useState(false);
 
-  // ── Expense modal state ────────────────────────────────────────────────────
   const [expenseModalOpen, setExpenseModalOpen] = useState(false);
   const [expensePrefill, setExpensePrefill] = useState<
     Partial<TransactionFormValues> | undefined
   >(undefined);
 
-  // ── On mount: check if we navigated here with a prefill request ────────────
   useEffect(() => {
     const state = location.state as {
       openExpenseModal?: boolean;
       expensePrefill?: Partial<TransactionFormValues>;
     } | null;
-
     if (state?.openExpenseModal) {
       setExpensePrefill(state.expensePrefill);
       setExpenseModalOpen(true);
-      // Clear the state so a page refresh doesn't re-open the modal
       window.history.replaceState({}, "", location.pathname);
     }
-  }, []); // intentionally empty — only runs once on mount
+  }, []);
 
-  // ── Helper: resolve category ID → display name ────────────────────────────
   const getCategoryName = (categoryId: string): string => {
     if (!categoryId) return "—";
     const found = categories.find((c) => c.id === categoryId);
     return found ? found.name.en : categoryId;
   };
 
-  // ── Filter ─────────────────────────────────────────────────────────────────
   useEffect(() => {
     let f = products;
     if (searchTerm) {
       const s = searchTerm.toLowerCase();
       f = f.filter(
         (p) =>
-          p.title.toLowerCase().includes(s) ||
+          resolveTitle(p.title, "en").toLowerCase().includes(s) ||
+          resolveTitle(p.title, "ar").toLowerCase().includes(s) ||
           p.brand.toLowerCase().includes(s) ||
           p.model.toLowerCase().includes(s) ||
           getCategoryName(p.category).toLowerCase().includes(s),
@@ -108,7 +106,6 @@ export default function ProductsList() {
     setPage(0);
   }, [searchTerm, products, categories]);
 
-  // ── Delete ─────────────────────────────────────────────────────────────────
   const handleDelete = async () => {
     if (!productToDelete) return;
     setLoadingDelete(true);
@@ -117,20 +114,14 @@ export default function ProductsList() {
       setDeleteDialog(false);
       setProductToDelete(null);
     } catch {
-      // toast shown in context
+      /* toast shown in context */
     } finally {
       setLoadingDelete(false);
     }
   };
 
-  // ── Expense modal submit ───────────────────────────────────────────────────
   const handleExpenseSubmit = async (values: TransactionFormValues) => {
     await addTransaction(values, user?.uid ?? "", user?.displayName ?? "Admin");
-    setExpenseModalOpen(false);
-    setExpensePrefill(undefined);
-  };
-
-  const handleExpenseModalClose = () => {
     setExpenseModalOpen(false);
     setExpensePrefill(undefined);
   };
@@ -190,7 +181,7 @@ export default function ProductsList() {
         minHeight: "100vh",
       }}
     >
-      {/* ── Header ── */}
+      {/* Header */}
       <Box
         sx={{
           mb: 4,
@@ -266,7 +257,7 @@ export default function ProductsList() {
         </Box>
       </Box>
 
-      {/* ── 2 Stat Cards ── */}
+      {/* Stat cards */}
       <Box
         sx={{
           display: "grid",
@@ -345,7 +336,7 @@ export default function ProductsList() {
         ))}
       </Box>
 
-      {/* ── Search ── */}
+      {/* Search */}
       <Paper
         elevation={0}
         sx={{
@@ -357,7 +348,7 @@ export default function ProductsList() {
         }}
       >
         <TextField
-          placeholder="Search by title, brand, model or category…"
+          placeholder="Search by title (EN/AR), brand, model or category…"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           variant="outlined"
@@ -397,7 +388,7 @@ export default function ProductsList() {
         </p>
       </Paper>
 
-      {/* ── Table ── */}
+      {/* Table */}
       <Paper
         elevation={0}
         sx={{
@@ -475,7 +466,7 @@ export default function ProductsList() {
                           <Box
                             component="img"
                             src={product.thumbnail}
-                            alt={product.title}
+                            alt={resolveTitle(product.title)}
                             sx={{
                               width: 40,
                               height: 40,
@@ -488,7 +479,9 @@ export default function ProductsList() {
                         ) : (
                           <Avatar
                             sx={{
-                              bgcolor: getAvatarColor(product.title),
+                              bgcolor: getAvatarColor(
+                                resolveTitle(product.title),
+                              ),
                               width: 40,
                               height: 40,
                               fontSize: "0.95rem",
@@ -497,7 +490,7 @@ export default function ProductsList() {
                               flexShrink: 0,
                             }}
                           >
-                            {product.title.charAt(0)}
+                            {resolveTitle(product.title).charAt(0)}
                           </Avatar>
                         )}
                         <div>
@@ -510,21 +503,21 @@ export default function ProductsList() {
                               whiteSpace: "nowrap",
                             }}
                           >
-                            {product.title}
+                            {resolveTitle(product.title, "en")}
                           </p>
-                          <p
-                            style={{
-                              color: colors.textMuted,
-                              fontSize: "0.75rem",
-                              margin: "2px 0 0",
-                              maxWidth: 200,
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {product.description}
-                          </p>
+                          {resolveTitle(product.title, "ar") && (
+                            <p
+                              style={{
+                                color: colors.textMuted,
+                                fontSize: "0.72rem",
+                                margin: "1px 0 0",
+                                direction: "rtl",
+                                textAlign: "right",
+                              }}
+                            >
+                              {resolveTitle(product.title, "ar")}
+                            </p>
+                          )}
                         </div>
                       </Box>
                     </TableCell>
@@ -579,33 +572,30 @@ export default function ProductsList() {
 
                     {/* Qty */}
                     <TableCell sx={{ minWidth: 80 }}>
-                      <span
-                        style={{
-                          fontWeight: 600,
-                          fontSize: "0.875rem",
-                          color:
-                            product.quantity === 0
-                              ? colors.error
-                              : colors.textPrimary,
-                        }}
-                      >
-                        {product.quantity === 0 ? (
-                          <span
-                            style={{
-                              fontSize: "0.65rem",
-                              background: colors.errorBg,
-                              color: colors.error,
-                              padding: "2px 8px",
-                              borderRadius: 99,
-                              fontWeight: 700,
-                            }}
-                          >
-                            Out of Stock
-                          </span>
-                        ) : (
-                          product.quantity
-                        )}
-                      </span>
+                      {product.quantity === 0 ? (
+                        <span
+                          style={{
+                            fontSize: "0.65rem",
+                            background: colors.errorBg,
+                            color: colors.error,
+                            padding: "2px 8px",
+                            borderRadius: 99,
+                            fontWeight: 700,
+                          }}
+                        >
+                          Out of Stock
+                        </span>
+                      ) : (
+                        <span
+                          style={{
+                            fontWeight: 600,
+                            fontSize: "0.875rem",
+                            color: colors.textPrimary,
+                          }}
+                        >
+                          {product.quantity}
+                        </span>
+                      )}
                     </TableCell>
 
                     {/* Active */}
@@ -703,7 +693,7 @@ export default function ProductsList() {
         />
       </Paper>
 
-      {/* ── Delete Dialog ── */}
+      {/* Delete Dialog */}
       <Dialog
         open={deleteDialog}
         onClose={() => !loadingDelete && setDeleteDialog(false)}
@@ -724,8 +714,8 @@ export default function ProductsList() {
         <DialogContent>
           <p style={{ color: colors.textPrimary, marginBottom: 16 }}>
             Are you sure you want to delete{" "}
-            <strong>{productToDelete?.title}</strong>? This will also remove all
-            product images.
+            <strong>{resolveTitle(productToDelete?.title)}</strong>? This will
+            also remove all product images.
           </p>
           <Box
             sx={{
@@ -778,11 +768,13 @@ export default function ProductsList() {
         </DialogActions>
       </Dialog>
 
-      {/* ── Expense Modal (auto-opens after product creation with a cost price) ── */}
       <AddTransactionModal
         open={expenseModalOpen}
         adding={adding}
-        onClose={handleExpenseModalClose}
+        onClose={() => {
+          setExpenseModalOpen(false);
+          setExpensePrefill(undefined);
+        }}
         onSubmit={handleExpenseSubmit}
         initialValues={expensePrefill}
       />

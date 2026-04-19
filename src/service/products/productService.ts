@@ -18,27 +18,46 @@ import {
   deleteObject,
 } from "firebase/storage";
 import { db, storage } from "@/firebase/firebase";
-import type { Product, ProductFormData } from "@/pages/Admin/Products/products-data";
+import type { Product, ProductFormData, LocalizedString } from "@/pages/Admin/Products/products-data";
 
 const COLLECTION = "products";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+/**
+ * Normalise a Firestore value that could be either the OLD plain string
+ * format or the NEW { en, ar } object. This ensures zero breaking changes
+ * for any documents written before the migration.
+ */
+function toLocalized(raw: any): LocalizedString {
+  if (!raw) return { en: "", ar: "" };
+  if (typeof raw === "string") return { en: raw, ar: "" };   // legacy plain string
+  return { en: raw.en ?? "", ar: raw.ar ?? "" };
+}
+
+function toLocalizedArray(raw: any): LocalizedString[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((item: any) => {
+    if (typeof item === "string") return { en: item, ar: "" }; // legacy
+    return { en: item.en ?? "", ar: item.ar ?? "" };
+  });
+}
+
 function docToProduct(id: string, data: Record<string, any>): Product {
   return {
     id,
-    title:         data.title         ?? "",
+    title:         toLocalized(data.title),
     brand:         data.brand         ?? "",
     model:         data.model         ?? "",
     category:      data.category      ?? "",
-    supplierId:    data.supplierId     ?? "",   // NEW — defaults to "" for legacy docs
-    description:   data.description   ?? "",
+    supplierId:    data.supplierId     ?? "",
+    description:   toLocalized(data.description),
     price:         data.price         ?? 0,
     actualPrice:   data.actualPrice   ?? 0,
     quantity:      data.quantity      ?? 0,
     isActive:      data.isActive      ?? true,
     isArchived:    data.isArchived     ?? false,
-    features:      Array.isArray(data.features) ? data.features : [],
+    features:      toLocalizedArray(data.features),
     images:        Array.isArray(data.images)   ? data.images   : [],
     thumbnail:     !data.thumbnail || data.thumbnail === "null" ? null : data.thumbnail,
     totalAuctions: data.totalAuctions ?? 0,
@@ -57,18 +76,36 @@ async function uploadImage(productId: string, file: File): Promise<string> {
 
 async function deleteImageByUrl(url: string): Promise<void> {
   try {
-    const fileRef = ref(storage, url);
-    await deleteObject(fileRef);
+    await deleteObject(ref(storage, url));
   } catch (err) {
     console.warn("Could not delete image:", url, err);
   }
 }
 
-// ─── Safe numeric parser ──────────────────────────────────────────────────────
 function parseNum(val: string): number {
-  const trimmed = String(val).trim();
-  const n = Number(trimmed);
+  const n = Number(String(val).trim());
   return isNaN(n) ? 0 : n;
+}
+
+// ─── Build Firestore payload from form ────────────────────────────────────────
+
+function formToFields(formData: ProductFormData) {
+  return {
+    title:       { en: formData.titleEn.trim(), ar: formData.titleAr.trim() },
+    brand:       formData.brand,
+    model:       formData.model,
+    category:    formData.category,
+    supplierId:  formData.supplierId,
+    description: { en: formData.descriptionEn.trim(), ar: formData.descriptionAr.trim() },
+    price:       parseNum(formData.price),
+    actualPrice: parseNum(formData.actualPrice),
+    quantity:    parseNum(formData.quantity),
+    isActive:    formData.isActive,
+    features:    formData.featuresEn.map((en, i) => ({
+      en,
+      ar: formData.featuresAr[i] ?? "",
+    })),
+  };
 }
 
 // ─── FETCH ALL ────────────────────────────────────────────────────────────────
@@ -98,23 +135,11 @@ export async function createProduct(
   formData: ProductFormData,
   createdByUid: string,
 ): Promise<Product> {
-  const price       = parseNum(formData.price);
-  const actualPrice = parseNum(formData.actualPrice);
-  const quantity    = parseNum(formData.quantity);
+  const fields = formToFields(formData);
 
   const payload: Record<string, any> = {
-    title:         formData.title,
-    brand:         formData.brand,
-    model:         formData.model,
-    category:      formData.category,
-    supplierId:    formData.supplierId,   // NEW
-    description:   formData.description,
-    price,
-    actualPrice,
-    quantity,
-    isActive:      formData.isActive,
+    ...fields,
     isArchived:    false,
-    features:      formData.features,
     images:        [],
     thumbnail:     null,
     totalAuctions: 0,
@@ -125,7 +150,6 @@ export async function createProduct(
 
   const docRef = await addDoc(collection(db, COLLECTION), payload);
 
-  // Upload images using the new doc ID
   const uploadedUrls: string[] = [];
   for (const file of formData.newImages) {
     try {
@@ -137,27 +161,14 @@ export async function createProduct(
   }
 
   if (uploadedUrls.length > 0) {
-    await updateDoc(docRef, {
-      images:    uploadedUrls,
-      thumbnail: uploadedUrls[0],
-    });
+    await updateDoc(docRef, { images: uploadedUrls, thumbnail: uploadedUrls[0] });
   }
 
   const now = new Date();
   return {
     id:            docRef.id,
-    title:         formData.title,
-    brand:         formData.brand,
-    model:         formData.model,
-    category:      formData.category,
-    supplierId:    formData.supplierId,
-    description:   formData.description,
-    price,
-    actualPrice,
-    quantity,
-    isActive:      formData.isActive,
+    ...fields,
     isArchived:    false,
-    features:      formData.features,
     images:        uploadedUrls,
     thumbnail:     uploadedUrls[0] ?? null,
     totalAuctions: 0,
@@ -174,11 +185,8 @@ export async function updateProduct(
   formData: ProductFormData,
   previousImages: string[],
 ): Promise<Product> {
-  const price       = parseNum(formData.price);
-  const actualPrice = parseNum(formData.actualPrice);
-  const quantity    = parseNum(formData.quantity);
+  const fields = formToFields(formData);
 
-  // Upload new images
   const newUrls: string[] = [];
   for (const file of formData.newImages) {
     try {
@@ -191,7 +199,6 @@ export async function updateProduct(
 
   const finalImages = [...formData.existingImages, ...newUrls];
 
-  // Delete removed images from Storage
   const removedUrls = previousImages.filter(
     (url) => !formData.existingImages.includes(url),
   );
@@ -199,7 +206,6 @@ export async function updateProduct(
     await deleteImageByUrl(url);
   }
 
-  // Determine thumbnail
   const thumbnailIsValid =
     formData.thumbnail &&
     formData.thumbnail !== "null" &&
@@ -208,37 +214,17 @@ export async function updateProduct(
   const thumbnail = thumbnailIsValid ? formData.thumbnail : (finalImages[0] ?? null);
 
   await updateDoc(doc(db, COLLECTION, id), {
-    title:       formData.title,
-    brand:       formData.brand,
-    model:       formData.model,
-    category:    formData.category,
-    supplierId:  formData.supplierId,   // NEW
-    description: formData.description,
-    price,
-    actualPrice,
-    quantity,
-    isActive:    formData.isActive,
-    features:    formData.features,
-    images:      finalImages,
-    thumbnail:   thumbnail ?? null,
-    updatedAt:   serverTimestamp(),
+    ...fields,
+    images:    finalImages,
+    thumbnail: thumbnail ?? null,
+    updatedAt: serverTimestamp(),
   });
 
   const now = new Date();
   return {
     id,
-    title:         formData.title,
-    brand:         formData.brand,
-    model:         formData.model,
-    category:      formData.category,
-    supplierId:    formData.supplierId,
-    description:   formData.description,
-    price,
-    actualPrice,
-    quantity,
-    isActive:      formData.isActive,
+    ...fields,
     isArchived:    false,
-    features:      formData.features,
     images:        finalImages,
     thumbnail,
     totalAuctions: 0,
@@ -260,8 +246,5 @@ export async function deleteProduct(product: Product): Promise<void> {
 // ─── TOGGLE ACTIVE ────────────────────────────────────────────────────────────
 
 export async function toggleProductActive(id: string, isActive: boolean): Promise<void> {
-  await updateDoc(doc(db, COLLECTION, id), {
-    isActive,
-    updatedAt: serverTimestamp(),
-  });
+  await updateDoc(doc(db, COLLECTION, id), { isActive, updatedAt: serverTimestamp() });
 }

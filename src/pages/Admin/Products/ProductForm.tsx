@@ -13,6 +13,8 @@ import {
   MenuItem,
   FormHelperText,
   InputAdornment,
+  Tabs,
+  Tab,
 } from "@mui/material";
 import {
   ArrowLeft,
@@ -23,6 +25,7 @@ import {
   X,
   Upload,
   Lock,
+  Globe,
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -66,6 +69,20 @@ function sanitizeNumeric(val: string): string {
   return cleaned;
 }
 
+// ─── Lang tab ────────────────────────────────────────────────────────────────
+
+function LangTabPanel({
+  value,
+  index,
+  children,
+}: {
+  value: number;
+  index: number;
+  children: React.ReactNode;
+}) {
+  return value === index ? <>{children}</> : null;
+}
+
 export default function ProductForm() {
   const navigate = useNavigate();
   const { id } = useParams<{ id?: string }>();
@@ -79,13 +96,16 @@ export default function ProductForm() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [loadingProduct, setLoadingProduct] = useState(isEdit);
-  const [newFeature, setNewFeature] = useState("");
+  const [langTab, setLangTab] = useState(0); // 0 = EN, 1 = AR
+  const [newFeatureEn, setNewFeatureEn] = useState("");
+  const [newFeatureAr, setNewFeatureAr] = useState("");
   const [originalImages, setOriginalImages] = useState<string[]>([]);
   const [newImagePreviews, setNewImagePreviews] = useState<string[]>([]);
 
   const activeCategories = categories.filter((c) => c.isActive);
   const activeSuppliers = suppliers.filter((s) => s.isActive);
 
+  // ── Pre-fill on edit ────────────────────────────────────────────────────────
   useEffect(() => {
     if (!isEdit || !id) return;
     (async () => {
@@ -94,17 +114,26 @@ export default function ProductForm() {
       if (p) {
         setOriginalImages(p.images);
         setForm({
-          title: p.title,
+          titleEn: typeof p.title === "string" ? p.title : p.title.en,
+          titleAr: typeof p.title === "string" ? "" : p.title.ar,
           brand: p.brand,
           model: p.model,
           category: p.category,
-          supplierId: p.supplierId, // NEW
-          description: p.description,
+          supplierId: p.supplierId,
+          descriptionEn:
+            typeof p.description === "string"
+              ? p.description
+              : p.description.en,
+          descriptionAr:
+            typeof p.description === "string" ? "" : p.description.ar,
           price: String(p.price),
           actualPrice: String(p.actualPrice ?? ""),
           quantity: String(p.quantity),
           isActive: p.isActive,
-          features: p.features,
+          featuresEn: p.features.map((f) => (typeof f === "string" ? f : f.en)),
+          featuresAr: p.features.map((f) =>
+            typeof f === "string" ? "" : f.ar,
+          ),
           newImages: [],
           existingImages: p.images,
           thumbnail: p.thumbnail,
@@ -126,17 +155,25 @@ export default function ProductForm() {
     };
 
   const addFeature = () => {
-    const v = newFeature.trim();
-    if (!v) return;
-    field("features", [...form.features, v]);
-    setNewFeature("");
+    const en = newFeatureEn.trim();
+    const ar = newFeatureAr.trim();
+    if (!en) return;
+    field("featuresEn", [...form.featuresEn, en]);
+    field("featuresAr", [...form.featuresAr, ar]);
+    setNewFeatureEn("");
+    setNewFeatureAr("");
   };
 
-  const removeFeature = (i: number) =>
+  const removeFeature = (i: number) => {
     field(
-      "features",
-      form.features.filter((_, idx) => idx !== i),
+      "featuresEn",
+      form.featuresEn.filter((_, idx) => idx !== i),
     );
+    field(
+      "featuresAr",
+      form.featuresAr.filter((_, idx) => idx !== i),
+    );
+  };
 
   const handleImageFiles = (files: FileList | null) => {
     if (!files) return;
@@ -171,25 +208,29 @@ export default function ProductForm() {
 
   const validate = () => {
     const e: Record<string, string> = {};
-    if (!form.title.trim()) e.title = "Title is required";
+    if (!form.titleEn.trim()) e.titleEn = "English title is required";
+    if (!form.titleAr.trim()) e.titleAr = "Arabic title is required";
     if (!form.brand.trim()) e.brand = "Brand is required";
     if (!form.model.trim()) e.model = "Model is required";
     if (!form.category.trim()) e.category = "Category is required";
-    if (!form.description.trim()) e.description = "Description is required";
-
+    if (!form.descriptionEn.trim())
+      e.descriptionEn = "English description is required";
+    if (!form.descriptionAr.trim())
+      e.descriptionAr = "Arabic description is required";
     const priceVal = Number(form.price.trim());
     if (!form.price.trim() || isNaN(priceVal) || priceVal < 0)
       e.price = "Enter a valid starting price";
-
     if (form.actualPrice.trim() !== "") {
       const apVal = Number(form.actualPrice.trim());
       if (isNaN(apVal) || apVal < 0) e.actualPrice = "Enter a valid cost price";
     }
-
     const qtyVal = Number(form.quantity.trim());
     if (!form.quantity.trim() || isNaN(qtyVal) || qtyVal < 0)
       e.quantity = "Enter a valid quantity";
 
+    // If there are Arabic-tab errors, auto-switch to show them
+    const arErrors = ["titleAr", "descriptionAr"];
+    if (arErrors.some((k) => e[k])) setLangTab(1);
     return e;
   };
 
@@ -199,7 +240,6 @@ export default function ProductForm() {
       setErrors(e);
       return;
     }
-
     setSaving(true);
     try {
       if (isEdit && id) {
@@ -207,7 +247,6 @@ export default function ProductForm() {
         navigate("/admin/Products");
       } else {
         await addProduct(form);
-
         const costPrice = Number(form.actualPrice.trim());
         if (costPrice > 0) {
           navigate("/admin/Products", {
@@ -218,7 +257,7 @@ export default function ProductForm() {
                 amount: String(costPrice),
                 method: "cash" as const,
                 category: "products" as const,
-                note: `Cost price for product: ${form.title.trim()}`,
+                note: `Cost price for product: ${form.titleEn.trim()}`,
               },
             },
           });
@@ -345,7 +384,307 @@ export default function ProductForm() {
             gap: 3,
           }}
         >
-          {/* Row 1 — Title + Brand */}
+          {/* ── Language tabs for title, description, features ── */}
+          <Box
+            sx={{
+              border: `1px solid ${colors.border}`,
+              borderRadius: 2,
+              overflow: "hidden",
+            }}
+          >
+            <Box
+              sx={{
+                borderBottom: `1px solid ${colors.border}`,
+                bgcolor: colors.muted,
+              }}
+            >
+              <Tabs
+                value={langTab}
+                onChange={(_e, v) => setLangTab(v)}
+                sx={{
+                  "& .MuiTab-root": {
+                    textTransform: "none",
+                    fontWeight: 600,
+                    minHeight: 44,
+                  },
+                  "& .Mui-selected": { color: colors.primary },
+                  "& .MuiTabs-indicator": { bgcolor: colors.primary },
+                }}
+              >
+                <Tab
+                  icon={<Globe size={14} />}
+                  iconPosition="start"
+                  label="English"
+                  sx={{
+                    gap: 0.5,
+                    color:
+                      errors.titleEn || errors.descriptionEn
+                        ? colors.error
+                        : undefined,
+                  }}
+                />
+                <Tab
+                  icon={<Globe size={14} />}
+                  iconPosition="start"
+                  label="العربية"
+                  sx={{
+                    gap: 0.5,
+                    color:
+                      errors.titleAr || errors.descriptionAr
+                        ? colors.error
+                        : undefined,
+                  }}
+                />
+              </Tabs>
+            </Box>
+
+            <Box sx={{ p: { xs: 2, md: 2.5 } }}>
+              {/* ── English panel ── */}
+              <LangTabPanel value={langTab} index={0}>
+                <Box
+                  sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}
+                >
+                  <TextField
+                    label="Title (English) *"
+                    size="small"
+                    fullWidth
+                    value={form.titleEn}
+                    onChange={(e) => field("titleEn", e.target.value)}
+                    error={!!errors.titleEn}
+                    helperText={errors.titleEn}
+                    sx={inputSx}
+                    placeholder="e.g. iPhone 15 Pro Max"
+                  />
+                  <TextField
+                    label="Description (English) *"
+                    size="small"
+                    fullWidth
+                    multiline
+                    rows={4}
+                    value={form.descriptionEn}
+                    onChange={(e) => field("descriptionEn", e.target.value)}
+                    error={!!errors.descriptionEn}
+                    helperText={errors.descriptionEn}
+                    sx={inputSx}
+                    placeholder="Describe the product in English…"
+                  />
+
+                  {/* English features */}
+                  <Box>
+                    <p
+                      style={{
+                        fontSize: "0.75rem",
+                        color: colors.textSecondary,
+                        fontWeight: 600,
+                        marginBottom: 8,
+                      }}
+                    >
+                      Features (English)
+                    </p>
+                    <Box sx={{ display: "flex", gap: 1, mb: 1.5 }}>
+                      <TextField
+                        size="small"
+                        fullWidth
+                        placeholder="Add an English feature…"
+                        value={newFeatureEn}
+                        onChange={(e) => setNewFeatureEn(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            addFeature();
+                          }
+                        }}
+                        sx={inputSx}
+                      />
+                      <Button
+                        onClick={addFeature}
+                        variant="outlined"
+                        sx={{
+                          borderColor: colors.border,
+                          color: colors.primary,
+                          minWidth: 40,
+                          px: 1.5,
+                          borderRadius: 2,
+                        }}
+                      >
+                        <Plus size={18} />
+                      </Button>
+                    </Box>
+                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+                      {form.featuresEn.map((f, i) => (
+                        <Box
+                          key={i}
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 0.5,
+                            bgcolor: colors.primaryBg,
+                            border: `1px solid ${colors.primaryRing}`,
+                            borderRadius: 99,
+                            px: 1.5,
+                            py: 0.5,
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontSize: "0.78rem",
+                              color: colors.primary,
+                              fontWeight: 600,
+                            }}
+                          >
+                            {f}
+                          </span>
+                          <button
+                            onClick={() => removeFeature(i)}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              cursor: "pointer",
+                              color: colors.primary,
+                              display: "flex",
+                              padding: 0,
+                            }}
+                          >
+                            <X size={13} />
+                          </button>
+                        </Box>
+                      ))}
+                    </Box>
+                  </Box>
+                </Box>
+              </LangTabPanel>
+
+              {/* ── Arabic panel ── */}
+              <LangTabPanel value={langTab} index={1}>
+                <Box
+                  sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}
+                >
+                  <TextField
+                    label="العنوان (عربي) *"
+                    size="small"
+                    fullWidth
+                    value={form.titleAr}
+                    onChange={(e) => field("titleAr", e.target.value)}
+                    error={!!errors.titleAr}
+                    helperText={errors.titleAr}
+                    sx={{
+                      ...inputSx,
+                      "& input": { direction: "rtl", textAlign: "right" },
+                    }}
+                    placeholder="مثال: آيفون 15 برو ماكس"
+                  />
+                  <TextField
+                    label="الوصف (عربي) *"
+                    size="small"
+                    fullWidth
+                    multiline
+                    rows={4}
+                    value={form.descriptionAr}
+                    onChange={(e) => field("descriptionAr", e.target.value)}
+                    error={!!errors.descriptionAr}
+                    helperText={errors.descriptionAr}
+                    sx={{
+                      ...inputSx,
+                      "& textarea": { direction: "rtl", textAlign: "right" },
+                    }}
+                    placeholder="اكتب وصف المنتج بالعربية…"
+                  />
+
+                  {/* Arabic features */}
+                  <Box>
+                    <p
+                      style={{
+                        fontSize: "0.75rem",
+                        color: colors.textSecondary,
+                        fontWeight: 600,
+                        marginBottom: 8,
+                      }}
+                    >
+                      المميزات (عربي)
+                    </p>
+                    <Box sx={{ display: "flex", gap: 1, mb: 1.5 }}>
+                      <TextField
+                        size="small"
+                        fullWidth
+                        placeholder="أضف ميزة بالعربية…"
+                        value={newFeatureAr}
+                        onChange={(e) => setNewFeatureAr(e.target.value)}
+                        sx={{
+                          ...inputSx,
+                          "& input": { direction: "rtl", textAlign: "right" },
+                        }}
+                      />
+                    </Box>
+                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+                      {form.featuresAr.map((f, i) => (
+                        <Box
+                          key={i}
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 0.5,
+                            bgcolor: "#FFF7ED",
+                            border: `1px solid #FED7AA`,
+                            borderRadius: 99,
+                            px: 1.5,
+                            py: 0.5,
+                            direction: "rtl",
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontSize: "0.78rem",
+                              color: "#C2410C",
+                              fontWeight: 600,
+                            }}
+                          >
+                            {f || `—`}
+                          </span>
+                        </Box>
+                      ))}
+                      {form.featuresEn.length > 0 &&
+                        form.featuresAr.every((f) => !f) && (
+                          <p
+                            style={{
+                              fontSize: "0.75rem",
+                              color: colors.textMuted,
+                              margin: 0,
+                            }}
+                          >
+                            Arabic translations will be saved when you type them
+                            in the field above and add them via the English tab.
+                          </p>
+                        )}
+                    </Box>
+                    <Box
+                      sx={{
+                        mt: 1.5,
+                        p: 1.5,
+                        bgcolor: "#FFF7ED",
+                        borderRadius: 2,
+                        border: "1px solid #FED7AA",
+                      }}
+                    >
+                      <p
+                        style={{
+                          margin: 0,
+                          fontSize: "0.78rem",
+                          color: "#92400E",
+                        }}
+                      >
+                        <strong>Tip:</strong> Add features on the English tab.
+                        Arabic translations are paired by position — the Arabic
+                        field above corresponds to the feature being added
+                        simultaneously.
+                      </p>
+                    </Box>
+                  </Box>
+                </Box>
+              </LangTabPanel>
+            </Box>
+          </Box>
+
+          {/* ── Row: Brand + Model ── */}
           <Box
             sx={{
               display: "grid",
@@ -353,16 +692,6 @@ export default function ProductForm() {
               gap: 2.5,
             }}
           >
-            <TextField
-              label="Title *"
-              size="small"
-              fullWidth
-              value={form.title}
-              onChange={(e) => field("title", e.target.value)}
-              error={!!errors.title}
-              helperText={errors.title}
-              sx={inputSx}
-            />
             <TextField
               label="Brand *"
               size="small"
@@ -373,16 +702,6 @@ export default function ProductForm() {
               helperText={errors.brand}
               sx={inputSx}
             />
-          </Box>
-
-          {/* Row 2 — Model + Category */}
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
-              gap: 2.5,
-            }}
-          >
             <TextField
               label="Model *"
               size="small"
@@ -393,59 +712,45 @@ export default function ProductForm() {
               helperText={errors.model}
               sx={inputSx}
             />
-
-            <FormControl size="small" fullWidth error={!!errors.category}>
-              <InputLabel sx={{ "&.Mui-focused": { color: colors.primary } }}>
-                Category *
-              </InputLabel>
-              <Select
-                value={form.category}
-                label="Category *"
-                onChange={(e) => field("category", e.target.value)}
-                sx={selectSx}
-              >
-                {activeCategories.length === 0 && (
-                  <MenuItem disabled value="">
-                    <em>No active categories found</em>
-                  </MenuItem>
-                )}
-                {activeCategories.map((cat) => (
-                  <MenuItem key={cat.id} value={cat.id}>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                      <span style={{ fontWeight: 600, fontSize: "0.875rem" }}>
-                        {cat.name.en}
-                      </span>
-                      <span
-                        style={{ fontSize: "0.75rem", color: colors.textMuted }}
-                      >
-                        — {cat.name.ar}
-                      </span>
-                    </Box>
-                  </MenuItem>
-                ))}
-              </Select>
-              {errors.category && (
-                <FormHelperText>{errors.category}</FormHelperText>
-              )}
-              {activeCategories.length === 0 && (
-                <FormHelperText sx={{ color: colors.warning }}>
-                  No active categories.{" "}
-                  <span
-                    onClick={() => navigate("/admin/categories/add")}
-                    style={{
-                      cursor: "pointer",
-                      textDecoration: "underline",
-                      color: colors.primary,
-                    }}
-                  >
-                    Add one first.
-                  </span>
-                </FormHelperText>
-              )}
-            </FormControl>
           </Box>
 
-          {/* Row 3 — Supplier */}
+          {/* ── Row: Category ── */}
+          <FormControl size="small" fullWidth error={!!errors.category}>
+            <InputLabel sx={{ "&.Mui-focused": { color: colors.primary } }}>
+              Category *
+            </InputLabel>
+            <Select
+              value={form.category}
+              label="Category *"
+              onChange={(e) => field("category", e.target.value)}
+              sx={selectSx}
+            >
+              {activeCategories.length === 0 && (
+                <MenuItem disabled value="">
+                  <em>No active categories found</em>
+                </MenuItem>
+              )}
+              {activeCategories.map((cat) => (
+                <MenuItem key={cat.id} value={cat.id}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <span style={{ fontWeight: 600, fontSize: "0.875rem" }}>
+                      {cat.name.en}
+                    </span>
+                    <span
+                      style={{ fontSize: "0.75rem", color: colors.textMuted }}
+                    >
+                      — {cat.name.ar}
+                    </span>
+                  </Box>
+                </MenuItem>
+              ))}
+            </Select>
+            {errors.category && (
+              <FormHelperText>{errors.category}</FormHelperText>
+            )}
+          </FormControl>
+
+          {/* ── Row: Supplier ── */}
           <FormControl size="small" fullWidth>
             <InputLabel sx={{ "&.Mui-focused": { color: colors.primary } }}>
               Supplier
@@ -461,11 +766,6 @@ export default function ProductForm() {
                   No supplier selected
                 </em>
               </MenuItem>
-              {activeSuppliers.length === 0 && (
-                <MenuItem disabled value="__none__">
-                  <em>No active suppliers found</em>
-                </MenuItem>
-              )}
               {activeSuppliers.map((sup) => (
                 <MenuItem key={sup.id} value={sup.id}>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
@@ -484,23 +784,11 @@ export default function ProductForm() {
               ))}
             </Select>
             <FormHelperText>
-              Optional — select the supplier this product comes from.{" "}
-              {activeSuppliers.length === 0 && (
-                <span
-                  onClick={() => navigate("/admin/suppliers/add")}
-                  style={{
-                    cursor: "pointer",
-                    textDecoration: "underline",
-                    color: colors.primary,
-                  }}
-                >
-                  Add a supplier first.
-                </span>
-              )}
+              Optional — select the supplier this product comes from.
             </FormHelperText>
           </FormControl>
 
-          {/* Row 4 — Starting Price + Cost Price */}
+          {/* ── Row: Prices ── */}
           <Box
             sx={{
               display: "grid",
@@ -530,7 +818,6 @@ export default function ProductForm() {
               }}
               sx={inputSx}
             />
-
             <TextField
               label="Cost Price (EGP) — Admin only"
               size="small"
@@ -569,7 +856,7 @@ export default function ProductForm() {
             />
           </Box>
 
-          {/* Row 5 — Quantity */}
+          {/* ── Row: Quantity ── */}
           <Box
             sx={{
               display: "grid",
@@ -590,7 +877,7 @@ export default function ProductForm() {
             />
           </Box>
 
-          {/* Row 6 — isActive toggle */}
+          {/* ── Active toggle ── */}
           <Box>
             <FormControlLabel
               control={
@@ -621,104 +908,7 @@ export default function ProductForm() {
             />
           </Box>
 
-          {/* Description */}
-          <TextField
-            label="Description *"
-            size="small"
-            fullWidth
-            multiline
-            rows={4}
-            value={form.description}
-            onChange={(e) => field("description", e.target.value)}
-            error={!!errors.description}
-            helperText={errors.description}
-            sx={inputSx}
-          />
-
-          {/* Features */}
-          <Box>
-            <p
-              style={{
-                fontSize: "0.75rem",
-                color: colors.textSecondary,
-                fontWeight: 600,
-                marginBottom: 8,
-              }}
-            >
-              Features
-            </p>
-            <Box sx={{ display: "flex", gap: 1, mb: 1.5 }}>
-              <TextField
-                size="small"
-                fullWidth
-                placeholder="Add a feature…"
-                value={newFeature}
-                onChange={(e) => setNewFeature(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    addFeature();
-                  }
-                }}
-                sx={inputSx}
-              />
-              <Button
-                onClick={addFeature}
-                variant="outlined"
-                sx={{
-                  borderColor: colors.border,
-                  color: colors.primary,
-                  minWidth: 40,
-                  px: 1.5,
-                  borderRadius: 2,
-                }}
-              >
-                <Plus size={18} />
-              </Button>
-            </Box>
-            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-              {form.features.map((f, i) => (
-                <Box
-                  key={i}
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 0.5,
-                    bgcolor: colors.primaryBg,
-                    border: `1px solid ${colors.primaryRing}`,
-                    borderRadius: 99,
-                    px: 1.5,
-                    py: 0.5,
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: "0.78rem",
-                      color: colors.primary,
-                      fontWeight: 600,
-                    }}
-                  >
-                    {f}
-                  </span>
-                  <button
-                    onClick={() => removeFeature(i)}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      cursor: "pointer",
-                      color: colors.primary,
-                      display: "flex",
-                      padding: 0,
-                    }}
-                  >
-                    <X size={13} />
-                  </button>
-                </Box>
-              ))}
-            </Box>
-          </Box>
-
-          {/* Images */}
+          {/* ── Images ── */}
           <Box>
             <p
               style={{
@@ -962,14 +1152,13 @@ export default function ProductForm() {
             >
               <strong>Note:</strong>{" "}
               {isEdit
-                ? "Any changes you make here will be saved and reflected immediately across the platform."
-                : "Once you submit, the product will be live and visible based on its active status."}{" "}
-              The <strong>Cost Price</strong> is only visible to admins and will
-              never be shown to users.{" "}
+                ? "Changes will be reflected immediately across the platform."
+                : "Once submitted, the product will be live based on its active status."}{" "}
+              The <strong>Cost Price</strong> is only visible to admins.{" "}
               {!isEdit && (
                 <strong>
                   If a cost price is set, you'll be prompted to log it as a
-                  product expense automatically.
+                  product expense.
                 </strong>
               )}
             </p>

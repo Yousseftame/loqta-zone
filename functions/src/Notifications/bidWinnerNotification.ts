@@ -1,13 +1,13 @@
 /**
  * functions/src/Notifications/bidWinnerNotification.ts
  *
- * FIX: DATA-ONLY FCM message — removed `notification` and `webpush.notification`.
- * See auctionRegistrationNotification.ts for full explanation of the duplicate fix.
+ * i18n change: uses resolveProductTitle() for product.title.
  */
 
 import { onDocumentUpdated } from "firebase-functions/v2/firestore";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { getMessaging } from "firebase-admin/messaging";
+import { resolveProductTitle } from "../shared/i18nHelpers";
 
 const db        = getFirestore();
 const messaging = getMessaging();
@@ -53,7 +53,8 @@ export const onBidSelected = onDocumentUpdated(
         if (auctionData.productId) {
           const productSnap = await db.collection("products").doc(auctionData.productId).get();
           if (productSnap.exists) {
-            productTitle = productSnap.data()?.title ?? "the item";
+            // ← i18n
+            productTitle = resolveProductTitle(productSnap.data()?.title) || "the item";
           }
         }
       }
@@ -69,30 +70,14 @@ export const onBidSelected = onDocumentUpdated(
       `Your bid of ${formattedAmount} EGP for "${productTitle}" has been selected as the winning bid. Tap to confirm your purchase.\n\n⚠️ Complete your payment within 24 hours or the item will be reassigned to another bidder.`;
 
     try {
-      const notifRef = db
-        .collection("users")
-        .doc(userId)
-        .collection("notifications")
-        .doc();
-
-      await notifRef.set({
-        type:        "bid_selected",
-        auctionId,
-        bidId,
-        winningBid,
-        productTitle,
-        title,
-        message:     body,
-        isRead:      false,
-        url:         deepLink,
-        createdAt:   FieldValue.serverTimestamp(),
+      await db.collection("users").doc(userId).collection("notifications").doc().set({
+        type: "bid_selected", auctionId, bidId, winningBid, productTitle,
+        title, message: body, isRead: false, url: deepLink,
+        createdAt: FieldValue.serverTimestamp(),
       });
 
-      const userSnap    = await db.collection("users").doc(userId).get();
-      const rawTokens: string[] = userSnap.exists
-        ? (userSnap.data()?.fcmTokens ?? [])
-        : [];
-
+      const userSnap = await db.collection("users").doc(userId).get();
+      const rawTokens: string[] = userSnap.exists ? (userSnap.data()?.fcmTokens ?? []) : [];
       const uniqueTokens = [...new Set(rawTokens.filter((t) => typeof t === "string" && t.length > 0))];
 
       if (uniqueTokens.length < rawTokens.length) {
@@ -100,48 +85,28 @@ export const onBidSelected = onDocumentUpdated(
       }
 
       if (uniqueTokens.length === 0) {
-        await event.data!.after.ref.update({
-          notifiedBidSelectedAt: FieldValue.serverTimestamp(),
-        });
+        await event.data!.after.ref.update({ notifiedBidSelectedAt: FieldValue.serverTimestamp() });
         return;
       }
 
-      // DATA-ONLY — no `notification` field, no `webpush.notification`
       const fcmResponse = await messaging.sendEachForMulticast({
         tokens: uniqueTokens,
-        data: {
-          type:         "bid_selected",
-          auctionId,
-          bidId,
-          winningBid:   String(winningBid),
-          productTitle,
-          title,
-          body,
-          url:          deepLink,
-        },
-        webpush: {
-          fcmOptions: { link: deepLink },
-        },
+        data: { type: "bid_selected", auctionId, bidId, winningBid: String(winningBid),
+          productTitle, title, body, url: deepLink },
+        webpush: { fcmOptions: { link: deepLink } },
       });
 
       const deadTokens: string[] = [];
       fcmResponse.responses.forEach((res, idx) => {
-        if (!res.success) {
-          const code = res.error?.code ?? "";
-          if (DEAD_TOKEN_CODES.has(code)) deadTokens.push(uniqueTokens[idx]);
-        }
+        if (!res.success && DEAD_TOKEN_CODES.has(res.error?.code ?? ""))
+          deadTokens.push(uniqueTokens[idx]);
       });
 
       if (deadTokens.length > 0) {
-        await db.collection("users").doc(userId).update({
-          fcmTokens: FieldValue.arrayRemove(...deadTokens),
-        });
+        await db.collection("users").doc(userId).update({ fcmTokens: FieldValue.arrayRemove(...deadTokens) });
       }
 
-      await event.data!.after.ref.update({
-        notifiedBidSelectedAt: FieldValue.serverTimestamp(),
-      });
-
+      await event.data!.after.ref.update({ notifiedBidSelectedAt: FieldValue.serverTimestamp() });
     } catch (err) {
       console.error(`[bidWinnerNotification] Error for bidId=${bidId}:`, err);
     }

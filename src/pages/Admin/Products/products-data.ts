@@ -1,19 +1,24 @@
 // ─── Firebase-aligned types ───────────────────────────────────────────────────
 
+export interface LocalizedString {
+  en: string;
+  ar: string;
+}
+
 export interface Product {
   id: string;
-  title: string;
+  title: LocalizedString;        // ← was string
   brand: string;
   model: string;
   category: string;
-  supplierId: string;       // NEW — Firestore ID of the supplier
-  description: string;
-  price: number;            // selling / auction start price (visible everywhere)
-  actualPrice: number;      // cost price — admin panel only
+  supplierId: string;
+  description: LocalizedString;  // ← was string
+  price: number;
+  actualPrice: number;           // cost price — admin panel only
   quantity: number;
   isActive: boolean;
   isArchived: boolean;
-  features: string[];
+  features: LocalizedString[];   // ← was string[]
   images: string[];
   thumbnail: string | null;
   totalAuctions: number;
@@ -23,17 +28,20 @@ export interface Product {
 }
 
 export interface ProductFormData {
-  title: string;
+  titleEn: string;               // ← was title: string
+  titleAr: string;               // ← new
   brand: string;
   model: string;
   category: string;
-  supplierId: string;       // NEW
-  description: string;
-  price: string;            // selling price
-  actualPrice: string;      // cost price (admin only)
+  supplierId: string;
+  descriptionEn: string;         // ← was description: string
+  descriptionAr: string;         // ← new
+  price: string;
+  actualPrice: string;
   quantity: string;
   isActive: boolean;
-  features: string[];
+  featuresEn: string[];          // ← was features: string[]
+  featuresAr: string[];          // ← new
   newImages: File[];
   existingImages: string[];
   thumbnail: string | null;
@@ -70,18 +78,33 @@ export const getAvatarColor = (name: string) =>
   avatarPalette[name.charCodeAt(0) % avatarPalette.length];
 
 export const DEFAULT_FORM_DATA: ProductFormData = {
-  title: "",
+  titleEn: "",
+  titleAr: "",
   brand: "",
   model: "",
   category: "",
-  supplierId: "",           // NEW
-  description: "",
+  supplierId: "",
+  descriptionEn: "",
+  descriptionAr: "",
   price: "",
   actualPrice: "",
   quantity: "",
   isActive: true,
-  features: [],
+  featuresEn: [],
+  featuresAr: [],
   newImages: [],
   existingImages: [],
   thumbnail: null,
 };
+
+// ─── Helper: resolve localised string safely ──────────────────────────────────
+// Used wherever a plain string is needed (analytics, notifications, display).
+
+export function resolveTitle(
+  title: LocalizedString | string | undefined | null,
+  lang: "en" | "ar" = "en",
+): string {
+  if (!title) return "";
+  if (typeof title === "string") return title;          // legacy doc
+  return title[lang] || title.en || title.ar || "";
+}

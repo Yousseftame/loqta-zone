@@ -1,44 +1,18 @@
 /**
  * functions/src/Analytics/analytics.ts
  *
- * Maintains the analytics/dashboard and analytics/topAuctions documents.
+ * ─── i18n change ─────────────────────────────────────────────────────────────
+ * products/{id}.title is now { en: string, ar: string } instead of a plain
+ * string.  All places that read productTitle from a Firestore product snapshot
+ * must use:
  *
- * ─── Architecture ─────────────────────────────────────────────────────────────
- * Instead of scanning large collections on every dashboard load, we maintain
- * two lightweight aggregation documents that are updated by triggers.
+ *   const raw = productSnap.data()?.title;
+ *   const productTitle = typeof raw === "string" ? raw : (raw?.en ?? "Unknown Product");
  *
- * Firestore paths:
- *   analytics/dashboard    — all scalar metrics (counts, sums, averages)
- *   analytics/topAuctions  — ranked top-N auction lists + full financialReport
+ * The helper resolveProductTitle() below encapsulates this so every call site
+ * is consistent.  Legacy plain-string docs continue to work via the typeof guard.
  *
- * ─── Triggers ────────────────────────────────────────────────────────────────
- * 1. onUserWritten           — updates user / admin counts
- * 2. onProductWritten        — updates product counts, inventory totals
- * 3. onAuctionWritten        — updates auction counts, financial metrics
- * 4. onCategoryWritten       — updates category count
- * 5. onVoucherWritten        — updates voucher count
- * 6. onAuctionRequestWritten — updates request count
- * 7. onFeedbackWritten       — updates average rating (incremental, no collection scan)
- * 8. rebuildAnalytics        — HTTP callable, full rebuild (run once on deploy)
- *
- * ─── Cost model ──────────────────────────────────────────────────────────────
- * Dashboard reads : 2 documents (analytics/dashboard + analytics/topAuctions)
- * Writes          : 1-2 documents per mutation event (near zero marginal cost)
- *
- * ─── Key design decisions ────────────────────────────────────────────────────
- * • avgWinningBid    — NOT stored; derived client-side as totalRevenue/endedAuctions
- *                      to eliminate the concurrency race on concurrent resolutions.
- * • ratingSum        — stored alongside totalRatings so avgRating can be recomputed
- *                      incrementally without scanning the feedbackMessages collection.
- * • actualProfit     — winningBid - actualPrice, stored on each financialReport entry
- *                      so the client never has to recompute it.
- * • financialReport  — ALL ended auctions with a winner, sorted by winningBid desc,
- *                      stored on analytics/topAuctions. Not capped at TOP_N so the
- *                      admin can paginate through the full history.
- * • onAuctionWritten short-circuit — exits after 1 write when only totalBids
- *                    changed (the most frequent trigger path — every bid placed).
- * • product read     — fetched exactly once per auction resolution and passed into
- *                      updateTopAuctions so the doc is never read twice.
+ * Same applies to description (not used here) and features (not used here).
  */
 
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
@@ -50,6 +24,14 @@ const ANALYTICS   = "analytics";
 const DASHBOARD   = "dashboard";
 const TOP_AUCTIONS = "topAuctions";
 const TOP_N       = 5;
+
+// ─── i18n helper ─────────────────────────────────────────────────────────────
+
+function resolveProductTitle(raw: any): string {
+  if (!raw) return "Unknown Product";
+  if (typeof raw === "string") return raw;          // legacy plain-string doc
+  return raw.en || raw.ar || "Unknown Product";
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -95,7 +77,6 @@ export const onUserWritten = onDocumentWritten(
       else                    updates.inactiveUsers = FieldValue.increment(role === "user" ? -1 : 0);
 
     } else {
-      // Update — only care about isBlocked toggle on regular users
       const wasBlocked    = before?.isBlocked ?? false;
       const isBlocked     = after?.isBlocked  ?? false;
       const isRegularUser = (after?.role ?? "user") === "user";
@@ -145,7 +126,6 @@ export const onProductWritten = onDocumentWritten(
       );
 
     } else {
-      // Quantity / price delta
       const qtyDelta = delta(before, after, "quantity");
       if (qtyDelta !== 0) {
         updates.totalInventory      = FieldValue.increment(qtyDelta);
@@ -153,7 +133,6 @@ export const onProductWritten = onDocumentWritten(
           (after?.actualPrice ?? 0) * qtyDelta,
         );
       }
-      // isActive flip
       if ((before?.isActive ?? true) !== (after?.isActive ?? true)) {
         if (after?.isActive) {
           updates.activeProducts   = FieldValue.increment(1);
@@ -180,8 +159,7 @@ export const onAuctionWritten = onDocumentWritten(
 
     const ref = db.collection(ANALYTICS).doc(DASHBOARD);
 
-    // ── Short-circuit: only totalBids changed (fires on every bid placed) ─────
-    // Most common trigger path. Skips all branching logic and exits after 1 write.
+    // ── Short-circuit: only totalBids changed ─────────────────────────────────
     const onlyBidsChanged =
       before &&
       after &&
@@ -199,10 +177,8 @@ export const onAuctionWritten = onDocumentWritten(
       return;
     }
 
-    // ── Full update path ──────────────────────────────────────────────────────
     const updates: Record<string, any> = { updatedAt: FieldValue.serverTimestamp() };
 
-    // Count / active-state changes
     if (wasCreated(before, after)) {
       updates.totalAuctions    = FieldValue.increment(1);
       updates.activeAuctions   = FieldValue.increment(after?.isActive ? 1 : 0);
@@ -214,7 +190,6 @@ export const onAuctionWritten = onDocumentWritten(
       updates.inactiveAuctions = FieldValue.increment(before?.isActive ?  0 : -1);
 
     } else {
-      // isActive flip
       if ((before?.isActive ?? true) !== (after?.isActive ?? true)) {
         if (after?.isActive) {
           updates.activeAuctions   = FieldValue.increment(1);
@@ -226,11 +201,10 @@ export const onAuctionWritten = onDocumentWritten(
       }
     }
 
-    // Bid count delta (residual — not caught by short-circuit above)
     const bidDelta = delta(before, after, "totalBids");
     if (bidDelta !== 0) updates.totalBids = FieldValue.increment(bidDelta);
 
-    // ── Winner / financial update — fires exactly once per auction resolution ─
+    // ── Winner / financial update ─────────────────────────────────────────────
     const justResolved =
       !before?.winnerId &&
       !!after?.winnerId &&
@@ -239,23 +213,18 @@ export const onAuctionWritten = onDocumentWritten(
     if (justResolved && after) {
       const winningBid = after.winningBid ?? 0;
 
-      // Atomically increment both — these are the source of truth.
-      // avgWinningBid is derived client-side (totalRevenue / endedAuctions)
-      // so it is intentionally NOT stored here.
       updates.totalRevenue  = FieldValue.increment(winningBid);
       updates.endedAuctions = FieldValue.increment(1);
 
-      // Single dashboard read — needed for highestWinningBid and avgMargin only
       const dashSnap = await ref.get();
       const dashData  = dashSnap.exists ? (dashSnap.data() ?? {}) : {};
 
-      // highestWinningBid — last-write-wins is acceptable here
       const currentHighest = dashData.highestWinningBid ?? 0;
       if (winningBid > currentHighest) {
         updates.highestWinningBid = winningBid;
       }
 
-      // Fetch product ONCE — passed to updateTopAuctions to avoid a second read
+      // Fetch product ONCE — resolve title with i18n helper
       const productId = after.productId as string | undefined;
       let productTitle = "Unknown Product";
       let actualPrice  = 0;
@@ -264,16 +233,15 @@ export const onAuctionWritten = onDocumentWritten(
         try {
           const productSnap = await db.collection("products").doc(productId).get();
           if (productSnap.exists) {
-            productTitle = productSnap.data()?.title       ?? "Unknown Product";
+            // ← i18n: use helper instead of direct .title access
+            productTitle = resolveProductTitle(productSnap.data()?.title);
             actualPrice  = productSnap.data()?.actualPrice ?? 0;
           }
         } catch {
-          // Non-fatal — defaults are already set above
+          // Non-fatal — defaults are already set
         }
       }
 
-      // avgMargin — running average using pre-read dashboard state
-      // endedCount is +1 because the FieldValue.increment hasn't been committed yet
       if (actualPrice > 0) {
         const endedCount       = (dashData.endedAuctions ?? 0) + 1;
         const margin           = ((winningBid - actualPrice) / actualPrice) * 100;
@@ -282,7 +250,6 @@ export const onAuctionWritten = onDocumentWritten(
           (currentAvgMargin * (endedCount - 1) + margin) / endedCount;
       }
 
-      // Update top-auctions list — product data already fetched, no second read
       await updateTopAuctions(auctionId, after, productTitle, actualPrice);
     }
 
@@ -291,13 +258,11 @@ export const onAuctionWritten = onDocumentWritten(
 );
 
 // ─── Helper: update topAuctions document ─────────────────────────────────────
-// productTitle and actualPrice are passed in from onAuctionWritten so the
-// product document is never read twice for the same auction resolution.
 
 async function updateTopAuctions(
   auctionId:    string,
   auctionData:  any,
-  productTitle: string,
+  productTitle: string,  // already resolved to plain string by caller
   actualPrice:  number,
 ): Promise<void> {
   try {
@@ -305,10 +270,8 @@ async function updateTopAuctions(
     const margin     = actualPrice > 0
       ? ((winningBid - actualPrice) / actualPrice) * 100
       : 0;
-    // actualProfit: the real EGP profit amount (not just percentage)
     const actualProfit = actualPrice > 0 ? winningBid - actualPrice : 0;
 
-    // Resolve winner name
     let winnerName = "Unknown";
     const winnerId = auctionData.winnerId as string | undefined;
     if (winnerId && winnerId !== "NO_WINNER") {
@@ -322,15 +285,13 @@ async function updateTopAuctions(
               `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim()) ||
             "Unknown";
         }
-      } catch {
-        // Non-fatal
-      }
+      } catch { /* Non-fatal */ }
     }
 
     const entry = {
       auctionId,
       auctionNumber:     auctionData.auctionNumber     ?? 0,
-      productTitle,
+      productTitle,      // plain EN string — safe for analytics display
       totalBids:         auctionData.totalBids         ?? 0,
       totalParticipants: auctionData.totalParticipants ?? 0,
       winningBid,
@@ -352,8 +313,6 @@ async function updateTopAuctions(
         .sort((a, b) => b[sortKey] - a[sortKey])
         .slice(0, TOP_N);
 
-    // financialReport: ALL ended auctions with a real winner, sorted by winningBid desc
-    // No slice — this is the full history used for the paginated financial table
     const upsertAll = (arr: any[], newEntry: any, sortKey: string) =>
       [...(arr ?? []).filter((a: any) => a.auctionId !== newEntry.auctionId), newEntry]
         .sort((a, b) => b[sortKey] - a[sortKey]);
@@ -433,7 +392,7 @@ export const onAuctionRequestWritten = onDocumentWritten(
   },
 );
 
-// ─── 7. Feedback written (ratings) ───────────────────────────────────────────
+// ─── 7. Feedback written ─────────────────────────────────────────────────────
 
 export const onFeedbackWritten = onDocumentWritten(
   { document: "feedbackMessages/{feedbackId}", memory: "256MiB" },
@@ -449,18 +408,14 @@ export const onFeedbackWritten = onDocumentWritten(
       if (typeof rating === "number" && rating > 0) {
         updates.totalRatings = FieldValue.increment(1);
         updates.ratingSum    = FieldValue.increment(rating);
-      } else {
-        return;
-      }
+      } else { return; }
 
     } else if (wasDeleted(before, after)) {
       const rating = before?.rating as number | undefined;
       if (typeof rating === "number" && rating > 0) {
         updates.totalRatings = FieldValue.increment(-1);
         updates.ratingSum    = FieldValue.increment(-rating);
-      } else {
-        return;
-      }
+      } else { return; }
 
     } else {
       const oldRating = before?.rating as number | undefined;
@@ -481,7 +436,7 @@ export const onFeedbackWritten = onDocumentWritten(
   },
 );
 
-// ─── 8. Full rebuild (HTTP callable — run once on deploy or to fix drift) ─────
+// ─── 8. Full rebuild ──────────────────────────────────────────────────────────
 
 export const rebuildAnalytics = onCall(
   { timeoutSeconds: 300, memory: "512MiB" },
@@ -506,7 +461,6 @@ export const rebuildAnalytics = onCall(
       db.collection("feedbackMessages").get(),
     ]);
 
-    // ── Users ─────────────────────────────────────────────────────────────────
     let totalUsers = 0, activeUsers = 0, inactiveUsers = 0;
     let totalAdmins = 0, totalSuperAdmins = 0;
 
@@ -519,7 +473,6 @@ export const rebuildAnalytics = onCall(
       else             activeUsers++;
     }
 
-    // ── Products ──────────────────────────────────────────────────────────────
     let totalProducts = 0, activeProducts = 0, inactiveProducts = 0;
     let totalInventory = 0, totalInventoryValue = 0;
 
@@ -534,14 +487,12 @@ export const rebuildAnalytics = onCall(
       else            inactiveProducts++;
     }
 
-    // ── Auctions ──────────────────────────────────────────────────────────────
     let totalAuctions = 0, liveAuctions = 0, upcomingAuctions = 0, endedAuctions = 0;
     let activeAuctions = 0, inactiveAuctions = 0;
     let totalBids = 0, highestWinningBid = 0, totalRevenue = 0;
     let marginSum = 0, marginCount = 0;
     const topEntries: any[] = [];
 
-    // Build lookup maps from already-fetched snaps — zero extra reads
     const productMap: Record<string, any> = {};
     for (const d of productsSnap.docs) productMap[d.id] = d.data();
 
@@ -582,10 +533,14 @@ export const rebuildAnalytics = onCall(
             marginCount++;
           }
 
+          // ← i18n: resolve title from product map
+          const rawTitle = product?.title;
+          const resolvedTitle = resolveProductTitle(rawTitle);
+
           topEntries.push({
             auctionId:         d.id,
             auctionNumber:     a.auctionNumber     ?? 0,
-            productTitle:      product?.title       ?? "Unknown",
+            productTitle:      resolvedTitle,
             totalBids:         a.totalBids          ?? 0,
             totalParticipants: a.totalParticipants  ?? 0,
             winningBid:        wb,
@@ -603,7 +558,6 @@ export const rebuildAnalytics = onCall(
 
     const avgMargin = marginCount > 0 ? marginSum / marginCount : 0;
 
-    // ── Ratings ───────────────────────────────────────────────────────────────
     const validRatings = feedbackSnap.docs
       .map((d) => d.data().rating as number)
       .filter((r) => typeof r === "number" && r > 0);
@@ -613,7 +567,6 @@ export const rebuildAnalytics = onCall(
       ? Math.round((ratingSum / validRatings.length) * 10) / 10
       : 0;
 
-    // ── Write analytics/dashboard ─────────────────────────────────────────────
     const dashboard = {
       totalUsers,        activeUsers,       inactiveUsers,
       totalAdmins,       totalSuperAdmins,
@@ -632,7 +585,6 @@ export const rebuildAnalytics = onCall(
 
     await db.collection(ANALYTICS).doc(DASHBOARD).set(dashboard);
 
-    // ── Write analytics/topAuctions ───────────────────────────────────────────
     const sortAndSlice = (arr: any[], key: string) =>
       [...arr].sort((a, b) => b[key] - a[key]).slice(0, TOP_N);
 
@@ -643,7 +595,7 @@ export const rebuildAnalytics = onCall(
       byBids:          sortAndSlice(topEntries, "totalBids"),
       byParticipants:  sortAndSlice(topEntries, "totalParticipants"),
       byWinningBid:    sortAndSlice(topEntries, "winningBid"),
-      financialReport: sortAll(topEntries, "winningBid"),   // ALL entries, no cap
+      financialReport: sortAll(topEntries, "winningBid"),
       updatedAt:       FieldValue.serverTimestamp(),
     });
 
