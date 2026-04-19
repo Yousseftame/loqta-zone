@@ -1,3 +1,10 @@
+/**
+ * src/service/Participantservice/Participantservice.ts
+ *
+ * i18n change: fetchProductName() now resolves { en, ar } objects as well
+ * as legacy plain strings.
+ */
+
 import {
   collection,
   doc,
@@ -10,6 +17,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/firebase/firebase";
 import type { Participant } from "@/pages/Admin/Participants/Participants-data";
+import { resolveProductTitle } from "@/lib/resolveLocalized";
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
 
@@ -18,7 +26,7 @@ function docToParticipant(auctionId: string, id: string, data: Record<string, an
     id,
     auctionId: data.auctionId ?? auctionId,
     userId: data.userId ?? id,
-    fullName: "",           // resolved after fetch
+    fullName: "",
     hasPaid: data.hasPaid ?? false,
     joinedAt:
       data.joinedAt instanceof Timestamp
@@ -42,12 +50,13 @@ export async function fetchUserName(uid: string): Promise<string> {
 }
 
 // ─── Fetch product title from /products/{productId} ──────────────────────────
+// ← i18n FIX: resolves { en, ar } object or legacy plain string
 
 export async function fetchProductName(productId: string): Promise<string> {
   try {
     const snap = await getDoc(doc(db, "products", productId));
     if (!snap.exists()) return "";
-    return snap.data().title || "";
+    return resolveProductTitle(snap.data()?.title, "");
   } catch {
     return "";
   }
@@ -63,7 +72,6 @@ export async function fetchParticipantsForAuction(auctionId: string): Promise<Pa
   const snap = await getDocs(q);
   const participants = snap.docs.map((d) => docToParticipant(auctionId, d.id, d.data()));
 
-  // Resolve full names for all participants
   const uniqueUserIds = [...new Set(participants.map((p) => p.userId))];
   const nameMap: Record<string, string> = {};
   await Promise.all(

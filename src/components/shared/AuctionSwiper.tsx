@@ -1,4 +1,11 @@
-import React, { useRef, useState, useEffect, useMemo, memo, useCallback } from "react";
+import React, {
+  useRef,
+  useState,
+  useEffect,
+  useMemo,
+  memo,
+  useCallback,
+} from "react";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Autoplay, FreeMode } from "swiper/modules";
 import { useInView } from "motion/react";
@@ -22,6 +29,8 @@ import {
   Timestamp,
 } from "firebase/firestore";
 import { db } from "@/firebase/firebase";
+// ← i18n: import the frontend resolver for raw Firestore snapshot data
+import { resolveProductTitle } from "@/lib/resolveLocalized";
 
 const NAVY = "#2A4863";
 const NAVY2 = "#1e3652";
@@ -85,7 +94,10 @@ function usePublicProducts() {
 
         const categoryMap: Record<string, string> = {};
         catSnap.docs.forEach((d) => {
-          categoryMap[d.id] = d.data().name?.en ?? d.id;
+          // ← i18n: category name is also localised
+          const nameRaw = d.data().name;
+          categoryMap[d.id] =
+            typeof nameRaw === "string" ? nameRaw : (nameRaw?.en ?? d.id);
         });
 
         const now = new Date();
@@ -107,12 +119,14 @@ function usePublicProducts() {
           const data = d.data();
           return {
             id: d.id,
-            title: data.title ?? "",
+            // ← i18n FIX: resolve { en, ar } object or legacy plain string
+            title: resolveProductTitle(data.title),
             brand: data.brand ?? "",
             model: data.model ?? "",
             category: data.category ?? "",
             categoryName: categoryMap[data.category] ?? data.category ?? "—",
-            description: data.description ?? "",
+            // ← i18n: description is also localised now
+            description: resolveProductTitle(data.description, ""),
             price: data.price ?? 0,
             quantity: data.quantity ?? 0,
             isActive: data.isActive ?? true,
@@ -133,7 +147,9 @@ function usePublicProducts() {
       }
     }
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
   return { products, loading, error };
 }
@@ -295,32 +311,86 @@ const SkeletonCard = () => (
       height: "100%",
     }}
   >
-    <div className="lz-card-banner" style={{ background: `linear-gradient(90deg, ${NAVY}, #3a5a78)`, opacity: 0.45 }} />
-    <div className="lz-card-img lz-skel" style={{ flexShrink: 0, borderRadius: 0 }} />
-    <div className="lz-card-body" style={{ display: "flex", flexDirection: "column", flex: 1 }}>
-      <div style={{ minHeight: 52, flexShrink: 0, display: "flex", flexDirection: "column", gap: 7 }}>
+    <div
+      className="lz-card-banner"
+      style={{
+        background: `linear-gradient(90deg, ${NAVY}, #3a5a78)`,
+        opacity: 0.45,
+      }}
+    />
+    <div
+      className="lz-card-img lz-skel"
+      style={{ flexShrink: 0, borderRadius: 0 }}
+    />
+    <div
+      className="lz-card-body"
+      style={{ display: "flex", flexDirection: "column", flex: 1 }}
+    >
+      <div
+        style={{
+          minHeight: 52,
+          flexShrink: 0,
+          display: "flex",
+          flexDirection: "column",
+          gap: 7,
+        }}
+      >
         <div className="lz-skel" style={{ height: 14, width: "72%" }} />
         <div className="lz-skel" style={{ height: 10, width: "44%" }} />
       </div>
-      <div className="lz-card-meta" style={{ minHeight: 18, flexShrink: 0, alignItems: "center" }}>
+      <div
+        className="lz-card-meta"
+        style={{ minHeight: 18, flexShrink: 0, alignItems: "center" }}
+      >
         <div className="lz-skel" style={{ height: 10, width: "38%" }} />
       </div>
-      <div style={{ height: 1, background: `linear-gradient(90deg, rgba(42,72,99,0.18), transparent)`, flexShrink: 0 }} />
+      <div
+        style={{
+          height: 1,
+          background: `linear-gradient(90deg, rgba(42,72,99,0.18), transparent)`,
+          flexShrink: 0,
+        }}
+      />
       <div
         className="lz-card-price-block"
-        style={{ borderRadius: 10, background: "#f7f8fa", border: "1px solid rgba(42,72,99,0.10)", display: "flex", flexDirection: "column", flex: 1, justifyContent: "space-between" }}
+        style={{
+          borderRadius: 10,
+          background: "#f7f8fa",
+          border: "1px solid rgba(42,72,99,0.10)",
+          display: "flex",
+          flexDirection: "column",
+          flex: 1,
+          justifyContent: "space-between",
+        }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 8 }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-end",
+            marginBottom: 8,
+          }}
+        >
           <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
             <div className="lz-skel" style={{ height: 8, width: 40 }} />
             <div className="lz-skel" style={{ height: 20, width: 72 }} />
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 5, alignItems: "flex-end" }}>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 5,
+              alignItems: "flex-end",
+            }}
+          >
             <div className="lz-skel" style={{ height: 8, width: 44 }} />
             <div className="lz-skel" style={{ height: 13, width: 24 }} />
           </div>
         </div>
-        <div className="lz-skel" style={{ height: 34, borderRadius: 8, width: "100%" }} />
+        <div
+          className="lz-skel"
+          style={{ height: 34, borderRadius: 8, width: "100%" }}
+        />
       </div>
     </div>
   </div>
@@ -463,7 +533,6 @@ const AuctionCard = memo(function AuctionCard({
             ...(isJoined && { top: "calc(30px + 8px)" }),
           }}
         >
-          {/* Inner wrapper gets the CSS hover transform */}
           <div
             className="lz-stamp-inner"
             style={{
@@ -730,12 +799,10 @@ const AuctionCard = memo(function AuctionCard({
 // ─── Header: once:true so it only animates on first entry ─────────────────────
 const AuctionHeader = memo(function AuctionHeader() {
   const headerRef = useRef<HTMLDivElement>(null);
-  // once:true = animate in once, never re-trigger on scroll
   const isInView = useInView(headerRef, { once: true, margin: "-80px" });
   const { t, i18n } = useTranslation();
   const isArabic = i18n.language === "ar";
 
-  // animKey only for language changes, not scroll
   const [animKey, setAnimKey] = useState(0);
   useEffect(() => {
     setAnimKey((k) => k + 1);
@@ -765,13 +832,42 @@ const AuctionHeader = memo(function AuctionHeader() {
           transition: "opacity 0.55s ease, transform 0.55s ease",
         }}
       >
-        <div style={{ width: 32, height: 1, background: `linear-gradient(90deg, transparent, ${GOLD})` }} />
-        <span style={{ fontSize: 15, fontWeight: 800, color: GOLD, letterSpacing: "0.03em", textTransform: "uppercase" }}>
+        <div
+          style={{
+            width: 32,
+            height: 1,
+            background: `linear-gradient(90deg, transparent, ${GOLD})`,
+          }}
+        />
+        <span
+          style={{
+            fontSize: 15,
+            fontWeight: 800,
+            color: GOLD,
+            letterSpacing: "0.03em",
+            textTransform: "uppercase",
+          }}
+        >
           {t("auctionSwiper.eyebrow")}
         </span>
-        <div style={{ width: 32, height: 1, background: `linear-gradient(90deg, ${GOLD}, transparent)` }} />
+        <div
+          style={{
+            width: 32,
+            height: 1,
+            background: `linear-gradient(90deg, ${GOLD}, transparent)`,
+          }}
+        />
       </div>
-      <div style={{ fontSize: "clamp(26px, 4.5vw, 44px)", fontWeight: 900, color: "#ffffff", letterSpacing: "-0.02em", lineHeight: 1.1, marginBottom: 4 }}>
+      <div
+        style={{
+          fontSize: "clamp(26px, 4.5vw, 44px)",
+          fontWeight: 900,
+          color: "#ffffff",
+          letterSpacing: "-0.02em",
+          lineHeight: 1.1,
+          marginBottom: 4,
+        }}
+      >
         <SplitText
           key={`line1-${animKey}`}
           text={t("auctionSwiper.titleLine1")}
@@ -785,7 +881,16 @@ const AuctionHeader = memo(function AuctionHeader() {
           to={{ opacity: 1, y: 0, rotateX: 0 }}
         />
       </div>
-      <div style={{ fontSize: "clamp(26px, 4.5vw, 44px)", fontWeight: 900, color: GOLD, letterSpacing: "-0.02em", lineHeight: 1.1, marginBottom: 20 }}>
+      <div
+        style={{
+          fontSize: "clamp(26px, 4.5vw, 44px)",
+          fontWeight: 900,
+          color: GOLD,
+          letterSpacing: "-0.02em",
+          lineHeight: 1.1,
+          marginBottom: 20,
+        }}
+      >
         <SplitText
           key={`line2-${animKey}`}
           text={t("auctionSwiper.titleLine2")}
@@ -801,8 +906,13 @@ const AuctionHeader = memo(function AuctionHeader() {
       </div>
       <p
         style={{
-          margin: "0 auto", color: "rgba(229,224,198)", fontSize: 16, fontWeight: 400,
-          letterSpacing: "0.01em", maxWidth: 480, lineHeight: 1.7,
+          margin: "0 auto",
+          color: "rgba(229,224,198)",
+          fontSize: 16,
+          fontWeight: 400,
+          letterSpacing: "0.01em",
+          maxWidth: 480,
+          lineHeight: 1.7,
           opacity: isInView ? 1 : 0,
           transform: isInView ? "translateY(0)" : "translateY(10px)",
           transition: "opacity 0.7s ease 0.35s, transform 0.7s ease 0.35s",
@@ -814,7 +924,7 @@ const AuctionHeader = memo(function AuctionHeader() {
   );
 });
 
-// ─── SwiperSection: no looped duplication, optimized autoplay ─────────────────
+// ─── SwiperSection ─────────────────────────────────────────────────────────────
 const SwiperSection = memo(function SwiperSection({
   products,
   joinedProductIds,
@@ -848,9 +958,17 @@ const SwiperSection = memo(function SwiperSection({
 
   if (products.length === 0)
     return (
-      <div style={{ textAlign: "center", padding: "60px 20px", color: "rgba(229,224,198,0.4)" }}>
+      <div
+        style={{
+          textAlign: "center",
+          padding: "60px 20px",
+          color: "rgba(229,224,198,0.4)",
+        }}
+      >
         <div style={{ fontSize: 48, marginBottom: 12 }}>🔨</div>
-        <p style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>No products available yet</p>
+        <p style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>
+          No products available yet
+        </p>
       </div>
     );
 
@@ -861,12 +979,14 @@ const SwiperSection = memo(function SwiperSection({
         <Swiper
           className="lz-swiper"
           modules={[Autoplay]}
-          onSwiper={(s) => { swiperRef.current = s; }}
+          onSwiper={(s) => {
+            swiperRef.current = s;
+          }}
           onSlideChange={(s) => setActiveIdx(s.realIndex % products.length)}
           loop={products.length > 2}
           speed={3500}
           autoplay={{
-            delay: 1,               // near-zero delay = continuous, but not 0 which causes jank
+            delay: 1,
             disableOnInteraction: false,
             pauseOnMouseEnter: true,
           }}
@@ -874,14 +994,17 @@ const SwiperSection = memo(function SwiperSection({
           grabCursor={true}
           watchSlidesProgress={false}
           breakpoints={{
-            0:    { slidesPerView: 2, spaceBetween: 10 },
-            640:  { slidesPerView: 3, spaceBetween: 14 },
-            900:  { slidesPerView: 4, spaceBetween: 18 },
+            0: { slidesPerView: 2, spaceBetween: 10 },
+            640: { slidesPerView: 3, spaceBetween: 14 },
+            900: { slidesPerView: 4, spaceBetween: 18 },
             1200: { slidesPerView: 5, spaceBetween: 20 },
           }}
         >
           {products.map((item) => (
-            <SwiperSlide key={item.id} style={{ height: "auto", display: "flex" }}>
+            <SwiperSlide
+              key={item.id}
+              style={{ height: "auto", display: "flex" }}
+            >
               <AuctionCard
                 item={item}
                 isJoined={joinedProductIds.has(item.id)}
@@ -893,7 +1016,15 @@ const SwiperSection = memo(function SwiperSection({
           ))}
         </Swiper>
       </div>
-      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 8, marginTop: 24 }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          gap: 8,
+          marginTop: 24,
+        }}
+      >
         {products.map((_, i) => (
           <button
             key={i}
@@ -914,10 +1045,13 @@ export default function AuctionSwiper() {
   const { products, loading, error } = usePublicProducts();
   const { joinedProductIds } = useUserJoinedProducts();
 
-  const handleRegisterClick = useCallback((productId: string) => {
-    if (user) navigate(`/auctions/register/${productId}`);
-    else setModalOpen(true);
-  }, [user, navigate]);
+  const handleRegisterClick = useCallback(
+    (productId: string) => {
+      if (user) navigate(`/auctions/register/${productId}`);
+      else setModalOpen(true);
+    },
+    [user, navigate],
+  );
 
   return (
     <section

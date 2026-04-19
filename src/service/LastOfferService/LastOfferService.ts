@@ -1,29 +1,8 @@
 /**
- * LastOfferService.ts
+ * src/service/LastOfferService/LastOfferService.ts
  *
- * Admin service for reading and managing lastOffers subcollections
- * across all auctions.
- *
- * Firestore path: auctions/{auctionId}/lastOffers/{offerId}
- *
- * Fields per offer:
- *  - userId          : string
- *  - amount          : number
- *  - status          : "pending" | "accepted" | "rejected"
- *  - selectedbyAdmin : boolean
- *  - createdAt       : Timestamp
- *
- * ─── Last-offer winner promotion logic ───────────────────────────────────────
- * When an admin sets selectedbyAdmin=true AND status="accepted" on an offer,
- * this service ALSO writes { winnerId, winningBid } back to the parent
- * auctions/{auctionId} document. This overrides the original auction winner
- * with the admin-selected last-offer winner.
- *
- * The two writes (lastOffers update + auction update) are sent as a single
- * Firestore batch so they are atomic — both succeed or both fail.
- *
- * Firestore rule requirement: admins must be allowed to update
- * winnerId + winningBid on ended auctions (see firestore.rules).
+ * i18n change: fetchProductName() now resolves { en, ar } objects as well
+ * as legacy plain strings, using resolveProductTitle() from resolveLocalized.
  */
 
 import {
@@ -41,6 +20,7 @@ import {
   type UpdateData,
 } from "firebase/firestore";
 import { db } from "@/firebase/firebase";
+import { resolveProductTitle } from "@/lib/resolveLocalized";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -50,7 +30,7 @@ export interface LastOffer {
   id: string;
   auctionId: string;
   userId: string;
-  userName: string;        // resolved from /users/{uid}
+  userName: string;
   amount: number;
   status: LastOfferStatus;
   selectedbyAdmin: boolean;
@@ -73,7 +53,7 @@ function docToOffer(
     id,
     auctionId,
     userId: data.userId ?? "",
-    userName: "", // resolved separately
+    userName: "",
     amount: data.amount ?? 0,
     status: data.status ?? "pending",
     selectedbyAdmin: data.selectedbyAdmin ?? false,
@@ -107,7 +87,6 @@ export async function fetchLastOffersForAuction(
   const snap = await getDocs(q);
   const offers = snap.docs.map((d) => docToOffer(auctionId, d.id, d.data()));
 
-  // Resolve user names in parallel
   const uniqueIds = [...new Set(offers.map((o) => o.userId))];
   const nameMap: Record<string, string> = {};
   await Promise.all(
@@ -120,20 +99,6 @@ export async function fetchLastOffersForAuction(
 }
 
 // ─── UPDATE a last offer — with optional winner promotion ─────────────────────
-//
-// Signature:
-//   updateLastOffer(auctionId, offerId, updateData, offer?)
-//
-// When updateData.selectedbyAdmin === true AND updateData.status === "accepted",
-// the function also promotes this offer's user as the auction winner by updating:
-//   auctions/{auctionId}.winnerId   = offer.userId
-//   auctions/{auctionId}.winningBid = offer.amount
-//
-// Both the lastOffer update and the auction update are committed atomically
-// via a Firestore batch.
-//
-// The `offer` parameter must be supplied when winner promotion could occur
-// (i.e. always pass it from the admin UI). If omitted, no promotion happens.
 
 export async function updateLastOffer(
   auctionId: string,
@@ -147,31 +112,18 @@ export async function updateLastOffer(
     offer !== undefined;
 
   if (shouldPromoteWinner && offer) {
-    // ── Atomic batch: update lastOffer + promote winner ───────────────────
     const batch = writeBatch(db);
-
-    // 1. Update the lastOffer document (status + selectedbyAdmin)
     batch.update(
       doc(db, "auctions", auctionId, "lastOffers", offerId),
       data as UpdateData<LastOfferUpdateData>,
     );
-
-    // 2. Override the auction winner with the selected last-offer user
     batch.update(doc(db, "auctions", auctionId), {
       winnerId:   offer.userId,
       winningBid: offer.amount,
       updatedAt:  serverTimestamp(),
     });
-
     await batch.commit();
-
-    console.info(
-      `[LastOfferService] Winner promoted for auction ${auctionId}:` +
-      ` uid=${offer.userId} amount=${offer.amount}`,
-    );
   } else {
-    // ── Simple update — no winner change ──────────────────────────────────
-    // This handles: status changes alone, deselection, rejection, etc.
     await updateDoc(
       doc(db, "auctions", auctionId, "lastOffers", offerId),
       data as UpdateData<LastOfferUpdateData>,
@@ -189,12 +141,13 @@ export async function deleteLastOffer(
 }
 
 // ─── Fetch product name helper ────────────────────────────────────────────────
+// ← i18n FIX: resolves { en, ar } object or legacy plain string
 
 export async function fetchProductName(productId: string): Promise<string> {
   try {
     const snap = await getDoc(doc(db, "products", productId));
     if (!snap.exists()) return "";
-    return snap.data().title ?? "";
+    return resolveProductTitle(snap.data()?.title, "");
   } catch {
     return "";
   }

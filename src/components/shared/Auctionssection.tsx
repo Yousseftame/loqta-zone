@@ -20,6 +20,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/firebase/firebase";
 import { CountdownBar } from "./CountdownBar";
+import { resolveProductTitle } from "@/lib/resolveLocalized";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -138,7 +139,7 @@ function useUpcomingAuctions() {
             id: d.id,
             auctionNumber: data.auctionNumber ?? 0,
             productId: data.productId ?? "",
-            title: p.title ?? "Auction",
+            title: resolveProductTitle(p.title) || "Auction",
             subtitle: [p.brand, p.model].filter(Boolean).join(" · "),
             image,
             startingPrice: data.startingPrice ?? 0,
@@ -287,7 +288,7 @@ function usePastAuctions() {
         return {
           id: d.id,
           auctionNumber: data.auctionNumber ?? 0,
-          title: p.title ?? "Auction",
+          title: resolveProductTitle(p.title) || "Auction",
           subtitle: [p.brand, p.model].filter(Boolean).join(" · "),
           image,
           winningPrice: data.winningBid ?? 0,

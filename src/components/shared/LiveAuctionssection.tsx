@@ -14,6 +14,7 @@ import {
   orderBy,
 } from "firebase/firestore";
 import { db } from "@/firebase/firebase";
+import { resolveProductTitle } from "@/lib/resolveLocalized";
 
 const GOLD = "#c9a96e";
 const GOLD2 = "#e8d5a3";
@@ -81,7 +82,7 @@ const q = query(
             return {
               id: d.id,
               productId: data.productId ?? "",
-              title: p.title ?? "Live Auction",
+              title: resolveProductTitle(p.title) || "Live Auction",
               image:
                 p.thumbnail && p.thumbnail !== "null"
                   ? p.thumbnail
@@ -118,7 +119,7 @@ setAuctions(
       return {
         id: d.id,
         productId: data.productId ?? "",
-        title: p.title ?? "Live Auction",
+        title: resolveProductTitle(p.title) || "Live Auction",
         image: img,
         currentBid: data.currentBid ?? data.startingPrice ?? 0,
         totalBids: data.totalBids ?? 0,
