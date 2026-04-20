@@ -1,15 +1,18 @@
 /**
  * src/pages/Admin/User/CreateAdminForm.tsx
  *
- * Standalone form component for creating a new admin or superAdmin account.
- *  - Full field validation using the shared validation.ts rules
- *  - Confirm password field + strength meter
- *  - Role picker (Admin / Super Admin)
- *  - Full CRUD permissions matrix for admin accounts
- *    (disabled + banner for superAdmin — they have full access by default)
+ * FIX: Separated `role` into its own useState (was embedded in the `form`
+ * object). The previous pattern used `setForm((f) => ({ ...f, role }))` for
+ * the role picker and a non-functional `setForm({ ...form, [field]: value })`
+ * for text field changes. If a text field change event fired after the role
+ * was updated but before the re-render propagated, the spread `{ ...form }`
+ * could contain a stale `role: "admin"` value, silently overwriting the
+ * superAdmin selection. Keeping role in its own state variable eliminates
+ * this race entirely — role and form are now completely independent pieces
+ * of state and can never stomp on each other.
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import {
   Button,
   TextField,
@@ -33,7 +36,6 @@ import {
   EyeOff,
   Check,
   UserPlus,
-  User,
 } from "lucide-react";
 import { colors } from "../Products/products-data";
 import type { AppUser } from "./users-data";
@@ -102,13 +104,12 @@ function PasswordStrengthBar({ password }: { password: string }) {
 
 // ─── Form state & errors ──────────────────────────────────────────────────────
 
-interface FormState {
+interface FormFields {
   firstName: string;
   lastName: string;
   email: string;
   password: string;
   confirmPassword: string;
-  role: "admin" | "superAdmin";
 }
 
 interface FormErrors {
@@ -119,13 +120,12 @@ interface FormErrors {
   confirmPassword: string;
 }
 
-const EMPTY_STATE: FormState = {
+const EMPTY_FIELDS: FormFields = {
   firstName: "",
   lastName: "",
   email: "",
   password: "",
   confirmPassword: "",
-  role: "admin",
 };
 
 const EMPTY_ERRORS: FormErrors = {
@@ -136,7 +136,7 @@ const EMPTY_ERRORS: FormErrors = {
   confirmPassword: "",
 };
 
-function validateAll(f: FormState): FormErrors {
+function validateAll(f: FormFields): FormErrors {
   return {
     firstName: validateFirstName(f.firstName).error,
     lastName: validateLastName(f.lastName).error,
@@ -162,7 +162,11 @@ export default function CreateAdminForm({
   onClose,
   onCreate,
 }: CreateAdminFormProps) {
-  const [form, setForm] = useState<FormState>(EMPTY_STATE);
+  // ── Role is its own independent state — never entangled with text fields ──
+  const [role, setRole] = useState<"admin" | "superAdmin">("admin");
+
+  // ── Text fields are separate from role ───────────────────────────────────
+  const [form, setForm] = useState<FormFields>(EMPTY_FIELDS);
   const [errors, setErrors] = useState<FormErrors>(EMPTY_ERRORS);
   const [touched, setTouched] = useState<
     Partial<Record<keyof FormErrors, boolean>>
@@ -173,30 +177,45 @@ export default function CreateAdminForm({
   const [permissions, setPermissions] =
     useState<AdminPermissions>(emptyPermissions());
 
-  // ── Helpers ──────────────────────────────────────────────────────────────
+  // ── Ref so handleCreate always reads the LATEST role without stale closure ─
+  const roleRef = useRef<"admin" | "superAdmin">("admin");
+
+  // Keep ref in sync whenever role state changes
+  const handleRoleChange = (r: "admin" | "superAdmin") => {
+    roleRef.current = r;
+    setRole(r);
+  };
+
+  // ── Text field helpers ────────────────────────────────────────────────────
 
   const set =
-    (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) => {
-      const next = { ...form, [field]: e.target.value };
-      setForm(next);
-      if (touched[field as keyof FormErrors]) setErrors(validateAll(next));
+    (field: keyof FormFields) => (e: React.ChangeEvent<HTMLInputElement>) => {
+      // Use functional update so we never spread stale state
+      setForm((prev) => {
+        const next = { ...prev, [field]: e.target.value };
+        if (touched[field as keyof FormErrors]) setErrors(validateAll(next));
+        return next;
+      });
     };
-
-  const setRole = (role: "admin" | "superAdmin") =>
-    setForm((f) => ({ ...f, role }));
 
   const blur = (field: keyof FormErrors) => () => {
     setTouched((t) => ({ ...t, [field]: true }));
-    setErrors(validateAll(form));
+    setForm((prev) => {
+      setErrors(validateAll(prev));
+      return prev;
+    });
   };
 
   const reset = useCallback(() => {
-    setForm(EMPTY_STATE);
+    setForm(EMPTY_FIELDS);
     setErrors(EMPTY_ERRORS);
     setTouched({});
     setShowPw(false);
     setShowCpw(false);
     setPermissions(emptyPermissions());
+    // Reset role back to default
+    roleRef.current = "admin";
+    setRole("admin");
   }, []);
 
   const handleClose = () => {
@@ -208,6 +227,10 @@ export default function CreateAdminForm({
   // ── Submit ────────────────────────────────────────────────────────────────
 
   const handleCreate = async () => {
+    // Read the current role from the ref — guaranteed to be up-to-date
+    // regardless of any closure staleness in the form state.
+    const currentRole = roleRef.current;
+
     setTouched({
       firstName: true,
       lastName: true,
@@ -215,7 +238,15 @@ export default function CreateAdminForm({
       password: true,
       confirmPassword: true,
     });
-    const errs = validateAll(form);
+
+    // Read form via state setter to get the absolute latest values
+    let latestForm = form;
+    setForm((prev) => {
+      latestForm = prev;
+      return prev;
+    });
+
+    const errs = validateAll(latestForm);
     setErrors(errs);
     if (Object.values(errs).some(Boolean)) {
       toast.error("Please fix the errors before submitting.");
@@ -225,15 +256,15 @@ export default function CreateAdminForm({
     setSaving(true);
     try {
       const newAdmin = await createAdminService({
-        firstName: form.firstName.trim(),
-        lastName: form.lastName.trim(),
-        email: form.email.trim(),
-        password: form.password,
-        role: form.role,
+        firstName: latestForm.firstName.trim(),
+        lastName: latestForm.lastName.trim(),
+        email: latestForm.email.trim(),
+        password: latestForm.password,
+        role: currentRole,
         // Only pass permissions for admin accounts; superAdmin has full access
-        permissions: form.role === "admin" ? permissions : null,
+        permissions: currentRole === "admin" ? permissions : null,
       });
-      const label = form.role === "superAdmin" ? "Super Admin" : "Admin";
+      const label = currentRole === "superAdmin" ? "Super Admin" : "Admin";
       toast.success(`${label} account created successfully`);
       onCreate(newAdmin);
       handleClose();
@@ -296,11 +327,13 @@ export default function CreateAdminForm({
             <Box sx={{ display: "flex", gap: 1 }}>
               {(["admin", "superAdmin"] as const).map((r) => {
                 const s = getRoleStyle(r);
-                const active = form.role === r;
+                const active = role === r;
                 return (
                   <Box
                     key={r}
-                    onClick={() => !saving && setRole(r)}
+                    onClick={() => {
+                      if (!saving) handleRoleChange(r);
+                    }}
                     sx={{
                       flex: 1,
                       p: 1.5,
@@ -365,7 +398,6 @@ export default function CreateAdminForm({
                   size="small"
                   fullWidth
                   disabled={saving}
-                 
                   sx={fieldSx(show("firstName"))}
                 />
                 <TextField
@@ -497,8 +529,8 @@ export default function CreateAdminForm({
                   }}
                 >
                   Account created with{" "}
-                  <strong style={{ color: getRoleStyle(form.role).color }}>
-                    {getRoleStyle(form.role).label}
+                  <strong style={{ color: getRoleStyle(role).color }}>
+                    {getRoleStyle(role).label}
                   </strong>{" "}
                   role. Active immediately.
                 </p>
@@ -508,7 +540,7 @@ export default function CreateAdminForm({
             {/* RIGHT: permissions matrix */}
             <Box>
               <PermissionsMatrix
-                role={form.role}
+                role={role}
                 value={permissions}
                 onChange={setPermissions}
                 disabled={saving}

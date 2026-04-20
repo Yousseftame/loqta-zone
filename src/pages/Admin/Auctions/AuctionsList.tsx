@@ -591,7 +591,9 @@ export default function AuctionsList() {
                                     color: colors.primary,
                                   }}
                                 >
-                                  {product ? resolveTitle(product.title).charAt(0) : "?"}
+                                  {product
+                                    ? resolveTitle(product.title).charAt(0)
+                                    : "?"}
                                 </Box>
                               )}
                               <span
@@ -799,7 +801,7 @@ export default function AuctionsList() {
                             gap: 0.5,
                           }}
                         >
-                          {can("categories", "read") && (
+                          {can("auctions", "read") && (
                             <IconButton
                               size="small"
                               onClick={() =>
@@ -815,7 +817,7 @@ export default function AuctionsList() {
                               <Eye size={16} />
                             </IconButton>
                           )}
-                          {can("categories", "update") && (
+                          {can("auctions", "update") && (
                             <IconButton
                               size="small"
                               onClick={() =>
@@ -849,7 +851,7 @@ export default function AuctionsList() {
                               <Edit size={16} />
                             </IconButton>
                           )}
-                          {can("categories", "delete") && (
+                          {can("auctions", "delete") && (
                             <IconButton
                               size="small"
                               onClick={() => {

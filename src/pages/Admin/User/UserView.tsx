@@ -434,24 +434,7 @@ export default function UserView() {
             >
               {user.isBlocked ? "Unblock" : "Block"}
             </Button>
-            <Button
-              startIcon={<Trash2 size={16} />}
-              onClick={() => {
-                setDeleteConfirm("");
-                setDeleteDialog(true);
-              }}
-              variant="contained"
-              sx={{
-                bgcolor: "rgba(239,68,68,0.75)",
-                color: "#fff",
-                textTransform: "none",
-                borderRadius: 2,
-                fontWeight: 600,
-                "&:hover": { bgcolor: "rgba(239,68,68,0.9)" },
-              }}
-            >
-              Delete
-            </Button>
+          
           </Box>
         </Box>
 
