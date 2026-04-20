@@ -30,6 +30,7 @@ import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { db } from "@/firebase/firebase";
 import { useAuth } from "@/store/AuthContext/AuthContext";
+import { resolveProductTitle } from "@/lib/resolveLocalized";
 
 // ─── Tokens ───────────────────────────────────────────────────────────────────
 const GOLD = "#c9a96e";
@@ -52,7 +53,7 @@ interface UserAuctionEntry {
 }
 
 interface AuctionMeta {
-  productName?: string;
+  productName?: any;
   productId?: string;
   auctionNumber?: number;
   imageUrl?: string;
@@ -232,7 +233,7 @@ const AuctionCard = ({
   const bidCount = entry.totalAmount?.length ?? 0;
 
   const displayTitle =
-    entry.meta.productName ||
+    resolveProductTitle(entry.meta.productName) ||
     (entry.meta.auctionNumber
       ? t("myBidsPage.card.auctionNum", { num: entry.meta.auctionNumber })
       : t("myBidsPage.card.auctionShort", { id: entry.auctionId.slice(0, 8) }));
@@ -843,7 +844,7 @@ export default function MyBids() {
                   const pSnap = await getDoc(doc(db, "products", productId));
                   if (pSnap.exists()) {
                     const pData = pSnap.data();
-                    productName = pData.title ?? undefined;
+                    productName = pData.title;
                     imageUrl =
                       pData.thumbnail && pData.thumbnail !== "null"
                         ? pData.thumbnail

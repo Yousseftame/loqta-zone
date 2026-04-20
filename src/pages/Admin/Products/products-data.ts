@@ -8,8 +8,8 @@ export interface LocalizedString {
 export interface Product {
   id: string;
   title: LocalizedString;        // ← was string
-  brand: string;
-  model: string;
+  brand: LocalizedString;        // ← was string
+  model: LocalizedString;        // ← was string
   category: string;
   supplierId: string;
   description: LocalizedString;  // ← was string
@@ -30,8 +30,10 @@ export interface Product {
 export interface ProductFormData {
   titleEn: string;               // ← was title: string
   titleAr: string;               // ← new
-  brand: string;
-  model: string;
+  brandEn: string;               // ← was brand: string
+  brandAr: string;               // ← new
+  modelEn: string;               // ← was model: string
+  modelAr: string;               // ← new
   category: string;
   supplierId: string;
   descriptionEn: string;         // ← was description: string
@@ -80,8 +82,10 @@ export const getAvatarColor = (name: string) =>
 export const DEFAULT_FORM_DATA: ProductFormData = {
   titleEn: "",
   titleAr: "",
-  brand: "",
-  model: "",
+  brandEn: "",
+  brandAr: "",
+  modelEn: "",
+  modelAr: "",
   category: "",
   supplierId: "",
   descriptionEn: "",
@@ -100,11 +104,14 @@ export const DEFAULT_FORM_DATA: ProductFormData = {
 // ─── Helper: resolve localised string safely ──────────────────────────────────
 // Used wherever a plain string is needed (analytics, notifications, display).
 
+import i18n from "@/lib/i18n";
+
 export function resolveTitle(
   title: LocalizedString | string | undefined | null,
-  lang: "en" | "ar" = "en",
+  lang?: "en" | "ar",
 ): string {
+  const currentLang = lang || ((i18n.language === "ar" ? "ar" : "en") as "en" | "ar");
   if (!title) return "";
   if (typeof title === "string") return title;          // legacy doc
-  return title[lang] || title.en || title.ar || "";
+  return title[currentLang] || title.en || title.ar || "";
 }

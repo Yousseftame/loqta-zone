@@ -23,6 +23,7 @@ import WinnerCelebration from "@/components/WinnerCelebration/Winnercelebration"
 import PostAuctionModal from "@/components/PostAuctionModal/PostAuctionModal";
 import LastOfferModal from "@/components/LastOfferModal/LastOfferModal";
 import toast from "react-hot-toast";
+import { resolveProductTitle } from "@/lib/resolveLocalized";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -55,11 +56,11 @@ interface BidEntry {
   createdAt: Date;
 }
 interface ProductData {
-  title: string;
+  title: any;
   thumbnail: string | null;
   images: string[];
-  brand: string;
-  model: string;
+  brand: any;
+  model: any;
   description: string;
 }
 
@@ -321,7 +322,7 @@ export default function AuctionLivePage() {
       if (!snap.exists()) return;
       const d = snap.data();
       setProduct({
-        title: d.title ?? "",
+        title: d.title,
         thumbnail: d.thumbnail && d.thumbnail !== "null" ? d.thumbnail : null,
         images: Array.isArray(d.images) ? d.images : [],
         brand: d.brand ?? "",
@@ -472,12 +473,12 @@ export default function AuctionLivePage() {
               {productImage ? (
                 <img
                   src={productImage}
-                  alt={product?.title ?? ""}
+                  alt={resolveProductTitle(product?.title) ?? ""}
                   className="al-img"
                 />
               ) : (
                 <div className="al-imgph">
-                  {product?.title?.charAt(0) ?? "?"}
+                  {resolveProductTitle(product?.title)?.charAt(0) ?? "?"}
                 </div>
               )}
               {isLive && <div className="al-live-badge">● LIVE</div>}
@@ -485,16 +486,16 @@ export default function AuctionLivePage() {
 
             {product && (
               <div className="al-prodinfo">
-                <div className="al-prodtitle">{product.title}</div>
+                <div className="al-prodtitle">{resolveProductTitle(product.title)}</div>
                 {product.description && (
-                  <div className="al-proddesc">{product.description}</div>
+                  <div className="al-proddesc">{resolveProductTitle(product.description)}</div>
                 )}
                 <div className="al-prodmeta">
                   {product.brand && (
-                    <span className="al-metachip">{product.brand}</span>
+                    <span className="al-metachip">{resolveProductTitle(product.brand)}</span>
                   )}
                   {product.model && (
-                    <span className="al-metachip">{product.model}</span>
+                    <span className="al-metachip">{resolveProductTitle(product.model)}</span>
                   )}
                 </div>
               </div>
@@ -735,7 +736,7 @@ export default function AuctionLivePage() {
           winnerName={resolvedWinner.name}
           winningBid={resolvedWinner.bid}
           isWinner={isWinner}
-          productTitle={product?.title}
+          productTitle={resolveProductTitle(product?.title)}
         />
       )}
 
@@ -745,7 +746,7 @@ export default function AuctionLivePage() {
           winnerName={resolvedWinner.name}
           winningBid={resolvedWinner.bid}
           isWinner={isWinner}
-          productTitle={product?.title}
+          productTitle={resolveProductTitle(product?.title)}
           onBrowse={() => navigate("/")}
           onBack={() => navigate(-1)}
         />
@@ -759,7 +760,7 @@ export default function AuctionLivePage() {
           startingPrice={auction.startingPrice}
           winningBid={auction.winningBid ?? auction.currentBid}
           winnerName={resolvedWinner?.name ?? t("auctionLive.winner")}
-          productTitle={product?.title}
+          productTitle={resolveProductTitle(product?.title)}
           onClose={() => {
             setShowLastOffer(false);
             setShowModal(true);
@@ -775,7 +776,7 @@ export default function AuctionLivePage() {
           startingPrice={auction.startingPrice}
           winningBid={auction.winningBid ?? auction.currentBid}
           winnerName={notifWinnerName}
-          productTitle={product?.title}
+          productTitle={resolveProductTitle(product?.title)}
           onClose={() => setShowLastOfferFromNotif(false)}
         />
       )}

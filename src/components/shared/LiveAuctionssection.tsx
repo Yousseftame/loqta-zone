@@ -22,11 +22,12 @@ const GOLD2 = "#e8d5a3";
 interface LiveAuction {
   id: string;
   productId: string;
-  title: string;
+  title: any;
   image: string;
   currentBid: number;
   totalBids: number;
   endsAt: string;
+  auctionNumber?: number;
 }
 
 // ─── Data hook: product cache prevents re-fetching on every snapshot tick ─────
@@ -82,13 +83,14 @@ const q = query(
             return {
               id: d.id,
               productId: data.productId ?? "",
-              title: resolveProductTitle(p.title) || "Live Auction",
+              title: p.title,
               image:
                 p.thumbnail && p.thumbnail !== "null"
                   ? p.thumbnail
                   : (p.images?.[0] ?? ""),
               currentBid: data.currentBid ?? data.startingPrice ?? 0,
               totalBids: data.totalBids ?? 0,
+              auctionNumber: data.auctionNumber,
               endsAt: end.toISOString(),
             };
           })
@@ -119,10 +121,11 @@ setAuctions(
       return {
         id: d.id,
         productId: data.productId ?? "",
-        title: resolveProductTitle(p.title) || "Live Auction",
+        title: p.title,
         image: img,
         currentBid: data.currentBid ?? data.startingPrice ?? 0,
         totalBids: data.totalBids ?? 0,
+        auctionNumber: data.auctionNumber,
         endsAt: end.toISOString(),
       };
     })
@@ -433,7 +436,7 @@ const FeaturedCard = memo(function FeaturedCard({
           {item.image && (
             <img
               src={item.image}
-              alt={item.title}
+              alt={resolveProductTitle(item.title)}
               loading="lazy"
               decoding="async"
               className="la-feat-img"
@@ -535,7 +538,7 @@ const FeaturedCard = memo(function FeaturedCard({
                 textShadow: "0 2px 16px rgba(0,0,0,0.9)",
               }}
             >
-              {item.title}
+              {resolveProductTitle(item.title) || "Live Auction"}
             </h3>
           </div>
         </div>
@@ -696,7 +699,7 @@ const FeaturedCard = memo(function FeaturedCard({
         {item.image && (
           <img
             src={item.image}
-            alt={item.title}
+            alt={resolveProductTitle(item.title)}
             loading="lazy"
             decoding="async"
             className="la-feat-img"
@@ -805,15 +808,17 @@ const FeaturedCard = memo(function FeaturedCard({
             textShadow: "0 2px 24px rgba(0,0,0,0.8)",
           }}
         >
-          {item.title}
+          {resolveProductTitle(item.title) || "Live Auction"}
         </h3>
-        <div
-          style={{
-            height: 1,
-            marginBottom: 14,
-            background: `linear-gradient(90deg, ${GOLD}66, ${GOLD}1a, transparent)`,
-          }}
-        />
+        {(item.auctionNumber || 0) > 0 && (
+          <div
+            style={{
+              height: 1,
+              marginBottom: 14,
+              background: `linear-gradient(90deg, ${GOLD}66, ${GOLD}1a, transparent)`,
+            }}
+          />
+        )}
         <div style={{ marginBottom: 16 }}>
           <div
             style={{
@@ -1014,7 +1019,7 @@ const AuctionRow = memo(function AuctionRow({
         {item.image ? (
           <img
             src={item.image}
-            alt={item.title}
+            alt={resolveProductTitle(item.title)}
             loading="lazy"
             decoding="async"
             className="la-row-img"
@@ -1046,7 +1051,7 @@ const AuctionRow = memo(function AuctionRow({
                 fontWeight: 900,
               }}
             >
-              {item.title.charAt(0)}
+              {resolveProductTitle(item.title).charAt(0)}
             </span>
           </div>
         )}
@@ -1104,7 +1109,7 @@ const AuctionRow = memo(function AuctionRow({
             textOverflow: "ellipsis",
           }}
         >
-          {item.title}
+          {resolveProductTitle(item.title)}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <div style={{ display: "flex", alignItems: "baseline", gap: 3 }}>

@@ -38,7 +38,7 @@ interface UpcomingAuction {
   auctionNumber: number;
   id: string;
   productId: string;
-  title: string;
+  title: any;
   subtitle: string;
   image: string;
   startingPrice: number;
@@ -52,7 +52,7 @@ interface UpcomingAuction {
 interface PastAuction {
   auctionNumber: number;
   id: string;
-  title: string;
+  title: any;
   subtitle: string;
   image: string;
   winningPrice: number;
@@ -139,8 +139,10 @@ function useUpcomingAuctions() {
             id: d.id,
             auctionNumber: data.auctionNumber ?? 0,
             productId: data.productId ?? "",
-            title: resolveProductTitle(p.title) || "Auction",
-            subtitle: [p.brand, p.model].filter(Boolean).join(" · "),
+            title: p.title,
+            subtitle: [resolveProductTitle(p.brand), resolveProductTitle(p.model)]
+              .filter(Boolean)
+              .join(" · "),
             image,
             startingPrice: data.startingPrice ?? 0,
             currency: "EGP",
@@ -288,8 +290,10 @@ function usePastAuctions() {
         return {
           id: d.id,
           auctionNumber: data.auctionNumber ?? 0,
-          title: resolveProductTitle(p.title) || "Auction",
-          subtitle: [p.brand, p.model].filter(Boolean).join(" · "),
+          title: p.title,
+          subtitle: [resolveProductTitle(p.brand), resolveProductTitle(p.model)]
+            .filter(Boolean)
+            .join(" · "),
           image,
           winningPrice: data.winningBid ?? 0,
           currency: "EGP",
@@ -424,7 +428,7 @@ const UpcomingCard = memo(function UpcomingCard({
         {item.image ? (
           <img
             src={item.image}
-            alt={item.title}
+            alt={resolveProductTitle(item.title)}
             loading="lazy"
             decoding="async"
             className="ac-img-inner"
@@ -453,7 +457,7 @@ const UpcomingCard = memo(function UpcomingCard({
             }}
           >
             <span style={{ fontSize: 42, fontWeight: 900, color: `${NAVY}30` }}>
-              {item.title[0].toUpperCase()}
+              {resolveProductTitle(item.title).charAt(0).toUpperCase()}
             </span>
           </div>
         )}
@@ -511,7 +515,7 @@ const UpcomingCard = memo(function UpcomingCard({
                 wordBreak: "break-word",
               }}
             >
-              {item.title}
+              {resolveProductTitle(item.title) || "Auction"}
             </h3>
             {item.auctionNumber > 0 && (
               <span
@@ -907,7 +911,7 @@ const PastCard = memo(function PastCard({
         {item.image ? (
           <img
             src={item.image}
-            alt={item.title}
+            alt={resolveProductTitle(item.title)}
             loading="lazy"
             decoding="async"
             className="ac-img-inner ac-img-past"
@@ -938,7 +942,7 @@ const PastCard = memo(function PastCard({
             }}
           >
             <span style={{ fontSize: 42, fontWeight: 900, color: `${NAVY}30` }}>
-              {item.title[0].toUpperCase()}
+              {resolveProductTitle(item.title).charAt(0).toUpperCase()}
             </span>
           </div>
         )}
@@ -974,7 +978,7 @@ const PastCard = memo(function PastCard({
               wordBreak: "break-word",
             }}
           >
-            {item.title}
+            {resolveProductTitle(item.title) || "Auction"}
           </h3>
           {item.auctionNumber > 0 && (
             <span

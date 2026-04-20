@@ -1,3 +1,5 @@
+import i18n from './i18n';
+
 type LocalizedMap = {
   en?: string;
   ar?: string;
@@ -6,9 +8,10 @@ type LocalizedMap = {
 
 export const getLocalizedField = (
   field: LocalizedMap | null | undefined,
-  lang: 'en' | 'ar',
+  lang?: 'en' | 'ar',
   fallback = ''
 ): string => {
   if (!field) return fallback;
-  return field[lang] ?? field['en'] ?? fallback;
+  const currentLang = lang || ((i18n.language === 'ar' ? 'ar' : 'en') as 'en' | 'ar');
+  return field[currentLang] ?? field['en'] ?? fallback;
 };

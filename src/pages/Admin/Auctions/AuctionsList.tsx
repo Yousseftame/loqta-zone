@@ -44,6 +44,7 @@ import {
   AUCTION_STATUSES,
   getAuctionStatusStyle,
 } from "./auctions-data";
+import { resolveTitle } from "../Products/products-data";
 import { useAuctions } from "@/store/AdminContext/AuctionContext/AuctionContext";
 import { useProducts } from "@/store/AdminContext/ProductContext/ProductsCotnext";
 import { usePermissions } from "@/permissions/usePermissions";
@@ -83,7 +84,7 @@ export default function AuctionsList() {
         return (
           a.productId.toLowerCase().includes(s) ||
           String(a.auctionNumber).includes(s) ||
-          (product?.title.toLowerCase().includes(s) ?? false)
+          (product ? resolveTitle(product.title, "en").toLowerCase().includes(s) || resolveTitle(product.title, "ar").toLowerCase().includes(s) : false)
         );
       });
     }
@@ -564,7 +565,7 @@ export default function AuctionsList() {
                                 <Box
                                   component="img"
                                   src={product.thumbnail}
-                                  alt={product.title}
+                                  alt={resolveTitle(product.title)}
                                   sx={{
                                     width: 32,
                                     height: 32,
@@ -590,7 +591,7 @@ export default function AuctionsList() {
                                     color: colors.primary,
                                   }}
                                 >
-                                  {product ? product.title.charAt(0) : "?"}
+                                  {product ? resolveTitle(product.title).charAt(0) : "?"}
                                 </Box>
                               )}
                               <span
@@ -605,7 +606,7 @@ export default function AuctionsList() {
                                 }}
                               >
                                 {product ? (
-                                  product.title
+                                  resolveTitle(product.title)
                                 ) : (
                                   <span
                                     style={{

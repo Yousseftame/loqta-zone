@@ -28,7 +28,7 @@ import {
 import { useNavigate, useParams } from "react-router-dom";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/firebase/firebase";
-import { colors } from "../Products/products-data";
+import { colors, resolveTitle } from "../Products/products-data";
 import {
   getAuctionStatusStyle,
   type AuctionStatus,
@@ -199,7 +199,7 @@ export default function AuctionView() {
             <Box
               component="img"
               src={linkedProduct.thumbnail}
-              alt={linkedProduct.title}
+              alt={resolveTitle(linkedProduct.title)}
               sx={{
                 width: { xs: 60, md: 72 },
                 height: { xs: 60, md: 72 },
@@ -280,7 +280,7 @@ export default function AuctionView() {
                   fontWeight: 600,
                 }}
               >
-                {linkedProduct.title}
+                {resolveTitle(linkedProduct.title)}
               </p>
             )}
             <Box sx={{ display: "flex", gap: 1, mt: 0.5, flexWrap: "wrap" }}>
@@ -528,7 +528,7 @@ export default function AuctionView() {
                       <Box
                         component="img"
                         src={linkedProduct.thumbnail}
-                        alt={linkedProduct.title}
+                        alt={resolveTitle(linkedProduct.title)}
                         sx={{
                           width: 28,
                           height: 28,
@@ -544,7 +544,7 @@ export default function AuctionView() {
                       color: colors.textPrimary,
                     }}
                   >
-                    {linkedProduct.title}
+                    {resolveTitle(linkedProduct.title)}
                   </span>
                 </Box>
               ) : (

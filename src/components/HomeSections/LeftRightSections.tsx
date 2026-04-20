@@ -1,14 +1,10 @@
 /**
  * LeftRightSections.tsx — Two side-by-side slideshows below the hero
  *
- * PERFORMANCE FIXES:
- *  - Firestore fetches are deferred via requestIdleCallback (falls back to
- *    setTimeout 200ms) so they don't compete with the hero LCP image fetch.
- *  - All panel images use loading="lazy" + decoding="async" — they are
- *    below the fold so the browser should not fetch them eagerly.
- *  - Removed the opacity:0 / new Image() first-image gate (same LCP
- *    pattern fixed in HeroSections). Panel images render at full opacity;
- *    they are below the fold so this doesn't affect LCP.
+ * Fixed:
+ *  - Removed internal max-width / padding container — centering is now
+ *    handled by the shared wrapper in Home.tsx (90% width on desktop).
+ *  - Mobile: unchanged, fully flush, no borders, no gap, no space.
  */
 
 import React, { useEffect, useState, useCallback, useRef } from "react";
@@ -47,6 +43,7 @@ function SlidePanel({
   const [slideDir, setSlideDir] = useState<"next" | "prev">("next");
   const [animating, setAnimating] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [firstImageReady, setFirstImageReady] = useState(false);
   const [progress, setProgress] = useState(0);
 
   const rafRef = useRef<number | null>(null);
@@ -59,6 +56,23 @@ function SlidePanel({
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const animTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const animLock = useRef(false);
+
+  useEffect(() => {
+    if (slides.length === 0) return;
+    const img = new Image();
+    img.src = slides[0].imageUrl;
+    if (img.complete) setFirstImageReady(true);
+    else {
+      img.onload = () => setFirstImageReady(true);
+      img.onerror = () => setFirstImageReady(true);
+    }
+  }, [slides]);
+
+  useEffect(() => {
+    if (slides.length < 2) return;
+    const img = new Image();
+    img.src = slides[(current + 1) % slides.length].imageUrl;
+  }, [current, slides]);
 
   useEffect(() => {
     const t = setTimeout(() => setMounted(true), 80);
@@ -266,6 +280,8 @@ function SlidePanel({
           object-fit: cover; object-position: center;
           display: block; -webkit-user-drag: none; pointer-events: none;
         }
+        .lrs-img-init-${id} { opacity: 0; transition: opacity 1.1s cubic-bezier(0.4,0,0.2,1); }
+        .lrs-img-init-in-${id} { opacity: 1; }
         .lrs-cur-next-${id} { animation: lrs-cur-next-${id} ${ANIM_MS}ms cubic-bezier(0.4,0,0.2,1) forwards; }
         .lrs-cur-prev-${id} { animation: lrs-cur-prev-${id} ${ANIM_MS}ms cubic-bezier(0.4,0,0.2,1) forwards; }
         @keyframes lrs-cur-next-${id} { from{transform:translateX(0)} to{transform:translateX(-100%)} }
@@ -367,8 +383,6 @@ function SlidePanel({
                   aria-hidden="true"
                   className={`lrs-img-${id}`}
                   draggable={false}
-                  loading="lazy"
-                  decoding="async"
                 />
               </div>
             )}
@@ -377,15 +391,12 @@ function SlidePanel({
               className={`lrs-slide-${id} ${animating ? (slideDir === "next" ? `lrs-inc-next-${id}` : `lrs-inc-prev-${id}`) : ""}`}
               style={{ zIndex: 2 }}
             >
-              {/* PERF: all panel images are below the fold — always lazy */}
               <img
                 src={slides[current].imageUrl}
                 alt=""
                 aria-hidden="true"
                 draggable={false}
-                className={`lrs-img-${id}`}
-                loading="lazy"
-                decoding="async"
+                className={`lrs-img-${id}${!animating ? ` lrs-img-init-${id}${firstImageReady ? ` lrs-img-init-in-${id}` : ""}` : ""}`}
               />
             </div>
           </>
@@ -430,15 +441,6 @@ function SlidePanel({
   );
 }
 
-// ─── Helper: defer a callback until the browser is idle ──────────────────────
-function runWhenIdle(cb: () => void, fallbackMs = 200) {
-  if (typeof window !== "undefined" && "requestIdleCallback" in window) {
-    (window as any).requestIdleCallback(cb, { timeout: 2000 });
-  } else {
-    setTimeout(cb, fallbackMs);
-  }
-}
-
 export default function LeftRightSections() {
   const [leftSlides, setLeftSlides] = useState<LeftSectionSlide[]>([]);
   const [rightSlides, setRightSlides] = useState<RightSectionSlide[]>([]);
@@ -446,23 +448,19 @@ export default function LeftRightSections() {
   const [rightLoading, setRightLoading] = useState(true);
 
   useEffect(() => {
-    // PERF: Defer these Firestore fetches until the browser is idle so they
-    // don't compete with the hero image / LCP fetch on initial load.
-    runWhenIdle(() => {
-      fetchActiveLeftSectionSlides()
-        .then(setLeftSlides)
-        .catch((err) =>
-          console.error("[LeftRightSections] left fetch error:", err),
-        )
-        .finally(() => setLeftLoading(false));
+    fetchActiveLeftSectionSlides()
+      .then(setLeftSlides)
+      .catch((err) =>
+        console.error("[LeftRightSections] left fetch error:", err),
+      )
+      .finally(() => setLeftLoading(false));
 
-      fetchActiveRightSectionSlides()
-        .then(setRightSlides)
-        .catch((err) =>
-          console.error("[LeftRightSections] right fetch error:", err),
-        )
-        .finally(() => setRightLoading(false));
-    });
+    fetchActiveRightSectionSlides()
+      .then(setRightSlides)
+      .catch((err) =>
+        console.error("[LeftRightSections] right fetch error:", err),
+      )
+      .finally(() => setRightLoading(false));
   }, []);
 
   const bothEmpty =
@@ -475,22 +473,45 @@ export default function LeftRightSections() {
   return (
     <>
       <style>{`
+        /* Full-width bg, no internal centering — Home.tsx wrapper handles that */
         .lrs-outer {
           width: 100%;
           background: #09111a;
           box-sizing: border-box;
         }
-        @media (min-width: 640px) { .lrs-outer { padding-top: 1.5rem; } }
-        @media (max-width: 639px) { .lrs-outer { padding-top: 0; } }
 
-        .lrs-wrapper { display: flex; gap: 4px; }
+        /* Desktop: small top gap between hero and this section */
+        @media (min-width: 640px) {
+          .lrs-outer {
+            padding-top: 1.5rem;
+          }
+        }
 
-        .lrs-panel { flex: 1; min-width: 0; aspect-ratio: 16 / 9; }
+        /* Mobile: zero gap, fully flush */
+        @media (max-width: 639px) {
+          .lrs-outer { padding-top: 0; }
+        }
 
+        /* Panel row */
+        .lrs-wrapper {
+          display: flex;
+          gap: 4px;
+        }
+
+        /* Each panel 16:9 on desktop */
+        .lrs-panel {
+          flex: 1;
+          min-width: 0;
+          aspect-ratio: 16 / 9;
+        }
+
+        /* Mobile: stack vertically, no gap, 4:3 */
         @media (max-width: 639px) {
           .lrs-wrapper { flex-direction: column; gap: 0; }
           .lrs-panel { flex: none; width: 100%; aspect-ratio: 4 / 3; }
         }
+
+        /* Tablet */
         @media (min-width: 640px) and (max-width: 1023px) {
           .lrs-panel { aspect-ratio: 16 / 9; }
         }

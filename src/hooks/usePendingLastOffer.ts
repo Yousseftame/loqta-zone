@@ -35,7 +35,7 @@ export interface PendingLastOfferAuction {
   startingPrice: number;
   winningBid: number;
   winnerName: string;
-  productTitle: string;
+  productTitle: any;
 }
 
 export function usePendingLastOffer(): {
@@ -155,7 +155,7 @@ export function usePendingLastOffer(): {
         const productTitles: Record<string, string> = {};
         productSnaps.forEach((snap, i) => {
           productTitles[uniqueProductIds[i]] = snap.exists()
-            ? resolveProductTitle(snap.data()?.title, "")
+            ? snap.data()?.title
             : "";
         });
 

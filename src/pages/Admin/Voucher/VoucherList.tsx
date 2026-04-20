@@ -54,6 +54,7 @@ import {
 } from "./voucher-data";
 import { useVouchers } from "@/store/AdminContext/VoucherContext/VoucherContext";
 import { usePermissions } from "@/permissions/usePermissions";
+import { resolveProductTitle } from "@/lib/resolveLocalized";
 
 // ─── Auction meta cache ───────────────────────────────────────────────────────
 
@@ -77,7 +78,7 @@ async function loadAuctionMeta(): Promise<Record<string, AuctionMeta>> {
     productIds.map(async (pid) => {
       try {
         const pSnap = await getDoc(doc(db, "products", pid));
-        titleMap[pid] = pSnap.exists() ? (pSnap.data().title ?? "") : "";
+        titleMap[pid] = pSnap.exists() ? resolveProductTitle(pSnap.data().title) : "";
       } catch {
         titleMap[pid] = "";
       }

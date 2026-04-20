@@ -21,6 +21,7 @@ import {
   type AppNotification,
   type NotificationType,
 } from "@/hooks/useNotifications";
+import { resolveProductTitle } from "@/lib/resolveLocalized";
 
 // ── timeAgo ───────────────────────────────────────────────────────────────────
 function timeAgo(date: Date): string {
@@ -54,7 +55,7 @@ function getLocalizedNotif(
   switch (notif.type) {
     case "bid_selected": {
       const amount = data.winningBid ?? data.amount ?? 0;
-      const product = data.productTitle ?? data.productName ?? "";
+      const product = resolveProductTitle(data.productTitle ?? data.productName ?? "");
       return {
         title: t("notifications.bidSelected.title"),
         message: t("notifications.bidSelected.message", {
@@ -65,7 +66,7 @@ function getLocalizedNotif(
     }
     case "last_offer_selected": {
       const amount = data.winningBid ?? data.amount ?? 0;
-      const product = data.productTitle ?? data.productName ?? "";
+      const product = resolveProductTitle(data.productTitle ?? data.productName ?? "");
       return {
         title: t("notifications.lastOfferSelected.title"),
         message: t("notifications.lastOfferSelected.message", {
@@ -76,8 +77,9 @@ function getLocalizedNotif(
     }
     case "payment_confirmed": {
       const amount = data.amount ?? data.winningBid ?? data.paymentAmount ?? 0;
-      const product =
-        data.productTitle ?? data.productName ?? data.itemTitle ?? "";
+      const product = resolveProductTitle(
+        data.productTitle ?? data.productName ?? data.itemTitle ?? ""
+      );
       return {
         title: t("notifications.paymentConfirmed.title"),
         message: t("notifications.paymentConfirmed.message", {
@@ -87,7 +89,7 @@ function getLocalizedNotif(
       };
     }
     case "auction_matched": {
-      const product = data.productName ?? data.productTitle ?? "";
+      const product = resolveProductTitle(data.productName ?? data.productTitle ?? "");
       return {
         title: t("notifications.auctionMatched.title"),
         message: t("notifications.auctionMatched.message", {
@@ -96,7 +98,7 @@ function getLocalizedNotif(
       };
     }
     case "last_offer_available": {
-      const product = (data.productTitle ?? data.productName ?? "") as string;
+      const product = resolveProductTitle(data.productTitle ?? data.productName ?? "");
       return {
         title: product
           ? t("notifications.lastOfferAvailable.title", { product })
@@ -120,7 +122,7 @@ function getLocalizedNotif(
     }
     case "auction_ended": {
       const num = (data.auctionNumber ?? 0) as number;
-      const product = (data.productTitle ?? "") as string;
+      const product = resolveProductTitle(data.productTitle ?? "");
       return {
         title: product
           ? t("notifications.auctionEnded.titleProduct", { product })
@@ -132,7 +134,7 @@ function getLocalizedNotif(
     }
     case "auction_created": {
       const num = (data.auctionNumber ?? 0) as number;
-      const product = (data.productTitle ?? "") as string;
+      const product = resolveProductTitle(data.productTitle ?? "");
       const date = (data.startDate ?? "") as string;
       return {
         title: product
@@ -395,7 +397,20 @@ function FormattedVoucherMessage({
 
   try {
     const raw = data.auctionItems ?? "";
-    if (raw) auctions = JSON.parse(raw);
+    if (raw) {
+      if (typeof raw === 'string') {
+        const parsed = JSON.parse(raw);
+        auctions = parsed.map((a: any) => ({
+           ...a,
+           productTitle: resolveProductTitle(a.productTitle)
+        }));
+      } else {
+        auctions = raw.map((a: any) => ({
+           ...a,
+           productTitle: resolveProductTitle(a.productTitle)
+        }));
+      }
+    }
   } catch {
     /* ignore */
   }
@@ -632,7 +647,7 @@ function FormattedLastOfferAvailableMessage({
   const data = notif as any;
   const winnerName = (data.winnerName ?? "") as string;
   const winningBid = (data.winningBid ?? 0) as number;
-  const productTitle = (data.productTitle ?? data.productName ?? "") as string;
+  const productTitle = resolveProductTitle(data.productTitle ?? data.productName ?? "");
   const cur = isRTL ? "جنيه" : "EGP";
 
   return (
@@ -751,7 +766,7 @@ function FormattedRegistrationMessage({
   isRTL: boolean;
 }) {
   const data = notif as any;
-  const productTitle = (data.productTitle ?? "") as string;
+  const productTitle = resolveProductTitle(data.productTitle ?? "");
   const auctionNum = (data.auctionNumber ?? 0) as number;
 
   return (

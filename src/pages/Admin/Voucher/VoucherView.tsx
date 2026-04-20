@@ -49,6 +49,7 @@ import {
   getUsageCount,
 } from "./voucher-data";
 import { useVouchers } from "@/store/AdminContext/VoucherContext/VoucherContext";
+import { resolveProductTitle } from "@/lib/resolveLocalized";
 
 // ─── Auction detail helpers ───────────────────────────────────────────────────
 
@@ -83,7 +84,7 @@ async function fetchAuctionDetails(ids: string[]): Promise<AuctionDetail[]> {
     if (d.productId) {
       try {
         const pSnap = await getDoc(doc(db, "products", d.productId));
-        productTitle = pSnap.exists() ? (pSnap.data().title ?? "") : "";
+        productTitle = pSnap.exists() ? resolveProductTitle(pSnap.data().title) : "";
       } catch {
         productTitle = "";
       }

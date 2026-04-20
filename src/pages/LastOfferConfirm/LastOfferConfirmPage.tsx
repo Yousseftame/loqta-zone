@@ -15,6 +15,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/firebase/firebase";
 import { useAuth } from "@/store/AuthContext/AuthContext";
+import { resolveProductTitle } from "@/lib/resolveLocalized";
 
 type PageState = "loading" | "pending" | "paying" | "success" | "error";
 
@@ -56,7 +57,7 @@ export default function LastOfferConfirmPage() {
         if (aData.productId) {
           const pSnap = await getDoc(doc(db, "products", aData.productId));
           if (pSnap.exists()) {
-            productTitle = pSnap.data().title ?? "Your item";
+            productTitle = pSnap.data().title ? resolveProductTitle(pSnap.data().title) : "Your item";
             productImage = pSnap.data().thumbnail ?? null;
           }
         }

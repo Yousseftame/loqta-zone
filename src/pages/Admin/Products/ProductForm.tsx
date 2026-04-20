@@ -116,8 +116,10 @@ export default function ProductForm() {
         setForm({
           titleEn: typeof p.title === "string" ? p.title : p.title.en,
           titleAr: typeof p.title === "string" ? "" : p.title.ar,
-          brand: p.brand,
-          model: p.model,
+          brandEn: typeof p.brand === "string" ? p.brand : (p.brand?.en ?? ""),
+          brandAr: typeof p.brand === "string" ? "" : (p.brand?.ar ?? ""),
+          modelEn: typeof p.model === "string" ? p.model : (p.model?.en ?? ""),
+          modelAr: typeof p.model === "string" ? "" : (p.model?.ar ?? ""),
           category: p.category,
           supplierId: p.supplierId,
           descriptionEn:
@@ -158,6 +160,17 @@ export default function ProductForm() {
     const en = newFeatureEn.trim();
     const ar = newFeatureAr.trim();
     if (!en) return;
+    field("featuresEn", [...form.featuresEn, en]);
+    field("featuresAr", [...form.featuresAr, ar]);
+    setNewFeatureEn("");
+    setNewFeatureEn("");
+    setNewFeatureAr("");
+  };
+
+  const addFeatureAr = () => {
+    const en = newFeatureEn.trim();
+    const ar = newFeatureAr.trim();
+    if (!ar) return;
     field("featuresEn", [...form.featuresEn, en]);
     field("featuresAr", [...form.featuresAr, ar]);
     setNewFeatureEn("");
@@ -210,8 +223,10 @@ export default function ProductForm() {
     const e: Record<string, string> = {};
     if (!form.titleEn.trim()) e.titleEn = "English title is required";
     if (!form.titleAr.trim()) e.titleAr = "Arabic title is required";
-    if (!form.brand.trim()) e.brand = "Brand is required";
-    if (!form.model.trim()) e.model = "Model is required";
+    if (!form.brandEn.trim()) e.brandEn = "English brand is required";
+    if (!form.modelEn.trim()) e.modelEn = "English model is required";
+    if (!form.brandAr.trim()) e.brandAr = "Arabic brand is required";
+    if (!form.modelAr.trim()) e.modelAr = "Arabic model is required";
     if (!form.category.trim()) e.category = "Category is required";
     if (!form.descriptionEn.trim())
       e.descriptionEn = "English description is required";
@@ -229,7 +244,7 @@ export default function ProductForm() {
       e.quantity = "Enter a valid quantity";
 
     // If there are Arabic-tab errors, auto-switch to show them
-    const arErrors = ["titleAr", "descriptionAr"];
+    const arErrors = ["titleAr", "descriptionAr", "brandAr", "modelAr"];
     if (arErrors.some((k) => e[k])) setLangTab(1);
     return e;
   };
@@ -551,6 +566,36 @@ export default function ProductForm() {
                       ))}
                     </Box>
                   </Box>
+
+                  {/* ── Row: Brand + Model (English) ── */}
+                  <Box
+                    sx={{
+                      display: "grid",
+                      gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+                      gap: 2.5,
+                    }}
+                  >
+                    <TextField
+                      label="Brand (English) *"
+                      size="small"
+                      fullWidth
+                      value={form.brandEn}
+                      onChange={(e) => field("brandEn", e.target.value)}
+                      error={!!errors.brandEn}
+                      helperText={errors.brandEn}
+                      sx={inputSx}
+                    />
+                    <TextField
+                      label="Model (English) *"
+                      size="small"
+                      fullWidth
+                      value={form.modelEn}
+                      onChange={(e) => field("modelEn", e.target.value)}
+                      error={!!errors.modelEn}
+                      helperText={errors.modelEn}
+                      sx={inputSx}
+                    />
+                  </Box>
                 </Box>
               </LangTabPanel>
 
@@ -613,7 +658,26 @@ export default function ProductForm() {
                           ...inputSx,
                           "& input": { direction: "rtl", textAlign: "right" },
                         }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            addFeatureAr();
+                          }
+                        }}
                       />
+                      <Button
+                        onClick={addFeatureAr}
+                        variant="outlined"
+                        sx={{
+                          borderColor: colors.border,
+                          color: colors.primary,
+                          minWidth: 40,
+                          px: 1.5,
+                          borderRadius: 2,
+                        }}
+                      >
+                        <Plus size={18} />
+                      </Button>
                     </Box>
                     <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
                       {form.featuresAr.map((f, i) => (
@@ -678,40 +742,46 @@ export default function ProductForm() {
                         simultaneously.
                       </p>
                     </Box>
+                    </Box>
+
+                  {/* ── Row: Brand + Model (Arabic) ── */}
+                  <Box
+                    sx={{
+                      display: "grid",
+                      gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+                      gap: 2.5,
+                    }}
+                  >
+                    <TextField
+                      label="الماركة (عربي) *"
+                      size="small"
+                      fullWidth
+                      value={form.brandAr}
+                      onChange={(e) => field("brandAr", e.target.value)}
+                      error={!!errors.brandAr}
+                      helperText={errors.brandAr}
+                      sx={{
+                        ...inputSx,
+                        "& input": { direction: "rtl", textAlign: "right" },
+                      }}
+                    />
+                    <TextField
+                      label="الموديل (عربي) *"
+                      size="small"
+                      fullWidth
+                      value={form.modelAr}
+                      onChange={(e) => field("modelAr", e.target.value)}
+                      error={!!errors.modelAr}
+                      helperText={errors.modelAr}
+                      sx={{
+                        ...inputSx,
+                        "& input": { direction: "rtl", textAlign: "right" },
+                      }}
+                    />
                   </Box>
                 </Box>
               </LangTabPanel>
             </Box>
-          </Box>
-
-          {/* ── Row: Brand + Model ── */}
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
-              gap: 2.5,
-            }}
-          >
-            <TextField
-              label="Brand *"
-              size="small"
-              fullWidth
-              value={form.brand}
-              onChange={(e) => field("brand", e.target.value)}
-              error={!!errors.brand}
-              helperText={errors.brand}
-              sx={inputSx}
-            />
-            <TextField
-              label="Model *"
-              size="small"
-              fullWidth
-              value={form.model}
-              onChange={(e) => field("model", e.target.value)}
-              error={!!errors.model}
-              helperText={errors.model}
-              sx={inputSx}
-            />
           </Box>
 
           {/* ── Row: Category ── */}

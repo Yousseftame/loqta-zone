@@ -40,6 +40,7 @@ import { useAuctionRequests } from "@/store/AdminContext/AuctionRequestContext/A
 import { useAuctions } from "@/store/AdminContext/AuctionContext/AuctionContext";
 import { useProducts } from "@/store/AdminContext/ProductContext/ProductsCotnext";
 import { usePermissions } from "@/permissions/usePermissions";
+import { resolveTitle } from "../Products/products-data";
 
 const inputSx = {
   "& .MuiOutlinedInput-root": {
@@ -89,7 +90,7 @@ export default function AuctionRequestView() {
     const auction = auctions.find((a) => a.id === auctionId);
     if (!auction) return auctionId;
     const product = products.find((p) => p.id === auction.productId);
-    return `Auction #${auction.auctionNumber}${product ? ` — ${product.title}` : ""}`;
+    return `Auction #${auction.auctionNumber}${product ? ` — ${resolveTitle(product.title)}` : ""}`;
   };
 
   useEffect(() => {
@@ -733,7 +734,7 @@ export default function AuctionRequestView() {
                               color: colors.textPrimary,
                             }}
                           >
-                            {product?.title ?? "Unknown Product"}
+                            {product ? resolveTitle(product.title) : "Unknown Product"}
                           </p>
                           <p
                             style={{

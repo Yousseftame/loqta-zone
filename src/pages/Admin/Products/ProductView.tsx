@@ -69,10 +69,10 @@ export default function ProductView() {
   const [done, setDone] = useState(false);
   const [activeImg, setActiveImg] = useState<string | null>(null);
 
-  const getCategoryName = (cid: string) => {
+  const getCategoryName = (cid: string, lang?: "en" | "ar") => {
     if (!cid) return "—";
     const found = categories.find((c) => c.id === cid);
-    return found ? found.name.en : cid;
+    return found ? resolveTitle(found.name, lang) : cid;
   };
 
   const getSupplierName = (sid: string) => {
@@ -288,8 +288,8 @@ export default function ProductView() {
             </p>
             <Box sx={{ display: "flex", gap: 1, mt: 1.5, flexWrap: "wrap" }}>
               {[
-                `Brand: ${product.brand}`,
-                `Model: ${product.model}`,
+                `Brand: ${resolveTitle(product.brand)}`,
+                `Model: ${resolveTitle(product.model)}`,
                 `Category: ${getCategoryName(product.category)}`,
                 ...(product.supplierId
                   ? [`Supplier: ${getSupplierName(product.supplierId)}`]

@@ -38,6 +38,7 @@ import { useAuctionRequests } from "@/store/AdminContext/AuctionRequestContext/A
 import { useAuctions } from "@/store/AdminContext/AuctionContext/AuctionContext";
 import { useProducts } from "@/store/AdminContext/ProductContext/ProductsCotnext";
 import { usePermissions } from "@/permissions/usePermissions";
+import { resolveTitle } from "../Products/products-data";
 
 export default function AuctionRequestsList() {
   const navigate = useNavigate();
@@ -56,7 +57,7 @@ export default function AuctionRequestsList() {
     const auction = auctions.find((a) => a.id === auctionId);
     if (!auction) return auctionId.slice(0, 10) + "…";
     const product = products.find((p) => p.id === auction.productId);
-    return `#${auction.auctionNumber}${product ? ` — ${product.title}` : ""}`;
+    return `#${auction.auctionNumber}${product ? ` — ${resolveTitle(product.title)}` : ""}`;
   };
 
   useEffect(() => {

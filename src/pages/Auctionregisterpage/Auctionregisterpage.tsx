@@ -21,8 +21,9 @@ import PromoCodeModal, {
   type VoucherPreview,
 } from "@/components/shared/Promocodemodal";
 import { useTranslation } from "react-i18next";
-   import { auditLogger, buildActor } from "@/service/audit/auditLogger";
+   import { buildActor } from "@/service/audit/auditLogger";
     import { auth } from "@/firebase/firebase";
+    import { resolveProductTitle } from "@/lib/resolveLocalized";
 
 // ─── applyVoucher Cloud Function callable ────────────────────────────────────
 
@@ -36,11 +37,11 @@ const applyVoucherFn = httpsCallable<
 
 interface Product {
   id: string;
-  title: string;
-  brand: string;
-  model: string;
+  title: any;
+  brand: any;
+  model: any;
   category: string;
-  categoryName?: string;
+  categoryName?: any;
   description: string;
   price: number;
   quantity: number;
@@ -155,7 +156,7 @@ export default function AuctionRegisterPage() {
 
         const catMap: Record<string, string> = {};
         catSnap.docs.forEach((d) => {
-          catMap[d.id] = d.data().name?.en ?? d.id;
+          catMap[d.id] = d.data().name ?? d.id;
         });
 
         if (prodSnap.empty) {
@@ -169,7 +170,7 @@ export default function AuctionRegisterPage() {
           !pd.thumbnail || pd.thumbnail === "null" ? null : pd.thumbnail;
         setProduct({
           id: pDoc.id,
-          title: pd.title ?? "",
+          title: pd.title,
           brand: pd.brand ?? "",
           model: pd.model ?? "",
           category: pd.category ?? "",
@@ -395,7 +396,7 @@ export default function AuctionRegisterPage() {
         id: a.id,
         entryType: a.entryType,
         entryFee: a.entryFee,
-        title: product?.title ?? `Auction #${a.auctionNumber}`,
+        title: resolveProductTitle(product?.title) ?? `Auction #${a.auctionNumber}`,
       }));
        const actor = buildActor(auth.currentUser, "user");
       const result = await joinAuctions(user.uid, auctionsToJoin, actor);
@@ -785,13 +786,13 @@ export default function AuctionRegisterPage() {
                 <img
                   key={imgIndex}
                   src={allImages[imgIndex]}
-                  alt={product.title}
+                  alt={resolveProductTitle(product.title)}
                   className={`lz-gallery-img ${imgAnimating ? (imgDir === "next" ? "lz-slide-inc-next" : "lz-slide-inc-prev") : ""}`}
                   style={{ zIndex: 2 }}
                   onError={(e: any) => (e.currentTarget.style.display = "none")}
                 />
               ) : (
-                <div className="lz-gallery-ph">{product.title.charAt(0)}</div>
+                <div className="lz-gallery-ph">{resolveProductTitle(product.title).charAt(0)}</div>
               )}
               {allImages.length > 1 && (
                 <div className="lz-dots">
@@ -827,9 +828,9 @@ export default function AuctionRegisterPage() {
             )}
 
             <div className="lz-pinfo">
-              <div className="lz-ptitle">{product.title}</div>
+              <div className="lz-ptitle">{resolveProductTitle(product.title)}</div>
               {product.description && (
-                <div className="lz-pdesc-top">{product.description}</div>
+                <div className="lz-pdesc-top">{resolveProductTitle(product.description)}</div>
               )}
               <div className="lz-gold-line" />
               {/* <div className="lz-pricerow">
@@ -846,20 +847,20 @@ export default function AuctionRegisterPage() {
                   <div className="lz-srow">
                     <span className="lz-sk">{t("auctionRegister.brand")}</span>
                     <span className="lz-sdot" />
-                    <span className="lz-sv">{product.brand}</span>
+                    <span className="lz-sv">{resolveProductTitle(product.brand)}</span>
                   </div>
                 )}
                 {product.model && (
                   <div className="lz-srow">
                     <span className="lz-sk">{t("auctionRegister.model")}</span>
                     <span className="lz-sdot" />
-                    <span className="lz-sv">{product.model}</span>
+                    <span className="lz-sv">{resolveProductTitle(product.model)}</span>
                   </div>
                 )}
                 <div className="lz-srow">
                   <span className="lz-sk">{t("auctionRegister.category")}</span>
                   <span className="lz-sdot" />
-                  <span className="lz-sv">{product.categoryName}</span>
+                  <span className="lz-sv">{resolveProductTitle(product.categoryName)}</span>
                 </div>
                 <div className="lz-srow">
                   <span className="lz-sk">
@@ -895,7 +896,7 @@ export default function AuctionRegisterPage() {
                 <div className="lz-feats">
                   {product.features.map((f, i) => (
                     <span key={i} className="lz-ftag">
-                      {f}
+                      {resolveProductTitle(f)}
                     </span>
                   ))}
                 </div>

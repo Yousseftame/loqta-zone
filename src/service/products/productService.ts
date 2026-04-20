@@ -47,8 +47,8 @@ function docToProduct(id: string, data: Record<string, any>): Product {
   return {
     id,
     title:         toLocalized(data.title),
-    brand:         data.brand         ?? "",
-    model:         data.model         ?? "",
+    brand:         toLocalized(data.brand),
+    model:         toLocalized(data.model),
     category:      data.category      ?? "",
     supplierId:    data.supplierId     ?? "",
     description:   toLocalized(data.description),
@@ -92,8 +92,8 @@ function parseNum(val: string): number {
 function formToFields(formData: ProductFormData) {
   return {
     title:       { en: formData.titleEn.trim(), ar: formData.titleAr.trim() },
-    brand:       formData.brand,
-    model:       formData.model,
+    brand:       { en: formData.brandEn.trim(), ar: formData.brandAr.trim() },
+    model:       { en: formData.modelEn.trim(), ar: formData.modelAr.trim() },
     category:    formData.category,
     supplierId:  formData.supplierId,
     description: { en: formData.descriptionEn.trim(), ar: formData.descriptionAr.trim() },

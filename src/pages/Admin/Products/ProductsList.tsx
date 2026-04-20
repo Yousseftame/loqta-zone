@@ -83,10 +83,10 @@ export default function ProductsList() {
     }
   }, []);
 
-  const getCategoryName = (categoryId: string): string => {
+  const getCategoryName = (categoryId: string, lang?: "en" | "ar"): string => {
     if (!categoryId) return "—";
     const found = categories.find((c) => c.id === categoryId);
-    return found ? found.name.en : categoryId;
+    return found ? resolveTitle(found.name, lang) : categoryId;
   };
 
   useEffect(() => {
@@ -97,9 +97,12 @@ export default function ProductsList() {
         (p) =>
           resolveTitle(p.title, "en").toLowerCase().includes(s) ||
           resolveTitle(p.title, "ar").toLowerCase().includes(s) ||
-          p.brand.toLowerCase().includes(s) ||
-          p.model.toLowerCase().includes(s) ||
-          getCategoryName(p.category).toLowerCase().includes(s),
+          resolveTitle(p.brand, "en").toLowerCase().includes(s) ||
+          resolveTitle(p.brand, "ar").toLowerCase().includes(s) ||
+          resolveTitle(p.model, "en").toLowerCase().includes(s) ||
+          resolveTitle(p.model, "ar").toLowerCase().includes(s) ||
+          getCategoryName(p.category, "en").toLowerCase().includes(s) ||
+          getCategoryName(p.category, "ar").toLowerCase().includes(s),
       );
     }
     setFiltered(f);
@@ -532,7 +535,7 @@ export default function ProductsList() {
                           color: colors.textPrimary,
                         }}
                       >
-                        {product.brand}
+                        {resolveTitle(product.brand)}
                       </p>
                       <p
                         style={{
@@ -541,7 +544,7 @@ export default function ProductsList() {
                           color: colors.textMuted,
                         }}
                       >
-                        {product.model}
+                        {resolveTitle(product.model)}
                       </p>
                     </TableCell>
 

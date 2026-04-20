@@ -15,7 +15,7 @@ import {
 } from "@mui/material";
 import { ArrowLeft, Save, Gavel, Info } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
-import { colors } from "../Products/products-data";
+import { colors, resolveTitle } from "../Products/products-data";
 import {
   DEFAULT_AUCTION_FORM,
   computeAuctionStatus,
@@ -395,7 +395,7 @@ export default function AuctionForm() {
                         <Box
                           component="img"
                           src={p.thumbnail}
-                          alt={p.title}
+                          alt={resolveTitle(p.title)}
                           sx={{
                             width: 24,
                             height: 24,
@@ -420,10 +420,10 @@ export default function AuctionForm() {
                             flexShrink: 0,
                           }}
                         >
-                          {p.title.charAt(0)}
+                          {resolveTitle(p.title).charAt(0)}
                         </Box>
                       )}
-                      <span style={{ fontSize: "0.875rem" }}>{p.title}</span>
+                      <span style={{ fontSize: "0.875rem" }}>{resolveTitle(p.title)}</span>
                     </Box>
                   </MenuItem>
                 ))}

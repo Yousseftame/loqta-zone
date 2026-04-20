@@ -51,12 +51,12 @@ const REG_STAMP_BORDER = "rgba(201,169,110,0.5)";
 
 interface EnrichedProduct {
   id: string;
-  title: string;
+  title: any;
   brand: string;
   model: string;
   category: string;
-  categoryName: string;
-  description: string;
+  categoryName: any;
+  description: any;
   price: number;
   quantity: number;
   isActive: boolean;
@@ -92,12 +92,11 @@ function usePublicProducts() {
         ]);
         if (cancelled) return;
 
-        const categoryMap: Record<string, string> = {};
+        const categoryMap: Record<string, any> = {};
         catSnap.docs.forEach((d) => {
           // ← i18n: category name is also localised
           const nameRaw = d.data().name;
-          categoryMap[d.id] =
-            typeof nameRaw === "string" ? nameRaw : (nameRaw?.en ?? d.id);
+          categoryMap[d.id] = nameRaw ?? d.id;
         });
 
         const now = new Date();
@@ -120,13 +119,13 @@ function usePublicProducts() {
           return {
             id: d.id,
             // ← i18n FIX: resolve { en, ar } object or legacy plain string
-            title: resolveProductTitle(data.title),
+            title: data.title,
             brand: data.brand ?? "",
             model: data.model ?? "",
             category: data.category ?? "",
             categoryName: categoryMap[data.category] ?? data.category ?? "—",
             // ← i18n: description is also localised now
-            description: resolveProductTitle(data.description, ""),
+            description: data.description,
             price: data.price ?? 0,
             quantity: data.quantity ?? 0,
             isActive: data.isActive ?? true,
@@ -463,7 +462,7 @@ const AuctionCard = memo(function AuctionCard({
         {displayImage ? (
           <img
             src={displayImage}
-            alt={item.title}
+            alt={resolveProductTitle(item.title)}
             className="lz-img-inner"
             loading="lazy"
             decoding="async"
@@ -497,7 +496,7 @@ const AuctionCard = memo(function AuctionCard({
                 textTransform: "uppercase",
               }}
             >
-              {item.title.charAt(0)}
+              {resolveProductTitle(item.title).charAt(0)}
             </span>
           </div>
         )}
@@ -609,7 +608,7 @@ const AuctionCard = memo(function AuctionCard({
               whiteSpace: "nowrap",
             }}
           >
-            {item.categoryName}
+            {resolveProductTitle(item.categoryName)}
           </div>
         </div>
       </div>
@@ -644,7 +643,7 @@ const AuctionCard = memo(function AuctionCard({
               overflow: "hidden",
             }}
           >
-            {item.title}
+            {resolveProductTitle(item.title)}
           </h3>
           <p
             className="lz-card-subtitle"
@@ -660,7 +659,7 @@ const AuctionCard = memo(function AuctionCard({
               overflow: "hidden",
             }}
           >
-            · {item.model}
+            · {resolveProductTitle(item.model)}
           </p>
         </div>
 
@@ -677,7 +676,7 @@ const AuctionCard = memo(function AuctionCard({
           }}
         >
           <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <span style={{ opacity: 0.7 }}>🏷️</span> {item.brand}
+            <span style={{ opacity: 0.7 }}>🏷️</span> {resolveProductTitle(item.brand)}
           </span>
         </div>
 

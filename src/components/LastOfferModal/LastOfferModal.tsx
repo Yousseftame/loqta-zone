@@ -15,6 +15,7 @@ import {
 import { db, auth } from "@/firebase/firebase";
 import { useTranslation } from "react-i18next";
 import { auditLogger, buildActor } from "@/service/audit/auditLogger";
+import { resolveProductTitle } from "@/lib/resolveLocalized";
 
 interface LastOfferModalProps {
   auctionId: string;
@@ -22,7 +23,7 @@ interface LastOfferModalProps {
   startingPrice: number;
   winningBid: number;
   winnerName: string;
-  productTitle?: string;
+  productTitle?: any;
   onClose: () => void;
 }
 
@@ -113,7 +114,7 @@ export default function LastOfferModal({
         auditLogger.lastOfferSubmitted(
           actor,
           auctionId,
-          productTitle ?? "Auction",
+          resolveProductTitle(productTitle) ?? "Auction",
           offerNum,
         );
       }
@@ -159,7 +160,7 @@ export default function LastOfferModal({
             {productTitle ? (
               <>
                 {t("lastOffer.yourChance")}{" "}
-                <span className="lom-accent">{productTitle}</span>
+                <span className="lom-accent">{resolveProductTitle(productTitle)}</span>
               </>
             ) : (
               t("lastOffer.backupChance")

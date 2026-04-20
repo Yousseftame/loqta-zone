@@ -19,24 +19,27 @@
  *   - usePendingLastOffer.ts
  */
 
+import i18n from "./i18n";
+
 /**
  * Resolves a Firestore field that is either:
  *   - A plain string (legacy doc written before the i18n migration)
  *   - A { en: string; ar: string } object (new format)
  *   - null / undefined
  *
- * Returns a plain EN string in all cases, with a safe fallback.
+ * Returns a localized string in all cases, with a safe fallback.
  */
 export function resolveLocalizedField(
   raw: unknown,
-  lang: "en" | "ar" = "en",
+  lang?: "en" | "ar",
   fallback = "",
 ): string {
+  const currentLang = lang || ((i18n.language === "ar" ? "ar" : "en") as "en" | "ar");
   if (!raw) return fallback;
   if (typeof raw === "string") return raw || fallback;
   if (typeof raw === "object") {
     const obj = raw as Record<string, string>;
-    return obj[lang] || obj.en || obj.ar || fallback;
+    return obj[currentLang] || obj.en || obj.ar || fallback;
   }
   return fallback;
 }
@@ -46,5 +49,6 @@ export function resolveProductTitle(
   raw: unknown,
   fallback = "Unknown Product",
 ): string {
-  return resolveLocalizedField(raw, "en", fallback);
-}
+  const currentLang = (i18n.language === "ar" ? "ar" : "en") as "en" | "ar";
+  return resolveLocalizedField(raw, currentLang, fallback);
+}
