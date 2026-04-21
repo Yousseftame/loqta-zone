@@ -40,17 +40,11 @@ async function getCallerRole(uid: string): Promise<UserRole> {
 // ─────────────────────────────────────────────────────────────────────────────
 export const onUserCreated = functionsAuth.user().onCreate(async (user) => {
   try {
-    // ── RACE-CONDITION FIX ────────────────────────────────────────────────────
+    // ── Admin account path ────────────────────────────────────────────────────
     // createAdminAccount writes a sentinel Firestore doc with the correct role
-    // BEFORE calling firebaseAuth.createUser(). This guarantees that by the time
-    // this trigger fires, the doc already has role="admin" or "superAdmin".
-    //
-    // We check Firestore (not custom claims) because:
-    //  - Claims are set AFTER createUser() — they may not exist yet here.
-    //  - Firestore sentinel is written BEFORE createUser() — always present.
-    //
-    // If the doc already has a non-"user" role, skip — the admin account is
-    // already fully configured by createAdminAccount.
+    // BEFORE calling firebaseAuth.createUser(). If that doc already has a
+    // non-"user" role, this is an admin account — skip everything, it's fully
+    // configured by createAdminAccount.
     const existingDoc = await db.collection("users").doc(user.uid).get();
     if (existingDoc.exists) {
       const existingRole = existingDoc.data()?.role;
@@ -60,22 +54,21 @@ export const onUserCreated = functionsAuth.user().onCreate(async (user) => {
       }
     }
 
-    // Normal self-registration path — new regular user account
+    // ── Regular self-registration path ────────────────────────────────────────
+    // Only set custom claims here. Do NOT write a Firestore document.
+    //
+    // Why: The client (AuthContext.register) writes the complete Firestore doc
+    // immediately after createUserWithEmailAndPassword(). If it detects a
+    // duplicate name, it rolls back by deleting the auth account — but this
+    // trigger fires asynchronously on the server and arrives AFTER that cleanup,
+    // creating an orphan document if we write here.
+    //
+    // The client's setDoc({ merge: true }) handles the full document write on
+    // every successful registration, so this trigger's Firestore write is both
+    // redundant and harmful. Claims-only is the safe contract.
     await firebaseAuth.setCustomUserClaims(user.uid, { role: "user" });
 
-    await db.collection("users").doc(user.uid).set(
-      {
-        email: user.email ?? "",
-        role: "user",
-        isBlocked: false,
-        verified: false,
-        createdAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
-      },
-      { merge: true },
-    );
-
-    // console.log(`[onUserCreated] Set role=user for uid=${user.uid}`);
+    // console.log(`[onUserCreated] Set claims role=user for uid=${user.uid}`);
   } catch (error) {
     // console.error("[onUserCreated] Error:", error);
   }

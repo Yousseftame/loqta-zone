@@ -33,7 +33,7 @@ import {
 } from "firebase/auth";
 import toast from "react-hot-toast";
 import app, { auth, db, storage } from "@/firebase/firebase";
-import { doc, setDoc, getDoc, serverTimestamp, collection, query, where, getDocs } from "firebase/firestore";
+import { doc, setDoc, getDoc, deleteDoc, serverTimestamp, collection, query, where, getDocs } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { unregisterFCMToken } from "@/hooks/useFCM";
 import { auditLogger, buildActor } from "@/service/audit/auditLogger";
@@ -167,24 +167,32 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   ) => {
     // Block onAuthStateChanged from updating state during registration
     registrationInProgressRef.current = true;
+    let newUser: User | null = null;
     try {
       const fullName = `${firstName.trim()} ${lastName.trim()}`;
 
-      // 1) Create the Firebase Auth account first
-      const { user: newUser } = await createUserWithEmailAndPassword(
+      // 1) Create the Firebase Auth account first.
+      //    This authenticates the user so the Firestore name-check query below
+      //    satisfies the security rule: `allow read: if request.auth != null`.
+      const credential = await createUserWithEmailAndPassword(
         auth,
         email,
         password,
       );
+      newUser = credential.user;
 
-      // 2) Now authenticated — check for duplicate username (fullName)
+      // 2) Now authenticated — check for duplicate fullName.
+      //    The onUserCreated Cloud Function may have already written a partial
+      //    doc; we check BEFORE doing any further work.
       const nameQuery = query(
         collection(db, "users"),
         where("fullName", "==", fullName),
       );
       const nameSnap = await getDocs(nameQuery);
       if (!nameSnap.empty) {
-        // Duplicate found — clean up the just-created auth account
+        // Duplicate found — roll back: delete the Auth account AND the partial
+        // Firestore document that onUserCreated may have already written.
+        await deleteDoc(doc(db, "users", newUser.uid));
         await deleteUser(newUser);
         registrationInProgressRef.current = false;
         toast.error("This name is already taken. Please use a different name.");
@@ -204,25 +212,32 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         ...(photoURL && { photoURL }),
       });
 
-      await setDoc(doc(db, "users", newUser.uid), {
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        fullName,
-        email,
-        phone,
-        role: "user",
-        isBlocked: false,
-        verified: false,
-        profileImage: photoURL || null,
-        fcmTokens: [], // initialise empty — useFCM hook will populate after mount
-        totalBids: 0,
-        totalWins: 0,
-        walletBalance: 0,
-        auctionRequests: [],
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        createdBy: newUser.uid,
-      });
+      // 4) Write the full Firestore document.
+      //    The onUserCreated Cloud Function may have raced to write a partial
+      //    doc; { merge: true } ensures our complete data always wins.
+      await setDoc(
+        doc(db, "users", newUser.uid),
+        {
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          fullName,
+          email,
+          phone,
+          role: "user",
+          isBlocked: false,
+          verified: false,
+          profileImage: photoURL || null,
+          fcmTokens: [], // initialise empty — useFCM hook will populate after mount
+          totalBids: 0,
+          totalWins: 0,
+          walletBalance: 0,
+          auctionRequests: [],
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          createdBy: newUser.uid,
+        },
+        { merge: true },
+      );
 
       // 🔥 LOG AUDIT: register
       const actor = buildActor(newUser, "user", fullName);

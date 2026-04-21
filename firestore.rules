@@ -1,90 +1,221 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ── Helper functions ──────────────────────────────────────────────────────
-
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isOwner(uid) {
-      return isSignedIn() && request.auth.uid == uid;
-    }
-
     function isAdmin() {
-      return isSignedIn() &&
-        request.auth.token.role in ["admin", "superAdmin"];
+      return request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get("role", "user") in ["admin", "superAdmin"];
     }
 
-    // ── users/{uid} ───────────────────────────────────────────────────────────
+    function isRestricted(auctionId) {
+      return exists(/databases/$(database)/documents/auctions/$(auctionId)/restricted/$(request.auth.uid));
+    }
+    
+    
+
+    // ── Users ─────────────────────────────────────────────────────────────────
     match /users/{uid} {
-      allow read:   if isOwner(uid) || isAdmin();
-      allow create: if isOwner(uid);
-      allow update: if isOwner(uid) || isAdmin();
-      allow delete: if isAdmin();
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read, write: if isAdmin();
+      allow read:        if request.auth != null;
 
-      // ── users/{uid}/notifications/{notifId} ──────────────────────────────
       match /notifications/{notifId} {
-        // Users can only read their own notifications
-        allow read: if isOwner(uid);
+        allow read, delete: if request.auth != null && request.auth.uid == uid;
+        allow update:       if request.auth != null && request.auth.uid == uid;
 
-        // Users can mark as read (update isRead only) or dismiss (delete)
-        // They CANNOT create notifications — only Cloud Functions do that
-        allow create: if false;
+        allow create: if request.auth != null &&
+          request.auth.uid == uid &&
+          request.resource.data.type == "payment_confirmed" &&
+          request.resource.data.keys().hasAll(["type", "auctionId", "title", "message", "isRead", "createdAt"]) &&
+          request.resource.data.isRead == false;
+      }
 
-        allow update: if isOwner(uid)
-          && request.resource.data.diff(resource.data).affectedKeys()
-               .hasOnly(["isRead"]);
-
-        allow delete: if isOwner(uid);
-
-        // Admins can do anything (for support/debugging)
-        allow read, write: if isAdmin();
+      match /auctions/{auctionId} {
+        allow read:   if request.auth != null && (request.auth.uid == uid || isAdmin());
+        allow create: if request.auth != null && request.auth.uid == uid;
+        allow update: if request.auth != null && request.auth.uid == uid;
+        allow delete: if false;
       }
     }
 
-    // ── AuctionRequests/{requestId} ───────────────────────────────────────────
+    // ── Auction Requests ──────────────────────────────────────────────────────
     match /AuctionRequests/{requestId} {
-      // Users can read their own requests, admins can read all
-      allow read: if isSignedIn() &&
-        (resource.data.userId == request.auth.uid || isAdmin());
-
-      // Users can create their own requests
-      allow create: if isSignedIn() &&
+      allow read, write: if isAdmin();
+      allow read:        if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create:      if request.auth != null &&
         request.resource.data.userId == request.auth.uid &&
         request.resource.data.status == "pending";
-
-      // Only admins can update requests (change status / matchedAuctionId)
-      allow update: if isAdmin();
-
-      // Only admins can delete
-      allow delete: if isAdmin();
     }
 
-    // ── auctions/{auctionId} ─────────────────────────────────────────────────
+    // ── Auctions ──────────────────────────────────────────────────────────────
     match /auctions/{auctionId} {
-      allow read:  if true; // public read
-      allow write: if isAdmin();
+      allow read: if true;
+      allow create: if isAdmin();
+
+      allow update: if request.auth != null && (
+        (isAdmin() && resource.data.endTime > request.time) ||
+        (isAdmin() && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(["winnerId", "winningBid", "updatedAt"])) ||
+        (request.auth != null &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(["totalParticipants"]) &&
+          request.resource.data.totalParticipants == resource.data.totalParticipants + 1) ||
+        (request.auth != null &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(["currentBid", "totalBids"]) &&
+          request.resource.data.currentBid > resource.data.currentBid &&
+          request.resource.data.totalBids == resource.data.totalBids + 1 &&
+          resource.data.endTime > request.time &&
+          resource.data.isActive == true &&
+          !isRestricted(auctionId))
+      );
+
+      allow delete: if isAdmin();
+
+      match /Participants/{userId} {
+        allow read: if request.auth != null && (request.auth.uid == userId || isAdmin());
+        allow create: if request.auth != null && request.auth.uid == userId;
+        allow update: if false;
+        allow delete: if isAdmin();
+      }
+
+      match /bids/{bidId} {
+        allow read: if request.auth != null && (
+          exists(/databases/$(database)/documents/auctions/$(auctionId)/Participants/$(request.auth.uid)) ||
+          isAdmin()
+        );
+        allow create: if request.auth != null &&
+          request.resource.data.userId == request.auth.uid &&
+          exists(/databases/$(database)/documents/auctions/$(auctionId)/Participants/$(request.auth.uid)) &&
+          !isRestricted(auctionId);
+        allow update: if isAdmin() &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(["status", "selectedbyAdmin", "notifiedBidSelectedAt"]);
+        allow delete: if isAdmin();
+      }
+
+      match /lastOffers/{offerId} {
+        allow read, delete: if isAdmin();
+        allow update: if isAdmin() &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(["status", "selectedbyAdmin", "notifiedLastOfferSelectedAt"]);
+        allow read: if request.auth != null &&
+          exists(/databases/$(database)/documents/auctions/$(auctionId)/Participants/$(request.auth.uid)) &&
+          resource.data.userId == request.auth.uid;
+        allow create: if request.auth != null &&
+          exists(/databases/$(database)/documents/auctions/$(auctionId)/Participants/$(request.auth.uid)) &&
+          request.resource.data.userId == request.auth.uid &&
+          request.resource.data.status == "pending" &&
+          request.resource.data.selectedbyAdmin == false;
+      }
+
+      match /restricted/{userId} {
+        allow read:  if isAdmin() || (request.auth != null && request.auth.uid == userId);
+        allow write: if isAdmin();
+      }
     }
 
-    // ── products/{productId} ─────────────────────────────────────────────────
+    // ── Products ──────────────────────────────────────────────────────────────
     match /products/{productId} {
-      allow read:  if true; // public read
+      allow read: if true;
       allow write: if isAdmin();
     }
 
-    // ── categories/{categoryId} ──────────────────────────────────────────────
+    // ── Categories ────────────────────────────────────────────────────────────
     match /categories/{categoryId} {
-      allow read:  if true;
+      allow read: if true;
       allow write: if isAdmin();
     }
 
-    // ── vouchers/{voucherId} ─────────────────────────────────────────────────
+// ── Suppliers ──────────────────────────────────────────────────────────────
+match /suppliers/{supplierId} {
+  allow read: if true;
+  allow write: if isAdmin();
+}
+
+    // ── Vouchers ──────────────────────────────────────────────────────────────
     match /vouchers/{voucherId} {
-      allow read:  if isSignedIn();
+      allow read:  if request.auth != null;
       allow write: if isAdmin();
+      match /usages/{userId} {
+        allow read:   if request.auth != null && (request.auth.uid == userId || isAdmin());
+        allow create: if false;
+        allow update: if false;
+        allow delete: if isAdmin();
+      }
     }
+
+    // ── Contact Messages ──────────────────────────────────────────────────────
+    match /contactMessages/{messageId} {
+      allow create:               if true;
+      allow read, update, delete: if isAdmin();
+    }
+
+    // ── Feedback Messages ─────────────────────────────────────────────────────
+    match /feedbackMessages/{messageId} {
+      allow create:               if true;
+      allow read, update, delete: if isAdmin();
+    }
+
+    // ── Analytics ─────────────────────────────────────────────────────────────
+    match /analytics/{docId} {
+      // "dashboard" is readable by anyone — used on the public homepage stats section.
+      // "topAuctions" contains financial data — admins only.
+      allow read: if docId == "dashboard" || isAdmin();
+      allow write: if false;
+    }
+
+    // ── Transactions ──────────────────────────────────────────────────────────
+    match /transactions/{id} {
+      allow read, create: if isAdmin();
+      allow delete:       if isAdmin();
+      allow update: if isAdmin() &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly([
+            "type", "amount", "method", "category", "note",
+            "transferTo", "updatedBy", "updatedByName", "updatedAt"
+          ]);
+    }
+
+    // ── Finance stats ─────────────────────────────────────────────────────────
+    match /finance_stats/{docId} {
+      allow read:  if isAdmin();
+      allow write: if false;
+    }
+
+    // ── Hero Slides ───────────────────────────────────────────────────────────
+    match /heroSlides/{slideId} {
+      allow read: if true;
+      allow create, update, delete: if request.auth != null
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+           in ["admin", "superAdmin"];
+    }
+
+    // ── Left Section Slides ───────────────────────────────────────────────────
+    match /leftSectionSlides/{slideId} {
+      allow read: if true;
+      allow create, update, delete: if request.auth != null
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+           in ["admin", "superAdmin"];
+    }
+
+    // ── Right Section Slides ──────────────────────────────────────────────────
+    match /rightSectionSlides/{slideId} {
+      allow read: if true;
+      allow create, update, delete: if request.auth != null
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+           in ["admin", "superAdmin"];
+    }
+
+    // ── Audit Logs ────────────────────────────────────────────────────────────
+    match /auditLogs/{logId} {
+      allow create: if request.auth != null || true;
+      allow read: if request.auth != null
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+           in ["admin", "superAdmin"];
+      allow update, delete: if false;
+    }
+    
+ 
+
+
   }
 }
