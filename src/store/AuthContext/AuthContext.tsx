@@ -18,6 +18,7 @@ import {
   useContext,
   useState,
   useEffect,
+  useRef,
   type ReactNode,
 } from "react";
 import {
@@ -28,10 +29,11 @@ import {
   sendPasswordResetEmail,
   onAuthStateChanged,
   updateProfile,
+  deleteUser,
 } from "firebase/auth";
 import toast from "react-hot-toast";
 import app, { auth, db, storage } from "@/firebase/firebase";
-import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, getDoc, serverTimestamp, collection, query, where, getDocs } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { unregisterFCMToken } from "@/hooks/useFCM";
 import { auditLogger, buildActor } from "@/service/audit/auditLogger";
@@ -80,8 +82,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [role, setRole] = useState<UserRole | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Ref to suppress onAuthStateChanged during registration so the
+  // PublicRoute guard doesn't redirect away before we finish checking
+  // for duplicate names.
+  const registrationInProgressRef = useRef(false);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      // Skip state updates while registration is in progress
+      if (registrationInProgressRef.current) return;
+
       if (currentUser) {
         setUser(currentUser);
         const userRole = await getRoleFromFirestore(currentUser);
@@ -155,13 +165,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     password: string,
     profileImage?: File | null,
   ) => {
+    // Block onAuthStateChanged from updating state during registration
+    registrationInProgressRef.current = true;
     try {
+      const fullName = `${firstName.trim()} ${lastName.trim()}`;
+
+      // 1) Create the Firebase Auth account first
       const { user: newUser } = await createUserWithEmailAndPassword(
         auth,
         email,
         password,
       );
 
+      // 2) Now authenticated — check for duplicate username (fullName)
+      const nameQuery = query(
+        collection(db, "users"),
+        where("fullName", "==", fullName),
+      );
+      const nameSnap = await getDocs(nameQuery);
+      if (!nameSnap.empty) {
+        // Duplicate found — clean up the just-created auth account
+        await deleteUser(newUser);
+        registrationInProgressRef.current = false;
+        toast.error("This name is already taken. Please use a different name.");
+        throw new Error("duplicate-name");
+      }
+
+      // 3) No duplicate — proceed with profile setup
       let photoURL = "";
       if (profileImage) {
         const storageRef = ref(storage, `profileImages/${newUser.uid}`);
@@ -170,14 +200,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       await updateProfile(newUser, {
-        displayName: `${firstName} ${lastName}`,
+        displayName: fullName,
         ...(photoURL && { photoURL }),
       });
 
       await setDoc(doc(db, "users", newUser.uid), {
-        firstName,
-        lastName,
-        fullName: `${firstName} ${lastName}`,
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        fullName,
         email,
         phone,
         role: "user",
@@ -195,11 +225,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
 
       // 🔥 LOG AUDIT: register
-      const actor = buildActor(newUser, "user", `${firstName} ${lastName}`);
+      const actor = buildActor(newUser, "user", fullName);
       auditLogger.register(actor);
+
+      // Registration complete — allow onAuthStateChanged to update state
+      registrationInProgressRef.current = false;
+      // Manually set the user/role so the app updates immediately
+      setUser(newUser);
+      setRole("user");
 
       toast.success("Account created successfully!");
     } catch (error: any) {
+      registrationInProgressRef.current = false;
+      if (error.message === "duplicate-name") throw error;
       const messages: Record<string, string> = {
         "auth/email-already-in-use":
           "This email is already registered. Please sign in.",

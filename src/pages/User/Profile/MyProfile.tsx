@@ -9,6 +9,10 @@ import {
   updateDoc,
   serverTimestamp,
   onSnapshot,
+  collection,
+  query,
+  where,
+  getDocs,
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { updateProfile } from "firebase/auth";
@@ -404,6 +408,24 @@ export default function MyProfile() {
         setUploadingImg(false);
       }
       const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
+
+      // ── Check for duplicate name (only if name actually changed) ──
+      const nameChanged = fullName !== profile.fullName;
+      if (nameChanged) {
+        const nameQuery = query(
+          collection(db, "users"),
+          where("fullName", "==", fullName),
+        );
+        const nameSnap = await getDocs(nameQuery);
+        // Exclude the current user's own document from the results
+        const duplicateExists = nameSnap.docs.some((d) => d.id !== user.uid);
+        if (duplicateExists) {
+          toast.error("This name is already taken. Please use a different name.");
+          setSaving(false);
+          return;
+        }
+      }
+
       await updateDoc(doc(db, "users", user.uid), {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
