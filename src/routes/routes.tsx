@@ -1,5 +1,6 @@
 import { lazy } from "react";
 import ProtectedRoute from "@/components/ProtectedRoute/ProtectedRoute";
+import PublicRoute from "@/components/PublicRoute/PublicRoute";
 import PermissionRoute from "@/permissions/PermissionRoute";
 import AuthLayout from "@/layouts/AuthLayout/AuthLayout";
 import DashboardLayout from "@/layouts/DashboardLayout/DashboardLayout";
@@ -19,7 +20,8 @@ const HeroSlidesList = lazy(
 );
 const LeftSectionList = lazy(
   () => import("@/pages/Admin/LeftSection/LeftSectionList"),
-);const RightSectionList = lazy(
+);
+const RightSectionList = lazy(
   () => import("@/pages/Admin/RightSection/RightSectionList"),
 );
 const AuctionForm = lazy(() => import("@/pages/Admin/Auctions/AuctionForm"));
@@ -108,16 +110,32 @@ export const routes = createBrowserRouter([
     element: <AuthLayout />,
     errorElement: <NotFound />,
     children: [
-      { path: "login", element: <Login /> },
-      { path: "register", element: <Register /> },
-      { path: "forget-password", element: <ForgetPassword /> },
+      {
+        path: "login",
+        element: (
+          <PublicRoute>
+            <Login />
+          </PublicRoute>
+        ),
+      },
+      {
+        path: "register",
+        element: (
+          <PublicRoute>
+            <Register />
+          </PublicRoute>
+        ),
+      },
+      {
+        path: "forget-password",
+        element: (
+          <PublicRoute>
+            <ForgetPassword />
+          </PublicRoute>
+        ),
+      },
     ],
   },
-  // {
-  //   path: "/verify-email",
-  //   element: <VerifyEmail />,
-  //   errorElement: <NotFound />,
-  // },
 
   {
     path: "/admin",
@@ -446,8 +464,6 @@ export const routes = createBrowserRouter([
       { path: "change-password", element: <ChangePassword /> },
 
       // ── Auth-protected auction routes ────────────────────────────────────
-      // Unauthenticated users are redirected to /login with ?redirect= so they
-      // land back here after signing in.
       {
         path: "/auctions/register/:productId",
         element: (
