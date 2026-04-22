@@ -1385,7 +1385,7 @@ export default function AuctionsSection() {
     <section
       dir={isAr ? "rtl" : "ltr"}
       style={{
-        background: "linear-gradient(180deg,#1f2a3d 0%,#224266 100%)",
+        background: "linear-gradient(180deg,#224266 0%,#1f2a3d 100%)",
         padding: "100px 32px 120px",
         position: "relative",
         overflow: "hidden",

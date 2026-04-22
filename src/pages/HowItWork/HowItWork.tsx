@@ -8,7 +8,7 @@ const GOLD2 = "#b8944e";
 const NAVY = "#2A4863";
 const NAVY2 = "#1e3652";
 const CREAM = "rgb(229, 224, 198)";
-const BG_DARK = "linear-gradient(180deg,#1f2a3d 0%,#224266 100%)";
+const BG_DARK = "linear-gradient(180deg,#224266 0%,#1f2a3d 100%)";
 
 // ── Animated counter ──────────────────────────────────────────
 function useCountUp(target: number, duration = 2, started: boolean) {
@@ -629,6 +629,11 @@ export default function HowItWork() {
           .steps-grid { grid-template-columns: 1fr !important; }
           .trust-grid { grid-template-columns: 1fr 1fr !important; }
           .hero-text { font-size: clamp(72px, 22vw, 100px) !important; }
+          .hiw-stat-num { font-size: clamp(22px, 7vw, 32px) !important; }
+          .hiw-stat-label { font-size: 11px !important; letter-spacing: 0.12em !important; }
+          .hiw-stat-divider { height: 32px !important; }
+          .hiw-hero-stats { gap: 16px !important; padding: 0 8px !important; }
+          .hiw-scroll-cue { position: relative !important; bottom: auto !important; left: auto !important; transform: none !important; margin-top: 32px !important; }
         }
       `}</style>
 
@@ -858,6 +863,7 @@ export default function HowItWork() {
               <React.Fragment key={i}>
                 {i > 0 && (
                   <div
+                    className="hiw-stat-divider"
                     style={{
                       width: 1,
                       height: 40,
@@ -868,6 +874,7 @@ export default function HowItWork() {
                 )}
                 <div style={{ textAlign: "center" }}>
                   <div
+                    className="hiw-stat-num"
                     style={{
                       fontSize: "clamp(28px, 3.5vw, 42px)",
                       fontWeight: 900,
@@ -892,6 +899,7 @@ export default function HowItWork() {
                     </span>
                   </div>
                   <div
+                    className="hiw-stat-label"
                     style={{
                       fontSize: 15,
                       fontWeight: 700,
@@ -908,7 +916,7 @@ export default function HowItWork() {
             ))}
           </div>
 
-          {/* Scroll cue */}
+          {/* Scroll cue — absolute on desktop, inline on mobile */}
           <div
             className="hiw-scroll-cue"
             style={{
@@ -935,9 +943,9 @@ export default function HowItWork() {
             />
             <span
               style={{
-                fontSize: 10.5,
+                fontSize: 10,
                 fontWeight: 200,
-                letterSpacing: "0.38em",
+                letterSpacing: "0.32em",
                 textTransform: "uppercase",
                 color: "rgba(229,224,198,0.8)",
               }}
@@ -951,7 +959,7 @@ export default function HowItWork() {
         <section
           ref={stepsRef}
           style={{
-            background: "linear-gradient(180deg,#1f2a3d 0%,#224266 100%)",
+            background: "linear-gradient(180deg,#224266 0%,#1f2a3d 100%)",
             padding: "100px 32px 120px",
             position: "relative",
             overflow: "hidden",
@@ -1130,7 +1138,7 @@ export default function HowItWork() {
         {/* ════════ TRUST BADGES ════════ */}
         <section
           style={{
-            background: "linear-gradient(180deg,#224266 0%,#1f2a3d 100%)",
+            background: "linear-gradient(180deg,#1f2a3d 0%,#224266 100%)",
             padding: "80px 32px",
             position: "relative",
           }}
@@ -1184,7 +1192,7 @@ export default function HowItWork() {
         <section
           ref={faqRef}
           style={{
-            background: "linear-gradient(180deg,#1f2a3d 0%,#224266 100%)",
+            background: "linear-gradient(180deg,#224266 0%,#1f2a3d 100%)",
             padding: "100px 32px 120px",
             position: "relative",
             overflow: "hidden",
@@ -1319,7 +1327,7 @@ export default function HowItWork() {
         <section
           ref={ctaRef}
           style={{
-            background: "linear-gradient(180deg,#224266 0%,#1f2a3d 100%)",
+            background: "linear-gradient(180deg,#1f2a3d  0%,#224266 100%)",
             padding: "100px 32px 120px",
             position: "relative",
             overflow: "hidden",

@@ -304,6 +304,7 @@ function AboutHero() {
           <React.Fragment key={i}>
             {i > 0 && (
               <div
+                className="about-stat-divider"
                 style={{
                   width: 1,
                   height: 44,
@@ -314,6 +315,7 @@ function AboutHero() {
             )}
             <div style={{ textAlign: "center" }}>
               <div
+                className="about-stat-num"
                 style={{
                   fontSize: "clamp(26px, 3.2vw, 42px)",
                   fontWeight: 900,
@@ -340,6 +342,7 @@ function AboutHero() {
                 )}
               </div>
               <div
+                className="about-stat-label"
                 style={{
                   fontSize: 13,
                   fontWeight: 700,
@@ -405,7 +408,7 @@ function AboutHero() {
         )}
       </div>
 
-      {/* ── Scroll cue ── */}
+      {/* ── Scroll cue — absolute on desktop, inline on mobile ── */}
       <div
         className="about-scroll-cue"
         style={{
@@ -432,9 +435,9 @@ function AboutHero() {
         />
         <span
           style={{
-            fontSize: 10.5,
+            fontSize: 10,
             fontWeight: 200,
-            letterSpacing: "0.38em",
+            letterSpacing: "0.32em",
             textTransform: "uppercase",
             color: "rgba(229,224,198,0.78)",
           }}
@@ -544,6 +547,11 @@ export default function AboutUs() {
           .about-hero-text {
             font-size: clamp(60px, 20vw, 90px) !important;
           }
+          .about-stat-num { font-size: clamp(22px, 7vw, 32px) !important; }
+          .about-stat-label { font-size: 11px !important; letter-spacing: 0.12em !important; }
+          .about-stat-divider { height: 32px !important; }
+          .about-hero-stats { gap: 16px !important; padding: 0 8px !important; }
+          .about-scroll-cue { position: relative !important; bottom: auto !important; left: auto !important; transform: none !important; margin-top: 28px !important; }
         }
       `}</style>
 

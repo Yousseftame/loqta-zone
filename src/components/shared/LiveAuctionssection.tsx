@@ -1305,7 +1305,7 @@ export default function LiveAuctionsSection() {
     <section
       dir={isRtl ? "rtl" : "ltr"}
       style={{
-        background: "linear-gradient(180deg,#1f2a3d 0%,#224266 100%)",
+        background: "linear-gradient(180deg,#224266 0%,#1f2a3d 100%)",
         padding: isMobile ? "60px 0 72px" : "88px 0 108px",
         position: "relative",
         overflow: "hidden",
