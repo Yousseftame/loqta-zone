@@ -12,6 +12,9 @@ const Register = lazy(() => import("@/pages/Auth/Register/Register"));
 const ForgetPassword = lazy(
   () => import("@/pages/Auth/ForgetPassword/ForgetPassword"),
 );
+const VerifyEmail = lazy(
+  () => import("@/pages/Auth/Verifyemail/Verifyemail"),
+);
 
 // ── Admin pages ───────────────────────────────────────────────────────────────
 const Dashboard = lazy(() => import("@/pages/Admin/Dashboard/Dashboard"));
@@ -133,6 +136,15 @@ export const routes = createBrowserRouter([
             <ForgetPassword />
           </PublicRoute>
         ),
+      },
+      {
+        // verify-email is NOT wrapped in PublicRoute:
+        // - Newly registered users land here with an active Firebase auth
+        //   session but verified=false.
+        // - Old unverified users redirected from login also land here.
+        // - The page itself handles the no-session case gracefully.
+        path: "verify-email",
+        element: <VerifyEmail />,
       },
     ],
   },

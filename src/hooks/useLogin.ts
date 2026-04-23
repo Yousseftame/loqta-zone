@@ -24,7 +24,11 @@ export const useLogin = () => {
         navigate("/"); // regular users go to the website
       }
     } catch (error: any) {
-      // Error handled in AuthContext
+      // Unverified user — redirect to the verification page
+      if (error.message === "email-not-verified") {
+        navigate("/verify-email");
+      }
+      // All other errors are handled (toast) in AuthContext
     } finally {
       setIsLoading(false);
     }

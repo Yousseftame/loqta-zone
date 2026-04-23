@@ -58,8 +58,9 @@ export const useRegister = () => {
     setIsLoading(true);
     try {
       await register(firstName, lastName, email, phone, password, profileImage);
-      // ← Send user to email verification page instead of home
-      navigate("/");
+      // After registration, Firebase sends the verification email automatically.
+      // Navigate the user to the verify-email page to await confirmation.
+      navigate("/verify-email");
     } catch {
       // handled in AuthContext
     } finally {

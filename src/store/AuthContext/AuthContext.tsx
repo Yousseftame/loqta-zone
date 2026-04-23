@@ -30,10 +30,12 @@ import {
   onAuthStateChanged,
   updateProfile,
   deleteUser,
+  sendEmailVerification,
+  reload,
 } from "firebase/auth";
 import toast from "react-hot-toast";
 import app, { auth, db, storage } from "@/firebase/firebase";
-import { doc, setDoc, getDoc, deleteDoc, serverTimestamp, collection, query, where, getDocs } from "firebase/firestore";
+import { doc, setDoc, getDoc, updateDoc, deleteDoc, serverTimestamp, collection, query, where, getDocs } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { unregisterFCMToken } from "@/hooks/useFCM";
 import { auditLogger, buildActor } from "@/service/audit/auditLogger";
@@ -48,6 +50,8 @@ interface AuthContextType {
   user: User | null;
   role: UserRole | null;
   loading: boolean;
+  /** True when a Firebase user exists but has not yet verified their email. */
+  emailVerificationPending: boolean;
   login: (email: string, password: string) => Promise<{ role: UserRole }>;
   register: (
     firstName: string,
@@ -59,6 +63,8 @@ interface AuthContextType {
   ) => Promise<void>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  sendVerificationEmail: () => Promise<void>;
+  checkEmailVerified: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -81,6 +87,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<UserRole | null>(null);
   const [loading, setLoading] = useState(true);
+  const [emailVerificationPending, setEmailVerificationPending] = useState(false);
 
   // Ref to suppress onAuthStateChanged during registration so the
   // PublicRoute guard doesn't redirect away before we finish checking
@@ -93,12 +100,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (registrationInProgressRef.current) return;
 
       if (currentUser) {
-        setUser(currentUser);
-        const userRole = await getRoleFromFirestore(currentUser);
-        setRole(userRole);
+        // Read the Firestore doc once — extract both role and verified field
+        const snap = await getDoc(doc(db, "users", currentUser.uid));
+        const data = snap.exists() ? snap.data() : {};
+        const userRole = (data.role as UserRole) || "user";
+        const firestoreVerified = data.verified === true;
+
+        // Non-user roles (admin, superAdmin) bypass the email-verification gate.
+        // Regular users must have emailVerified=true OR Firestore verified=true.
+        if (userRole !== "user" || currentUser.emailVerified || firestoreVerified) {
+          setUser(currentUser);
+          setRole(userRole);
+          setEmailVerificationPending(false);
+        } else {
+          // Unverified regular user:
+          // Keep the Firebase session alive (auth.currentUser stays set so the
+          // /verify-email page can send emails), but do NOT expose the user to
+          // the rest of the app. The VerificationGuard will redirect any route.
+          setUser(null);
+          setRole(null);
+          setEmailVerificationPending(true);
+        }
       } else {
         setUser(null);
         setRole(null);
+        setEmailVerificationPending(false);
       }
       setLoading(false);
     });
@@ -124,6 +150,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         throw new Error("Account blocked");
       }
 
+      // ── Verification gate ──────────────────────────────────────────────────
+      // Reload the Firebase user to get the most up-to-date emailVerified flag.
+      await reload(loggedUser);
+      const freshUser = auth.currentUser!;
+
+      if (!freshUser.emailVerified) {
+        // Check if Firestore already has verified=true (edge case: admin override)
+        const firestoreVerified = userDoc.exists() && userDoc.data()?.verified === true;
+        if (!firestoreVerified) {
+          // Keep the user signed in so the verify-email page can send emails,
+          // but throw a special error so useLogin redirects to /verify-email
+          throw new Error("email-not-verified");
+        }
+      } else {
+        // Firebase auth says verified — sync Firestore if not already synced
+        if (userDoc.exists() && userDoc.data()?.verified !== true) {
+          await updateDoc(doc(db, "users", loggedUser.uid), { verified: true });
+        }
+      }
+      // ── End verification gate ──────────────────────────────────────────────
+
       const userRole = await getRoleFromFirestore(loggedUser);
       setRole(userRole);
       toast.success("Login successful");
@@ -141,6 +188,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // hook once the user state updates and the hook re-runs.
     } catch (error: any) {
       if (error.message === "Account blocked") throw error;
+      if (error.message === "email-not-verified") throw error;
       const messages: Record<string, string> = {
         "auth/invalid-credential": "Invalid email or password.",
         "auth/wrong-password": "Invalid email or password.",
@@ -239,17 +287,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         { merge: true },
       );
 
+      // 5) Send email verification via Firebase Auth.
+      //    Wrapped in its own try-catch: by this point the account + Firestore
+      //    doc are already created, so a transient email-send failure should NOT
+      //    surface as "Registration failed". The user can resend from /verify-email.
+      try {
+        await sendEmailVerification(newUser);
+      } catch {
+        // Non-fatal: page has a Resend button
+      }
+
       // 🔥 LOG AUDIT: register
       const actor = buildActor(newUser, "user", fullName);
       auditLogger.register(actor);
 
       // Registration complete — allow onAuthStateChanged to update state
       registrationInProgressRef.current = false;
-      // Manually set the user/role so the app updates immediately
-      setUser(newUser);
-      setRole("user");
+      // NOTE: we deliberately do NOT call setUser here so that the
+      // PublicRoute/ProtectedRoute guards don't redirect the user away
+      // from the verify-email page. auth.currentUser is still set so
+      // the verify-email page can access the user's email and resend.
+      setRole(null);
+      // Signal the VerificationGuard to block access to the rest of the app
+      setEmailVerificationPending(true);
 
-      toast.success("Account created successfully!");
+      toast.success("Account created! Please check your email to verify.");
     } catch (error: any) {
       registrationInProgressRef.current = false;
       if (error.message === "duplicate-name") throw error;
@@ -311,9 +373,49 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // ── SEND VERIFICATION EMAIL ────────────────────────────────────────────────
+  const sendVerificationEmail = async () => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      toast.error("No user session found. Please register again.");
+      throw new Error("no-user");
+    }
+    try {
+      await sendEmailVerification(currentUser);
+      toast.success("Verification email sent! Check your inbox.");
+    } catch (error: any) {
+      const messages: Record<string, string> = {
+        "auth/too-many-requests": "Too many requests. Please wait before resending.",
+        "auth/network-request-failed": "Network error. Check your connection.",
+      };
+      toast.error(messages[error.code] || "Failed to send verification email.");
+      throw error;
+    }
+  };
+
+  // ── CHECK EMAIL VERIFIED ───────────────────────────────────────────────────
+  // Reloads the Firebase user and, if verified, syncs Firestore + app state.
+  const checkEmailVerified = async (): Promise<boolean> => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) return false;
+    await reload(currentUser);
+    const fresh = auth.currentUser!;
+    if (fresh.emailVerified) {
+      // Sync Firestore verified field
+      await updateDoc(doc(db, "users", fresh.uid), { verified: true });
+      // Lift the verification gate and admit the user into the app
+      setEmailVerificationPending(false);
+      setUser(fresh);
+      const userRole = await getRoleFromFirestore(fresh);
+      setRole(userRole);
+      return true;
+    }
+    return false;
+  };
+
   return (
     <AuthContext.Provider
-      value={{ user, role, loading, login, register, logout, resetPassword }}
+      value={{ user, role, loading, emailVerificationPending, login, register, logout, resetPassword, sendVerificationEmail, checkEmailVerified }}
     >
       {children}
     </AuthContext.Provider>

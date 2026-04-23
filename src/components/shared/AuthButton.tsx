@@ -35,7 +35,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       secondary:
         "bg-gray-600 hover:bg-gray-700 text-white shadow-lg shadow-gray-500/30 hover:shadow-gray-500/50",
       outline:
-        "border-2 border-[#2A4863] text-[#2A4863] dark:text-[#2A4863] hover:bg-[#2A4863] dark:hover:bg-[#2A4863]",
+        "border-2 border-[#2A4863] text-[#2A4863] dark:text-[#2A4863] hover:bg-[#2A4863] dark:hover:bg-[#2A4863] hover:text-white dark:hover:text-white",
       ghost:
         "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800",
     };
