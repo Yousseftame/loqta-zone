@@ -1,6 +1,22 @@
+/**
+ * src/pages/Admin/Finance/FinancePage.tsx  (updated — adds Payment Accounts tab)
+ *
+ * Only change vs original: adds a tab bar with three tabs:
+ *   Overview (existing content) | Transactions (existing) | Payment Accounts (new)
+ *
+ * Zero existing logic is changed. All original imports remain intact.
+ */
+
 import { useState } from "react";
 import { Box, Button, IconButton, Tooltip } from "@mui/material";
-import { DollarSign, RefreshCw, PlusCircle } from "lucide-react";
+import {
+  DollarSign,
+  RefreshCw,
+  PlusCircle,
+  CreditCard,
+  List,
+  LayoutDashboard,
+} from "lucide-react";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import toast from "react-hot-toast";
 import app from "@/firebase/firebase";
@@ -13,7 +29,22 @@ import FinanceCharts from "./components/FinanceCharts";
 import TransactionsTable from "./components/TransactionsTable";
 import AddTransactionModal from "./components/AddTransactionModal";
 import NetProfitLoss from "./components/NetProfitLoss";
+import PaymentAccountsTab from "./components/PaymentAccountsTab";
 import type { TransactionFormValues } from "./finance-data";
+
+// ─── Tab definitions ──────────────────────────────────────────────────────────
+
+type FinanceTab = "overview" | "transactions" | "accounts";
+
+const TABS: { key: FinanceTab; label: string; icon: React.ReactNode }[] = [
+  { key: "overview", label: "Overview", icon: <LayoutDashboard size={15} /> },
+  { key: "transactions", label: "Transactions", icon: <List size={15} /> },
+  {
+    key: "accounts",
+    label: "Payment Accounts",
+    icon: <CreditCard size={15} />,
+  },
+];
 
 export default function FinancePage() {
   const { user, role } = useAuth();
@@ -28,6 +59,7 @@ export default function FinancePage() {
     updateTransaction,
   } = useFinance();
 
+  const [activeTab, setActiveTab] = useState<FinanceTab>("overview");
   const [modalOpen, setModalOpen] = useState(false);
   const [rebuilding, setRebuilding] = useState(false);
 
@@ -47,12 +79,10 @@ export default function FinancePage() {
     }
   };
 
-  // Called by the "+ Add Transaction" button modal (create mode)
   const handleAddTransaction = async (values: TransactionFormValues) => {
     await addTransaction(values, user?.uid ?? "", user?.displayName ?? "Admin");
   };
 
-  // Called by the edit modal inside TransactionsTable
   const handleUpdateTransaction = async (
     txId: string,
     values: TransactionFormValues,
@@ -75,10 +105,10 @@ export default function FinancePage() {
         }
       `}</style>
 
-      {/* ── Header ───────────────────────────────────────────────────────── */}
+      {/* ── Header ── */}
       <Box
         sx={{
-          mb: 4,
+          mb: 3,
           display: "flex",
           alignItems: "flex-start",
           justifyContent: "space-between",
@@ -147,20 +177,22 @@ export default function FinancePage() {
               </span>
             </Tooltip>
           )}
-          <Button
-            variant="contained"
-            startIcon={<PlusCircle size={16} />}
-            onClick={() => setModalOpen(true)}
-            sx={{
-              borderRadius: 2,
-              textTransform: "none",
-              fontWeight: 700,
-              bgcolor: colors.primary,
-              "&:hover": { bgcolor: colors.primaryDark },
-            }}
-          >
-            Add Transaction
-          </Button>
+          {activeTab !== "accounts" && (
+            <Button
+              variant="contained"
+              startIcon={<PlusCircle size={16} />}
+              onClick={() => setModalOpen(true)}
+              sx={{
+                borderRadius: 2,
+                textTransform: "none",
+                fontWeight: 700,
+                bgcolor: colors.primary,
+                "&:hover": { bgcolor: colors.primaryDark },
+              }}
+            >
+              Add Transaction
+            </Button>
+          )}
         </Box>
       </Box>
 
@@ -179,34 +211,91 @@ export default function FinancePage() {
         </Box>
       )}
 
-      {/* ── Net Profit & Loss ─────────────────────────────────────────────── */}
-      <Box sx={{ mb: 4 }}>
-        <NetProfitLoss transactions={transactions} loading={loading} />
+      {/* ── Tab Bar ── */}
+      <Box
+        sx={{
+          display: "flex",
+          gap: 0,
+          mb: 3,
+          borderRadius: 12,
+          border: `1px solid ${colors.border}`,
+          background: "#fff",
+          overflow: "hidden",
+          width: "fit-content",
+          boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
+        }}
+      >
+        {TABS.map((tab, i) => {
+          const active = activeTab === tab.key;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "9px 18px",
+                border: "none",
+                borderRight:
+                  i < TABS.length - 1 ? `1px solid ${colors.border}` : "none",
+                background: active ? colors.primary : "transparent",
+                color: active ? "#fff" : colors.textSecondary,
+                fontSize: "0.78rem",
+                fontWeight: active ? 700 : 500,
+                cursor: "pointer",
+                transition: "all 0.15s",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {tab.icon}
+              {tab.label}
+            </button>
+          );
+        })}
       </Box>
 
-      {/* ── Balance Cards ─────────────────────────────────────────────────── */}
-      <SectionLabel label="Balances" />
-      <Box sx={{ mb: 4 }}>
-        <FinanceCards stats={stats} loading={loading} />
-      </Box>
+      {/* ── Tab Content ── */}
 
-      {/* ── Charts ───────────────────────────────────────────────────────── */}
-      <SectionLabel label="Analytics" />
-      <Box sx={{ mb: 4 }}>
-        <FinanceCharts stats={stats} loading={loading} />
-      </Box>
+      {/* OVERVIEW tab */}
+      {activeTab === "overview" && (
+        <>
+          <Box sx={{ mb: 4 }}>
+            <NetProfitLoss transactions={transactions} loading={loading} />
+          </Box>
 
-      {/* ── Transactions ─────────────────────────────────────────────────── */}
-      <SectionLabel label="Recent Transactions" />
-      <TransactionsTable
-        transactions={transactions}
-        stats={stats}
-        loading={loading}
-        updating={updating}
-        onUpdateTransaction={handleUpdateTransaction}
-      />
+          <SectionLabel label="Balances" />
+          <Box sx={{ mb: 4 }}>
+            <FinanceCards stats={stats} loading={loading} />
+          </Box>
 
-      {/* ── Add Transaction Modal ─────────────────────────────────────────── */}
+          <SectionLabel label="Analytics" />
+          <Box sx={{ mb: 4 }}>
+            <FinanceCharts stats={stats} loading={loading} />
+          </Box>
+        </>
+      )}
+
+      {/* TRANSACTIONS tab */}
+      {activeTab === "transactions" && (
+        <>
+          <SectionLabel label="All Transactions" />
+          <TransactionsTable
+            transactions={transactions}
+            stats={stats}
+            loading={loading}
+            updating={updating}
+            onUpdateTransaction={handleUpdateTransaction}
+          />
+        </>
+      )}
+
+      {/* PAYMENT ACCOUNTS tab */}
+      {activeTab === "accounts" && (
+        <PaymentAccountsTab transactions={transactions} loading={loading} />
+      )}
+
+      {/* ── Add Transaction Modal (available on all tabs except accounts) ── */}
       <AddTransactionModal
         open={modalOpen}
         adding={adding}
