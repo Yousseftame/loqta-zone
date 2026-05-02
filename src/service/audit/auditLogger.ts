@@ -42,15 +42,18 @@ import type {
 // Using sessionStorage means each new tab/session fetches a fresh IP.
 // This prevents cross-user IP leakage when a tab is reused across logouts.
 
-const SESSION_IP_KEY = "audit_cached_ip";
+const SESSION_IP_KEY = "audit_cached_ip_data";
 
-function getStoredIp(): string | null {
-  try { return sessionStorage.getItem(SESSION_IP_KEY); }
+function getStoredIpData(): { ip?: string; port?: string } | null {
+  try { 
+    const data = sessionStorage.getItem(SESSION_IP_KEY);
+    return data ? JSON.parse(data) : null;
+  }
   catch { return null; }
 }
 
-function storeIp(ip: string): void {
-  try { sessionStorage.setItem(SESSION_IP_KEY, ip); }
+function storeIpData(ip: string, port?: string): void {
+  try { sessionStorage.setItem(SESSION_IP_KEY, JSON.stringify({ ip, port })); }
   catch { /* non-fatal */ }
 }
 
@@ -62,13 +65,15 @@ export function clearSessionIp(): void {
 
 // Multiple providers tried in order — first success wins
 const IP_PROVIDERS = [
-  { url: "https://api.ipify.org?format=json",           parse: (j: any) => j.ip   },
-  { url: "https://api64.ipify.org?format=json",         parse: (j: any) => j.ip   },
-  { url: "https://api.my-ip.io/v2/ip.json",             parse: (j: any) => j.ip   },
-  { url: "https://ipapi.co/json/",                      parse: (j: any) => j.ip   },
+  { url: "https://ifconfig.me/all.json",                parse: (j: any) => ({ ip: j.ip_addr, port: j.port?.toString() }) },
+  { url: "https://am.i.mullvad.net/json",               parse: (j: any) => ({ ip: j.ip, port: j.port?.toString() }) },
+  { url: "https://api.ipify.org?format=json",           parse: (j: any) => ({ ip: j.ip }) },
+  { url: "https://api64.ipify.org?format=json",         parse: (j: any) => ({ ip: j.ip }) },
+  { url: "https://api.my-ip.io/v2/ip.json",             parse: (j: any) => ({ ip: j.ip }) },
+  { url: "https://ipapi.co/json/",                      parse: (j: any) => ({ ip: j.ip }) },
 ];
 
-async function fetchIpFromProvider(provider: (typeof IP_PROVIDERS)[0]): Promise<string | null> {
+async function fetchIpFromProvider(provider: (typeof IP_PROVIDERS)[0]): Promise<{ ip?: string; port?: string } | null> {
   try {
     const res = await fetch(provider.url, {
       signal: AbortSignal.timeout(4000),
@@ -77,30 +82,46 @@ async function fetchIpFromProvider(provider: (typeof IP_PROVIDERS)[0]): Promise<
     });
     if (!res.ok) return null;
     const json = await res.json();
-    const ip = provider.parse(json);
-    return typeof ip === "string" && ip.length > 0 ? ip : null;
+    const data = provider.parse(json);
+    return typeof data.ip === "string" && data.ip.length > 0 ? data : null;
   } catch {
     return null;
   }
 }
 
-async function getIpAddress(): Promise<string | undefined> {
+async function getIpAddressData(): Promise<{ ip?: string; port?: string }> {
   // 1. Return session-cached value (same user, same tab, multiple actions)
-  const stored = getStoredIp();
-  if (stored) return stored;
+  const stored = getStoredIpData();
+  if (stored?.ip) return stored;
 
   // 2. Try providers in order
   for (const provider of IP_PROVIDERS) {
-    const ip = await fetchIpFromProvider(provider);
-    if (ip) {
-      storeIp(ip);
-      return ip;
+    const data = await fetchIpFromProvider(provider);
+    if (data?.ip) {
+      storeIpData(data.ip, data.port);
+      return data;
     }
   }
 
   // 3. All providers failed — log without IP rather than blocking the write
   console.warn("[AuditLogger] Could not determine IP address from any provider.");
-  return undefined;
+  return {};
+}
+
+// ─── Device ID capture ────────────────────────────────────────────────────────
+// Captured per browser and persisted in localStorage
+
+function getDeviceId(): string {
+  try {
+    let id = localStorage.getItem("audit_device_id");
+    if (!id) {
+      id = "dev_" + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      localStorage.setItem("audit_device_id", id);
+    }
+    return id;
+  } catch {
+    return "unknown-device";
+  }
 }
 
 // ─── User Agent capture ───────────────────────────────────────────────────────
@@ -133,13 +154,13 @@ async function log(
     changes?:    AuditChange[];
   },
 ): Promise<void> {
-  // Capture userAgent synchronously BEFORE the async IP fetch
-  // so we get the exact UA of the browser making this call
+  // Capture userAgent and deviceId synchronously
   const userAgent = getUserAgent();
+  const deviceId  = getDeviceId();
   const route     = extra?.route ?? getCurrentRoute();
 
   // IP fetch is async — run in parallel with nothing else blocking the log
-  const ipAddress = await getIpAddress();
+  const { ip: ipAddress, port } = await getIpAddressData();
 
   const payload: CreateAuditLogPayload = {
     actor,
@@ -153,6 +174,8 @@ async function log(
     route,
     changes:    extra?.changes,
     ipAddress,
+    port,
+    deviceId,
     userAgent,
   };
 

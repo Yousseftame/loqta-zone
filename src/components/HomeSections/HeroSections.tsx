@@ -308,8 +308,9 @@ export default function HeroSections() {
         @media (max-width: 639px) {
           .hs-root {
             margin-top: ${NAVBAR_H}px;
-            height: 70vw;
-            min-height: 200px;
+            aspect-ratio: 16 / 9;
+            height: auto;
+            min-height: unset;
           }
         }
         @media (min-width: 640px) and (max-width: 900px) {

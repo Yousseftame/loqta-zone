@@ -21,6 +21,9 @@ import {
   PanelRight,
   Truck,
 } from "lucide-react";
+import Inventory2Icon from "@mui/icons-material/Inventory2";
+import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
+
 import { useNavigate, useLocation } from "react-router-dom";
 import { signOut } from "firebase/auth";
 import { auth } from "@/firebase/firebase";
@@ -415,10 +418,18 @@ const Sidebar = () => {
     {
       id: "Products",
       label: "Products",
-      icon: Dashboard,
+      icon: Inventory2Icon,
       path: "/admin/Products",
       roles: ["admin", "superAdmin"],
     },
+    {
+      id: "purchases",
+      label: "Purchases",
+      icon: ShoppingCartIcon,
+      path: "/admin/purchases",
+      roles: ["admin", "superAdmin"],
+    },
+
     {
       id: "Auctions",
       label: "Auctions",

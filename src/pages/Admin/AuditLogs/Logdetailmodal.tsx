@@ -455,16 +455,17 @@ export function WhenSection({ timestamp }: { timestamp: Date }) {
 export function MetaSection({
   log,
 }: {
-  log: Pick<AuditLog, "ipAddress" | "userAgent" | "sessionId">;
+  log: Pick<AuditLog, "ipAddress" | "userAgent" | "sessionId" | "deviceId" | "port">;
 }) {
   return (
     <ModalSection
       icon="🔧"
       title="Meta"
       rows={[
+        ["Device ID", log.deviceId ?? "—"],
         ["IP Address", log.ipAddress ?? "—"],
+        ["Client Port", log.port ?? "—"],
         ["User Agent", log.userAgent ? truncate(log.userAgent, 50) : "—"],
-        // ["Session ID", log.sessionId ?? "—"],
       ]}
     />
   );

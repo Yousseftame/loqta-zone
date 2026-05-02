@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 
 // ── Design tokens ─────────────────────────────────────────────
 const GOLD = "#c9a96e";
@@ -110,7 +111,57 @@ function SocialBtn({ item }: { item: (typeof socials)[0] }) {
   );
 }
 
-// ── Animated link ─────────────────────────────────────────────
+// ── Animated link (button version for JS navigation) ─────────
+function FooterNavButton({
+  label,
+  onClick,
+}: {
+  label: string;
+  onClick: () => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        color: hovered ? CREAM : "rgba(229,224,198,0.45)",
+        textDecoration: "none",
+        fontSize: 15,
+        fontWeight: 400,
+        letterSpacing: "0.01em",
+        transition: "color 0.25s ease",
+        lineHeight: 1.6,
+        background: "none",
+        border: "none",
+        cursor: "pointer",
+        padding: 0,
+        fontFamily: "'Jost', sans-serif",
+        textAlign: "left",
+      }}
+    >
+      <span
+        style={{
+          display: "inline-block",
+          width: hovered ? 14 : 6,
+          height: 1,
+          background: hovered ? GOLD : "rgba(201,169,110,0.4)",
+          borderRadius: 999,
+          transition:
+            "width 0.3s cubic-bezier(0.22,1,0.36,1), background 0.3s ease",
+          flexShrink: 0,
+        }}
+      />
+      {label}
+    </button>
+  );
+}
+
+// ── Animated link (anchor version) ───────────────────────────
 function FooterLink({ label, href }: { label: string; href: string }) {
   const [hovered, setHovered] = useState(false);
   return (
@@ -264,6 +315,7 @@ export default function Footer() {
   const footerRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
   const { t } = useTranslation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const el = footerRef.current;
@@ -283,21 +335,34 @@ export default function Footer() {
 
   const year = new Date().getFullYear();
 
-  // Build translated link arrays
-  const quickLinks = [
-    { label: t("footer.quickLinks.upcomingAuctions"), href: "#" },
-    { label: t("footer.quickLinks.pastResults"), href: "#" },
-    { label: t("footer.quickLinks.howItWorks"), href: "#" },
-    { label: t("footer.quickLinks.registerToBid"), href: "#" },
-    { label: t("footer.quickLinks.promoCodes"), href: "#" },
+  // Navigate to home page auctions section with a specific tab
+  const goToAuctions = (tab: "upcoming" | "past") => {
+    // Store the desired tab in sessionStorage so AuctionsSection can read it
+    sessionStorage.setItem("auctionsSectionTab", tab);
+    navigate("/");
+    // After navigation, scroll to the auctions section
+    setTimeout(() => {
+      const el = document.getElementById("auctions-section");
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth" });
+      }
+    }, 300);
+  };
+
+  // Explore links — only Upcoming Auctions + Past Results
+  const exploreLinks = [
+    {
+      label: t("footer.quickLinks.upcomingAuctions"),
+      action: () => goToAuctions("upcoming"),
+    },
+    {
+      label: t("footer.quickLinks.pastResults"),
+      action: () => goToAuctions("past"),
+    },
   ];
 
-  const legalLinks = [
-    { label: t("footer.legalLinks.terms"), href: "#" },
-    { label: t("footer.legalLinks.privacy"), href: "#" },
-    { label: t("footer.legalLinks.refund"), href: "#" },
-    { label: t("footer.legalLinks.cookie"), href: "#" },
-  ];
+  // Legal links — only Terms & Conditions
+  const legalLinks = [{ label: t("footer.legalLinks.terms"), href: "/terms" }];
 
   const contactItems = [
     { icon: "✉", label: t("footer.contact.email") },
@@ -536,7 +601,7 @@ export default function Footer() {
                 gap: 24,
               }}
             >
-              {/* Quick links */}
+              {/* Explore links — Upcoming + Past Results only */}
               <div>
                 <div
                   style={{
@@ -563,13 +628,17 @@ export default function Footer() {
                 <div
                   style={{ display: "flex", flexDirection: "column", gap: 10 }}
                 >
-                  {quickLinks.map((l) => (
-                    <FooterLink key={l.label} {...l} />
+                  {exploreLinks.map((l) => (
+                    <FooterNavButton
+                      key={l.label}
+                      label={l.label}
+                      onClick={l.action}
+                    />
                   ))}
                 </div>
               </div>
 
-              {/* Legal */}
+              {/* Legal — Terms & Conditions only */}
               <div>
                 <div
                   style={{
@@ -597,7 +666,7 @@ export default function Footer() {
                   style={{ display: "flex", flexDirection: "column", gap: 10 }}
                 >
                   {legalLinks.map((l) => (
-                    <FooterLink key={l.label} {...l} />
+                    <FooterLink key={l.label} label={l.label} href={l.href} />
                   ))}
                 </div>
               </div>
@@ -742,34 +811,31 @@ export default function Footer() {
             {t("footer.bottom.copyright", { year })}
           </div>
 
-          {/* Legal links inline */}
+          {/* Terms only in bottom bar */}
           <div
             className="footer-legal-links"
             style={{ display: "flex", gap: 24, alignItems: "center" }}
           >
-            {legalLinks.slice(0, 2).map(({ label, href }) => (
-              <a
-                key={label}
-                href={href}
-                style={{
-                  fontSize: 14,
-                  color: "rgba(229,224,198,0.95)",
-                  textDecoration: "none",
-                  letterSpacing: "0.04em",
-                  transition: "color 0.2s ease",
-                }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLAnchorElement).style.color =
-                    `${GOLD}99`;
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLAnchorElement).style.color =
-                    "rgba(229,224,198,0.25)";
-                }}
-              >
-                {label}
-              </a>
-            ))}
+            <a
+              href="/terms"
+              style={{
+                fontSize: 14,
+                color: "rgba(229,224,198,0.95)",
+                textDecoration: "none",
+                letterSpacing: "0.04em",
+                transition: "color 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLAnchorElement).style.color =
+                  `${GOLD}99`;
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLAnchorElement).style.color =
+                  "rgba(229,224,198,0.25)";
+              }}
+            >
+              {t("footer.legalLinks.terms")}
+            </a>
           </div>
 
           {/* Made with */}

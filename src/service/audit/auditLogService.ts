@@ -60,6 +60,8 @@ function docToLog(id: string, data: Record<string, any>): AuditLog {
     ipAddress:  data.ipAddress  ?? undefined,
     userAgent:  data.userAgent  ?? undefined,
     sessionId:  data.sessionId  ?? undefined,
+    deviceId:   data.deviceId   ?? undefined,
+    port:       data.port       ?? undefined,
     status:     data.status     ?? "info",
   };
 }

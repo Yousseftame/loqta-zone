@@ -823,7 +823,7 @@ const CSS = `
 @keyframes lz-spin   { to { transform: rotate(360deg); } }
 @keyframes al-fadein { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
 @keyframes al-pulse  { 0%,100% { box-shadow:0 0 0 0 rgba(74,222,128,0.4); } 50% { box-shadow:0 0 0 6px rgba(74,222,128,0); } }
-@keyframes al-urgent { 0%,100% { color:#f87171; } 50% { color:#fca5a5; } }
+@keyframes al-urgent { 0%,100% { color:#f87171; text-shadow:0 0 12px rgba(248,113,113,0.4); transform:scale(1.3); } 50% { color:#fca5a5; text-shadow:0 0 24px rgba(248,113,113,0.8); transform:scale(1.38); } }
 .al { background:linear-gradient(180deg,#1f2a3d 0%,#1f2a3d 100%); font-family:'Outfit',system-ui,sans-serif; color:rgb(229,224,198); min-height:100vh; padding-top:120px; animation:al-fadein 0.5s ease both; }
 @media(max-width:860px){ .al { padding-top:100px; } }
 .al-bar { width:100%; height:50px; background:linear-gradient(180deg,#224266 0%,#1f2a3d 100%); border-bottom:1px solid rgba(201,169,110,0.1); display:flex; align-items:center; padding:0 40px; gap:14px; backdrop-filter:blur(8px); }
@@ -868,9 +868,11 @@ const CSS = `
 .al-bidcur { font-size:14px; color:rgba(201,169,110,0.5); font-weight:500; margin-inline-start:6px; }
 .al-countdownblock { text-align:end; }
 .al-cdlabel { font-size:13px; font-weight:600; color:rgba(229,224,198,0.95); letter-spacing:0.2em; text-transform:uppercase; margin-bottom:6px; }
-.al-cdnum { font-size:28px; font-weight:700; color:rgb(229,224,198); letter-spacing:0.04em; font-variant-numeric:tabular-nums; }
-.al-cdnum.urgent { animation:al-urgent 1s ease-in-out infinite; }
-.al-cdnum.ended { color:rgba(229,224,198,0.3); }
+.al-cdnum { font-size:28px; font-weight:700; color:rgb(229,224,198); letter-spacing:0.04em; font-variant-numeric:tabular-nums; display:inline-block; transition:transform 0.4s cubic-bezier(0.34,1.56,0.64,1); }
+.al[dir="ltr"] .al-cdnum { transform-origin:right center; }
+.al[dir="rtl"] .al-cdnum { transform-origin:left center; }
+.al-cdnum.urgent { animation:al-urgent 1.2s ease-in-out infinite; }
+.al-cdnum.ended { color:rgba(229,224,198,0.3); transform:scale(1); }
 .al-bidtype { font-size:14px; color:rgba(229,224,198,0.9); margin-bottom:18px; letter-spacing:0.04em; }
 .al-freebid { display:flex; flex-direction:column; gap:10px; margin-bottom:10px; }
 .al-inputwrap { position:relative; }

@@ -442,7 +442,7 @@ export default function AboutFeatures() {
         ref={sectionRef}
         style={{
           position: "relative",
-          background: "linear-gradient(180deg,#224266 0%,#1f2a3d 100%)",  
+          background: "linear-gradient(180deg,#224266 0%,#1f2a3d 100%)",
           padding: "120px 32px 130px",
           overflow: "hidden",
         }}
@@ -640,125 +640,6 @@ export default function AboutFeatures() {
                 }
               />
             ))}
-          </div>
-        </div>
-
-        {/* ── BOTTOM EDITORIAL STRIP ── */}
-        <div
-          style={{
-            maxWidth: 1100,
-            margin: "72px auto 0",
-            position: "relative",
-            zIndex: 1,
-            opacity: visible ? 1 : 0,
-            transition: "opacity 0.9s ease 0.65s",
-          }}
-        >
-          {/* Thin full-width rule */}
-          <div
-            style={{
-              height: 1,
-              background:
-                "linear-gradient(90deg, transparent, rgba(229,224,198,0.08), rgba(229,224,198,0.08), transparent)",
-              marginBottom: 28,
-            }}
-          />
-
-          {/* Four-column label strip */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(4, 1fr)",
-              gap: 0,
-            }}
-          >
-            {FEATURE_KEYS.map((key, idx) => (
-              <div
-                key={key}
-                onClick={() =>
-                  setActiveFeature(activeFeature === key ? null : key)
-                }
-                style={{
-                  padding: "0 24px",
-                  borderRight:
-                    idx < 3 ? "1px solid rgba(229,224,198,0.06)" : "none",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                }}
-              >
-                {/* Active dot */}
-                <div
-                  style={{
-                    width: 5,
-                    height: 5,
-                    borderRadius: "50%",
-                    flexShrink: 0,
-                    background:
-                      activeFeature === key ? GOLD : "rgba(201,169,110,0.22)",
-                    boxShadow:
-                      activeFeature === key
-                        ? `0 0 8px rgba(201,169,110,0.7)`
-                        : "none",
-                    transition: "all 0.4s ease",
-                  }}
-                />
-                <span
-                  style={{
-                    fontSize: 14,
-                    fontWeight: 700,
-                    color:
-                      activeFeature === key
-                        ? "rgba(229,224,198,0.95)"
-                        : "rgba(229,224,198,0.62)",
-                    letterSpacing: "0.1em",
-                    textTransform: "uppercase",
-                    transition: "color 0.35s ease",
-                    fontFamily: "'Jost', sans-serif",
-                  }}
-                >
-                  {t(`aboutPage.features.items.${key}.title`)}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          {/* Bottom ornament */}
-          <div
-            style={{
-              marginTop: 40,
-              display: "flex",
-              alignItems: "center",
-              gap: 16,
-            }}
-          >
-            <div
-              style={{
-                flex: 1,
-                height: 1,
-                background:
-                  "linear-gradient(90deg, transparent, rgba(229,224,198,0.07))",
-              }}
-            />
-            <span
-              style={{
-                fontFamily: "'Cormorant Garamond', Georgia, serif",
-                fontSize: 18,
-                color: "rgba(201,169,110,0.38)",
-                fontStyle: "italic",
-              }}
-            >
-              ✦
-            </span>
-            <div
-              style={{
-                flex: 1,
-                height: 1,
-                background:
-                  "linear-gradient(90deg, rgba(229,224,198,0.07), transparent)",
-              }}
-            />
           </div>
         </div>
       </section>

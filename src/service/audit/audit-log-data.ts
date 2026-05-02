@@ -123,6 +123,8 @@ export interface AuditLog {
   ipAddress?: string;
   userAgent?: string;
   sessionId?: string;
+  deviceId?: string;
+  port?: string;
 
   // STATUS
   status: "success" | "warning" | "danger" | "info";

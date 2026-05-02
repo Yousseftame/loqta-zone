@@ -1,6 +1,8 @@
 import HowItWorksSection from "@/components/shared/Howitworkssection";
 import React, { useRef, useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/store/AuthContext/AuthContext";
 
 // ── Design tokens (matching site-wide scheme) ─────────────────
 const GOLD = "#c9a96e";
@@ -83,7 +85,6 @@ function StepCard({
           padding: "32px 32px 28px",
         }}
       >
-
         {/* Top accent bar */}
         <div
           style={{
@@ -468,6 +469,8 @@ function TrustBadge({
 // ── Main Page ─────────────────────────────────────────────────
 export default function HowItWork() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const { user } = useAuth();
 
   const heroRef = useRef<HTMLDivElement>(null);
   const stepsRef = useRef<HTMLDivElement>(null);
@@ -519,6 +522,22 @@ export default function HowItWork() {
     ];
     return () => cleanups.forEach((c) => c?.());
   }, []);
+
+  // ── CTA handlers ──────────────────────────────────────────────
+  const handleRegisterFree = () => {
+    navigate("/register");
+  };
+
+  const handleViewAuctions = () => {
+    // Navigate to home and scroll to AuctionSwiper section
+    navigate("/");
+    setTimeout(() => {
+      const el = document.getElementById("auction-swiper-section");
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth" });
+      }
+    }, 300);
+  };
 
   // ── Build steps data from translations ───────────────────────
   const STEP_ICONS = ["✦", "◈", "⬡", "◇", "★"];
@@ -634,6 +653,8 @@ export default function HowItWork() {
           .hiw-stat-divider { height: 32px !important; }
           .hiw-hero-stats { gap: 16px !important; padding: 0 8px !important; }
           .hiw-scroll-cue { position: relative !important; bottom: auto !important; left: auto !important; transform: none !important; margin-top: 32px !important; }
+          .hiw-cta-btns { flex-direction: column !important; align-items: stretch !important; }
+          .hiw-cta-btns button { width: 100% !important; }
         }
       `}</style>
 
@@ -993,7 +1014,6 @@ export default function HowItWork() {
               pointerEvents: "none",
             }}
           />
-          {/* <HowItWorksSection /> */}
 
           {/* Section header */}
           <div
@@ -1463,8 +1483,9 @@ export default function HowItWork() {
               {t("howItWorkPage.cta.description")}
             </p>
 
-            {/* CTA buttons */}
+            {/* ── CTA buttons ── */}
             <div
+              className="hiw-cta-btns"
               style={{
                 display: "flex",
                 gap: 14,
@@ -1472,37 +1493,44 @@ export default function HowItWork() {
                 flexWrap: "wrap",
               }}
             >
+              {/* Register Free — only for guests */}
+              {!user && (
+                <button
+                  onClick={handleRegisterFree}
+                  style={{
+                    background: `linear-gradient(135deg, ${GOLD}, ${GOLD2})`,
+                    color: "#0a0a1a",
+                    border: "none",
+                    borderRadius: 999,
+                    padding: "16px 52px",
+                    fontSize: 14,
+                    fontWeight: 800,
+                    letterSpacing: "0.22em",
+                    textTransform: "uppercase",
+                    cursor: "pointer",
+                    boxShadow: `0 8px 32px ${GOLD}44`,
+                    position: "relative",
+                    overflow: "hidden",
+                    transition: "all 0.35s cubic-bezier(0.22,1,0.36,1)",
+                  }}
+                  onMouseEnter={(e) => {
+                    const b = e.currentTarget as HTMLButtonElement;
+                    b.style.transform = "translateY(-4px) scale(1.04)";
+                    b.style.boxShadow = `0 20px 54px ${GOLD}55`;
+                  }}
+                  onMouseLeave={(e) => {
+                    const b = e.currentTarget as HTMLButtonElement;
+                    b.style.transform = "translateY(0) scale(1)";
+                    b.style.boxShadow = `0 8px 32px ${GOLD}44`;
+                  }}
+                >
+                   {t("howItWorkPage.cta.primaryBtn")}
+                </button>
+              )}
+
+              {/* View Auctions — always visible */}
               <button
-                style={{
-                  background: `linear-gradient(135deg, ${GOLD}, ${GOLD2})`,
-                  color: "#0a0a1a",
-                  border: "none",
-                  borderRadius: 999,
-                  padding: "16px 52px",
-                  fontSize: 14,
-                  fontWeight: 800,
-                  letterSpacing: "0.22em",
-                  textTransform: "uppercase",
-                  cursor: "pointer",
-                  boxShadow: `0 8px 32px ${GOLD}44`,
-                  position: "relative",
-                  overflow: "hidden",
-                  transition: "all 0.35s cubic-bezier(0.22,1,0.36,1)",
-                }}
-                onMouseEnter={(e) => {
-                  const b = e.currentTarget as HTMLButtonElement;
-                  b.style.transform = "translateY(-4px) scale(1.04)";
-                  b.style.boxShadow = `0 20px 54px ${GOLD}55`;
-                }}
-                onMouseLeave={(e) => {
-                  const b = e.currentTarget as HTMLButtonElement;
-                  b.style.transform = "translateY(0) scale(1)";
-                  b.style.boxShadow = `0 8px 32px ${GOLD}44`;
-                }}
-              >
-                {t("howItWorkPage.cta.primaryBtn")}
-              </button>
-              <button
+                onClick={handleViewAuctions}
                 style={{
                   background: "transparent",
                   color: GOLD,

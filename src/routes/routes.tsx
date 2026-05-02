@@ -106,6 +106,7 @@ import AuditLogsPage from "@/pages/Admin/AuditLogs/AuditLogsPage";
 import SuppliersList from "@/pages/Admin/Suppliers/SuppliersList";
 import SupplierForm from "@/pages/Admin/Suppliers/SupplierForm";
 import SupplierView from "@/pages/Admin/Suppliers/SupplierView";
+import PurchasesList from "@/pages/Admin/Purchases/PurchasesList";
 
 export const routes = createBrowserRouter([
   {
@@ -257,6 +258,15 @@ export const routes = createBrowserRouter([
           <PermissionRoute module="products" action="update">
             <ProductForm />
           </PermissionRoute>
+        ),
+      },
+
+      {
+        path: "purchases",
+        element: (
+         
+            <PurchasesList />
+          
         ),
       },
 

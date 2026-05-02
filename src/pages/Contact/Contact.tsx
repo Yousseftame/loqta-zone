@@ -4,6 +4,7 @@ import {
   submitContactMessage,
   submitFeedbackMessage,
 } from "@/service/contactFeedback/contactFeedbackService";
+import { useAuth } from "@/store/AuthContext/AuthContext";
 
 // ── Design tokens ─────────────────────────────────────────────
 const GOLD = "#c9a96e";
@@ -685,6 +686,7 @@ function FormCard({
 
 // ── CONTACT FORM ──────────────────────────────────────────────
 function ContactForm({ visible }: { visible: boolean }) {
+  const { user } = useAuth();
   const { t } = useTranslation();
   const [form, setForm] = useState({
     name: "",
@@ -702,14 +704,21 @@ function ContactForm({ visible }: { visible: boolean }) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name.trim() || !form.email.trim() || !form.message.trim()) {
+    const submitName = user ? (user.displayName || "User") : form.name;
+    const submitEmail = user ? (user.email || "") : form.email;
+
+    if (!submitName.trim() || !submitEmail.trim() || !form.message.trim()) {
       setError(t("contactPage.contactForm.errorRequired"));
       return;
     }
     setError("");
     setLoading(true);
     try {
-      await submitContactMessage(form);
+      await submitContactMessage({
+        ...form,
+        name: submitName,
+        email: submitEmail,
+      });
       setSent(true);
     } catch (err) {
       setError(t("contactPage.contactForm.errorGeneric"));
@@ -776,28 +785,30 @@ function ContactForm({ visible }: { visible: boolean }) {
         onSubmit={handleSubmit}
         style={{ display: "flex", flexDirection: "column", gap: 18 }}
       >
-        <div
-          style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}
-          className="form-row"
-        >
-          <Field
-            label={t("contactPage.contactForm.fields.name")}
-            placeholder={t("contactPage.contactForm.fields.namePlaceholder")}
-            value={form.name}
-            onChange={set("name")}
-            required
-            icon="👤"
-          />
-          <Field
-            label={t("contactPage.contactForm.fields.email")}
-            type="email"
-            placeholder={t("contactPage.contactForm.fields.emailPlaceholder")}
-            value={form.email}
-            onChange={set("email")}
-            required
-            icon="✉"
-          />
-        </div>
+        {!user && (
+          <div
+            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}
+            className="form-row"
+          >
+            <Field
+              label={t("contactPage.contactForm.fields.name")}
+              placeholder={t("contactPage.contactForm.fields.namePlaceholder")}
+              value={form.name}
+              onChange={set("name")}
+              required
+              icon="👤"
+            />
+            <Field
+              label={t("contactPage.contactForm.fields.email")}
+              type="email"
+              placeholder={t("contactPage.contactForm.fields.emailPlaceholder")}
+              value={form.email}
+              onChange={set("email")}
+              required
+              icon="✉"
+            />
+          </div>
+        )}
         <div
           style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}
           className="form-row"
@@ -862,10 +873,9 @@ function ContactForm({ visible }: { visible: boolean }) {
 
 // ── FEEDBACK FORM ─────────────────────────────────────────────
 function FeedbackForm({ visible }: { visible: boolean }) {
+  const { user } = useAuth();
   const { t } = useTranslation();
   const [form, setForm] = useState({
-    name: "",
-    email: "",
     category: "",
     rating: 0,
     title: "",
@@ -892,9 +902,12 @@ function FeedbackForm({ visible }: { visible: boolean }) {
     setError("");
     setLoading(true);
     try {
+      const submitName = user?.displayName || "User";
+      const submitEmail = user?.email || "";
+
       await submitFeedbackMessage({
-        name: form.name,
-        email: form.email,
+        name: submitName,
+        email: submitEmail,
         category: form.category,
         rating: form.rating,
         title: form.title,
@@ -912,8 +925,6 @@ function FeedbackForm({ visible }: { visible: boolean }) {
   const resetForm = () => {
     setSent(false);
     setForm({
-      name: "",
-      email: "",
       category: "",
       rating: 0,
       title: "",
@@ -978,26 +989,6 @@ function FeedbackForm({ visible }: { visible: boolean }) {
         onSubmit={handleSubmit}
         style={{ display: "flex", flexDirection: "column", gap: 18 }}
       >
-        <div
-          style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}
-          className="form-row"
-        >
-          <Field
-            label={t("contactPage.feedbackForm.fields.name")}
-            placeholder={t("contactPage.feedbackForm.fields.namePlaceholder")}
-            value={form.name}
-            onChange={set("name")}
-            icon="👤"
-          />
-          <Field
-            label={t("contactPage.feedbackForm.fields.email")}
-            type="email"
-            placeholder={t("contactPage.feedbackForm.fields.emailPlaceholder")}
-            value={form.email}
-            onChange={set("email")}
-            icon="✉"
-          />
-        </div>
         <SelectField
           label={t("contactPage.feedbackForm.fields.category")}
           icon="◇"
@@ -1109,6 +1100,7 @@ function FeedbackForm({ visible }: { visible: boolean }) {
 
 // ── MAIN PAGE ─────────────────────────────────────────────────
 export default function ContactUs() {
+  const { user } = useAuth();
   const { t } = useTranslation();
 
   const heroRef = useRef<HTMLDivElement>(null);
@@ -1502,9 +1494,9 @@ export default function ContactUs() {
             className="forms-layout"
             style={{
               display: "grid",
-              gridTemplateColumns: "1fr 1fr",
+              gridTemplateColumns: user ? "1fr 1fr" : "1fr",
               gap: 24,
-              maxWidth: 1200,
+              maxWidth: user ? 1200 : 600,
               margin: "0 auto",
               position: "relative",
               zIndex: 1,
@@ -1512,7 +1504,7 @@ export default function ContactUs() {
             }}
           >
             <ContactForm visible={formsVisible} />
-            <FeedbackForm visible={formsVisible} />
+            {user && <FeedbackForm visible={formsVisible} />}
           </div>
         </section>
 

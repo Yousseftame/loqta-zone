@@ -21,6 +21,7 @@ import { HeroSlideProvider } from './store/AdminContext/HeroSlideContext/HeroSli
 import { LeftSectionProvider } from './store/AdminContext/LeftSectionContext/LeftSectionContext.tsx';
 import { RightSectionProvider } from './store/AdminContext/RightSectionContext/RightSectionContext.tsx';
 import { SupplierProvider } from './store/AdminContext/SupplierContext/SupplierContext.tsx';
+import { PurchaseProvider } from './store/AdminContext/PurchaseContext/PurchaseContext.tsx';
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -36,28 +37,30 @@ createRoot(document.getElementById("root")!).render(
         <CategoryProvider>
           <ProductProvider>
             <SupplierProvider>
-            <AuctionProvider>
-              <VoucherProvider>
-                <AuctionRequestProvider>
-                  <ContactFeedbackProvider>
-                    <BidProvider>
-                      <ParticipantProvider>
-                        <LastOfferProvider>
-                          <HeroSlideProvider>
-                            <LeftSectionProvider>
-                              <RightSectionProvider>
-                                <App />
-                              </RightSectionProvider>
-                            </LeftSectionProvider>
-                          </HeroSlideProvider>
-                        </LastOfferProvider>
-                      </ParticipantProvider>
-                    </BidProvider>
-                  </ContactFeedbackProvider>
-                </AuctionRequestProvider>
-              </VoucherProvider>
-          </AuctionProvider>
-          </SupplierProvider>
+              <AuctionProvider>
+                <VoucherProvider>
+                  <AuctionRequestProvider>
+                    <ContactFeedbackProvider>
+                      <BidProvider>
+                        <ParticipantProvider>
+                          <LastOfferProvider>
+                            <HeroSlideProvider>
+                              <LeftSectionProvider>
+                                <RightSectionProvider>
+                                <PurchaseProvider>
+                                    <App />
+                                  </PurchaseProvider>
+                                </RightSectionProvider>
+                              </LeftSectionProvider>
+                            </HeroSlideProvider>
+                          </LastOfferProvider>
+                        </ParticipantProvider>
+                      </BidProvider>
+                    </ContactFeedbackProvider>
+                  </AuctionRequestProvider>
+                </VoucherProvider>
+              </AuctionProvider>
+            </SupplierProvider>
           </ProductProvider>
         </CategoryProvider>
       </AuthProvider>

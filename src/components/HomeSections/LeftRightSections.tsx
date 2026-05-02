@@ -275,10 +275,19 @@ function SlidePanel({
         }
         .lrs-root-${id}:active { cursor: grabbing; }
         .lrs-slide-${id} { position: absolute; inset: 0; overflow: hidden; }
+        .lrs-bg-img-${id} {
+          position: absolute; inset: -5%; width: 110%; height: 110%;
+          object-fit: cover; object-position: center;
+          filter: blur(20px) brightness(0.4); transform: scale(1.1);
+          display: block; -webkit-user-drag: none; pointer-events: none;
+          z-index: 0; transition: filter 0.6s ease, transform 0.6s ease;
+        }
         .lrs-img-${id} {
           position: absolute; inset: 0; width: 100%; height: 100%;
-          object-fit: cover; object-position: center;
+          object-fit: contain; object-position: center;
           display: block; -webkit-user-drag: none; pointer-events: none;
+          z-index: 1; filter: drop-shadow(0 16px 32px rgba(0,0,0,0.5));
+          transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
         }
         .lrs-img-init-${id} { opacity: 0; transition: opacity 1.1s cubic-bezier(0.4,0,0.2,1); }
         .lrs-img-init-in-${id} { opacity: 1; }
@@ -381,6 +390,13 @@ function SlidePanel({
                   src={slides[prevIdx].imageUrl}
                   alt=""
                   aria-hidden="true"
+                  className={`lrs-bg-img-${id}`}
+                  draggable={false}
+                />
+                <img
+                  src={slides[prevIdx].imageUrl}
+                  alt=""
+                  aria-hidden="true"
                   className={`lrs-img-${id}`}
                   draggable={false}
                 />
@@ -391,6 +407,13 @@ function SlidePanel({
               className={`lrs-slide-${id} ${animating ? (slideDir === "next" ? `lrs-inc-next-${id}` : `lrs-inc-prev-${id}`) : ""}`}
               style={{ zIndex: 2 }}
             >
+              <img
+                src={slides[current].imageUrl}
+                alt=""
+                aria-hidden="true"
+                draggable={false}
+                className={`lrs-bg-img-${id}${!animating ? ` lrs-img-init-${id}${firstImageReady ? ` lrs-img-init-in-${id}` : ""}` : ""}`}
+              />
               <img
                 src={slides[current].imageUrl}
                 alt=""
@@ -483,37 +506,46 @@ export default function LeftRightSections() {
         /* Desktop: small top gap between hero and this section */
         @media (min-width: 640px) {
           .lrs-outer {
-            padding-top: 1.5rem;
+            padding-top: 2rem;
+            padding-bottom: 1rem;
           }
         }
 
-        /* Mobile: zero gap, fully flush */
+        /* Mobile: nice padding for cards */
         @media (max-width: 639px) {
-          .lrs-outer { padding-top: 0; }
+          .lrs-outer { padding: 1.5rem 1rem; }
         }
 
         /* Panel row */
         .lrs-wrapper {
           display: flex;
-          gap: 4px;
+          gap: 24px;
+          justify-content: center;
         }
 
-        /* Each panel 16:9 on desktop */
+        /* Each panel 1:1 on desktop, rounded */
         .lrs-panel {
           flex: 1;
           min-width: 0;
-          aspect-ratio: 16 / 9;
+          max-width: calc(50% - 12px);
+          aspect-ratio: 1 / 1;
+          border-radius: 24px;
+          overflow: hidden;
+          position: relative;
+          box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+          border: 1px solid rgba(255,255,255,0.06);
         }
 
-        /* Mobile: stack vertically, no gap, 4:3 */
+        /* Mobile: stack vertically, 1:1 */
         @media (max-width: 639px) {
-          .lrs-wrapper { flex-direction: column; gap: 0; }
-          .lrs-panel { flex: none; width: 100%; aspect-ratio: 4 / 3; }
+          .lrs-wrapper { flex-direction: column; gap: 20px; }
+          .lrs-panel { flex: none; width: 100%; max-width: 100%; aspect-ratio: 1 / 1; border-radius: 20px; }
         }
 
         /* Tablet */
         @media (min-width: 640px) and (max-width: 1023px) {
-          .lrs-panel { aspect-ratio: 16 / 9; }
+          .lrs-panel { aspect-ratio: 1 / 1; border-radius: 20px; max-width: calc(50% - 8px); }
+          .lrs-wrapper { gap: 16px; }
         }
       `}</style>
 
