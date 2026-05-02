@@ -867,18 +867,20 @@ const AuctionHeader = memo(function AuctionHeader() {
           marginBottom: 4,
         }}
       >
-        <SplitText
-          key={`line1-${animKey}`}
-          text={t("auctionSwiper.titleLine1")}
-          tag="h2"
-          className=""
-          splitType={isArabic ? "words" : "chars"}
-          duration={1.0}
-          delay={isArabic ? 80 : 30}
-          ease="power3.out"
-          from={{ opacity: 0, y: 40, rotateX: -20 }}
-          to={{ opacity: 1, y: 0, rotateX: 0 }}
-        />
+        {isInView && (
+          <SplitText
+            key={`line1-${animKey}`}
+            text={t("auctionSwiper.titleLine1")}
+            tag="h2"
+            className=""
+            splitType={isArabic ? "words" : "chars"}
+            duration={1.0}
+            delay={isArabic ? 80 : 30}
+            ease="power3.out"
+            from={{ opacity: 0, y: 40, rotateX: -20 }}
+            to={{ opacity: 1, y: 0, rotateX: 0 }}
+          />
+        )}
       </div>
       <div
         style={{
@@ -890,18 +892,20 @@ const AuctionHeader = memo(function AuctionHeader() {
           marginBottom: 20,
         }}
       >
-        <SplitText
-          key={`line2-${animKey}`}
-          text={t("auctionSwiper.titleLine2")}
-          tag="h2"
-          className=""
-          splitType={isArabic ? "words" : "chars"}
-          duration={1.0}
-          delay={isArabic ? 80 : 30}
-          ease="power3.out"
-          from={{ opacity: 0, y: 40 }}
-          to={{ opacity: 1, y: 0 }}
-        />
+        {isInView && (
+          <SplitText
+            key={`line2-${animKey}`}
+            text={t("auctionSwiper.titleLine2")}
+            tag="h2"
+            className=""
+            splitType={isArabic ? "words" : "chars"}
+            duration={1.0}
+            delay={isArabic ? 80 : 30}
+            ease="power3.out"
+            from={{ opacity: 0, y: 40 }}
+            to={{ opacity: 1, y: 0 }}
+          />
+        )}
       </div>
       <p
         style={{
