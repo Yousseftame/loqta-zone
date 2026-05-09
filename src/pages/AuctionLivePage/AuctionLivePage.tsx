@@ -24,6 +24,7 @@ import PostAuctionModal from "@/components/PostAuctionModal/PostAuctionModal";
 import LastOfferModal from "@/components/LastOfferModal/LastOfferModal";
 import toast from "react-hot-toast";
 import { resolveProductTitle } from "@/lib/resolveLocalized";
+import AuctionChat from "./components/AuctionChat";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -46,6 +47,7 @@ interface AuctionData {
   winnerId: string | null;
   winningBid: number | null;
   lastOfferEnabled: boolean;
+  enableChat: boolean;
 }
 
 interface BidEntry {
@@ -220,6 +222,7 @@ export default function AuctionLivePage() {
           winnerId: d.winnerId ?? null,
           winningBid: d.winningBid ?? null,
           lastOfferEnabled: d.lastOfferEnabled ?? true,
+          enableChat: d.enableChat ?? false,
         };
         auctionRef.current = auctionData;
         setAuction(auctionData);
@@ -696,6 +699,17 @@ export default function AuctionLivePage() {
                 </div>
               )}
             </div>
+
+            {/* Chat section */}
+            {auction.enableChat && isParticipant && user && (
+              <AuctionChat
+                auctionId={auction.id}
+                userId={user.uid}
+                userName={userNames[user.uid] ?? user.displayName ?? "User"}
+                userPhotoURL={user.photoURL ?? undefined}
+                isEnded={isEnded}
+              />
+            )}
           </div>
         </div>
 

@@ -35,89 +35,44 @@ function useLiveAuctions() {
   const [auctions, setAuctions] = useState<LiveAuction[]>([]);
   const [loading, setLoading] = useState(true);
   const productCache = useRef<Record<string, any>>({});
+  
+  // Store raw docs so we can re-evaluate 'live' status locally
+  const rawDocsRef = useRef<any[]>([]);
 
-  useEffect(() => {
-const q = query(
-  collection(db, "auctions"),
-  where("isActive", "==", true),
-  where("endTime", ">", Timestamp.now()),
-);
+  // Function to process raw docs into live auctions
+  const processAuctions = useCallback(async (docs: any[]) => {
+    const now = new Date();
+    
+    // Filter to only those that have started
+    const live = docs.filter((d) => {
+      const data = d.data();
+      const st = data.startTime;
+      if (!st) return false;
+      const startDate = st instanceof Timestamp ? st.toDate() : new Date(st);
+      return startDate.getTime() <= now.getTime();
+    });
 
-    const unsub = onSnapshot(
-      q,
-      async (snap) => {
-        if (snap.empty) {
-          setAuctions([]);
-          setLoading(false);
-          return;
-        }
-        const now = new Date();
-        const live = snap.docs.filter((d) => {
-          const st = d.data().startTime;
-          return (st instanceof Timestamp ? st.toDate() : new Date(st)) <= now;
-        });
+    const pids = [...new Set(live.map((d) => d.data().productId).filter(Boolean))];
+    const missing = pids.filter((pid) => !productCache.current[pid]);
+    
+    if (missing.length > 0) {
+      await Promise.all(
+        missing.map(async (pid) => {
+          try {
+            const s = await getDoc(doc(db, "products", pid));
+            if (s.exists()) productCache.current[pid] = s.data();
+          } catch {}
+        })
+      );
+    }
 
-        const pids = [
-          ...new Set(live.map((d) => d.data().productId).filter(Boolean)),
-        ];
-        const missing = pids.filter((pid) => !productCache.current[pid]);
-        if (missing.length > 0) {
-          await Promise.all(
-            missing.map(async (pid) => {
-              try {
-                const s = await getDoc(doc(db, "products", pid));
-                if (s.exists()) productCache.current[pid] = s.data();
-              } catch {}
-            }),
-          );
-        }
-
-        const sorted = live
-          .map((d) => {
-            const data = d.data(),
-              p = productCache.current[data.productId] ?? {};
-            const end =
-              data.endTime instanceof Timestamp
-                ? data.endTime.toDate()
-                : new Date(data.endTime);
-            return {
-              id: d.id,
-              productId: data.productId ?? "",
-              title: p.title,
-              image:
-                p.thumbnail && p.thumbnail !== "null"
-                  ? p.thumbnail
-                  : (p.images?.[0] ?? ""),
-              currentBid: data.currentBid ?? data.startingPrice ?? 0,
-              totalBids: data.totalBids ?? 0,
-              auctionNumber: data.auctionNumber,
-              endsAt: end.toISOString(),
-            };
-          })
-          .sort(
-            (a, b) =>
-              new Date(a.endsAt).getTime() - new Date(b.endsAt).getTime(),
-          );
-
-        // console.log(
-        //   "sorted auctions:",
-        //   sorted.map((a) => ({ title: a.title, endsAt: a.endsAt })),
-        // );
-        setAuctions(sorted);
-        // Replace the entire setAuctions call:
-setAuctions(
-  live
-    .map((d) => {
-      const data = d.data(),
-        p = productCache.current[data.productId] ?? {};
-      const img =
-        p.thumbnail && p.thumbnail !== "null"
-          ? p.thumbnail
-          : (p.images?.[0] ?? "");
-      const end =
-        data.endTime instanceof Timestamp
-          ? data.endTime.toDate()
-          : new Date(data.endTime);
+    const processed = live.map((d) => {
+      const data = d.data();
+      const p = productCache.current[data.productId] ?? {};
+      const img = p.thumbnail && p.thumbnail !== "null" ? p.thumbnail : (p.images?.[0] ?? "");
+      
+      const end = data.endTime instanceof Timestamp ? data.endTime.toDate() : new Date(data.endTime);
+      
       return {
         id: d.id,
         productId: data.productId ?? "",
@@ -128,17 +83,55 @@ setAuctions(
         auctionNumber: data.auctionNumber,
         endsAt: end.toISOString(),
       };
-    })
-    .sort(
-      (a, b) => new Date(a.endsAt).getTime() - new Date(b.endsAt).getTime(),
-    ),
-);
-        setLoading(false);
-      },
-      () => setLoading(false),
-    );
-    return () => unsub();
+    });
+
+    // Sort by endsAt (earliest first)
+    processed.sort((a, b) => new Date(a.endsAt).getTime() - new Date(b.endsAt).getTime());
+
+    setAuctions(processed);
+    setLoading(false);
   }, []);
+
+  useEffect(() => {
+    // 1. Subscribe to all active auctions that end in the future
+    const q = query(
+      collection(db, "auctions"),
+      where("isActive", "==", true),
+      where("endTime", ">", Timestamp.now())
+    );
+
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        if (snap.empty) {
+          rawDocsRef.current = [];
+          setAuctions([]);
+          setLoading(false);
+          return;
+        }
+        
+        rawDocsRef.current = snap.docs;
+        processAuctions(snap.docs);
+      },
+      (err) => {
+        console.error("Live auctions subscription error:", err);
+        setLoading(false);
+      }
+    );
+
+    // 2. Set up an interval to periodically re-evaluate the 'live' filter
+    // so upcoming auctions become live automatically without a refresh.
+    const intervalId = setInterval(() => {
+      if (rawDocsRef.current.length > 0) {
+        processAuctions(rawDocsRef.current);
+      }
+    }, 1000);
+
+    return () => {
+      unsub();
+      clearInterval(intervalId);
+    };
+  }, [processAuctions]);
 
   return { auctions, loading };
 }

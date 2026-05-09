@@ -16,6 +16,7 @@ import {
   CreditCard,
   List,
   LayoutDashboard,
+  BarChart2,
 } from "lucide-react";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import toast from "react-hot-toast";
@@ -30,11 +31,12 @@ import TransactionsTable from "./components/TransactionsTable";
 import AddTransactionModal from "./components/AddTransactionModal";
 import NetProfitLoss from "./components/NetProfitLoss";
 import PaymentAccountsTab from "./components/PaymentAccountsTab";
+import AnalyticsDashboardTab from "./components/AnalyticsDashboardTab";
 import type { TransactionFormValues } from "./finance-data";
 
 // ─── Tab definitions ──────────────────────────────────────────────────────────
 
-type FinanceTab = "overview" | "transactions" | "accounts";
+type FinanceTab = "overview" | "transactions" | "accounts" | "analytics";
 
 const TABS: { key: FinanceTab; label: string; icon: React.ReactNode }[] = [
   { key: "overview", label: "Overview", icon: <LayoutDashboard size={15} /> },
@@ -43,6 +45,11 @@ const TABS: { key: FinanceTab; label: string; icon: React.ReactNode }[] = [
     key: "accounts",
     label: "Payment Accounts",
     icon: <CreditCard size={15} />,
+  },
+  {
+    key: "analytics",
+    label: "Analytics Dashboard",
+    icon: <BarChart2 size={15} />,
   },
 ];
 
@@ -294,6 +301,9 @@ export default function FinancePage() {
       {activeTab === "accounts" && (
         <PaymentAccountsTab transactions={transactions} loading={loading} />
       )}
+
+      {/* ANALYTICS tab */}
+      {activeTab === "analytics" && <AnalyticsDashboardTab />}
 
       {/* ── Add Transaction Modal (available on all tabs except accounts) ── */}
       <AddTransactionModal

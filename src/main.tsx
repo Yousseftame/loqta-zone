@@ -22,6 +22,7 @@ import { LeftSectionProvider } from './store/AdminContext/LeftSectionContext/Lef
 import { RightSectionProvider } from './store/AdminContext/RightSectionContext/RightSectionContext.tsx';
 import { SupplierProvider } from './store/AdminContext/SupplierContext/SupplierContext.tsx';
 import { PurchaseProvider } from './store/AdminContext/PurchaseContext/PurchaseContext.tsx';
+import { TicketProvider } from './store/AdminContext/TicketContext/TicketContext.tsx';
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -48,7 +49,9 @@ createRoot(document.getElementById("root")!).render(
                               <LeftSectionProvider>
                                 <RightSectionProvider>
                                 <PurchaseProvider>
-                                    <App />
+                                    <TicketProvider>
+                                      <App />
+                                    </TicketProvider>
                                   </PurchaseProvider>
                                 </RightSectionProvider>
                               </LeftSectionProvider>

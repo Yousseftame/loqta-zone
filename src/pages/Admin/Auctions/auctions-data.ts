@@ -37,6 +37,7 @@ export interface Auction {
   createdAt: Date;
   updatedAt: Date;
   createdBy: string;
+  enableChat: boolean;
 }
 
 export interface AuctionFormData {
@@ -52,6 +53,7 @@ export interface AuctionFormData {
   entryFee: string;
   isActive: boolean;
   lastOfferEnabled: boolean;
+  enableChat: boolean;
 }
 
 // ─── Auto-calculate status from dates ─────────────────────────────────────────
@@ -79,6 +81,7 @@ export const DEFAULT_AUCTION_FORM: AuctionFormData = {
   entryFee: "0",
   isActive: true,
   lastOfferEnabled: false,
+  enableChat: false,
 };
 
 // ─── Styles ───────────────────────────────────────────────────────────────────

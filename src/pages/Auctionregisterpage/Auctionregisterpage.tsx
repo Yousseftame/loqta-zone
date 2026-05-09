@@ -21,9 +21,10 @@ import PromoCodeModal, {
   type VoucherPreview,
 } from "@/components/shared/Promocodemodal";
 import { useTranslation } from "react-i18next";
-   import { buildActor } from "@/service/audit/auditLogger";
-    import { auth } from "@/firebase/firebase";
-    import { resolveProductTitle } from "@/lib/resolveLocalized";
+import AuctionTicketModal from "@/components/shared/AuctionTicketModal";
+import { buildActor } from "@/service/audit/auditLogger";
+import { auth } from "@/firebase/firebase";
+import { resolveProductTitle } from "@/lib/resolveLocalized";
 
 // ─── applyVoucher Cloud Function callable ────────────────────────────────────
 
@@ -117,6 +118,7 @@ export default function AuctionRegisterPage() {
   const [appliedVouchers, setAppliedVouchers] = useState<
     Record<string, AppliedVoucherEntry>
   >({});
+  const [showTicketFor, setShowTicketFor] = useState<string | null>(null);
 
   // Gallery
   const [imgIndex, setImgIndex] = useState(0);
@@ -396,9 +398,10 @@ export default function AuctionRegisterPage() {
         id: a.id,
         entryType: a.entryType,
         entryFee: a.entryFee,
-        title: resolveProductTitle(product?.title) ?? `Auction #${a.auctionNumber}`,
+        title:
+          resolveProductTitle(product?.title) ?? `Auction #${a.auctionNumber}`,
       }));
-       const actor = buildActor(auth.currentUser, "user");
+      const actor = buildActor(auth.currentUser, "user");
       const result = await joinAuctions(user.uid, auctionsToJoin, actor);
 
       if (result.errors.length > 0)
@@ -792,7 +795,9 @@ export default function AuctionRegisterPage() {
                   onError={(e: any) => (e.currentTarget.style.display = "none")}
                 />
               ) : (
-                <div className="lz-gallery-ph">{resolveProductTitle(product.title).charAt(0)}</div>
+                <div className="lz-gallery-ph">
+                  {resolveProductTitle(product.title).charAt(0)}
+                </div>
               )}
               {allImages.length > 1 && (
                 <div className="lz-dots">
@@ -828,9 +833,13 @@ export default function AuctionRegisterPage() {
             )}
 
             <div className="lz-pinfo">
-              <div className="lz-ptitle">{resolveProductTitle(product.title)}</div>
+              <div className="lz-ptitle">
+                {resolveProductTitle(product.title)}
+              </div>
               {product.description && (
-                <div className="lz-pdesc-top">{resolveProductTitle(product.description)}</div>
+                <div className="lz-pdesc-top">
+                  {resolveProductTitle(product.description)}
+                </div>
               )}
               <div className="lz-gold-line" />
               {/* <div className="lz-pricerow">
@@ -847,20 +856,26 @@ export default function AuctionRegisterPage() {
                   <div className="lz-srow">
                     <span className="lz-sk">{t("auctionRegister.brand")}</span>
                     <span className="lz-sdot" />
-                    <span className="lz-sv">{resolveProductTitle(product.brand)}</span>
+                    <span className="lz-sv">
+                      {resolveProductTitle(product.brand)}
+                    </span>
                   </div>
                 )}
                 {product.model && (
                   <div className="lz-srow">
                     <span className="lz-sk">{t("auctionRegister.model")}</span>
                     <span className="lz-sdot" />
-                    <span className="lz-sv">{resolveProductTitle(product.model)}</span>
+                    <span className="lz-sv">
+                      {resolveProductTitle(product.model)}
+                    </span>
                   </div>
                 )}
                 <div className="lz-srow">
                   <span className="lz-sk">{t("auctionRegister.category")}</span>
                   <span className="lz-sdot" />
-                  <span className="lz-sv">{resolveProductTitle(product.categoryName)}</span>
+                  <span className="lz-sv">
+                    {resolveProductTitle(product.categoryName)}
+                  </span>
                 </div>
                 <div className="lz-srow">
                   <span className="lz-sk">
@@ -1119,6 +1134,27 @@ export default function AuctionRegisterPage() {
                         </div>
                       </div>
                     )}
+
+                    {/* Support Ticket Button */}
+                    <div style={{ marginTop: 14 }}>
+                      <button
+                        className="lz-promo-btn"
+                        style={{
+                          borderStyle: "solid",
+                          borderColor: "rgba(201,169,110,0.3)",
+                          fontSize: "15px",
+                          padding: "11px 18px",
+                          fontWeight: 700,
+                          letterSpacing: "0.02em",
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowTicketFor(a.id);
+                        }}
+                      >
+                        📬 {isRtl ? "طلب مساعدة / دعم" : "Need Help? Open a Ticket"}
+                      </button>
+                    </div>
                   </div>
                 );
               })
@@ -1328,6 +1364,25 @@ export default function AuctionRegisterPage() {
                 setShowPromoFor(null);
               }}
               onClose={() => setShowPromoFor(null)}
+            />
+          );
+        })()}
+
+      {/* Support Ticket Modal */}
+      {showTicketFor &&
+        (() => {
+          const targetAuction = auctions.find((a) => a.id === showTicketFor);
+          if (!targetAuction || !user) return null;
+          return (
+            <AuctionTicketModal
+              auctionId={targetAuction.id}
+              auctionNumber={targetAuction.auctionNumber}
+              auctionStatus={targetAuction.status as any}
+              userId={user.uid}
+              userName={user.displayName || "User"}
+              userEmail={user.email || ""}
+              isRtl={isRtl}
+              onClose={() => setShowTicketFor(null)}
             />
           );
         })()}

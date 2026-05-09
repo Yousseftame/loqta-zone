@@ -107,6 +107,7 @@ export default function AuctionForm() {
           entryFee: String(a.entryFee),
           isActive: a.isActive,
           lastOfferEnabled: a.lastOfferEnabled,
+          enableChat: a.enableChat ?? false,
         });
       }
       setLoadingAuction(false);
@@ -925,6 +926,33 @@ export default function AuctionForm() {
                   }}
                 >
                   Enable Last Offer
+                </span>
+              }
+            />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={form.enableChat}
+                  onChange={(e) => field("enableChat", e.target.checked)}
+                  sx={{
+                    "& .MuiSwitch-switchBase.Mui-checked": {
+                      color: colors.primary,
+                    },
+                    "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
+                      bgcolor: colors.primary,
+                    },
+                  }}
+                />
+              }
+              label={
+                <span
+                  style={{
+                    fontSize: "0.875rem",
+                    fontWeight: 600,
+                    color: colors.textPrimary,
+                  }}
+                >
+                  Enable Chat
                 </span>
               }
             />

@@ -1056,7 +1056,15 @@
       "title": "This auction is locked",
       "desc": "You need to join this auction before you can view or place bids.",
       "joinBtn": "Join this Auction"
-    }
+    },
+    "liveChat": "Live Chat",
+    "chatOnline": "Online",
+    "chatClosed": "Closed",
+    "chatEmpty": "Be the first to say hello!",
+    "chatPlaceholder": "Type a message…",
+    "chatEnded": "Chat is closed — the auction has ended.",
+    "chatReadOnly": "Read-only",
+    "chatAdminView": "Admin view — messages are read-only."
   },
   "winnerCelebration": {
     "youWon": "You Won! 🎉",

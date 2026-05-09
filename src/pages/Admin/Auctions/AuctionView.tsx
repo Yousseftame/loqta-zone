@@ -36,6 +36,7 @@ import {
 } from "./auctions-data";
 import { useAuctions } from "@/store/AdminContext/AuctionContext/AuctionContext";
 import { useProducts } from "@/store/AdminContext/ProductContext/ProductsCotnext";
+import AuctionChat from "@/pages/AuctionLivePage/components/AuctionChat";
 
 const statusIcon = (s: AuctionStatus) =>
   s === "live" ? (
@@ -832,6 +833,28 @@ export default function AuctionView() {
           ))}
         </Box>
       </Paper>
+
+      {/* ── Chat Panel (read-only admin view) ── */}
+      {auction.enableChat && (
+        <Paper
+          elevation={0}
+          sx={{
+            borderRadius: 3,
+            border: `1px solid ${colors.border}`,
+            overflow: "hidden",
+            mt: 3,
+            background: "#0d1723",
+          }}
+        >
+          <AuctionChat
+            auctionId={auction.id}
+            userId="admin"
+            userName="Admin"
+            isEnded={auction.status === "ended"}
+            readOnly
+          />
+        </Paper>
+      )}
 
       {/* Delete Dialog */}
       <Dialog

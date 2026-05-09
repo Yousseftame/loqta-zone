@@ -75,6 +75,12 @@ const UserView = lazy(() => import("@/pages/Admin/User/UserView"));
 const VoucherForm = lazy(() => import("@/pages/Admin/Voucher/VoucherForm"));
 const VouchersList = lazy(() => import("@/pages/Admin/Voucher/VoucherList"));
 const VoucherView = lazy(() => import("@/pages/Admin/Voucher/VoucherView"));
+const AdminTicketsList = lazy(
+  () => import("@/pages/Admin/Tickets/AdminTicketsList"),
+);
+const AdminTicketView = lazy(
+  () => import("@/pages/Admin/Tickets/AdminTicketView"),
+);
 
 // ── Main / public pages ───────────────────────────────────────────────────────
 const AboutUs = lazy(() => import("@/pages/AboutUs/AboutUs"));
@@ -460,6 +466,16 @@ export const routes = createBrowserRouter([
             <Payment />
           </PermissionRoute>
         ),
+      },
+
+      // ── Support Tickets ───────────────────────────────────────────────────
+      {
+        path: "tickets",
+        element: <AdminTicketsList />,
+      },
+      {
+        path: "tickets/:id",
+        element: <AdminTicketView />,
       },
     ],
   },

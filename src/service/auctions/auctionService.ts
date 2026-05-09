@@ -60,6 +60,7 @@ function docToAuction(id: string, data: Record<string, any>): Auction {
     updatedAt:
       data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date(),
     createdBy: data.createdBy ?? "",
+    enableChat: data.enableChat ?? false,
   };
 }
 
@@ -85,6 +86,7 @@ function formToPayload(formData: AuctionFormData, createdBy = "") {
     entryFee: formData.entryType === "paid" ? Number(formData.entryFee) : 0,
     isActive: formData.isActive,
     lastOfferEnabled: formData.lastOfferEnabled,
+    enableChat: formData.enableChat,
     ...(createdBy && { createdBy }),
   };
 }
@@ -162,6 +164,7 @@ export async function createAuction(
     totalBids: 0,
     totalParticipants: 0,
     lastOfferEnabled: formData.lastOfferEnabled,
+    enableChat: formData.enableChat,
     createdAt: now,
     updatedAt: now,
     createdBy: createdByUid,
@@ -223,6 +226,7 @@ export async function updateAuction(
     totalBids: 0,
     totalParticipants: 0,
     lastOfferEnabled: formData.lastOfferEnabled,
+    enableChat: formData.enableChat,
     createdAt: new Date(),
     updatedAt: now,
     createdBy: "",

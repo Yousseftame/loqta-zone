@@ -10,6 +10,7 @@ import FeedbackIcon from "@mui/icons-material/Feedback";
 import AttachEmailIcon from "@mui/icons-material/AttachEmail";
 import LocalOfferIcon from "@mui/icons-material/LocalOffer";
 import AddCardIcon from "@mui/icons-material/AddCard";
+import SupportAgentIcon from "@mui/icons-material/SupportAgent";
 import LocalActivityIcon from "@mui/icons-material/LocalActivity";
 import {
   ChevronLeft,
@@ -29,6 +30,7 @@ import { signOut } from "firebase/auth";
 import { auth } from "@/firebase/firebase";
 import { useAuth } from "../../store/AuthContext/AuthContext";
 import { useContactFeedback } from "../../store/AdminContext/ContactFeedbackContext/ContactFeedbackContext";
+import { useTickets } from "../../store/AdminContext/TicketContext/TicketContext";
 import { auditLogger, buildActor } from "@/service/audit/auditLogger";
 
 // ── Logout Confirmation Modal ─────────────────────────────────────────────────
@@ -345,6 +347,7 @@ const Sidebar = () => {
   const location = useLocation();
   const { user, role } = useAuth();
   const { contactNewCount, feedbackNewCount } = useContactFeedback();
+  const { openCount: ticketOpenCount } = useTickets();
 
   // Close mobile sidebar on route change
   useEffect(() => {
@@ -399,6 +402,14 @@ const Sidebar = () => {
       icon: PanelRight,
       path: "/admin/right-section",
       roles: ["admin", "superAdmin"],
+    },
+    {
+      id: "Support Tickets",
+      label: "Support Tickets",
+      icon: SupportAgentIcon,
+      path: "/admin/tickets",
+      roles: ["admin", "superAdmin"],
+      badge: ticketOpenCount,
     },
     {
       id: "Category",
@@ -467,6 +478,7 @@ const Sidebar = () => {
       roles: ["admin", "superAdmin"],
       badge: feedbackNewCount,
     },
+
     {
       id: "last offer System",
       label: "Last Offer System",

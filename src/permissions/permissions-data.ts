@@ -28,7 +28,8 @@ export type PermissionModule =
   | "users"
   | "scheduling"
   | "payment"
-  | "auditLogs"; // ← NEW
+  | "auditLogs"
+  | "tickets"; // ← NEW
 
 export type AdminPermissions = Record<PermissionModule, ModulePermissions>;
 
@@ -54,6 +55,7 @@ export const MODULE_META: ModuleMeta[] = [
   // { key: "scheduling",      label: "Scheduling",        icon: "📅",  actions: ["read","update"] },
   // { key: "payment",         label: "Payments",          icon: "💳",  actions: ["read"] },
   // { key: "auditLogs",       label: "Audit Logs",        icon: "📋",  actions: ["read"] }, // ← NEW: read-only
+  { key: "tickets",         label: "Support Tickets",   icon: "🎫",  actions: ["read","update","delete"] },
 ];
 
 /** Full access — used as the base for superAdmin and the "Grant All" helper */
