@@ -70,35 +70,53 @@ export default function AdminTicketView() {
     return () => { cancelled = true; };
   }, [id]);
 
-  // ── Auto-fetch product info when not stored in ticket ────────────────────────
+  // ── Auto-fetch real-time auction status & product info ────────────────────────
   useEffect(() => {
     if (!ticket) return;
-    if (ticket.productName && ticket.productId) return; // already have it
     if (!ticket.auctionId) return;
 
     let cancelled = false;
     (async () => {
       try {
-        // 1. Get auction doc → productId
+        // 1. Get auction doc
         const auctSnap = await getDoc(doc(db, "auctions", ticket.auctionId));
         if (!auctSnap.exists() || cancelled) return;
-        const productId = auctSnap.data().productId as string | undefined;
-        if (!productId) return;
+        const data = auctSnap.data();
 
-        // 2. Get product doc → title
-        const prodSnap = await getDoc(doc(db, "products", productId));
-        if (!prodSnap.exists() || cancelled) return;
-        const title = prodSnap.data().title;
-        const name =
-          title && typeof title === "object"
-            ? (title["en"] || title["ar"] || Object.values(title)[0] || "")
-            : String(title ?? "");
+        // 2. Compute real-time status
+        const computeAuctionStatus = (startTime: any, endTime: any) => {
+          const now = new Date();
+          const start = startTime?.toDate?.() || new Date(startTime);
+          const end = endTime?.toDate?.() || new Date(endTime);
+          if (now < start) return "upcoming";
+          if (now >= start && now <= end) return "live";
+          return "ended";
+        };
+        const realStatus = computeAuctionStatus(data.startTime, data.endTime);
 
-        if (!cancelled) setProductInfo({ id: productId, name: String(name) });
+        if (realStatus !== ticket.auctionStatus && !cancelled) {
+          setTicket((prev) => (prev ? { ...prev, auctionStatus: realStatus } : prev));
+        }
+
+        // 3. Get product doc if needed
+        if (!ticket.productName || !ticket.productId) {
+          const productId = data.productId as string | undefined;
+          if (!productId) return;
+
+          const prodSnap = await getDoc(doc(db, "products", productId));
+          if (!prodSnap.exists() || cancelled) return;
+          const title = prodSnap.data().title;
+          const name =
+            title && typeof title === "object"
+              ? (title["en"] || title["ar"] || Object.values(title)[0] || "")
+              : String(title ?? "");
+
+          if (!cancelled) setProductInfo({ id: productId, name: String(name) });
+        }
       } catch { /* silent fail */ }
     })();
     return () => { cancelled = true; };
-  }, [ticket]);
+  }, [ticket?.id, ticket?.auctionId, ticket?.auctionStatus, ticket?.productId, ticket?.productName]);
 
   const handleSaveAll = async () => {
     if (!ticket) return;

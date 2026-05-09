@@ -13,7 +13,7 @@ export type TicketCategory =
   | "access_denied"
   | "other";
 
-export type AuctionStatus = "live" | "upcoming";
+export type AuctionStatus = "live" | "upcoming" | "ended";
 
 export interface SupportTicket {
   id: string;

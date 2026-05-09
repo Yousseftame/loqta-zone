@@ -36,6 +36,8 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useTickets } from "@/store/AdminContext/TicketContext/TicketContext";
+import { useAuctions } from "@/store/AdminContext/AuctionContext/AuctionContext";
+import { getAuctionStatusStyle } from "@/pages/Admin/Auctions/auctions-data";
 import {
   colors,
   TICKET_CATEGORY_LABELS,
@@ -68,6 +70,7 @@ export default function AdminTicketsList() {
   const navigate = useNavigate();
   const { tickets, loading, error, refreshTickets, changeTicketStatus, changeTicketPriority, removeTicket } =
     useTickets();
+  const { auctions, refreshAuctions } = useAuctions();
   const { can } = usePermissions();
 
   const [search, setSearch]               = useState("");
@@ -82,7 +85,12 @@ export default function AdminTicketsList() {
   const [deleting, setDeleting]           = useState(false);
 
   // ── Filter & Sort ─────────────────────────────────────────────────────────────
-  const filtered = tickets.filter((t) => {
+  const ticketsWithRealTimeStatus = tickets.map((t) => {
+    const auct = auctions.find((a) => a.id === t.auctionId);
+    return auct ? { ...t, auctionStatus: auct.status } : t;
+  });
+
+  const filtered = ticketsWithRealTimeStatus.filter((t) => {
     const s = search.toLowerCase();
     const matchSearch =
       !s ||
@@ -137,6 +145,11 @@ export default function AdminTicketsList() {
     } finally { setDeleting(false); }
   };
 
+  const handleRefresh = async () => {
+    await refreshTickets();
+    await refreshAuctions();
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "60vh" }}>
@@ -149,7 +162,7 @@ export default function AdminTicketsList() {
     return (
       <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, minHeight: "60vh", justifyContent: "center" }}>
         <p style={{ color: colors.error }}>{error}</p>
-        <Button onClick={refreshTickets} startIcon={<RefreshCw size={16} />} variant="contained" sx={{ bgcolor: colors.primary }}>
+        <Button onClick={handleRefresh} startIcon={<RefreshCw size={16} />} variant="contained" sx={{ bgcolor: colors.primary }}>
           Retry
         </Button>
       </Box>
@@ -170,7 +183,7 @@ export default function AdminTicketsList() {
             Manage auction entry support requests from users
           </p>
         </div>
-        <IconButton onClick={refreshTickets} sx={{ color: colors.primary, border: `1px solid ${colors.border}`, borderRadius: 2 }} title="Refresh">
+        <IconButton onClick={handleRefresh} sx={{ color: colors.primary, border: `1px solid ${colors.border}`, borderRadius: 2 }} title="Refresh">
           <RefreshCw size={18} />
         </IconButton>
       </Box>
@@ -280,7 +293,7 @@ export default function AdminTicketsList() {
                       <TableCell>
                         <div>
                           <p style={{ margin: 0, fontSize: "0.8rem", fontWeight: 600, color: colors.textPrimary }}>#{ticket.auctionNumber}</p>
-                          <span style={{ fontSize: "0.7rem", background: ticket.auctionStatus === "live" ? "#DCFCE7" : "#DBEAFE", color: ticket.auctionStatus === "live" ? "#16A34A" : "#2563EB", padding: "2px 8px", borderRadius: 99, fontWeight: 600 }}>
+                          <span style={{ fontSize: "0.7rem", background: getAuctionStatusStyle(ticket.auctionStatus as any)?.bg || "#DBEAFE", color: getAuctionStatusStyle(ticket.auctionStatus as any)?.color || "#2563EB", padding: "2px 8px", borderRadius: 99, fontWeight: 600 }}>
                             {ticket.auctionStatus}
                           </span>
                         </div>

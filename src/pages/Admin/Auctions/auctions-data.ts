@@ -90,6 +90,6 @@ export const getAuctionStatusStyle = (status: AuctionStatus) => {
   switch (status) {
     case "upcoming":  return { bg: "#EFF6FF", color: "#3B82F6" };
     case "live":      return { bg: "#DCFCE7", color: "#22C55E" };
-    case "ended":     return { bg: "#F1F5F9", color: "#64748B" };
+    case "ended":     return { bg: "#FEE2E2", color: "#DC2626" };
   }
 };
