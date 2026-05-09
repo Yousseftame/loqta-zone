@@ -53,7 +53,7 @@ function avatarColor(userId: string): [string, string] {
   for (let i = 0; i < userId.length; i++) {
     h = userId.charCodeAt(i) + ((h << 5) - h);
   }
-  return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
+  return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length] as [string, string];
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
