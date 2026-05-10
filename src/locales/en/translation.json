@@ -1189,6 +1189,20 @@
       "messageGeneric": "Thank you for participating in Auction #{{num}}. Hope to see you at our next one! 🎉",
       "seeYouSoon": "✦ See you at the next auction →"
     },
+    "auctionWinner": {
+      "titleProduct": "🎉 You Won {{product}}!",
+      "title": "🎉 You Won Auction #{{num}}!",
+      "message": "Amazing news! You are the winner of the auction for \"{{product}}\" (#{{num}}). Tap to complete your payment.",
+      "messageGeneric": "Amazing news! You are the winner of Auction #{{num}}. Tap to complete your payment.",
+      "seeYouSoon": "✦ Claim your item →"
+    },
+    "auctionLoser": {
+      "titleProduct": "🍀 Better luck next time",
+      "title": "🍀 Better luck next time",
+      "message": "Thank you for joining the auction for \"{{product}}\" (#{{num}}). Don't give up, your next win is just around the corner!",
+      "messageGeneric": "Thank you for participating in Auction #{{num}}. Don't give up, your next win is just around the corner!",
+      "seeYouSoon": "✦ See you at the next auction →"
+    },
     "auctionCreated": {
       "titleProduct": "New Auction — {{product}}",
       "title": "New Auction #{{num}} Is Live",

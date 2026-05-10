@@ -34,7 +34,9 @@ export type NotificationType =
   | "last_offer_available"
   | "auction_registered"
   | "auction_ended"
-  | "auction_created";
+  | "auction_created"
+  | "auction_winner"
+  | "auction_loser";
 
 
 export interface AppNotification {

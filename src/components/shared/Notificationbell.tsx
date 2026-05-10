@@ -145,6 +145,30 @@ function getLocalizedNotif(
           : t("notifications.auctionCreated.messageGeneric", { num, date }),
       };
     }
+    case "auction_winner": {
+      const num = (data.auctionNumber ?? 0) as number;
+      const product = resolveProductTitle(data.productTitle ?? "");
+      return {
+        title: product
+          ? t("notifications.auctionWinner.titleProduct", { product })
+          : t("notifications.auctionWinner.title", { num }),
+        message: product
+          ? t("notifications.auctionWinner.message", { product, num })
+          : t("notifications.auctionWinner.messageGeneric", { num }),
+      };
+    }
+    case "auction_loser": {
+      const num = (data.auctionNumber ?? 0) as number;
+      const product = resolveProductTitle(data.productTitle ?? "");
+      return {
+        title: product
+          ? t("notifications.auctionLoser.titleProduct", { product })
+          : t("notifications.auctionLoser.title", { num }),
+        message: product
+          ? t("notifications.auctionLoser.message", { product, num })
+          : t("notifications.auctionLoser.messageGeneric", { num }),
+      };
+    }
     default:
       return { title: notif.title, message: notif.message };
   }
@@ -1284,6 +1308,82 @@ function LastOfferAvailableIcon({ isUnread }: { isUnread: boolean }) {
   );
 }
 
+// ── AuctionWinnerIcon ─────────────────────────────────────────────────────────
+function AuctionWinnerIcon({ isUnread }: { isUnread: boolean }) {
+  return (
+    <div
+      style={{
+        width: 44,
+        height: 44,
+        borderRadius: 14,
+        flexShrink: 0,
+        marginTop: 1,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        position: "relative",
+        background: "rgba(74, 222, 128, 0.12)",
+        border: "1px solid rgba(74, 222, 128, 0.25)",
+      }}
+    >
+      <span style={{ fontSize: 24, lineHeight: 1, userSelect: "none" }}>🎉</span>
+      {isUnread && (
+        <span
+          style={{
+            position: "absolute",
+            bottom: -2,
+            right: -2,
+            width: 9,
+            height: 9,
+            borderRadius: "50%",
+            background: "#4ade80",
+            border: "2px solid #080d1a",
+            animation: "nfDotPulse 1.8s ease-in-out infinite",
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── AuctionLoserIcon ──────────────────────────────────────────────────────────
+function AuctionLoserIcon({ isUnread }: { isUnread: boolean }) {
+  return (
+    <div
+      style={{
+        width: 44,
+        height: 44,
+        borderRadius: 14,
+        flexShrink: 0,
+        marginTop: 1,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        position: "relative",
+        background: "rgba(255, 157, 92, 0.12)",
+        border: "1px solid rgba(255, 157, 92, 0.25)",
+      }}
+    >
+      <span style={{ fontSize: 24, lineHeight: 1, userSelect: "none" }}>🍀</span>
+      {isUnread && (
+        <span
+          style={{
+            position: "absolute",
+            bottom: -2,
+            right: -2,
+            width: 9,
+            height: 9,
+            borderRadius: "50%",
+            background: "#ff9d5c",
+            border: "2px solid #080d1a",
+            animation: "nfDotPulse 1.8s ease-in-out infinite",
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
 // ── TYPE_CONFIG ───────────────────────────────────────────────────────────────
 const TYPE_CONFIG: Record<
   NotificationType,
@@ -1373,6 +1473,18 @@ const TYPE_CONFIG: Record<
     bg: "rgba(201,169,110,0.08)",
     border: "rgba(201,169,110,0.3)",
   },
+  auction_winner: {
+    Icon: null,
+    color: "#4ade80",
+    bg: "rgba(74, 222, 128, 0.1)",
+    border: "rgba(74, 222, 128, 0.3)",
+  },
+  auction_loser: {
+    Icon: null,
+    color: "#ff9d5c",
+    bg: "rgba(255, 157, 92, 0.1)",
+    border: "rgba(255, 157, 92, 0.3)",
+  },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1418,7 +1530,8 @@ export const NotificationBell = () => {
     if (
       notif.type === "payment_confirmed" ||
       notif.type === "voucher_created" ||
-      notif.type === "auction_ended"
+      notif.type === "auction_ended" ||
+      notif.type === "auction_loser"
     ) {
       markRead(notif.id);
       return;
@@ -1452,6 +1565,10 @@ export const NotificationBell = () => {
       const pid = d.productId ?? "";
       if (pid) navigate(`/auctions/register/${pid}`);
       else if (notif.auctionId) navigate(`/auctions/${notif.auctionId}`);
+    }
+    if (notif.type === "auction_winner") {
+      // Just navigate to the auction page if it's there
+      if (notif.auctionId) navigate(`/auctions/${notif.auctionId}`);
     }
   };
 
@@ -1518,11 +1635,14 @@ export const NotificationBell = () => {
                   const isRegisteredType = notif.type === "auction_registered";
                   const isAuctionEndedType = notif.type === "auction_ended";
                   const isAuctionCreatedType = notif.type === "auction_created";
+                  const isAuctionWinnerType = notif.type === "auction_winner";
+                  const isAuctionLoserType = notif.type === "auction_loser";
 
                   const isClickable =
                     !isPaymentConfirmed &&
                     !isVoucherType &&
-                    !isAuctionEndedType;
+                    !isAuctionEndedType &&
+                    !isAuctionLoserType;
 
                   const cfg = TYPE_CONFIG[notif.type] ?? TYPE_CONFIG.promo;
 
@@ -1541,6 +1661,8 @@ export const NotificationBell = () => {
                         isRegisteredType ? "registered-item" : "",
                         isAuctionEndedType ? "ended-item" : "",
                         isAuctionCreatedType ? "auction-created-item" : "",
+                        isAuctionWinnerType ? "winner-item" : "",
+                        isAuctionLoserType ? "loser-item" : "",
                       ]
                         .filter(Boolean)
                         .join(" ")}
@@ -1550,11 +1672,11 @@ export const NotificationBell = () => {
                       {!notif.isRead && (
                         <span
                           className={`nf-unread-bar${
-                            isPaymentConfirmed
+                            isPaymentConfirmed || isAuctionWinnerType
                               ? " nf-unread-green"
                               : isRegisteredType
                                 ? " nf-unread-teal"
-                                : isAuctionEndedType
+                                : isAuctionEndedType || isAuctionLoserType
                                   ? " nf-unread-gold-dim"
                                   : isAuctionCreatedType
                                     ? " nf-unread-gold-bright"
@@ -1574,6 +1696,10 @@ export const NotificationBell = () => {
                         <AuctionRegisteredIcon isUnread={!notif.isRead} />
                       ) : isAuctionEndedType ? (
                         <AuctionEndedIcon isUnread={!notif.isRead} />
+                      ) : isAuctionWinnerType ? (
+                        <AuctionWinnerIcon isUnread={!notif.isRead} />
+                      ) : isAuctionLoserType ? (
+                        <AuctionLoserIcon isUnread={!notif.isRead} />
                       ) : isAuctionCreatedType ? (
                         <AuctionCreatedIcon
                           isUnread={!notif.isRead}

@@ -6,7 +6,7 @@
 
 import { onDocumentUpdated } from "firebase-functions/v2/firestore";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
-import { getMessaging } from "firebase-admin/messaging";
+import { getMessaging, MulticastMessage } from "firebase-admin/messaging";
 import { resolveProductTitle } from "../shared/i18nHelpers";
 
 const db        = getFirestore();
@@ -21,7 +21,7 @@ const DEAD_TOKEN_CODES = new Set([
 ]);
 
 const FCM_CHUNK_SIZE      = 500;
-const FIRESTORE_BATCH_MAX = 499;
+const FIRESTORE_BATCH_MAX = 249;
 
 function chunk<T>(arr: T[], size: number): T[][] {
   const out: T[][] = [];
@@ -48,6 +48,9 @@ export const onAuctionEnded = onDocumentUpdated(
 
     const auctionNumber: number = after.auctionNumber ?? 0;
     const productId: string     = after.productId     ?? "";
+    const winnerId: string      = after.winnerId      ?? "";
+    
+    const isRealWinner = winnerId && winnerId !== "NO_WINNER";
 
     let productTitle = "";
     if (productId) {
@@ -77,28 +80,59 @@ export const onAuctionEnded = onDocumentUpdated(
       return;
     }
 
-    const titleEn = `Auction #${auctionNumber} Has Ended`;
-    const bodyEn  = productTitle
-      ? `Thank you for participating in the auction for "${productTitle}" (#${auctionNumber}). We hope to see you in our next auction soon! 🎉`
-      : `Thank you for participating in Auction #${auctionNumber}. We hope to see you in our next auction soon! 🎉`;
-
+    // 1. Create Firestore Notifications
     await Promise.allSettled(
       chunk(participantIds, FIRESTORE_BATCH_MAX).map(async (uids) => {
         const batch = db.batch();
         uids.forEach((uid) => {
+          let titleEnEnded = `Auction #${auctionNumber} Has Ended`;
+          let bodyEnEnded  = productTitle
+            ? `Thank you for participating in the auction for "${productTitle}" (#${auctionNumber}). We hope to see you in our next auction soon! 🎉`
+            : `Thank you for participating in Auction #${auctionNumber}. We hope to see you in our next auction soon! 🎉`;
+
+          // ALWAYS send auction_ended to everyone
           batch.set(
             db.collection("users").doc(uid).collection("notifications").doc(),
             { type: "auction_ended", auctionId, productId: productId ?? "", productTitle,
-              auctionNumber, title: titleEn, message: bodyEn, isRead: false,
+              auctionNumber, title: titleEnEnded, message: bodyEnEnded, isRead: false,
               createdAt: FieldValue.serverTimestamp() },
           );
+
+          // If there is a real winner, additionally send winner/loser notification
+          if (isRealWinner) {
+            let type: string;
+            let titleEn: string;
+            let bodyEn: string;
+            if (uid === winnerId) {
+              type = "auction_winner";
+              titleEn = `🎉 You Won Auction #${auctionNumber}!`;
+              bodyEn = productTitle
+                ? `Amazing news! You are the winner of the auction for "${productTitle}" (#${auctionNumber}). Tap to complete your payment.`
+                : `Amazing news! You are the winner of Auction #${auctionNumber}. Tap to complete your payment.`;
+            } else {
+              type = "auction_loser";
+              titleEn = `🍀 Better luck next time`;
+              bodyEn = productTitle
+                ? `Thank you for joining the auction for "${productTitle}" (#${auctionNumber}). Don't give up, your next win is just around the corner!`
+                : `Thank you for participating in Auction #${auctionNumber}. Don't give up, your next win is just around the corner!`;
+            }
+
+            batch.set(
+              db.collection("users").doc(uid).collection("notifications").doc(),
+              { type, auctionId, productId: productId ?? "", productTitle,
+                auctionNumber, title: titleEn, message: bodyEn, isRead: false,
+                createdAt: FieldValue.serverTimestamp() },
+            );
+          }
         });
         try { await batch.commit(); }
         catch (err) { console.error("[auctionEnded] Batch write failed:", err); }
       }),
     );
 
+    // 2. Resolve Tokens
     const tokenToUid = new Map<string, string>();
+    const tokensByUid = new Map<string, string[]>();
 
     await Promise.allSettled(
       participantIds.map(async (uid) => {
@@ -108,6 +142,8 @@ export const onAuctionEnded = onDocumentUpdated(
           const rawTokens: string[] = userSnap.data()?.fcmTokens ?? [];
           const unique = [...new Set(rawTokens.filter((t) => typeof t === "string" && t.length > 0))];
           unique.forEach((t) => tokenToUid.set(t, uid));
+          tokensByUid.set(uid, unique);
+          
           if (unique.length < rawTokens.length) {
             await db.collection("users").doc(uid).update({ fcmTokens: unique });
           }
@@ -115,25 +151,51 @@ export const onAuctionEnded = onDocumentUpdated(
       }),
     );
 
-    const allTokens = Array.from(tokenToUid.keys());
+    const winnerTokens: string[] = [];
+    const loserTokens: string[] = [];
+    const allTokensArr: string[] = [];
 
-    if (allTokens.length > 0) {
+    for (const [uid, tokens] of tokensByUid.entries()) {
+      allTokensArr.push(...tokens);
+      if (isRealWinner) {
+        if (uid === winnerId) winnerTokens.push(...tokens);
+        else loserTokens.push(...tokens);
+      }
+    }
+
+    // Helper to send multicast
+    const sendFCM = async (
+      tokens: string[],
+      type: string,
+      titleEn: string,
+      bodyEn: string
+    ) => {
+      if (tokens.length === 0) return;
+
       await Promise.allSettled(
-        chunk(allTokens, FCM_CHUNK_SIZE).map(async (tokens) => {
+        chunk(tokens, FCM_CHUNK_SIZE).map(async (batchTokens) => {
           try {
-            const response = await messaging.sendEachForMulticast({
-              tokens,
-              data: { type: "auction_ended", auctionId, productId: productId ?? "",
-                productTitle, auctionNumber: String(auctionNumber), title: titleEn, body: bodyEn },
-            });
+            const message: MulticastMessage = {
+              tokens: batchTokens,
+              data: {
+                type,
+                auctionId,
+                productId: productId ?? "",
+                productTitle,
+                auctionNumber: String(auctionNumber),
+                title: titleEn,
+                body: bodyEn,
+              },
+            };
+            const response = await messaging.sendEachForMulticast(message);
 
             const deadByUid = new Map<string, string[]>();
             response.responses.forEach((res, idx) => {
               if (!res.success && DEAD_TOKEN_CODES.has(res.error?.code ?? "")) {
-                const uid = tokenToUid.get(tokens[idx]);
+                const uid = tokenToUid.get(batchTokens[idx]);
                 if (uid) {
                   const arr = deadByUid.get(uid) ?? [];
-                  arr.push(tokens[idx]);
+                  arr.push(batchTokens[idx]);
                   deadByUid.set(uid, arr);
                 }
               }
@@ -147,9 +209,39 @@ export const onAuctionEnded = onDocumentUpdated(
               );
             }
           } catch (err) {
-            console.error("[auctionEnded] FCM chunk error:", err);
+            console.error(`[auctionEnded] FCM chunk error (${type}):`, err);
           }
-        }),
+        })
+      );
+    };
+
+    // 3. Send FCM Messages
+    // Always send auction_ended to everyone
+    await sendFCM(
+      allTokensArr,
+      "auction_ended",
+      `Auction #${auctionNumber} Has Ended`,
+      productTitle
+        ? `Thank you for participating in the auction for "${productTitle}" (#${auctionNumber}). We hope to see you in our next auction soon! 🎉`
+        : `Thank you for participating in Auction #${auctionNumber}. We hope to see you in our next auction soon! 🎉`
+    );
+
+    if (isRealWinner) {
+      await sendFCM(
+        winnerTokens,
+        "auction_winner",
+        `🎉 You Won Auction #${auctionNumber}!`,
+        productTitle
+          ? `Amazing news! You are the winner of the auction for "${productTitle}" (#${auctionNumber}). Tap to complete your payment.`
+          : `Amazing news! You are the winner of Auction #${auctionNumber}. Tap to complete your payment.`
+      );
+      await sendFCM(
+        loserTokens,
+        "auction_loser",
+        `🍀 Better luck next time`,
+        productTitle
+          ? `Thank you for joining the auction for "${productTitle}" (#${auctionNumber}). Don't give up, your next win is just around the corner!`
+          : `Thank you for participating in Auction #${auctionNumber}. Don't give up, your next win is just around the corner!`
       );
     }
 
