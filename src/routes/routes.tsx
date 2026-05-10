@@ -28,6 +28,7 @@ const RightSectionList = lazy(
   () => import("@/pages/Admin/RightSection/RightSectionList"),
 );
 const AuctionForm = lazy(() => import("@/pages/Admin/Auctions/AuctionForm"));
+const DecreasingAuctionForm = lazy(() => import("@/pages/Admin/Auctions/DecreasingAuctionForm"));
 const AuctionsList = lazy(() => import("@/pages/Admin/Auctions/AuctionsList"));
 const AuctionView = lazy(() => import("@/pages/Admin/Auctions/AuctionView"));
 const BidsList = lazy(() => import("@/pages/Admin/Biding/BidsList"));
@@ -290,6 +291,14 @@ export const routes = createBrowserRouter([
         element: (
           <PermissionRoute module="auctions" action="create">
             <AuctionForm />
+          </PermissionRoute>
+        ),
+      },
+      {
+        path: "auctions/add-decreasing",
+        element: (
+          <PermissionRoute module="auctions" action="create">
+            <DecreasingAuctionForm />
           </PermissionRoute>
         ),
       },

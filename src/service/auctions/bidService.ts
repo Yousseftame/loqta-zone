@@ -97,7 +97,7 @@ export async function placeBid({
       }
 
       const currentBid: number        = auction.currentBid ?? 0;
-      const bidType: "fixed" | "free" = auction.bidType ?? "free";
+      const bidType: string = auction.bidType ?? "free";
       const minimumIncrement: number   = auction.minimumIncrement ?? 0;
       const fixedBidValue: number      = auction.fixedBidValue ?? 0;
 
@@ -108,6 +108,11 @@ export async function placeBid({
             `Fixed bid must be exactly ${expected.toLocaleString()} EGP.`,
           );
         }
+      } else if (bidType === "decreasing") {
+        if ((auction.totalBids ?? 0) > 0) {
+          throw new BidValidationError("This auction has already ended.");
+        }
+        // amount is determined by client based on time, we just accept it.
       } else {
         const minimum = currentBid + minimumIncrement;
         if (amount < minimum) {
@@ -124,10 +129,17 @@ export async function placeBid({
       //    updatedAt is intentionally NOT written here because serverTimestamp()
       //    is a transform that appears unpredictably in affectedKeys(), breaking
       //    the rule under concurrent load.
-      transaction.update(auctionRef, {
+      const updateData: any = {
         currentBid: amount,
         totalBids: (auction.totalBids ?? 0) + 1,
-      });
+      };
+      
+      if (bidType === "decreasing") {
+        updateData.endTime = serverTimestamp();
+        updateData.isActive = false;
+      }
+
+      transaction.update(auctionRef, updateData);
 
       // 2. Create bid doc — store bidderName directly so history doesn't need
       //    a secondary read of users/{uid} (which would require broader read rules).

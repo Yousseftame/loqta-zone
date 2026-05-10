@@ -101,6 +101,7 @@ export default function AuctionForm() {
           minimumIncrement: String(a.minimumIncrement),
           bidType: a.bidType,
           fixedBidValue: a.fixedBidValue != null ? String(a.fixedBidValue) : "",
+          minimumPrice: a.minimumPrice != null ? String(a.minimumPrice) : "",
           startTime: toDatetimeLocal(a.startTime),
           endTime: toDatetimeLocal(a.endTime),
           entryType: a.entryType,

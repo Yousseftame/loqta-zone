@@ -65,6 +65,13 @@ service cloud.firestore {
           request.resource.data.totalBids == resource.data.totalBids + 1 &&
           resource.data.endTime > request.time &&
           resource.data.isActive == true &&
+          !isRestricted(auctionId)) ||
+        (request.auth != null &&
+          resource.data.get("bidType", "") == "decreasing" &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(["currentBid", "totalBids", "endTime", "isActive"]) &&
+          request.resource.data.totalBids == resource.data.totalBids + 1 &&
+          resource.data.endTime > request.time &&
+          resource.data.isActive == true &&
           !isRestricted(auctionId))
       );
 
@@ -124,6 +131,9 @@ service cloud.firestore {
         allow write: if isAdmin();
       }
     }
+    
+    
+
 
     // ── Products ──────────────────────────────────────────────────────────────
     match /products/{productId} {
@@ -225,15 +235,26 @@ match /suppliers/{supplierId} {
            in ["admin", "superAdmin"];
       allow update, delete: if false;
     }
-
-    // ── Auction Support Tickets ───────────────────────────────────────────────
+    
+    
+      // ── Auction Support Tickets ───────────────────────────────────────────────
     match /auctionSupportTickets/{ticketId} {
       allow create:               if request.auth != null;
       allow read:                 if isAdmin() || (request.auth != null && resource.data.userId == request.auth.uid);
       allow update, delete:       if isAdmin();
     }
     
+    // ── Payment Accounts ──────────────────────────────────────────────────────────
+match /paymentAccounts/{accountId} {
+  allow read, write: if isAdmin();
+}
  
+// ── Purchases ─────────────────────────────────────────────────────────────────
+match /purchases/{purchaseId} {
+  allow read, write: if isAdmin();
+}
+
+
 
 
   }

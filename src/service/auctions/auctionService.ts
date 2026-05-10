@@ -43,12 +43,13 @@ function docToAuction(id: string, data: Record<string, any>): Auction {
     minimumIncrement: data.minimumIncrement ?? 0,
     bidType: data.bidType ?? "fixed",
     fixedBidValue: data.fixedBidValue ?? null,
+    minimumPrice: data.minimumPrice ?? undefined,
     startTime,
     endTime,
     entryType: data.entryType ?? "free",
     entryFee: data.entryFee ?? 0,
     // Always re-compute status from dates — source of truth
-    status: computeAuctionStatus(startTime, endTime),
+    status: computeAuctionStatus(startTime, endTime, data.isActive ?? true),
     isActive: data.isActive ?? true,
     winnerId: data.winnerId ?? null,
     winningBid: data.winningBid ?? null,
@@ -79,6 +80,10 @@ function formToPayload(formData: AuctionFormData, createdBy = "") {
     fixedBidValue:
       formData.bidType === "fixed" && formData.fixedBidValue
         ? Number(formData.fixedBidValue)
+        : null,
+    minimumPrice:
+      formData.bidType === "decreasing" && formData.minimumPrice !== ""
+        ? Number(formData.minimumPrice)
         : null,
     startTime,
     endTime,
@@ -153,11 +158,15 @@ export async function createAuction(
       formData.bidType === "fixed" && formData.fixedBidValue
         ? Number(formData.fixedBidValue)
         : null,
+    minimumPrice:
+      formData.bidType === "decreasing" && formData.minimumPrice !== ""
+        ? Number(formData.minimumPrice)
+        : undefined,
     startTime: new Date(formData.startTime),
     endTime: new Date(formData.endTime),
     entryType: formData.entryType,
     entryFee: formData.entryType === "paid" ? Number(formData.entryFee) : 0,
-    status: computeAuctionStatus(new Date(formData.startTime), new Date(formData.endTime)),
+    status: computeAuctionStatus(new Date(formData.startTime), new Date(formData.endTime), formData.isActive),
     isActive: formData.isActive,
     winnerId: null,
     winningBid: null,
@@ -215,11 +224,15 @@ export async function updateAuction(
       formData.bidType === "fixed" && formData.fixedBidValue
         ? Number(formData.fixedBidValue)
         : null,
+    minimumPrice:
+      formData.bidType === "decreasing" && formData.minimumPrice !== ""
+        ? Number(formData.minimumPrice)
+        : undefined,
     startTime: new Date(formData.startTime),
     endTime: new Date(formData.endTime),
     entryType: formData.entryType,
     entryFee: formData.entryType === "paid" ? Number(formData.entryFee) : 0,
-    status: computeAuctionStatus(new Date(formData.startTime), new Date(formData.endTime)),
+    status: computeAuctionStatus(new Date(formData.startTime), new Date(formData.endTime), formData.isActive),
     isActive: formData.isActive,
     winnerId: null,
     winningBid: null,

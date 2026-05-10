@@ -221,25 +221,46 @@ export default function AuctionsList() {
             <RefreshCw size={18} />
           </IconButton>
           {can("auctions", "create") && (
-            <Button
-              variant="contained"
-              startIcon={<Plus size={18} />}
-              onClick={() => navigate("/admin/auctions/add")}
-              sx={{
-                bgcolor: colors.primary,
-                color: "white",
-                textTransform: "none",
-                px: 3,
-                py: 1.5,
-                borderRadius: 2,
-                fontWeight: 600,
-                boxShadow: "none",
-                width: { xs: "100%", sm: "auto" },
-                "&:hover": { bgcolor: "#111" },
-              }}
-            >
-              Add New Auction
-            </Button>
+            <>
+              <Button
+                variant="contained"
+                startIcon={<Plus size={18} />}
+                onClick={() => navigate("/admin/auctions/add-decreasing")}
+                sx={{
+                  bgcolor: colors.primary,
+                  color: "white",
+                  textTransform: "none",
+                  px: 3,
+                  py: 1.5,
+                  borderRadius: 2,
+                  fontWeight: 600,
+                  boxShadow: "none",
+                  width: { xs: "100%", sm: "auto" },
+                  "&:hover": { bgcolor: "#111" },
+                }}
+              >
+                Add Decreasing Auction
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={<Plus size={18} />}
+                onClick={() => navigate("/admin/auctions/add")}
+                sx={{
+                  bgcolor: colors.primary,
+                  color: "white",
+                  textTransform: "none",
+                  px: 3,
+                  py: 1.5,
+                  borderRadius: 2,
+                  fontWeight: 600,
+                  boxShadow: "none",
+                  width: { xs: "100%", sm: "auto" },
+                  "&:hover": { bgcolor: "#111" },
+                }}
+              >
+                Add New Auction
+              </Button>
+            </>
           )}
         </Box>
       </Box>
@@ -677,11 +698,15 @@ export default function AuctionsList() {
                             bgcolor:
                               auction.bidType === "fixed"
                                 ? "#EFF6FF"
-                                : "#F3E8FF",
+                                : auction.bidType === "free"
+                                ? "#F3E8FF"
+                                : "#FEF2F2",
                             color:
                               auction.bidType === "fixed"
                                 ? "#3B82F6"
-                                : "#7C3AED",
+                                : auction.bidType === "free"
+                                ? "#7C3AED"
+                                : "#DC2626",
                             fontWeight: 700,
                             fontSize: "0.7rem",
                             textTransform: "capitalize",

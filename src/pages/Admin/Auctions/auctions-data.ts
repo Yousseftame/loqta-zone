@@ -1,7 +1,7 @@
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type AuctionStatus = "upcoming" | "live" | "ended";
-export type BidType = "fixed" | "free";
+export type BidType = "fixed" | "free" | "decreasing";
 export type EntryType = "free" | "paid";
 
 export interface Auction {
@@ -15,6 +15,7 @@ export interface Auction {
   minimumIncrement: number;
   bidType: BidType;
   fixedBidValue: number | null;   // only used when bidType === "fixed"
+  minimumPrice?: number;          // only used when bidType === "decreasing"
   // Time
   startTime: Date;
   endTime: Date;
@@ -47,6 +48,7 @@ export interface AuctionFormData {
   minimumIncrement: string;
   bidType: BidType;
   fixedBidValue: string;          // only relevant when bidType === "fixed"
+  minimumPrice: string;           // only relevant when bidType === "decreasing"
   startTime: string;              // ISO string from datetime-local input
   endTime: string;
   entryType: EntryType;
@@ -57,7 +59,8 @@ export interface AuctionFormData {
 }
 
 // ─── Auto-calculate status from dates ─────────────────────────────────────────
-export function computeAuctionStatus(startTime: Date, endTime: Date): AuctionStatus {
+export function computeAuctionStatus(startTime: Date, endTime: Date, isActive: boolean = true): AuctionStatus {
+  if (!isActive) return "ended";
   const now = new Date();
   if (now < startTime) return "upcoming";
   if (now >= startTime && now <= endTime) return "live";
@@ -75,6 +78,7 @@ export const DEFAULT_AUCTION_FORM: AuctionFormData = {
   minimumIncrement: "",
   bidType: "fixed",
   fixedBidValue: "",
+  minimumPrice: "",
   startTime: "",
   endTime: "",
   entryType: "free",

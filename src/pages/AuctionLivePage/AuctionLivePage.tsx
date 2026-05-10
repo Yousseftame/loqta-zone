@@ -35,8 +35,9 @@ interface AuctionData {
   currentBid: number;
   startingPrice: number;
   minimumIncrement: number;
-  bidType: "fixed" | "free";
+  bidType: "fixed" | "free" | "decreasing";
   fixedBidValue: number | null;
+  minimumPrice?: number;
   endTime: Date;
   startTime: Date;
   isActive: boolean;
@@ -74,7 +75,8 @@ function toDate(v: any): Date {
 
 type AuctionStatus = "upcoming" | "live" | "ended";
 
-function computeStatus(startTime: Date, endTime: Date): AuctionStatus {
+function computeStatus(startTime: Date, endTime: Date, isActive: boolean): AuctionStatus {
+  if (!isActive) return "ended";
   const now = new Date();
   if (now < startTime) return "upcoming";
   if (now <= endTime) return "live";
@@ -123,6 +125,7 @@ export default function AuctionLivePage() {
   const [liveStatus, setLiveStatus] = useState<AuctionStatus>("upcoming");
   const [countdown, setCountdown] = useState("");
   const [countdownMs, setCountdownMs] = useState(0);
+  const [decreasingPrice, setDecreasingPrice] = useState(0);
   const statusIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fetchedUserIds = useRef<Set<string>>(new Set());
   const [userNames, setUserNames] = useState<Record<string, string>>({});
@@ -212,6 +215,7 @@ export default function AuctionLivePage() {
           minimumIncrement: d.minimumIncrement ?? 0,
           bidType: d.bidType ?? "free",
           fixedBidValue: d.fixedBidValue ?? null,
+          minimumPrice: d.minimumPrice ?? undefined,
           endTime: toDate(d.endTime),
           startTime: toDate(d.startTime),
           isActive: d.isActive ?? true,
@@ -237,7 +241,7 @@ export default function AuctionLivePage() {
     if (!auction) return;
     if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
     const tick = () => {
-      const status = computeStatus(auction.startTime, auction.endTime);
+      const status = computeStatus(auction.startTime, auction.endTime, auction.isActive);
       setLiveStatus(status);
       const now = new Date();
       const target =
@@ -245,6 +249,15 @@ export default function AuctionLivePage() {
       const ms = target.getTime() - now.getTime();
       setCountdownMs(ms);
       setCountdown(fmtCountdown(ms));
+      
+      if (auction.bidType === "decreasing") {
+        const totalMs = auction.endTime.getTime() - auction.startTime.getTime();
+        const elapsedMs = now.getTime() - auction.startTime.getTime();
+        const progress = Math.max(0, Math.min(1, elapsedMs / totalMs));
+        const current = auction.startingPrice - progress * (auction.startingPrice - (auction.minimumPrice ?? 0));
+        setDecreasingPrice(current);
+      }
+
       if (status === "ended" && !triggerFiredRef.current && auctionId && user) {
         triggerFiredRef.current = true;
         const resolve = httpsCallable(functions, "triggerResolveAuction");
@@ -545,10 +558,14 @@ export default function AuctionLivePage() {
                   <div className="al-bidlabel">
                     {isEnded
                       ? t("auctionLive.winningBid")
+                      : auction.bidType === "decreasing"
+                      ? (isRtl ? "السعر الحالي" : "Current Price")
                       : t("auctionLive.currentBid")}
                   </div>
                   <div className="al-bidnum">
-                    {auction.currentBid.toLocaleString()}
+                    {auction.bidType === "decreasing" && !isEnded
+                      ? Math.floor(decreasingPrice).toLocaleString()
+                      : auction.currentBid.toLocaleString()}
                     <span className="al-bidcur">{cur}</span>
                   </div>
                 </div>
@@ -573,14 +590,44 @@ export default function AuctionLivePage() {
                   ? t("auctionLive.bidType.fixed", {
                       amount: (auction.fixedBidValue ?? 0).toLocaleString(),
                     })
-                  : t("auctionLive.bidType.free", {
+                  : auction.bidType === "free"
+                  ? t("auctionLive.bidType.free", {
                       amount: auction.minimumIncrement.toLocaleString(),
-                    })}
+                    })
+                  : (isRtl ? "مزاد تنازلي - انقر للفوز!" : "Decreasing Auction - Buzz to Win!")}
               </div>
 
               {isParticipant ? (
                 <>
-                  {auction.bidType === "fixed" ? (
+                  {auction.bidType === "decreasing" ? (
+                    <button
+                      className={`al-bidbtn ${canBid ? "go" : "off"}`}
+                      onClick={() => handleBid(Math.floor(decreasingPrice))}
+                      disabled={!canBid}
+                      style={{
+                        background: canBid ? "linear-gradient(135deg, #FF3B30, #FF2D55)" : undefined,
+                        boxShadow: canBid ? "0 8px 24px rgba(255, 59, 48, 0.4)" : undefined,
+                        fontSize: "1.2rem",
+                        padding: "16px",
+                        textTransform: "uppercase",
+                        letterSpacing: "2px",
+                      }}
+                    >
+                      {bidding ? (
+                        <>
+                          <div className="al-spinner" /> {isRtl ? "جاري التأكيد..." : "Buzzing..."}
+                        </>
+                      ) : isUpcoming ? (
+                        t("auctionLive.bidBtn.upcoming", { time: fmtTime(auction.startTime) })
+                      ) : isEnded ? (
+                        t("auctionLive.bidBtn.ended")
+                      ) : (
+                        <>
+                          🔴 {isRtl ? "اضغط للفوز" : "BUZZ TO WIN"} 🔴
+                        </>
+                      )}
+                    </button>
+                  ) : auction.bidType === "fixed" ? (
                     <button
                       className={`al-bidbtn ${canBid ? "go" : "off"}`}
                       onClick={() => handleBid(computeFixedBid())}
@@ -650,7 +697,7 @@ export default function AuctionLivePage() {
                       </button>
                     </div>
                   )}
-                  {isLive && (
+                  {isLive && auction.bidType !== "decreasing" && (
                     <div className="al-biddesc">
                       {auction.bidType === "fixed"
                         ? t("auctionLive.bidDesc.fixed", {

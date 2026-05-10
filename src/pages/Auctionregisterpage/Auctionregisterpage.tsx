@@ -59,7 +59,7 @@ interface Auction {
   auctionNumber: number;
   startingPrice: number;
   minimumIncrement: number;
-  bidType: "fixed" | "free";
+  bidType: "fixed" | "free" | "decreasing";
   fixedBidValue: number | null;
   startTime: Date;
   endTime: Date;
@@ -972,6 +972,22 @@ export default function AuctionRegisterPage() {
                           {t("auctionRegister.lastOfferTag")}
                         </div>
                       )
+                    )}
+
+                    {a.bidType === "decreasing" && (
+                      <div
+                        className="lz-lotag"
+                        style={{
+                          background: "rgba(244, 63, 94, 0.08)",
+                          borderColor: "rgba(244, 63, 94, 0.15)",
+                          color: "#fb7185",
+                          fontSize: "12.5px",
+                          marginLeft: isRtl ? 0 : 8,
+                          marginRight: isRtl ? 8 : 0,
+                        }}
+                      >
+                        🔴 {isRtl ? "مزاد الباز (أول من يضغط يفوز)" : "BUZZ AUCTION (First to click wins)"}
+                      </div>
                     )}
 
                     {/* dir="ltr" on the container keeps chips in the correct
