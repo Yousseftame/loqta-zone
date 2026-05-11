@@ -54,6 +54,7 @@ import {
   type FinanceStats,
   type Transaction,
   type SplitPart,
+  type Owner,
 } from "../finance-data";
 
 // ─── Defaults by type ─────────────────────────────────────────────────────────
@@ -156,6 +157,7 @@ interface Props {
   initialValues?: Partial<TransactionFormValues>;
   /** Current live stats — used for balance validation */
   stats?: FinanceStats;
+  owners?: Owner[];
 }
 
 // ─── Helper: derive transferTo and category from method for transfers ─────────
@@ -181,6 +183,8 @@ function buildFormFromTx(tx: Transaction): TransactionFormValues {
     transferTo: tx.transferTo,
     isSplit: false,
     splits: [],
+    ownerId: tx.ownerId,
+    ownerName: tx.ownerName,
   };
 }
 
@@ -196,6 +200,8 @@ function buildInitialForm(
       init.type === "transfer" ? (init.transferTo ?? "bank") : EMPTY.transferTo,
     isSplit: false,
     splits: [],
+    ownerId: init.ownerId,
+    ownerName: init.ownerName,
   };
 }
 
@@ -296,8 +302,13 @@ function validateBalance(
       return `Insufficient ${sourceName} balance for transfer. Available: ${sourceBalance.toLocaleString("en-EG")} EGP, needed: ${amount.toLocaleString("en-EG")} EGP.`;
     }
   } else if (form.type === "owner_return") {
-    if (ownerBalance - amount < 0) {
-      return `Owner return exceeds the owner balance. Owner balance: ${ownerBalance.toLocaleString("en-EG")} EGP, return amount: ${amount.toLocaleString("en-EG")} EGP.`;
+    let specificOwnerBalance = form.ownerId && stats.ownerBalances ? (stats.ownerBalances[form.ownerId] || 0) : ownerBalance;
+    if (editingTx && editingTx.ownerId === form.ownerId) {
+      specificOwnerBalance += Number(editingTx.amount); // reverse the old return
+    }
+
+    if (specificOwnerBalance - amount < 0) {
+      return `Owner return exceeds the owner balance. Owner balance: ${specificOwnerBalance.toLocaleString("en-EG")} EGP, return amount: ${amount.toLocaleString("en-EG")} EGP.`;
     }
   }
 
@@ -590,6 +601,7 @@ export default function AddTransactionModal({
   editingTx,
   initialValues,
   stats,
+  owners = [],
 }: Props) {
   const isEditMode = !!editingTx;
   const isBusy = adding || updating;
@@ -740,6 +752,13 @@ export default function AddTransactionModal({
     if (isTransfer && form.method === form.transferTo) {
       setError("Source and destination must be different.");
       return;
+    }
+
+    if (isOwner || isOwnerReturn) {
+      if (!form.ownerId) {
+        setError("Please select an owner.");
+        return;
+      }
     }
 
     const balanceError = validateBalance(
@@ -1225,34 +1244,58 @@ export default function AddTransactionModal({
               </Box>
             ) : (
               !isSplitActive && (
-                /* Payment Method — single mode, non-transfer */
-                <TextField
-                  label={
-                    isOwner
-                      ? "Source (debit from)"
-                      : isOwnerReturn
-                        ? "Destination (credit to)"
-                        : "Payment Method"
-                  }
-                  select
-                  size="small"
-                  fullWidth
-                  value={form.method}
-                  onChange={(e) =>
-                    set("method", e.target.value as PaymentMethod)
-                  }
-                  sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
-                  helperText={
-                    isOwner
-                      ? "The balance that will be reduced"
-                      : isOwnerReturn
-                        ? "The balance that will be increased"
-                        : undefined
-                  }
-                >
-                  <MenuItem value="cash">💵 Cash</MenuItem>
-                  <MenuItem value="bank">🏦 Bank</MenuItem>
-                </TextField>
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  {(isOwner || isOwnerReturn) && (
+                    <TextField
+                      label="Select Owner"
+                      select
+                      size="small"
+                      fullWidth
+                      value={form.ownerId || ""}
+                      onChange={(e) => {
+                        const ownerId = e.target.value;
+                        const ownerName = owners?.find(o => o.id === ownerId)?.name || "";
+                        setForm(p => ({ ...p, ownerId, ownerName }));
+                      }}
+                      sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+                      helperText="Which owner does this apply to?"
+                    >
+                      {owners?.map((o) => (
+                        <MenuItem key={o.id} value={o.id}>
+                          {o.name}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  )}
+                  {/* Payment Method — single mode, non-transfer */}
+                  <TextField
+                    label={
+                      isOwner
+                        ? "Source (debit from)"
+                        : isOwnerReturn
+                          ? "Destination (credit to)"
+                          : "Payment Method"
+                    }
+                    select
+                    size="small"
+                    fullWidth
+                    value={form.method}
+                    onChange={(e) =>
+                      set("method", e.target.value as PaymentMethod)
+                    }
+                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+                    helperText={
+                      isOwner
+                        ? "The balance that will be reduced"
+                        : isOwnerReturn
+                          ? "The balance that will be increased"
+                          : undefined
+                    }
+                  >
+                    <MenuItem value="cash">💵 Cash</MenuItem>
+                    <MenuItem value="bank">🏦 Bank</MenuItem>
+                  </TextField>
+                </Box>
               )
             )}
           </>

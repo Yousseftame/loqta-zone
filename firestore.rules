@@ -193,7 +193,7 @@ match /suppliers/{supplierId} {
         request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly([
             "type", "amount", "method", "category", "note",
-            "transferTo", "updatedBy", "updatedByName", "updatedAt"
+            "transferTo", "ownerId", "ownerName", "updatedBy", "updatedByName", "updatedAt"
           ]);
     }
 
@@ -251,6 +251,11 @@ match /paymentAccounts/{accountId} {
  
 // ── Purchases ─────────────────────────────────────────────────────────────────
 match /purchases/{purchaseId} {
+  allow read, write: if isAdmin();
+}
+
+// ── Owners ────────────────────────────────────────────────────────────────────
+match /owners/{ownerId} {
   allow read, write: if isAdmin();
 }
 

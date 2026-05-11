@@ -1056,6 +1056,11 @@ export default function TransactionsTable({
                         }}
                       >
                         {CATEGORY_LABEL[tx.category] ?? tx.category}
+                        {tx.ownerName && (
+                          <span style={{ color: colors.textMuted, fontSize: '0.75rem', marginLeft: 6 }}>
+                            ({tx.ownerName})
+                          </span>
+                        )}
                       </td>
 
                       {/* Method */}

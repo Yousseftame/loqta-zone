@@ -43,6 +43,14 @@ export type OwnerReturnCategory = "owner_return";
 export type TransferCategory    = "cash_to_bank" | "bank_to_cash";
 export type TransactionCategory = ExpenseCategory | IncomeCategory | OwnerCategory | OwnerReturnCategory | TransferCategory;
 
+// ─── Owner document ─────────────────────────────────────────────────────────
+
+export interface Owner {
+  id: string;
+  name: string;
+  createdAt: Date | null;
+}
+
 // ─── Split payment part ──────────────────────────────────────────────────────
 
 export interface SplitPart {
@@ -78,6 +86,9 @@ export interface Transaction {
   splitLabel?: string;
   /** Total number of parts in the split group (stored for UI convenience) */
   splitTotal?: number;
+  /** Only present for type="owner_withdrawal" | "owner_return" */
+  ownerId?: string;
+  ownerName?: string;
 }
 
 // ─── finance_stats/dashboard ────────────────────────────────────────────────
@@ -91,6 +102,7 @@ export interface FinanceStats {
   monthlyIncome:   number[];  // index 0=Jan … 11=Dec, current year
   monthlyExpenses: number[];
   expensesByCategory: Record<string, number>;
+  ownerBalances: Record<string, number>; // maps ownerId -> balance
   updatedAt: Date | null;
 }
 
@@ -108,6 +120,8 @@ export interface TransactionFormValues {
   isSplit?: boolean;
   /** The individual split parts (only used when isSplit=true) */
   splits?: SplitPart[];
+  ownerId?: string;
+  ownerName?: string;
 }
 
 // ─── Defaults ───────────────────────────────────────────────────────────────
@@ -121,6 +135,7 @@ export const DEFAULT_FINANCE_STATS: FinanceStats = {
   monthlyIncome:   Array(12).fill(0),
   monthlyExpenses: Array(12).fill(0),
   expensesByCategory: {},
+  ownerBalances: {},
   updatedAt: null,
 };
 

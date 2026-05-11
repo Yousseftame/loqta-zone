@@ -20,7 +20,7 @@ import { useEffect, useState, useCallback } from "react";
 import {
   doc, collection,
   onSnapshot,
-  query, orderBy, addDoc, updateDoc,
+  query, orderBy, addDoc, updateDoc, deleteDoc,
   serverTimestamp, Timestamp,
   writeBatch,
   type Unsubscribe,
@@ -31,6 +31,7 @@ import {
   type FinanceStats,
   type Transaction,
   type TransactionFormValues,
+  type Owner,
   toDate,
 } from "@/pages/Admin/Finance/finance-data";
 
@@ -65,6 +66,7 @@ function parseStats(data: Record<string, any>): FinanceStats {
     monthlyIncome:       toArray(data.monthlyIncome),
     monthlyExpenses:     toArray(data.monthlyExpenses),
     expensesByCategory:  data.expensesByCategory   ?? {},
+    ownerBalances:       data.ownerBalances        ?? {},
     updatedAt:           toDate(data.updatedAt),
   };
 }
@@ -84,6 +86,8 @@ function parseTransaction(id: string, data: Record<string, any>): Transaction {
     groupId:       data.groupId       ?? undefined,
     splitLabel:    data.splitLabel    ?? undefined,
     splitTotal:    data.splitTotal    ?? undefined,
+    ownerId:       data.ownerId       ?? undefined,
+    ownerName:     data.ownerName     ?? undefined,
   };
 }
 
@@ -92,6 +96,7 @@ function parseTransaction(id: string, data: Record<string, any>): Transaction {
 export function useFinance() {
   const [stats, setStats]               = useState<FinanceStats>(DEFAULT_FINANCE_STATS);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [owners, setOwners]             = useState<Owner[]>([]);
   const [loading, setLoading]           = useState(true);
   const [adding, setAdding]             = useState(false);
   const [updating, setUpdating]         = useState(false);
@@ -103,7 +108,7 @@ export function useFinance() {
 
     const markLoaded = () => {
       loaded += 1;
-      if (loaded >= 2) setLoading(false);
+      if (loaded >= 3) setLoading(false);
     };
 
     // ── finance_stats/dashboard ──────────────────────────────────────────────
@@ -139,6 +144,25 @@ export function useFinance() {
       },
     );
     unsubs.push(unsubTx);
+
+    // ── ALL owners ───────────────────────────────────────────────────────────
+    const ownersQuery = query(collection(db, "owners"), orderBy("name", "asc"));
+    const unsubOwners = onSnapshot(
+      ownersQuery,
+      (snap) => {
+        setOwners(snap.docs.map((d) => ({
+          id: d.id,
+          name: d.data().name ?? "",
+          createdAt: toDate(d.data().createdAt),
+        })));
+        markLoaded();
+      },
+      (err) => {
+        console.error("[useFinance] owners error:", err.code);
+        markLoaded();
+      },
+    );
+    unsubs.push(unsubOwners);
 
     return () => unsubs.forEach((u) => u());
   }, []);
@@ -196,6 +220,10 @@ export function useFinance() {
         if (values.type === "transfer" && values.transferTo) {
           payload.transferTo = values.transferTo;
         }
+        if (values.type === "owner_withdrawal" || values.type === "owner_return") {
+          payload.ownerId = values.ownerId;
+          payload.ownerName = values.ownerName;
+        }
 
         await addDoc(collection(db, "transactions"), payload);
       }
@@ -227,6 +255,8 @@ export function useFinance() {
         updatedAt:     serverTimestamp(),
         // transferTo: only set for transfer type, clear it for other types
         transferTo:    values.type === "transfer" ? (values.transferTo ?? null) : null,
+        ownerId:       (values.type === "owner_withdrawal" || values.type === "owner_return") ? (values.ownerId ?? null) : null,
+        ownerName:     (values.type === "owner_withdrawal" || values.type === "owner_return") ? (values.ownerName ?? null) : null,
       };
 
       await updateDoc(doc(db, "transactions", txId), payload);
@@ -235,5 +265,32 @@ export function useFinance() {
     }
   }, []);
 
-  return { stats, transactions, loading, adding, updating, error, addTransaction, updateTransaction };
+  // ─── Add Owner ─────────────────────────────────────────────────────────────
+  const addOwner = useCallback(async (name: string) => {
+    setAdding(true);
+    try {
+      await addDoc(collection(db, "owners"), {
+        name: name.trim(),
+        createdAt: serverTimestamp(),
+      });
+    } finally {
+      setAdding(false);
+    }
+  }, []);
+
+  // ─── Delete Owner ──────────────────────────────────────────────────────────
+  const deleteOwner = useCallback(async (ownerId: string, currentBalance: number) => {
+    if (currentBalance !== 0) {
+      throw new Error(`Cannot delete owner with a non-zero balance (${currentBalance.toLocaleString("en-EG")} EGP). Please settle their balance first.`);
+    }
+    setAdding(true);
+    try {
+      // Delete the owner document. The Cloud Function onOwnerDeleted will clean up finance_stats.
+      await deleteDoc(doc(db, "owners", ownerId));
+    } finally {
+      setAdding(false);
+    }
+  }, []);
+
+  return { stats, transactions, owners, loading, adding, updating, error, addTransaction, updateTransaction, addOwner, deleteOwner };
 }

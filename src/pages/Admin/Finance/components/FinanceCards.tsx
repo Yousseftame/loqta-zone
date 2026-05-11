@@ -8,7 +8,9 @@
  * Removed: shimmer-sweep animation on Available Balance card.
  */
 
-import type { FinanceStats } from "../finance-data";
+import { IconButton, Tooltip } from "@mui/material";
+import { Trash2 } from "lucide-react";
+import type { FinanceStats, Owner } from "../finance-data";
 
 interface CardConfig {
   label: string;
@@ -20,11 +22,12 @@ interface CardConfig {
   icon: string;
   accentLine: string;
   featured?: boolean;
+  onDelete?: () => void;
 }
 
 // ─── Row 1: two prominent cards ───────────────────────────────────────────────
 
-const ROW1_CARDS: CardConfig[] = [
+const ROW1_BASE_CARDS: CardConfig[] = [
   {
     label: "Available Balance",
     value: (s) => s.cashBalance + s.bankBalance,
@@ -37,18 +40,24 @@ const ROW1_CARDS: CardConfig[] = [
     accentLine: "linear-gradient(90deg, #818cf8, #c7d2fe, #818cf8)",
     featured: true,
   },
-  {
-    label: "Owner Balance",
-    value: (s) => s.ownerBalance,
+];
+
+const OWNER_GRADIENT = "linear-gradient(135deg, #451a03 0%, #78350f 50%, #92400e 100%)";
+
+function buildOwnerCard(owner: Owner, onDelete?: (id: string) => void): CardConfig {
+  return {
+    label: `${owner.name}`,
+    value: (s) => s.ownerBalances?.[owner.id] ?? 0,
     sub: "Total withdrawn by owner",
-    gradient: "linear-gradient(135deg, #451a03 0%, #78350f 50%, #92400e 100%)",
+    gradient: OWNER_GRADIENT,
     chip: "OWNER",
     chipBg: "rgba(255,255,255,0.12)",
     icon: "👤",
     accentLine: "linear-gradient(90deg, #F59E0B, #FCD34D)",
     featured: true,
-  },
-];
+    onDelete: onDelete ? () => onDelete(owner.id) : undefined,
+  };
+}
 
 // ─── Row 2: four detail cards ─────────────────────────────────────────────────
 
@@ -147,6 +156,31 @@ function CreditCard({
         el.style.boxShadow = baseShadow;
       }}
     >
+      {/* Delete button (only if onDelete is provided) */}
+      {config.onDelete && (
+        <Tooltip title="Delete owner" placement="left">
+          <IconButton
+            onClick={(e) => {
+              e.stopPropagation();
+              config.onDelete?.();
+            }}
+            size="small"
+            sx={{
+              position: "absolute",
+              top: 16,
+              right: 16,
+              color: "rgba(255,255,255,0.4)",
+              "&:hover": {
+                color: "#ef4444",
+              },
+              transition: "color 0.2s",
+              zIndex: 10,
+            }}
+          >
+            <Trash2 size={16} />
+          </IconButton>
+        </Tooltip>
+      )}
       {/* Glass sheen */}
       <div
         style={{
@@ -300,13 +334,46 @@ function CreditCard({
 
 interface Props {
   stats: FinanceStats;
+  owners: Owner[];
   loading?: boolean;
+  onDeleteOwner?: (ownerId: string) => void;
 }
 
-export default function FinanceCards({ stats, loading = false }: Props) {
+export default function FinanceCards({ stats, owners, loading = false, onDeleteOwner }: Props) {
+  const availableBalanceCard = ROW1_BASE_CARDS[0];
+  const ownerCards = owners.length > 0 
+    ? owners.map((o) => buildOwnerCard(o, onDeleteOwner))
+    : [{
+        label: "Owner Balance",
+        value: (s: FinanceStats) => s.ownerBalance,
+        sub: "Total withdrawn by owner",
+        gradient: OWNER_GRADIENT,
+        chip: "OWNER",
+        chipBg: "rgba(255,255,255,0.12)",
+        icon: "👤",
+        accentLine: "linear-gradient(90deg, #F59E0B, #FCD34D)",
+        featured: true,
+      }];
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      {/* Row 1: Available Balance + Owner Balance — 2 equal columns */}
+      {/* Row 1: Available Balance */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr",
+          gap: 20,
+        }}
+      >
+        <CreditCard
+          config={availableBalanceCard}
+          stats={stats}
+          loading={loading}
+          index={0}
+        />
+      </div>
+
+      {/* Row 1b: Owner Balances */}
       <div
         style={{
           display: "grid",
@@ -314,13 +381,13 @@ export default function FinanceCards({ stats, loading = false }: Props) {
           gap: 20,
         }}
       >
-        {ROW1_CARDS.map((cfg, i) => (
+        {ownerCards.map((cfg, i) => (
           <CreditCard
             key={cfg.label}
             config={cfg}
             stats={stats}
             loading={loading}
-            index={i}
+            index={i + 1}
           />
         ))}
       </div>

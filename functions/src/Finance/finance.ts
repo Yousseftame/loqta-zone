@@ -80,6 +80,7 @@ function buildUpdate(
   month:      number,
   sign:       1 | -1,
   transferTo?: "cash" | "bank",
+  ownerId?:    string,
 ): Record<string, any> {
   const amt = amount * sign;
   const update: Record<string, any> = {
@@ -103,12 +104,14 @@ function buildUpdate(
   } else if (type === "owner_withdrawal") {
     // Owner takes money OUT: ownerBalance increases, liquid balance decreases
     update.ownerBalance = FieldValue.increment(amt);
+    if (ownerId) update[`ownerBalances.${ownerId}`] = FieldValue.increment(amt);
     if (method === "cash") update.cashBalance = FieldValue.increment(-amt);
     else                   update.bankBalance = FieldValue.increment(-amt);
 
   } else if (type === "owner_return") {
     // Owner puts money BACK: ownerBalance decreases, liquid balance increases
     update.ownerBalance = FieldValue.increment(-amt);
+    if (ownerId) update[`ownerBalances.${ownerId}`] = FieldValue.increment(-amt);
     if (method === "cash") update.cashBalance = FieldValue.increment(amt);
     else                   update.bankBalance = FieldValue.increment(amt);
 
@@ -139,12 +142,13 @@ export const onTransactionCreated = onDocumentCreated(
     const data = event.data?.data();
     if (!data) return;
 
-    const { type, method, category, amount, transferTo } = data as {
+    const { type, method, category, amount, transferTo, ownerId } = data as {
       type:       "income" | "expense" | "owner_withdrawal" | "transfer" | "owner_return";
       method:     "cash" | "bank";
       category:   string;
       amount:     number;
       transferTo?: "cash" | "bank";
+      ownerId?:    string;
     };
 
     if (!VALID_TYPES.includes(type)) {
@@ -153,9 +157,14 @@ export const onTransactionCreated = onDocumentCreated(
     }
 
     const month  = monthIndex(data);
-    const update = buildUpdate(type, method, category, amount, month, 1, transferTo);
+    const update = buildUpdate(type, method, category, amount, month, 1, transferTo, ownerId);
 
-    await STATS().set(update, { merge: true });
+    try {
+      await STATS().update(update);
+    } catch (err: any) {
+      if (err.code === 5) await STATS().set(update, { merge: true });
+      else throw err;
+    }
   },
 );
 
@@ -167,12 +176,13 @@ export const onTransactionDeleted = onDocumentDeleted(
     const data = event.data?.data();
     if (!data) return;
 
-    const { type, method, category, amount, transferTo } = data as {
+    const { type, method, category, amount, transferTo, ownerId } = data as {
       type:       "income" | "expense" | "owner_withdrawal" | "transfer" | "owner_return";
       method:     "cash" | "bank";
       category:   string;
       amount:     number;
       transferTo?: "cash" | "bank";
+      ownerId?:    string;
     };
 
     if (!VALID_TYPES.includes(type)) {
@@ -181,9 +191,14 @@ export const onTransactionDeleted = onDocumentDeleted(
     }
 
     const month  = monthIndex(data);
-    const update = buildUpdate(type, method, category, amount, month, -1, transferTo);
+    const update = buildUpdate(type, method, category, amount, month, -1, transferTo, ownerId);
 
-    await STATS().set(update, { merge: true });
+    try {
+      await STATS().update(update);
+    } catch (err: any) {
+      if (err.code === 5) await STATS().set(update, { merge: true });
+      else throw err;
+    }
   },
 );
 
@@ -205,6 +220,7 @@ export const onTransactionUpdated = onDocumentUpdated(
     const oldAmount   = before.amount   as number;
     const oldMonth    = monthIndex(before);
     const oldTransferTo = before.transferTo as "cash" | "bank" | undefined;
+    const oldOwnerId    = before.ownerId as string | undefined;
 
     // ── Apply the NEW transaction ─────────────────────────────────────────
     const newType     = after.type as "income" | "expense" | "owner_withdrawal" | "transfer" | "owner_return";
@@ -213,6 +229,7 @@ export const onTransactionUpdated = onDocumentUpdated(
     const newAmount   = after.amount   as number;
     const newMonth    = monthIndex(after);
     const newTransferTo = after.transferTo as "cash" | "bank" | undefined;
+    const newOwnerId    = after.ownerId as string | undefined;
 
     if (!VALID_TYPES.includes(oldType) || !VALID_TYPES.includes(newType)) {
       console.warn(`[onTransactionUpdated] Unknown type — skipping.`);
@@ -220,14 +237,25 @@ export const onTransactionUpdated = onDocumentUpdated(
     }
 
     // Build reverse of old and apply of new, then merge into one update object
-    const reverseOld = buildUpdate(oldType, oldMethod, oldCategory, oldAmount, oldMonth, -1, oldTransferTo);
-    const applyNew   = buildUpdate(newType, newMethod, newCategory, newAmount, newMonth,  1, newTransferTo);
+    const reverseOld = buildUpdate(oldType, oldMethod, oldCategory, oldAmount, oldMonth, -1, oldTransferTo, oldOwnerId);
+    const applyNew   = buildUpdate(newType, newMethod, newCategory, newAmount, newMonth,  1, newTransferTo, newOwnerId);
 
     // Merge: for each FieldValue.increment, we need to combine them.
     // Since FieldValue.increment objects can't be added directly, we do two sequential writes.
     const stats = STATS();
-    await stats.set(reverseOld, { merge: true });
-    await stats.set(applyNew,   { merge: true });
+    try {
+      await stats.update(reverseOld);
+    } catch (err: any) {
+      if (err.code === 5) await stats.set(reverseOld, { merge: true });
+      else throw err;
+    }
+
+    try {
+      await stats.update(applyNew);
+    } catch (err: any) {
+      if (err.code === 5) await stats.set(applyNew, { merge: true });
+      else throw err;
+    }
   },
 );
 
@@ -255,16 +283,18 @@ export const rebuildFinanceStats = onCall(
       monthlyIncome:       Array(12).fill(0) as number[],
       monthlyExpenses:     Array(12).fill(0) as number[],
       expensesByCategory:  {} as Record<string, number>,
+      ownerBalances:       {} as Record<string, number>,
     };
 
     snap.forEach((doc) => {
       const d = doc.data();
-      const { type, method, category, amount, transferTo } = d as {
+      const { type, method, category, amount, transferTo, ownerId } = d as {
         type:       string;
         method:     "cash" | "bank";
         category:   string;
         amount:     number;
         transferTo?: "cash" | "bank";
+        ownerId?:    string;
       };
       const month = monthIndex(d);
 
@@ -283,12 +313,14 @@ export const rebuildFinanceStats = onCall(
 
       } else if (type === "owner_withdrawal") {
         stats.ownerBalance += amount;
+        if (ownerId) stats.ownerBalances[ownerId] = (stats.ownerBalances[ownerId] ?? 0) + amount;
         if (method === "cash") stats.cashBalance -= amount;
         else                   stats.bankBalance -= amount;
 
       } else if (type === "owner_return") {
         // Owner puts money BACK — reverse of withdrawal
         stats.ownerBalance -= amount;
+        if (ownerId) stats.ownerBalances[ownerId] = (stats.ownerBalances[ownerId] ?? 0) - amount;
         if (method === "cash") stats.cashBalance += amount;
         else                   stats.bankBalance += amount;
 

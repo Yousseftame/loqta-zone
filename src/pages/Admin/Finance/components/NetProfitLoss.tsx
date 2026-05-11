@@ -92,6 +92,7 @@ function calcNet(
     if (tx.type === "income") income += tx.amount;
     else if (tx.type === "expense") expenses += tx.amount;
     else if (tx.type === "owner_withdrawal") ownerDraws += tx.amount;
+    else if (tx.type === "owner_return") ownerDraws -= tx.amount; // cancels the withdrawal's P&L impact
   }
   return { net: income - expenses - ownerDraws, income, expenses, ownerDraws };
 }
