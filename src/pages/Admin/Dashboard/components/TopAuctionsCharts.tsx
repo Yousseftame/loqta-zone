@@ -201,11 +201,11 @@ export default function TopAuctionsCharts({ topAuctions, loading }: Props) {
         loading={loading}
       />
       <BarCard
-        title="Top by Winning Bid"
+        title="Top by Actual Profit"
         data={topAuctions.byWinningBid}
-        dataKey="winningBid"
+        dataKey="totalActualProfit"
         valueLabel="EGP"
-        formatter={(v) => `${(v / 1000).toFixed(0)}k`}
+        formatter={(v) => `${(v / 1000).toFixed(1)}k`}
         loading={loading}
       />
     </Box>

@@ -71,6 +71,17 @@ export interface TopAuction {
   margin: number;
   winnerId: string;
   winnerName: string;
+  /**
+   * Total entry-fee revenue collected for this auction.
+   * Accounts for full payment, voucher discounts, and free entries.
+   * = sum of effectiveFee across all participants (0 for free auctions).
+   */
+  entryFeeRevenue: number;
+  /**
+   * Total actual profit = actualProfit (winningBid - costPrice) + entryFeeRevenue.
+   * This is the primary metric for the "Top by Actual Profit" bar chart.
+   */
+  totalActualProfit: number;
 }
 
 export interface TopAuctionsAnalytics {

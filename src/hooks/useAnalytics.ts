@@ -87,6 +87,8 @@ function parseTopAuction(raw: any) {
     margin:            raw.margin            ?? 0,
     winnerId:          raw.winnerId          ?? "",
     winnerName:        raw.winnerName        ?? "",
+    entryFeeRevenue:   raw.entryFeeRevenue   ?? 0,
+    totalActualProfit: raw.totalActualProfit ?? (raw.actualProfit ?? 0),
   };
 }
 

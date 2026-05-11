@@ -59,6 +59,9 @@ import type {
 } from "@/service/LastOfferService/LastOfferService";
 import type { Auction } from "../Auctions/auctions-data";
 import { usePermissions } from "@/permissions/usePermissions";
+import { fetchProducts } from "@/service/products/productService";
+
+
 
 // ─── Status chip helper ───────────────────────────────────────────────────────
 
@@ -1117,8 +1120,20 @@ export default function LastOfferList() {
   const [searchTerm, setSearchTerm] = useState("");
   const [auctionStatusFilter, setAuctionStatusFilter] = useState("ended");
   const [offerStatusFilter, setOfferStatusFilter] = useState("all");
-      const { can } = usePermissions();
+  const { can } = usePermissions();
 
+  const [productNames, setProductNames] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    fetchProducts().then((products) => {
+      const map: Record<string, string> = {};
+      products.forEach((p) => {
+        // Force English for the search map
+        map[p.id] = p.title.en.toLowerCase();
+      });
+      setProductNames(map);
+    });
+  }, []);
 
   // Only show auctions where lastOfferEnabled = true (or show all ended auctions)
   const filtered = useMemo(() => {
@@ -1130,9 +1145,11 @@ export default function LastOfferList() {
       f = f.filter(
         (a) =>
           String(a.auctionNumber).includes(s) ||
-          a.productId.toLowerCase().includes(s),
+          a.productId.toLowerCase().includes(s) ||
+          (productNames[a.productId] && productNames[a.productId].includes(s)),
       );
     }
+
     return [...f].sort((a, b) => {
       const order = { live: 0, upcoming: 1, ended: 2 } as Record<
         string,
@@ -1325,9 +1342,9 @@ export default function LastOfferList() {
             flexWrap: "wrap",
             alignItems: "center",
           }}
-        >
+        > 
           <TextField
-            placeholder="Search by auction number or product ID…"
+            placeholder="Search by auction number or product Name…"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             variant="outlined"

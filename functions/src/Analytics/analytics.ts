@@ -266,12 +266,13 @@ async function updateTopAuctions(
   actualPrice:  number,
 ): Promise<void> {
   try {
-    const winningBid = auctionData.winningBid ?? 0;
-    const margin     = actualPrice > 0
+    const winningBid   = auctionData.winningBid ?? 0;
+    const margin       = actualPrice > 0
       ? ((winningBid - actualPrice) / actualPrice) * 100
       : 0;
     const actualProfit = actualPrice > 0 ? winningBid - actualPrice : 0;
 
+    // ── Resolve winner name ───────────────────────────────────────────────────
     let winnerName = "Unknown";
     const winnerId = auctionData.winnerId as string | undefined;
     if (winnerId && winnerId !== "NO_WINNER") {
@@ -288,6 +289,50 @@ async function updateTopAuctions(
       } catch { /* Non-fatal */ }
     }
 
+    // ── Calculate entry fee revenue from Participants subcollection ───────────
+    // entryFee on the auction doc is the *nominal* fee; each participant may
+    // have paid less (voucher discount) or nothing (entry_free voucher or
+    // free auction).  The applyVoucher Cloud Function writes `amount` on the
+    // participant doc (the effective fee after discount).  For participants
+    // who never used a voucher, amount is absent — we fall back to the
+    // auction's entryFee if they hasPaid=true, else 0.
+    let entryFeeRevenue = 0;
+    const auctionEntryType: string = auctionData.entryType ?? "free";
+    const auctionEntryFee: number  = auctionData.entryFee  ?? 0;
+
+    if (auctionEntryType === "paid" && auctionEntryFee > 0) {
+      try {
+        const participantsSnap = await db
+          .collection("auctions")
+          .doc(auctionId)
+          .collection("Participants")
+          .get();
+
+        for (const pDoc of participantsSnap.docs) {
+          const p = pDoc.data();
+          if (p.voucherUsed === true) {
+            // The applyVoucher function stores effectiveFee via the
+            // usage record, but writes `amount` to the participant doc
+            // through the userAuction ref (W3) and `discountApplied` to
+            // the participant doc (W4).  We can reconstruct:
+            //   effectiveFee = entryFee - discountApplied
+            const discountApplied: number = p.discountApplied ?? 0;
+            const effective = Math.max(0, auctionEntryFee - discountApplied);
+            entryFeeRevenue += effective;
+          } else if (p.hasPaid === true) {
+            // Paid in full — no voucher
+            entryFeeRevenue += auctionEntryFee;
+          }
+          // else: unpaid or free-entry — contributes 0
+        }
+      } catch (err) {
+        // Non-fatal — proceed with entryFeeRevenue = 0
+        console.warn("[Analytics] Failed to fetch participants for entryFeeRevenue:", err);
+      }
+    }
+
+    const totalActualProfit = actualProfit + entryFeeRevenue;
+
     const entry = {
       auctionId,
       auctionNumber:     auctionData.auctionNumber     ?? 0,
@@ -298,8 +343,10 @@ async function updateTopAuctions(
       actualPrice,
       actualProfit,
       margin,
-      winnerId:   winnerId ?? "",
+      winnerId:          winnerId ?? "",
       winnerName,
+      entryFeeRevenue,
+      totalActualProfit,
     };
 
     const topRef   = db.collection(ANALYTICS).doc(TOP_AUCTIONS);
@@ -320,7 +367,8 @@ async function updateTopAuctions(
     await topRef.set({
       byBids:          upsert(existing.byBids,         entry, "totalBids"),
       byParticipants:  upsert(existing.byParticipants, entry, "totalParticipants"),
-      byWinningBid:    upsert(existing.byWinningBid,   entry, "winningBid"),
+      // Sorted by totalActualProfit so the chart shows true profitability
+      byWinningBid:    upsert(existing.byWinningBid,   entry, "totalActualProfit"),
       financialReport: upsertAll(existing.financialReport ?? [], entry, "winningBid"),
       updatedAt:       FieldValue.serverTimestamp(),
     });
@@ -328,6 +376,7 @@ async function updateTopAuctions(
     console.error("[Analytics] updateTopAuctions failed:", err);
   }
 }
+
 
 // ─── 4. Category written ──────────────────────────────────────────────────────
 
@@ -537,6 +586,36 @@ export const rebuildAnalytics = onCall(
           const rawTitle = product?.title;
           const resolvedTitle = resolveProductTitle(rawTitle);
 
+          const auctionEntryType = a.entryType ?? "free";
+          const auctionEntryFee  = a.entryFee  ?? 0;
+          let entryFeeRevenue = 0;
+
+          if (auctionEntryType === "paid" && auctionEntryFee > 0) {
+            try {
+              const participantsSnap = await db
+                .collection("auctions")
+                .doc(d.id)
+                .collection("Participants")
+                .get();
+
+              for (const pDoc of participantsSnap.docs) {
+                const p = pDoc.data();
+                if (p.voucherUsed === true) {
+                  const discountApplied = p.discountApplied ?? 0;
+                  const effective = Math.max(0, auctionEntryFee - discountApplied);
+                  entryFeeRevenue += effective;
+                } else if (p.hasPaid === true) {
+                  entryFeeRevenue += auctionEntryFee;
+                }
+              }
+            } catch (err) {
+              console.warn(`[Analytics] Failed to fetch participants for auction ${d.id}:`, err);
+            }
+          }
+
+          const actualProfit = (product?.actualPrice ?? 0) > 0 ? wb - (product?.actualPrice ?? 0) : 0;
+          const totalActualProfit = actualProfit + entryFeeRevenue;
+
           topEntries.push({
             auctionId:         d.id,
             auctionNumber:     a.auctionNumber     ?? 0,
@@ -545,12 +624,14 @@ export const rebuildAnalytics = onCall(
             totalParticipants: a.totalParticipants  ?? 0,
             winningBid:        wb,
             actualPrice:       product?.actualPrice ?? 0,
-            actualProfit:      (product?.actualPrice ?? 0) > 0 ? wb - (product?.actualPrice ?? 0) : 0,
+            actualProfit,
             margin:            (product?.actualPrice ?? 0) > 0
                                  ? ((wb - (product?.actualPrice ?? 0)) / (product?.actualPrice ?? 0)) * 100
                                  : 0,
             winnerId:          a.winnerId            ?? "",
             winnerName:        userMap[a.winnerId ?? ""] ?? "Unknown",
+            entryFeeRevenue,
+            totalActualProfit,
           });
         }
       }
@@ -594,7 +675,7 @@ export const rebuildAnalytics = onCall(
     await db.collection(ANALYTICS).doc(TOP_AUCTIONS).set({
       byBids:          sortAndSlice(topEntries, "totalBids"),
       byParticipants:  sortAndSlice(topEntries, "totalParticipants"),
-      byWinningBid:    sortAndSlice(topEntries, "winningBid"),
+      byWinningBid:    sortAndSlice(topEntries, "totalActualProfit"),
       financialReport: sortAll(topEntries, "winningBid"),
       updatedAt:       FieldValue.serverTimestamp(),
     });

@@ -55,6 +55,8 @@ import {
 import type { Bid, BidStatus, BidUpdateData } from "./Bids-data";
 import type { Auction } from "../Auctions/auctions-data";
 import { usePermissions } from "@/permissions/usePermissions";
+import { fetchProducts } from "@/service/products/productService";
+
 
 // ─── Status chip ──────────────────────────────────────────────────────────────
 
@@ -1156,6 +1158,19 @@ export default function BidsList() {
   const [auctionSearch, setAuctionSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
+  const [productNames, setProductNames] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    fetchProducts().then((products) => {
+      const map: Record<string, string> = {};
+      products.forEach((p) => {
+        // Force English for the search map
+        map[p.id] = p.title.en.toLowerCase();
+      });
+      setProductNames(map);
+    });
+  }, []);
+
   const filtered = useMemo(() => {
     let f = auctions;
     if (statusFilter !== "all") f = f.filter((a) => a.status === statusFilter);
@@ -1164,9 +1179,11 @@ export default function BidsList() {
       f = f.filter(
         (a) =>
           String(a.auctionNumber).includes(s) ||
-          a.productId.toLowerCase().includes(s),
+          a.productId.toLowerCase().includes(s) ||
+          (productNames[a.productId] && productNames[a.productId].includes(s)),
       );
     }
+
     return [...f].sort((a, b) => {
       const order: Record<string, number> = { live: 0, upcoming: 1, ended: 2 };
       if (order[a.status] !== order[b.status])
@@ -1356,7 +1373,7 @@ export default function BidsList() {
           }}
         >
           <TextField
-            placeholder="Search by auction number or product ID…"
+            placeholder="Search by auction number or product Name…"
             value={auctionSearch}
             onChange={(e) => setAuctionSearch(e.target.value)}
             variant="outlined"

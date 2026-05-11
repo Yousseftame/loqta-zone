@@ -379,7 +379,7 @@ export default function AuctionsList() {
           }}
         >
           <TextField
-            placeholder="Search by product ID or auction number…"
+            placeholder="Search by product Name or ID or auction number…"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             variant="outlined"

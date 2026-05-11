@@ -147,6 +147,7 @@ export default function MarginReportTable({ topAuctions, loading }: Props) {
                     "Winner",
                     "Winning Bid",
                     "Cost Price",
+                    "Entry Fee Rev.",
                     "Actual Profit",
                     "Margin %",
                   ].map((h) => (
@@ -176,8 +177,10 @@ export default function MarginReportTable({ topAuctions, loading }: Props) {
                   const profit =
                     row.actualProfit ??
                     (hasPrice ? row.winningBid - row.actualPrice : 0);
-                  const isProfitPos = profit >= 0;
-
+                  const entryFeeRevenue = row.entryFeeRevenue ?? 0;
+                  // totalProfit = margin profit + entry fee revenue
+                  const totalProfit =
+                    row.totalActualProfit ?? (profit + entryFeeRevenue);
                   return (
                     <tr
                       key={row.auctionId}
@@ -256,20 +259,46 @@ export default function MarginReportTable({ topAuctions, loading }: Props) {
                         </span>
                       </td>
 
-                      {/* Actual Profit (new column) */}
+                      {/* Entry Fee Revenue */}
                       <td
                         style={{ padding: "12px 16px", whiteSpace: "nowrap" }}
                       >
-                        {hasPrice ? (
+                        {row.entryFeeRevenue > 0 ? (
+                          <span
+                            style={{
+                              fontWeight: 600,
+                              fontSize: "0.82rem",
+                              color: "#7C3AED",
+                            }}
+                          >
+                            +{row.entryFeeRevenue.toLocaleString()} EGP
+                          </span>
+                        ) : (
+                          <span
+                            style={{
+                              color: colors.textMuted,
+                              fontSize: "0.78rem",
+                            }}
+                          >
+                            —
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Actual Profit (totalActualProfit = margin profit + entry fee rev) */}
+                      <td
+                        style={{ padding: "12px 16px", whiteSpace: "nowrap" }}
+                      >
+                        {hasPrice || row.entryFeeRevenue > 0 ? (
                           <span
                             style={{
                               fontWeight: 700,
                               fontSize: "0.88rem",
-                              color: isProfitPos ? "#059669" : "#DC2626",
+                              color: totalProfit >= 0 ? "#059669" : "#DC2626",
                             }}
                           >
-                            {isProfitPos ? "+" : ""}
-                            {profit.toLocaleString()} EGP
+                            {totalProfit >= 0 ? "+" : ""}
+                            {totalProfit.toLocaleString()} EGP
                           </span>
                         ) : (
                           <span

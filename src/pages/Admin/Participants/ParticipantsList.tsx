@@ -46,6 +46,8 @@ import {
 import type { Participant } from "./Participants-data";
 import type { Auction } from "../Auctions/auctions-data";
 import { usePermissions } from "@/permissions/usePermissions";
+import { fetchProducts } from "@/service/products/productService";
+
 
 // ─── Per-auction row with expandable participants ─────────────────────────────
 
@@ -729,6 +731,19 @@ export default function ParticipantsList() {
   const [auctionSearch, setAuctionSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
+  const [productNames, setProductNames] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    fetchProducts().then((products) => {
+      const map: Record<string, string> = {};
+      products.forEach((p) => {
+        // Force English for the search map
+        map[p.id] = p.title.en.toLowerCase();
+      });
+      setProductNames(map);
+    });
+  }, []);
+
   const filtered = useMemo(() => {
     let f = auctions;
     if (statusFilter !== "all") f = f.filter((a) => a.status === statusFilter);
@@ -737,9 +752,11 @@ export default function ParticipantsList() {
       f = f.filter(
         (a) =>
           String(a.auctionNumber).includes(s) ||
-          a.productId.toLowerCase().includes(s),
+          a.productId.toLowerCase().includes(s) ||
+          (productNames[a.productId] && productNames[a.productId].includes(s)),
       );
     }
+
     return [...f].sort((a, b) => {
       const order = { live: 0, upcoming: 1, ended: 2 };
       if (order[a.status] !== order[b.status])
@@ -933,7 +950,7 @@ export default function ParticipantsList() {
           }}
         >
           <TextField
-            placeholder="Search by auction number or product ID…"
+            placeholder="Search by auction number or product Name…"
             value={auctionSearch}
             onChange={(e) => setAuctionSearch(e.target.value)}
             variant="outlined"
