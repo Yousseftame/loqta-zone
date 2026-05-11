@@ -173,14 +173,18 @@ export default function MarginReportTable({ topAuctions, loading }: Props) {
               <tbody>
                 {pageData.map((row: TopAuction, i: number) => {
                   const hasPrice = row.actualPrice > 0;
-                  const isPositive = row.margin >= 0;
                   const profit =
                     row.actualProfit ??
                     (hasPrice ? row.winningBid - row.actualPrice : 0);
                   const entryFeeRevenue = row.entryFeeRevenue ?? 0;
-                  // totalProfit = margin profit + entry fee revenue
+                  // totalProfit = bid margin profit + entry fee revenue
                   const totalProfit =
                     row.totalActualProfit ?? (profit + entryFeeRevenue);
+                  // Margin % uses totalActualProfit so entry fees are included
+                  const displayMargin = hasPrice
+                    ? (totalProfit / row.actualPrice) * 100
+                    : row.margin;
+                  const isPositive = displayMargin >= 0;
                   return (
                     <tr
                       key={row.auctionId}
@@ -312,7 +316,7 @@ export default function MarginReportTable({ topAuctions, loading }: Props) {
                         )}
                       </td>
 
-                      {/* Margin % */}
+                      {/* Margin % — uses totalActualProfit (incl. entry fees) / actualPrice */}
                       <td style={{ padding: "12px 16px" }}>
                         {hasPrice ? (
                           <Chip
@@ -323,7 +327,7 @@ export default function MarginReportTable({ topAuctions, loading }: Props) {
                                 <TrendingDown size={12} />
                               )
                             }
-                            label={`${isPositive ? "+" : ""}${row.margin.toFixed(1)}%`}
+                            label={`${isPositive ? "+" : ""}${displayMargin.toFixed(1)}%`}
                             size="small"
                             sx={{
                               bgcolor: isPositive ? "#DCFCE7" : "#FEE2E2",
