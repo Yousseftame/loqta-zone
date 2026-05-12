@@ -1,8 +1,10 @@
 /**
  * src/store/AdminContext/PurchaseContext/PurchaseContext.tsx
  *
- * Global state for purchases. Pattern is identical to every other admin context
- * (CategoryContext, SupplierContext, etc.) — zero new patterns introduced.
+ * Global state for purchases. Extends the original context with:
+ *   - recordPayment()        — record a partial/credit payment against a purchase
+ *   - markFullyPaid()        — manual override to settle a purchase
+ *   - getPurchasePayments()  — fetch payment history for a purchase
  */
 
 import {
@@ -18,6 +20,8 @@ import type {
   Purchase,
   PurchaseFormData,
   PurchaseStatus,
+  PurchasePayment,
+  RecordPaymentFormData,
 } from "@/pages/Admin/Purchases/purchases-data";
 import {
   fetchPurchases,
@@ -26,6 +30,9 @@ import {
   updatePurchase,
   deletePurchase,
   updatePurchaseStatus,
+  recordPayment,
+  fetchPurchasePayments,
+  markPurchaseFullyPaid,
 } from "@/service/purchases/purchaseService";
 import { useAuth } from "@/store/AuthContext/AuthContext";
 
@@ -39,6 +46,13 @@ interface PurchaseContextType {
   editPurchase: (id: string, formData: PurchaseFormData) => Promise<Purchase>;
   removePurchase: (id: string) => Promise<void>;
   changeStatus: (id: string, status: PurchaseStatus) => Promise<void>;
+  // Payment management
+  recordPayment: (
+    purchaseId: string,
+    formData: RecordPaymentFormData,
+  ) => Promise<Purchase>;
+  markFullyPaid: (purchaseId: string) => Promise<Purchase>;
+  getPurchasePayments: (purchaseId: string) => Promise<PurchasePayment[]>;
 }
 
 const PurchaseContext = createContext<PurchaseContextType | undefined>(
@@ -150,6 +164,68 @@ export const PurchaseProvider = ({ children }: { children: ReactNode }) => {
     [],
   );
 
+  // ── Record a payment ────────────────────────────────────────────────────────
+
+  const handleRecordPayment = useCallback(
+    async (purchaseId: string, formData: RecordPaymentFormData) => {
+      try {
+        const updated = await recordPayment(
+          purchaseId,
+          formData,
+          user?.uid ?? "",
+          (user as any)?.displayName ?? "Admin",
+        );
+        setPurchases((prev) =>
+          prev.map((p) => (p.id === purchaseId ? updated : p)),
+        );
+        toast.success(
+          updated.paymentStatus === "paid"
+            ? "Payment recorded — purchase fully settled! ✅"
+            : `Payment of ${formData.amount} EGP recorded successfully`,
+        );
+        return updated;
+      } catch (err: any) {
+        toast.error(err?.message ?? "Failed to record payment");
+        throw err;
+      }
+    },
+    [user],
+  );
+
+  // ── Mark fully paid ─────────────────────────────────────────────────────────
+
+  const handleMarkFullyPaid = useCallback(
+    async (purchaseId: string) => {
+      try {
+        const updated = await markPurchaseFullyPaid(
+          purchaseId,
+          user?.uid ?? "",
+          (user as any)?.displayName ?? "Admin",
+        );
+        setPurchases((prev) =>
+          prev.map((p) => (p.id === purchaseId ? updated : p)),
+        );
+        toast.success("Purchase marked as fully paid ✅");
+        return updated;
+      } catch (err: any) {
+        toast.error(err?.message ?? "Failed to mark as paid");
+        throw err;
+      }
+    },
+    [user],
+  );
+
+  // ── Fetch payment history ───────────────────────────────────────────────────
+
+  const getPurchasePayments = useCallback(async (purchaseId: string) => {
+    try {
+      return await fetchPurchasePayments(purchaseId);
+    } catch (err: any) {
+      toast.error("Failed to load payment history");
+      return [];
+    }
+  }, []);
+
   return (
     <PurchaseContext.Provider
       value={{
@@ -162,6 +238,9 @@ export const PurchaseProvider = ({ children }: { children: ReactNode }) => {
         editPurchase,
         removePurchase,
         changeStatus,
+        recordPayment: handleRecordPayment,
+        markFullyPaid: handleMarkFullyPaid,
+        getPurchasePayments,
       }}
     >
       {children}

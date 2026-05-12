@@ -1,11 +1,17 @@
 /**
  * src/pages/Admin/Purchases/PurchasesList.tsx
  *
- * Standalone admin page for Purchase Orders.
- * Visual language matches ProductsList / SuppliersList exactly.
+ * Full purchase management page with:
+ *   - Payment type + status display (cash / credit / partial)
+ *   - Overdue detection with live badge
+ *   - Record Payment modal (for credit/partial purchases)
+ *   - Mark as Fully Paid action
+ *   - Payment History drawer per purchase
+ *   - Liabilities summary cards (what we owe suppliers)
+ *   - Filtered views: All / Unpaid / Overdue / Partial
  */
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Table,
   TableBody,
@@ -25,6 +31,11 @@ import {
   Box,
   CircularProgress,
   Chip,
+  Tab,
+  Tabs,
+  Divider,
+  Tooltip,
+  MenuItem,
 } from "@mui/material";
 import {
   Plus,
@@ -38,15 +49,31 @@ import {
   Package,
   TrendingUp,
   CheckCircle2,
+  CreditCard,
+  Clock,
+  DollarSign,
+  AlertCircle,
+  Banknote,
+  History,
+  CheckCheck,
 } from "lucide-react";
 import { colors } from "@/pages/Admin/Products/products-data";
 import { usePurchases } from "@/store/AdminContext/PurchaseContext/PurchaseContext";
+import { useAuth } from "@/store/AuthContext/AuthContext";
 import type {
   Purchase,
   PurchaseFormData,
   PurchaseStatus,
+  PaymentStatus,
+  PurchasePayment,
+  RecordPaymentFormData,
 } from "./purchases-data";
-import { STATUS_CONFIG } from "./purchases-data";
+import {
+  STATUS_CONFIG,
+  PAYMENT_STATUS_CONFIG,
+  PAYMENT_TYPE_CONFIG,
+  DEFAULT_RECORD_PAYMENT_FORM,
+} from "./purchases-data";
 import PurchaseModal from "./components/PurchaseModal";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -64,6 +91,12 @@ function fmtEGP(n: number): string {
   return `${n.toLocaleString("en-EG")} EGP`;
 }
 
+function isDueSoon(dueDate: Date | null): boolean {
+  if (!dueDate) return false;
+  const days = (dueDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
+  return days >= 0 && days <= 7;
+}
+
 // ─── Status Quick-change pill ─────────────────────────────────────────────────
 
 function StatusChip({
@@ -77,7 +110,6 @@ function StatusChip({
 }) {
   const [open, setOpen] = useState(false);
   const cfg = STATUS_CONFIG[status];
-
   return (
     <Box sx={{ position: "relative", display: "inline-block" }}>
       <Chip
@@ -148,9 +180,518 @@ function StatusChip({
   );
 }
 
+// ─── Payment Status badge ─────────────────────────────────────────────────────
+
+function PaymentStatusBadge({ status }: { status: PaymentStatus }) {
+  const cfg = PAYMENT_STATUS_CONFIG[status];
+  return (
+    <Chip
+      label={`${cfg.emoji} ${cfg.label}`}
+      size="small"
+      sx={{
+        bgcolor: cfg.bg,
+        color: cfg.color,
+        fontWeight: 700,
+        fontSize: "0.7rem",
+        border: `1px solid ${cfg.border}`,
+      }}
+    />
+  );
+}
+
+// ─── Record Payment Dialog ────────────────────────────────────────────────────
+
+function RecordPaymentDialog({
+  open,
+  purchase,
+  saving,
+  onClose,
+  onRecord,
+}: {
+  open: boolean;
+  purchase: Purchase | null;
+  saving: boolean;
+  onClose: () => void;
+  onRecord: (formData: RecordPaymentFormData) => Promise<void>;
+}) {
+  const [form, setForm] = useState<RecordPaymentFormData>(
+    DEFAULT_RECORD_PAYMENT_FORM,
+  );
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      setError(null);
+      setForm({
+        ...DEFAULT_RECORD_PAYMENT_FORM,
+        amount: purchase?.remainingAmount
+          ? String(purchase.remainingAmount)
+          : "",
+      });
+    }
+  }, [open, purchase]);
+
+  const set = <K extends keyof RecordPaymentFormData>(
+    k: K,
+    v: RecordPaymentFormData[K],
+  ) => setForm((prev) => ({ ...prev, [k]: v }));
+
+  const validate = (): string | null => {
+    const amount = parseFloat(form.amount);
+    if (!form.amount || isNaN(amount) || amount <= 0)
+      return "Enter a valid payment amount.";
+    if (purchase && amount > purchase.remainingAmount)
+      return `Amount cannot exceed remaining balance of ${fmtEGP(purchase.remainingAmount)}.`;
+    if (!form.paidAt) return "Select a payment date.";
+    return null;
+  };
+
+  const handleSubmit = async () => {
+    setError(null);
+    const err = validate();
+    if (err) {
+      setError(err);
+      return;
+    }
+    try {
+      await onRecord(form);
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to record payment.");
+    }
+  };
+
+  if (!purchase) return null;
+
+  const inputSx = {
+    "& .MuiOutlinedInput-root": {
+      bgcolor: "#fff",
+      "& fieldset": { borderColor: colors.border },
+      "&:hover fieldset": { borderColor: colors.primary },
+      "&.Mui-focused fieldset": { borderColor: colors.primary, borderWidth: 2 },
+    },
+    "& .MuiInputLabel-root.Mui-focused": { color: colors.primary },
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onClose={() => !saving && onClose()}
+      maxWidth="xs"
+      fullWidth
+      PaperProps={{ sx: { borderRadius: 3 } }}
+    >
+      <DialogTitle
+        sx={{
+          fontWeight: 700,
+          fontSize: "0.95rem",
+          color: colors.primaryDark,
+          borderBottom: `1px solid ${colors.border}`,
+          pb: 2,
+          display: "flex",
+          alignItems: "center",
+          gap: 1,
+        }}
+      >
+        <Banknote size={17} style={{ color: colors.primary }} />
+        Record Payment
+      </DialogTitle>
+
+      <DialogContent
+        sx={{
+          pt: "20px !important",
+          display: "flex",
+          flexDirection: "column",
+          gap: 2,
+        }}
+      >
+        {/* Summary */}
+        <Box
+          sx={{
+            p: 1.5,
+            borderRadius: 2,
+            bgcolor: colors.primaryBg,
+            border: `1px solid ${colors.primaryRing}`,
+          }}
+        >
+          <p
+            style={{
+              margin: 0,
+              fontSize: "0.78rem",
+              fontWeight: 600,
+              color: colors.primaryDark,
+            }}
+          >
+            {purchase.productTitle} — {purchase.supplierName}
+          </p>
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 1,
+              mt: 1,
+            }}
+          >
+            <Box>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: "0.62rem",
+                  color: colors.textMuted,
+                  textTransform: "uppercase",
+                  fontWeight: 600,
+                }}
+              >
+                Total
+              </p>
+              <p
+                style={{
+                  margin: "2px 0 0",
+                  fontSize: "0.85rem",
+                  fontWeight: 700,
+                  color: colors.textPrimary,
+                }}
+              >
+                {fmtEGP(purchase.totalCost)}
+              </p>
+            </Box>
+            <Box>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: "0.62rem",
+                  color: "#7F1D1D",
+                  textTransform: "uppercase",
+                  fontWeight: 600,
+                }}
+              >
+                Still Owed
+              </p>
+              <p
+                style={{
+                  margin: "2px 0 0",
+                  fontSize: "0.85rem",
+                  fontWeight: 700,
+                  color: "#DC2626",
+                }}
+              >
+                {fmtEGP(purchase.remainingAmount)}
+              </p>
+            </Box>
+          </Box>
+        </Box>
+
+        {error && (
+          <Box
+            sx={{
+              p: 1.5,
+              bgcolor: "#FEE2E2",
+              borderRadius: 2,
+              fontSize: "0.8rem",
+              color: "#7F1D1D",
+            }}
+          >
+            {error}
+          </Box>
+        )}
+
+        {/* Amount */}
+        <TextField
+          label="Payment Amount (EGP) *"
+          type="number"
+          size="small"
+          fullWidth
+          value={form.amount}
+          onChange={(e) => set("amount", e.target.value)}
+          inputProps={{
+            min: 0.01,
+            step: "0.01",
+            max: purchase.remainingAmount,
+          }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <span style={{ fontSize: "0.8rem", color: colors.textMuted }}>
+                  EGP
+                </span>
+              </InputAdornment>
+            ),
+          }}
+          helperText={`Max: ${fmtEGP(purchase.remainingAmount)}`}
+          FormHelperTextProps={{ sx: { fontSize: "0.7rem" } }}
+          sx={inputSx}
+        />
+
+        {/* Method */}
+        <TextField
+          label="Payment Method"
+          select
+          size="small"
+          fullWidth
+          value={form.method}
+          onChange={(e) => set("method", e.target.value as "cash" | "bank")}
+          sx={inputSx}
+        >
+          <MenuItem value="cash">💵 Cash</MenuItem>
+          <MenuItem value="bank">🏦 Bank Transfer</MenuItem>
+        </TextField>
+
+        {/* Date */}
+        <TextField
+          label="Payment Date *"
+          type="date"
+          size="small"
+          fullWidth
+          value={form.paidAt}
+          onChange={(e) => set("paidAt", e.target.value)}
+          InputLabelProps={{ shrink: true }}
+          sx={inputSx}
+        />
+
+        {/* Note */}
+        <TextField
+          label="Note (optional)"
+          size="small"
+          fullWidth
+          value={form.note}
+          onChange={(e) => set("note", e.target.value)}
+          sx={inputSx}
+        />
+      </DialogContent>
+
+      <DialogActions
+        sx={{ px: 3, pb: 2.5, borderTop: `1px solid ${colors.border}`, gap: 1 }}
+      >
+        <Button
+          onClick={onClose}
+          disabled={saving}
+          sx={{ textTransform: "none", color: colors.textSecondary }}
+        >
+          Cancel
+        </Button>
+        <Button
+          variant="contained"
+          onClick={handleSubmit}
+          disabled={saving}
+          sx={{
+            textTransform: "none",
+            fontWeight: 700,
+            bgcolor: colors.primary,
+            "&:hover": { bgcolor: colors.primaryDark },
+            minWidth: 120,
+            borderRadius: 2,
+          }}
+        >
+          {saving ? (
+            <CircularProgress size={16} sx={{ color: "#fff" }} />
+          ) : (
+            "Record Payment"
+          )}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+// ─── Payment History Dialog ───────────────────────────────────────────────────
+
+function PaymentHistoryDialog({
+  open,
+  purchase,
+  payments,
+  loadingHistory,
+  onClose,
+}: {
+  open: boolean;
+  purchase: Purchase | null;
+  payments: PurchasePayment[];
+  loadingHistory: boolean;
+  onClose: () => void;
+}) {
+  if (!purchase) return null;
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      PaperProps={{ sx: { borderRadius: 3 } }}
+    >
+      <DialogTitle
+        sx={{
+          fontWeight: 700,
+          fontSize: "0.95rem",
+          color: colors.primaryDark,
+          borderBottom: `1px solid ${colors.border}`,
+          pb: 2,
+          display: "flex",
+          alignItems: "center",
+          gap: 1,
+        }}
+      >
+        <History size={17} style={{ color: colors.primary }} />
+        Payment History — {purchase.productTitle}
+      </DialogTitle>
+      <DialogContent sx={{ pt: "20px !important" }}>
+        {/* Summary bar */}
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gap: 1.5,
+            mb: 2.5,
+          }}
+        >
+          {[
+            {
+              label: "Total Cost",
+              value: fmtEGP(purchase.totalCost),
+              color: colors.primaryDark,
+            },
+            {
+              label: "Paid",
+              value: fmtEGP(purchase.paidAmount),
+              color: "#16A34A",
+            },
+            {
+              label: "Remaining",
+              value: fmtEGP(purchase.remainingAmount),
+              color: "#DC2626",
+            },
+          ].map(({ label, value, color }) => (
+            <Box
+              key={label}
+              sx={{
+                p: 1.5,
+                borderRadius: 2,
+                bgcolor: "#F8FAFC",
+                border: `1px solid ${colors.border}`,
+                textAlign: "center",
+              }}
+            >
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: "0.62rem",
+                  color: colors.textMuted,
+                  fontWeight: 600,
+                  textTransform: "uppercase",
+                }}
+              >
+                {label}
+              </p>
+              <p
+                style={{
+                  margin: "4px 0 0",
+                  fontSize: "0.85rem",
+                  fontWeight: 800,
+                  color,
+                }}
+              >
+                {value}
+              </p>
+            </Box>
+          ))}
+        </Box>
+
+        {loadingHistory ? (
+          <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+            <CircularProgress size={28} sx={{ color: colors.primary }} />
+          </Box>
+        ) : payments.length === 0 ? (
+          <Box sx={{ textAlign: "center", py: 4, color: colors.textMuted }}>
+            <History
+              size={32}
+              style={{ margin: "0 auto 8px", display: "block" }}
+            />
+            <p style={{ margin: 0, fontSize: "0.875rem" }}>
+              No payments recorded yet
+            </p>
+          </Box>
+        ) : (
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+            {payments.map((pay) => (
+              <Box
+                key={pay.id}
+                sx={{
+                  p: 1.5,
+                  borderRadius: 2,
+                  bgcolor: "#F8FAFC",
+                  border: `1px solid ${colors.border}`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <Box>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <span
+                      style={{
+                        fontWeight: 700,
+                        fontSize: "0.9rem",
+                        color: "#16A34A",
+                      }}
+                    >
+                      +{fmtEGP(pay.amount)}
+                    </span>
+                    <Chip
+                      label={pay.method === "cash" ? "💵 Cash" : "🏦 Bank"}
+                      size="small"
+                      sx={{
+                        fontSize: "0.65rem",
+                        height: 18,
+                        bgcolor: "#F1F5F9",
+                        color: colors.textSecondary,
+                      }}
+                    />
+                  </Box>
+                  {pay.note && (
+                    <p
+                      style={{
+                        margin: "2px 0 0",
+                        fontSize: "0.72rem",
+                        color: colors.textMuted,
+                      }}
+                    >
+                      {pay.note}
+                    </p>
+                  )}
+                  <p
+                    style={{
+                      margin: "2px 0 0",
+                      fontSize: "0.7rem",
+                      color: colors.textMuted,
+                    }}
+                  >
+                    by {pay.recordedByName} · {fmtDate(pay.paidAt)}
+                  </p>
+                </Box>
+              </Box>
+            ))}
+          </Box>
+        )}
+      </DialogContent>
+      <DialogActions
+        sx={{ px: 3, pb: 2, borderTop: `1px solid ${colors.border}` }}
+      >
+        <Button
+          onClick={onClose}
+          sx={{ textTransform: "none", color: colors.textSecondary }}
+        >
+          Close
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+// ─── Tab values ───────────────────────────────────────────────────────────────
+
+type FilterTab = "all" | "unpaid" | "overdue" | "partial";
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function PurchasesList() {
+  const { user } = useAuth();
   const {
     purchases,
     loading,
@@ -160,48 +701,92 @@ export default function PurchasesList() {
     editPurchase,
     removePurchase,
     changeStatus,
+    recordPayment,
+    markFullyPaid,
+    getPurchasePayments,
   } = usePurchases();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [activeTab, setActiveTab] = useState<FilterTab>("all");
 
-  // Modal state
+  // Modals
   const [modalOpen, setModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editingPurchase, setEditingPurchase] = useState<Purchase | null>(null);
 
-  // Delete dialog
+  // Delete
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [toDelete, setToDelete] = useState<Purchase | null>(null);
   const [loadingDelete, setLoadingDelete] = useState(false);
 
-  // ── Derived stats ──────────────────────────────────────────────────────────
-  const totalSpend = useMemo(
-    () => purchases.reduce((s, p) => s + p.totalCost, 0),
-    [purchases],
-  );
-  const receivedCount = useMemo(
-    () => purchases.filter((p) => p.status === "received").length,
-    [purchases],
-  );
-  const pendingCount = useMemo(
-    () => purchases.filter((p) => p.status === "pending").length,
-    [purchases],
-  );
+  // Record payment
+  const [paymentDialog, setPaymentDialog] = useState(false);
+  const [paymentTarget, setPaymentTarget] = useState<Purchase | null>(null);
+  const [recordingSaving, setRecordingSaving] = useState(false);
 
-  // ── Filter ─────────────────────────────────────────────────────────────────
+  // History
+  const [historyDialog, setHistoryDialog] = useState(false);
+  const [historyTarget, setHistoryTarget] = useState<Purchase | null>(null);
+  const [historyPayments, setHistoryPayments] = useState<PurchasePayment[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
+  // ── Computed stats ──────────────────────────────────────────────────────────
+
+  const stats = useMemo(() => {
+    const totalSpend = purchases.reduce((s, p) => s + p.totalCost, 0);
+    const totalOwed = purchases.reduce((s, p) => s + p.remainingAmount, 0);
+    const overdueAmount = purchases
+      .filter((p) => p.paymentStatus === "overdue")
+      .reduce((s, p) => s + p.remainingAmount, 0);
+    const receivedCount = purchases.filter(
+      (p) => p.status === "received",
+    ).length;
+    const overdueCount = purchases.filter(
+      (p) => p.paymentStatus === "overdue",
+    ).length;
+    const unpaidCount = purchases.filter(
+      (p) => p.paymentStatus === "unpaid" || p.paymentStatus === "partial",
+    ).length;
+    return {
+      totalSpend,
+      totalOwed,
+      overdueAmount,
+      receivedCount,
+      overdueCount,
+      unpaidCount,
+    };
+  }, [purchases]);
+
+  // ── Filtered list ───────────────────────────────────────────────────────────
+
   const filtered = useMemo(() => {
-    if (!searchTerm.trim()) return purchases;
-    const s = searchTerm.toLowerCase();
-    return purchases.filter(
-      (p) =>
-        p.productTitle.toLowerCase().includes(s) ||
-        p.supplierName.toLowerCase().includes(s) ||
-        p.notes.toLowerCase().includes(s) ||
-        STATUS_CONFIG[p.status].label.toLowerCase().includes(s),
-    );
-  }, [purchases, searchTerm]);
+    let list = purchases;
+
+    // Tab filter
+    if (activeTab === "unpaid") {
+      list = list.filter((p) => p.paymentStatus === "unpaid");
+    } else if (activeTab === "overdue") {
+      list = list.filter((p) => p.paymentStatus === "overdue");
+    } else if (activeTab === "partial") {
+      list = list.filter((p) => p.paymentStatus === "partial");
+    }
+
+    // Text search
+    if (searchTerm.trim()) {
+      const s = searchTerm.toLowerCase();
+      list = list.filter(
+        (p) =>
+          p.productTitle.toLowerCase().includes(s) ||
+          p.supplierName.toLowerCase().includes(s) ||
+          p.notes.toLowerCase().includes(s) ||
+          STATUS_CONFIG[p.status].label.toLowerCase().includes(s) ||
+          PAYMENT_TYPE_CONFIG[p.paymentType].label.toLowerCase().includes(s),
+      );
+    }
+    return list;
+  }, [purchases, searchTerm, activeTab]);
 
   const paginated = filtered.slice(
     page * rowsPerPage,
@@ -210,7 +795,7 @@ export default function PurchasesList() {
 
   useEffect(() => {
     setPage(0);
-  }, [searchTerm]);
+  }, [searchTerm, activeTab]);
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
@@ -226,11 +811,8 @@ export default function PurchasesList() {
   const handleSave = async (formData: PurchaseFormData) => {
     setSaving(true);
     try {
-      if (editingPurchase) {
-        await editPurchase(editingPurchase.id, formData);
-      } else {
-        await addPurchase(formData);
-      }
+      if (editingPurchase) await editPurchase(editingPurchase.id, formData);
+      else await addPurchase(formData);
       setModalOpen(false);
     } finally {
       setSaving(false);
@@ -249,7 +831,42 @@ export default function PurchasesList() {
     }
   };
 
-  // ── Loading / Error ────────────────────────────────────────────────────────
+  const openRecordPayment = (p: Purchase) => {
+    setPaymentTarget(p);
+    setPaymentDialog(true);
+  };
+
+  const handleRecordPayment = async (formData: RecordPaymentFormData) => {
+    if (!paymentTarget) return;
+    setRecordingSaving(true);
+    try {
+      await recordPayment(paymentTarget.id, formData);
+      setPaymentDialog(false);
+      setPaymentTarget(null);
+    } finally {
+      setRecordingSaving(false);
+    }
+  };
+
+  const handleMarkFullyPaid = async (p: Purchase) => {
+    try {
+      await markFullyPaid(p.id);
+    } catch {
+      /* toast handled in context */
+    }
+  };
+
+  const openHistory = async (p: Purchase) => {
+    setHistoryTarget(p);
+    setHistoryDialog(true);
+    setLoadingHistory(true);
+    setHistoryPayments([]);
+    const payments = await getPurchasePayments(p.id);
+    setHistoryPayments(payments);
+    setLoadingHistory(false);
+  };
+
+  // ── Loading / Error ─────────────────────────────────────────────────────────
 
   if (loading) {
     return (
@@ -290,6 +907,47 @@ export default function PurchasesList() {
       </Box>
     );
   }
+
+  // ── Stat card data ──────────────────────────────────────────────────────────
+
+  const statCards = [
+    {
+      label: "Total Orders",
+      value: purchases.length,
+      icon: <ShoppingCart size={22} />,
+      warn: false,
+    },
+    {
+      label: "Total Spend",
+      value: fmtEGP(stats.totalSpend),
+      icon: <TrendingUp size={22} />,
+      warn: false,
+    },
+    {
+      label: "Total Owed",
+      value: fmtEGP(stats.totalOwed),
+      icon: <CreditCard size={22} />,
+      warn: stats.totalOwed > 0,
+    },
+    {
+      label: "Overdue",
+      value: fmtEGP(stats.overdueAmount),
+      icon: <AlertCircle size={22} />,
+      warn: stats.overdueAmount > 0,
+    },
+    {
+      label: "Received",
+      value: stats.receivedCount,
+      icon: <CheckCircle2 size={22} />,
+      warn: false,
+    },
+    {
+      label: "Unpaid / Partial",
+      value: stats.unpaidCount,
+      icon: <Clock size={22} />,
+      warn: stats.unpaidCount > 0,
+    },
+  ];
 
   return (
     <Box
@@ -337,7 +995,7 @@ export default function PurchasesList() {
               fontSize: "0.875rem",
             }}
           >
-            Track products bought from suppliers
+            Track supplier purchases with full payment accounting
           </p>
         </div>
         <Box sx={{ display: "flex", gap: 1 }}>
@@ -377,44 +1035,25 @@ export default function PurchasesList() {
       <Box
         sx={{
           display: "grid",
-          gap: 3,
+          gap: 2,
           gridTemplateColumns: {
-            xs: "1fr",
-            sm: "repeat(2, 1fr)",
-            md: "repeat(4, 1fr)",
+            xs: "1fr 1fr",
+            sm: "repeat(3, 1fr)",
+            md: "repeat(6, 1fr)",
           },
-          mb: 4,
+          mb: 3,
         }}
       >
-        {[
-          {
-            label: "Total Orders",
-            value: purchases.length,
-            icon: <ShoppingCart size={22} />,
-          },
-          {
-            label: "Total Spend",
-            value: fmtEGP(totalSpend),
-            icon: <TrendingUp size={22} />,
-          },
-          {
-            label: "Received",
-            value: receivedCount,
-            icon: <CheckCircle2 size={22} />,
-          },
-          {
-            label: "Pending",
-            value: pendingCount,
-            icon: <Package size={22} />,
-          },
-        ].map(({ label, value, icon }) => (
+        {statCards.map(({ label, value, icon, warn }) => (
           <Paper
             key={label}
             elevation={0}
             sx={{
-              p: { xs: 2, md: 2.5 },
+              p: 2,
               borderRadius: 3,
-              background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryLight} 100%)`,
+              background: warn
+                ? "linear-gradient(135deg, #DC2626 0%, #EF4444 100%)"
+                : `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryLight} 100%)`,
               color: "#fff",
             }}
           >
@@ -428,7 +1067,7 @@ export default function PurchasesList() {
               <div>
                 <p
                   style={{
-                    fontSize: "0.7rem",
+                    fontSize: "0.62rem",
                     fontWeight: 600,
                     opacity: 0.8,
                     textTransform: "uppercase",
@@ -440,7 +1079,7 @@ export default function PurchasesList() {
                 </p>
                 <p
                   style={{
-                    fontSize: typeof value === "number" ? "2rem" : "1.4rem",
+                    fontSize: typeof value === "number" ? "1.75rem" : "1rem",
                     fontWeight: 700,
                     margin: "4px 0 0",
                   }}
@@ -450,9 +1089,9 @@ export default function PurchasesList() {
               </div>
               <Box
                 sx={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 12,
+                  width: 38,
+                  height: 38,
+                  borderRadius: 10,
                   background: "rgba(255,255,255,0.2)",
                   display: "flex",
                   alignItems: "center",
@@ -466,19 +1105,46 @@ export default function PurchasesList() {
         ))}
       </Box>
 
-      {/* ── Search ── */}
+      {/* ── Overdue alert banner ── */}
+      {stats.overdueAmount > 0 && (
+        <Paper
+          elevation={0}
+          sx={{
+            p: 2,
+            mb: 3,
+            borderRadius: 2,
+            bgcolor: "#FFF7ED",
+            border: "1px solid #FED7AA",
+            display: "flex",
+            alignItems: "center",
+            gap: 1.5,
+          }}
+        >
+          <AlertTriangle
+            size={18}
+            style={{ color: "#F97316", flexShrink: 0 }}
+          />
+          <p style={{ margin: 0, fontSize: "0.875rem", color: "#7C2D12" }}>
+            <strong>Overdue payments:</strong> You have{" "}
+            {fmtEGP(stats.overdueAmount)} in overdue supplier payments. Please
+            settle outstanding balances to maintain good supplier relationships.
+          </p>
+        </Paper>
+      )}
+
+      {/* ── Search + Tabs ── */}
       <Paper
         elevation={0}
         sx={{
-          p: 3,
-          mb: 3,
+          p: 2,
+          mb: 2,
           borderRadius: 3,
           bgcolor: "#fff",
           border: `1px solid ${colors.border}`,
         }}
       >
         <TextField
-          placeholder="Search by product, supplier, status or notes…"
+          placeholder="Search by product, supplier, status…"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           variant="outlined"
@@ -499,6 +1165,7 @@ export default function PurchasesList() {
             ),
           }}
           sx={{
+            mb: 2,
             "& .MuiOutlinedInput-root": {
               "& fieldset": { borderColor: colors.border },
               "&:hover fieldset": { borderColor: colors.primary },
@@ -506,6 +1173,41 @@ export default function PurchasesList() {
             },
           }}
         />
+
+        <Tabs
+          value={activeTab}
+          onChange={(_e, v) => setActiveTab(v)}
+          sx={{
+            minHeight: 36,
+            "& .MuiTab-root": {
+              textTransform: "none",
+              fontSize: "0.8rem",
+              minHeight: 36,
+              py: 0.5,
+              px: 2,
+            },
+            "& .Mui-selected": { color: colors.primary, fontWeight: 700 },
+            "& .MuiTabs-indicator": { bgcolor: colors.primary },
+          }}
+        >
+          <Tab value="all" label={`All (${purchases.length})`} />
+          <Tab
+            value="unpaid"
+            label={`Unpaid (${purchases.filter((p) => p.paymentStatus === "unpaid").length})`}
+          />
+          <Tab
+            value="overdue"
+            label={`Overdue (${stats.overdueCount})`}
+            sx={{
+              color: stats.overdueCount > 0 ? "#DC2626 !important" : undefined,
+            }}
+          />
+          <Tab
+            value="partial"
+            label={`Partial (${purchases.filter((p) => p.paymentStatus === "partial").length})`}
+          />
+        </Tabs>
+
         <p
           style={{
             margin: "8px 0 0",
@@ -529,7 +1231,7 @@ export default function PurchasesList() {
         }}
       >
         <Box sx={{ overflowX: "auto", width: "100%" }}>
-          <Table sx={{ minWidth: 780 }}>
+          <Table sx={{ minWidth: 1100 }}>
             <TableHead>
               <TableRow sx={{ bgcolor: colors.primaryBg }}>
                 {[
@@ -537,10 +1239,13 @@ export default function PurchasesList() {
                   "Product",
                   "Supplier",
                   "Qty",
-                  "Unit Cost",
                   "Total Cost",
+                  "Payment Type",
+                  "Paid",
+                  "Remaining",
+                  "Due Date",
+                  "Pay. Status",
                   "Status",
-                  "Notes",
                   "Actions",
                 ].map((h) => (
                   <TableCell
@@ -548,7 +1253,7 @@ export default function PurchasesList() {
                     sx={{
                       fontWeight: 700,
                       color: colors.primaryDark,
-                      fontSize: "0.72rem",
+                      fontSize: "0.68rem",
                       textTransform: "uppercase",
                       letterSpacing: "0.05em",
                       whiteSpace: "nowrap",
@@ -564,7 +1269,7 @@ export default function PurchasesList() {
             <TableBody>
               {paginated.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} align="center" sx={{ py: 10 }}>
+                  <TableCell colSpan={12} align="center" sx={{ py: 10 }}>
                     <ShoppingCart
                       size={44}
                       style={{
@@ -584,166 +1289,313 @@ export default function PurchasesList() {
                   </TableCell>
                 </TableRow>
               ) : (
-                paginated.map((p, idx) => (
-                  <TableRow
-                    key={p.id}
-                    sx={{
-                      bgcolor: idx % 2 === 0 ? "#fff" : "#FAFAFA",
-                      "&:hover": { bgcolor: colors.muted },
-                      transition: "background 0.15s",
-                    }}
-                  >
-                    {/* Date */}
-                    <TableCell
+                paginated.map((p, idx) => {
+                  const typeCfg = PAYMENT_TYPE_CONFIG[p.paymentType];
+                  const dueSoon = isDueSoon(p.dueDate);
+                  const isUnpaid = p.paymentStatus !== "paid";
+
+                  return (
+                    <TableRow
+                      key={p.id}
                       sx={{
-                        whiteSpace: "nowrap",
-                        fontSize: "0.82rem",
-                        color: colors.textSecondary,
+                        bgcolor:
+                          p.paymentStatus === "overdue"
+                            ? "#FFF7ED"
+                            : idx % 2 === 0
+                              ? "#fff"
+                              : "#FAFAFA",
+                        "&:hover": { bgcolor: colors.muted },
+                        transition: "background 0.15s",
                       }}
                     >
-                      {fmtDate(p.purchaseDate)}
-                    </TableCell>
-
-                    {/* Product */}
-                    <TableCell sx={{ minWidth: 160 }}>
-                      <Box
-                        sx={{ display: "flex", alignItems: "center", gap: 1 }}
-                      >
-                        <Box
-                          sx={{
-                            width: 6,
-                            height: 6,
-                            borderRadius: "50%",
-                            bgcolor: colors.primary,
-                            flexShrink: 0,
-                          }}
-                        />
-                        <span
-                          style={{
-                            fontWeight: 600,
-                            fontSize: "0.875rem",
-                            color: colors.textPrimary,
-                          }}
-                        >
-                          {p.productTitle || "—"}
-                        </span>
-                      </Box>
-                    </TableCell>
-
-                    {/* Supplier */}
-                    <TableCell sx={{ minWidth: 140 }}>
-                      <span
-                        style={{
-                          fontSize: "0.78rem",
-                          background: colors.primaryBg,
-                          color: colors.primary,
-                          padding: "3px 10px",
-                          borderRadius: 99,
-                          fontWeight: 600,
+                      {/* Date */}
+                      <TableCell
+                        sx={{
                           whiteSpace: "nowrap",
-                        }}
-                      >
-                        {p.supplierName || "—"}
-                      </span>
-                    </TableCell>
-
-                    {/* Qty */}
-                    <TableCell>
-                      <span
-                        style={{ fontWeight: 700, color: colors.textPrimary }}
-                      >
-                        {p.quantity}
-                      </span>
-                    </TableCell>
-
-                    {/* Unit Cost */}
-                    <TableCell sx={{ whiteSpace: "nowrap" }}>
-                      <span
-                        style={{
-                          fontSize: "0.85rem",
+                          fontSize: "0.82rem",
                           color: colors.textSecondary,
                         }}
                       >
-                        {fmtEGP(p.unitCost)}
-                      </span>
-                    </TableCell>
+                        {fmtDate(p.purchaseDate)}
+                      </TableCell>
 
-                    {/* Total Cost */}
-                    <TableCell sx={{ whiteSpace: "nowrap" }}>
-                      <span
-                        style={{ fontWeight: 700, color: colors.primaryDark }}
-                      >
-                        {fmtEGP(p.totalCost)}
-                      </span>
-                    </TableCell>
-
-                    {/* Status — clickable to change */}
-                    <TableCell>
-                      <StatusChip
-                        status={p.status}
-                        purchaseId={p.id}
-                        onChange={changeStatus}
-                      />
-                    </TableCell>
-
-                    {/* Notes */}
-                    <TableCell sx={{ maxWidth: 160 }}>
-                      <span
-                        style={{
-                          fontSize: "0.78rem",
-                          color: p.notes ? colors.textSecondary : "#CBD5E1",
-                          fontStyle: p.notes ? "normal" : "italic",
-                          display: "block",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {p.notes || "—"}
-                      </span>
-                    </TableCell>
-
-                    {/* Actions */}
-                    <TableCell align="center" sx={{ minWidth: 90 }}>
-                      <Box
-                        sx={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          gap: 0.5,
-                        }}
-                      >
-                        <IconButton
-                          size="small"
-                          onClick={() => openEdit(p)}
-                          sx={{
-                            color: "#7C3AED",
-                            "&:hover": { bgcolor: "#F3E8FF" },
-                            borderRadius: 1.5,
-                          }}
-                          title="Edit"
+                      {/* Product */}
+                      <TableCell sx={{ minWidth: 150 }}>
+                        <Box
+                          sx={{ display: "flex", alignItems: "center", gap: 1 }}
                         >
-                          <Edit size={16} />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          onClick={() => {
-                            setToDelete(p);
-                            setDeleteDialog(true);
+                          <Box
+                            sx={{
+                              width: 6,
+                              height: 6,
+                              borderRadius: "50%",
+                              bgcolor: colors.primary,
+                              flexShrink: 0,
+                            }}
+                          />
+                          <span
+                            style={{
+                              fontWeight: 600,
+                              fontSize: "0.875rem",
+                              color: colors.textPrimary,
+                            }}
+                          >
+                            {p.productTitle || "—"}
+                          </span>
+                        </Box>
+                      </TableCell>
+
+                      {/* Supplier */}
+                      <TableCell sx={{ minWidth: 130 }}>
+                        <span
+                          style={{
+                            fontSize: "0.78rem",
+                            background: colors.primaryBg,
+                            color: colors.primary,
+                            padding: "3px 10px",
+                            borderRadius: 99,
+                            fontWeight: 600,
+                            whiteSpace: "nowrap",
                           }}
-                          sx={{
-                            color: colors.error,
-                            "&:hover": { bgcolor: "#FEE2E2" },
-                            borderRadius: 1.5,
-                          }}
-                          title="Delete"
                         >
-                          <Trash2 size={16} />
-                        </IconButton>
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                ))
+                          {p.supplierName || "—"}
+                        </span>
+                      </TableCell>
+
+                      {/* Qty */}
+                      <TableCell>
+                        <span
+                          style={{ fontWeight: 700, color: colors.textPrimary }}
+                        >
+                          {p.quantity}
+                        </span>
+                      </TableCell>
+
+                      {/* Total Cost */}
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>
+                        <span
+                          style={{ fontWeight: 700, color: colors.primaryDark }}
+                        >
+                          {fmtEGP(p.totalCost)}
+                        </span>
+                      </TableCell>
+
+                      {/* Payment Type */}
+                      <TableCell>
+                        <Chip
+                          label={`${typeCfg.icon} ${typeCfg.label}`}
+                          size="small"
+                          sx={{
+                            bgcolor: typeCfg.bg,
+                            color: typeCfg.color,
+                            border: `1px solid ${typeCfg.border}`,
+                            fontWeight: 700,
+                            fontSize: "0.68rem",
+                          }}
+                        />
+                      </TableCell>
+
+                      {/* Paid */}
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>
+                        <span
+                          style={{
+                            fontSize: "0.82rem",
+                            fontWeight: 700,
+                            color:
+                              p.paidAmount > 0 ? "#16A34A" : colors.textMuted,
+                          }}
+                        >
+                          {fmtEGP(p.paidAmount)}
+                        </span>
+                      </TableCell>
+
+                      {/* Remaining */}
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>
+                        <span
+                          style={{
+                            fontSize: "0.82rem",
+                            fontWeight: 700,
+                            color:
+                              p.remainingAmount > 0 ? "#DC2626" : "#16A34A",
+                          }}
+                        >
+                          {p.remainingAmount > 0
+                            ? fmtEGP(p.remainingAmount)
+                            : "✓"}
+                        </span>
+                      </TableCell>
+
+                      {/* Due Date */}
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>
+                        {p.dueDate ? (
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 0.5,
+                            }}
+                          >
+                            <span
+                              style={{
+                                fontSize: "0.78rem",
+                                color:
+                                  p.paymentStatus === "overdue"
+                                    ? "#DC2626"
+                                    : dueSoon
+                                      ? "#D97706"
+                                      : colors.textSecondary,
+                                fontWeight:
+                                  p.paymentStatus === "overdue" || dueSoon
+                                    ? 700
+                                    : 400,
+                              }}
+                            >
+                              {fmtDate(p.dueDate)}
+                            </span>
+                            {dueSoon &&
+                              p.paymentStatus !== "overdue" &&
+                              p.paymentStatus !== "paid" && (
+                                <Tooltip title="Due within 7 days">
+                                  <AlertTriangle
+                                    size={12}
+                                    style={{ color: "#D97706" }}
+                                  />
+                                </Tooltip>
+                              )}
+                            {p.paymentStatus === "overdue" && (
+                              <Tooltip title="Overdue!">
+                                <AlertCircle
+                                  size={12}
+                                  style={{ color: "#DC2626" }}
+                                />
+                              </Tooltip>
+                            )}
+                          </Box>
+                        ) : (
+                          <span
+                            style={{
+                              color: colors.textMuted,
+                              fontSize: "0.78rem",
+                            }}
+                          >
+                            —
+                          </span>
+                        )}
+                      </TableCell>
+
+                      {/* Payment Status */}
+                      <TableCell>
+                        <PaymentStatusBadge status={p.paymentStatus} />
+                      </TableCell>
+
+                      {/* Purchase Status */}
+                      <TableCell>
+                        <StatusChip
+                          status={p.status}
+                          purchaseId={p.id}
+                          onChange={changeStatus}
+                        />
+                      </TableCell>
+
+                      {/* Actions */}
+                      <TableCell align="center" sx={{ minWidth: 130 }}>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: 0.5,
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          {/* Record Payment — only if not fully paid */}
+                          {isUnpaid && (
+                            <Tooltip title="Record Payment">
+                              <IconButton
+                                size="small"
+                                onClick={() => openRecordPayment(p)}
+                                sx={{
+                                  color: "#16A34A",
+                                  "&:hover": { bgcolor: "#DCFCE7" },
+                                  borderRadius: 1.5,
+                                }}
+                              >
+                                <DollarSign size={15} />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+
+                          {/* Mark fully paid */}
+                          {isUnpaid && (
+                            <Tooltip title="Mark as Fully Paid">
+                              <IconButton
+                                size="small"
+                                onClick={() => handleMarkFullyPaid(p)}
+                                sx={{
+                                  color: "#0D9488",
+                                  "&:hover": { bgcolor: "#F0FDFA" },
+                                  borderRadius: 1.5,
+                                }}
+                              >
+                                <CheckCheck size={15} />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+
+                          {/* Payment history */}
+                          {p.paymentType !== "cash" && (
+                            <Tooltip title="Payment History">
+                              <IconButton
+                                size="small"
+                                onClick={() => openHistory(p)}
+                                sx={{
+                                  color: "#7C3AED",
+                                  "&:hover": { bgcolor: "#F3E8FF" },
+                                  borderRadius: 1.5,
+                                }}
+                              >
+                                <History size={15} />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+
+                          {/* Edit */}
+                          <Tooltip title="Edit">
+                            <IconButton
+                              size="small"
+                              onClick={() => openEdit(p)}
+                              sx={{
+                                color: "#2563EB",
+                                "&:hover": { bgcolor: "#DBEAFE" },
+                                borderRadius: 1.5,
+                              }}
+                            >
+                              <Edit size={15} />
+                            </IconButton>
+                          </Tooltip>
+
+                          {/* Delete */}
+                          <Tooltip title="Delete">
+                            <IconButton
+                              size="small"
+                              onClick={() => {
+                                setToDelete(p);
+                                setDeleteDialog(true);
+                              }}
+                              sx={{
+                                color: colors.error,
+                                "&:hover": { bgcolor: "#FEE2E2" },
+                                borderRadius: 1.5,
+                              }}
+                            >
+                              <Trash2 size={15} />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
@@ -772,6 +1624,31 @@ export default function PurchasesList() {
         onSave={handleSave}
       />
 
+      {/* ── Record Payment Dialog ── */}
+      <RecordPaymentDialog
+        open={paymentDialog}
+        purchase={paymentTarget}
+        saving={recordingSaving}
+        onClose={() => {
+          setPaymentDialog(false);
+          setPaymentTarget(null);
+        }}
+        onRecord={handleRecordPayment}
+      />
+
+      {/* ── Payment History Dialog ── */}
+      <PaymentHistoryDialog
+        open={historyDialog}
+        purchase={historyTarget}
+        payments={historyPayments}
+        loadingHistory={loadingHistory}
+        onClose={() => {
+          setHistoryDialog(false);
+          setHistoryTarget(null);
+          setHistoryPayments([]);
+        }}
+      />
+
       {/* ── Delete Confirm ── */}
       <Dialog
         open={deleteDialog}
@@ -794,6 +1671,20 @@ export default function PurchasesList() {
           <p style={{ color: colors.textPrimary, marginBottom: 12 }}>
             Are you sure you want to delete the purchase order for{" "}
             <strong>{toDelete?.productTitle}</strong>?
+            {toDelete && toDelete.remainingAmount > 0 && (
+              <span
+                style={{
+                  color: "#DC2626",
+                  display: "block",
+                  marginTop: 8,
+                  fontSize: "0.875rem",
+                }}
+              >
+                ⚠️ This purchase has an outstanding balance of{" "}
+                {fmtEGP(toDelete.remainingAmount)}. Deleting it will remove all
+                payment records.
+              </span>
+            )}
           </p>
           <Box
             sx={{
