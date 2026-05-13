@@ -1,10 +1,8 @@
 /**
  * src/store/AdminContext/PurchaseContext/PurchaseContext.tsx
  *
- * Global state for purchases. Extends the original context with:
- *   - recordPayment()        — record a partial/credit payment against a purchase
- *   - markFullyPaid()        — manual override to settle a purchase
- *   - getPurchasePayments()  — fetch payment history for a purchase
+ * Global state for purchases with payment tracking.
+ * Wraps all service calls with toast feedback and optimistic local state updates.
  */
 
 import {
@@ -68,9 +66,22 @@ export const usePurchases = () => {
 
 export const PurchaseProvider = ({ children }: { children: ReactNode }) => {
   const { user, role, loading: authLoading } = useAuth();
+
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // ── Helpers ─────────────────────────────────────────────────────────────────
+
+  const adminUid = user?.uid ?? "";
+  const adminName =
+    (user as { displayName?: string } | null)?.displayName ?? "Admin";
+
+  function fmtEGP(n: number) {
+    return `${n.toLocaleString("en-EG")} EGP`;
+  }
+
+  // ── Load ─────────────────────────────────────────────────────────────────────
 
   const refreshPurchases = useCallback(async () => {
     setLoading(true);
@@ -78,8 +89,8 @@ export const PurchaseProvider = ({ children }: { children: ReactNode }) => {
     try {
       const data = await fetchPurchases();
       setPurchases(data);
-    } catch (err: any) {
-      const msg = err?.message ?? "Failed to load purchases";
+    } catch (err: unknown) {
+      const msg = (err as Error)?.message ?? "Failed to load purchases";
       setError(msg);
       toast.error(msg);
     } finally {
@@ -96,6 +107,8 @@ export const PurchaseProvider = ({ children }: { children: ReactNode }) => {
     refreshPurchases();
   }, [authLoading, user, role, refreshPurchases]);
 
+  // ── CRUD ─────────────────────────────────────────────────────────────────────
+
   const getPurchase = useCallback(async (id: string) => {
     try {
       return await fetchPurchase(id);
@@ -108,43 +121,43 @@ export const PurchaseProvider = ({ children }: { children: ReactNode }) => {
   const addPurchase = useCallback(
     async (formData: PurchaseFormData) => {
       try {
-        const purchase = await createPurchase(formData, user?.uid ?? "");
+        const purchase = await createPurchase(formData, adminUid, adminName);
         setPurchases((prev) => [purchase, ...prev]);
         toast.success("Purchase order created");
         return purchase;
-      } catch (err: any) {
-        toast.error(err?.message ?? "Failed to create purchase");
+      } catch (err: unknown) {
+        toast.error((err as Error)?.message ?? "Failed to create purchase");
         throw err;
       }
     },
-    [user],
+    [adminUid, adminName],
   );
 
   const editPurchase = useCallback(
     async (id: string, formData: PurchaseFormData) => {
       try {
-        const updated = await updatePurchase(id, formData);
+        const updated = await updatePurchase(id, formData, adminUid, adminName);
         setPurchases((prev) => prev.map((p) => (p.id === id ? updated : p)));
         toast.success("Purchase order updated");
         return updated;
-      } catch (err: any) {
-        toast.error(err?.message ?? "Failed to update purchase");
+      } catch (err: unknown) {
+        toast.error((err as Error)?.message ?? "Failed to update purchase");
         throw err;
       }
     },
-    [],
+    [adminUid, adminName],
   );
 
   const removePurchase = useCallback(async (id: string) => {
     try {
-      await deletePurchase(id);
+      await deletePurchase(id, adminUid, adminName);
       setPurchases((prev) => prev.filter((p) => p.id !== id));
       toast.success("Purchase order deleted");
-    } catch (err: any) {
-      toast.error(err?.message ?? "Failed to delete purchase");
+    } catch (err: unknown) {
+      toast.error((err as Error)?.message ?? "Failed to delete purchase");
       throw err;
     }
-  }, []);
+  }, [adminUid, adminName]);
 
   const changeStatus = useCallback(
     async (id: string, status: PurchaseStatus) => {
@@ -156,75 +169,80 @@ export const PurchaseProvider = ({ children }: { children: ReactNode }) => {
           ),
         );
         toast.success(`Marked as ${status}`);
-      } catch (err: any) {
-        toast.error(err?.message ?? "Failed to update status");
+      } catch (err: unknown) {
+        toast.error((err as Error)?.message ?? "Failed to update status");
         throw err;
       }
     },
     [],
   );
 
-  // ── Record a payment ────────────────────────────────────────────────────────
+  // ── Payment management ────────────────────────────────────────────────────────
 
   const handleRecordPayment = useCallback(
     async (purchaseId: string, formData: RecordPaymentFormData) => {
       try {
-        const updated = await recordPayment(
+        // Service now returns { purchase, effectiveAmount } so we show the
+        // ACTUAL amount applied (in case it was clamped to remainingAmount).
+        const { purchase: updated, effectiveAmount } = await recordPayment(
           purchaseId,
           formData,
-          user?.uid ?? "",
-          (user as any)?.displayName ?? "Admin",
+          adminUid,
+          adminName,
         );
+
         setPurchases((prev) =>
           prev.map((p) => (p.id === purchaseId ? updated : p)),
         );
-        toast.success(
-          updated.paymentStatus === "paid"
-            ? "Payment recorded — purchase fully settled! ✅"
-            : `Payment of ${formData.amount} EGP recorded successfully`,
-        );
+
+        if (updated.paymentStatus === "paid") {
+          toast.success("Payment recorded — purchase fully settled! ✅");
+        } else {
+          toast.success(
+            `Payment of ${fmtEGP(effectiveAmount)} recorded successfully`,
+          );
+        }
+
         return updated;
-      } catch (err: any) {
-        toast.error(err?.message ?? "Failed to record payment");
+      } catch (err: unknown) {
+        toast.error((err as Error)?.message ?? "Failed to record payment");
         throw err;
       }
     },
-    [user],
+    [adminUid, adminName],
   );
-
-  // ── Mark fully paid ─────────────────────────────────────────────────────────
 
   const handleMarkFullyPaid = useCallback(
     async (purchaseId: string) => {
       try {
         const updated = await markPurchaseFullyPaid(
           purchaseId,
-          user?.uid ?? "",
-          (user as any)?.displayName ?? "Admin",
+          adminUid,
+          adminName,
         );
         setPurchases((prev) =>
           prev.map((p) => (p.id === purchaseId ? updated : p)),
         );
         toast.success("Purchase marked as fully paid ✅");
         return updated;
-      } catch (err: any) {
-        toast.error(err?.message ?? "Failed to mark as paid");
+      } catch (err: unknown) {
+        toast.error((err as Error)?.message ?? "Failed to mark as paid");
         throw err;
       }
     },
-    [user],
+    [adminUid, adminName],
   );
-
-  // ── Fetch payment history ───────────────────────────────────────────────────
 
   const getPurchasePayments = useCallback(async (purchaseId: string) => {
     try {
       return await fetchPurchasePayments(purchaseId);
-    } catch (err: any) {
+    } catch {
       toast.error("Failed to load payment history");
       return [];
     }
   }, []);
+
+  // ── Provider ─────────────────────────────────────────────────────────────────
 
   return (
     <PurchaseContext.Provider

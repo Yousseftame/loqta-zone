@@ -252,6 +252,11 @@ match /paymentAccounts/{accountId} {
 // ── Purchases ─────────────────────────────────────────────────────────────────
 match /purchases/{purchaseId} {
   allow read, write: if isAdmin();
+
+  // Payment audit trail (credit / partial payments)
+  match /purchasePayments/{paymentId} {
+    allow read, write: if isAdmin();
+  }
 }
 
 // ── Owners ────────────────────────────────────────────────────────────────────

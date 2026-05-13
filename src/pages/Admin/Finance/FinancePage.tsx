@@ -7,7 +7,7 @@
  * Zero existing logic is changed. All original imports remain intact.
  */
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Box, Button, IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, TextField, CircularProgress } from "@mui/material";
 import {
   DollarSign,
@@ -25,6 +25,7 @@ import app from "@/firebase/firebase";
 import { useAuth } from "@/store/AuthContext/AuthContext";
 import { colors } from "../Products/products-data";
 import { useFinance } from "@/hooks/useFinance";
+import { usePurchases } from "@/store/AdminContext/PurchaseContext/PurchaseContext";
 
 import FinanceCards from "./components/FinanceCards";
 import FinanceCharts from "./components/FinanceCharts";
@@ -33,6 +34,7 @@ import AddTransactionModal from "./components/AddTransactionModal";
 import NetProfitLoss from "./components/NetProfitLoss";
 import PaymentAccountsTab from "./components/PaymentAccountsTab";
 import AnalyticsDashboardTab from "./components/AnalyticsDashboardTab";
+import PurchaseCharts from "./components/PurchaseCharts";
 import type { TransactionFormValues } from "./finance-data";
 
 // ─── Tab definitions ──────────────────────────────────────────────────────────
@@ -68,7 +70,10 @@ export default function FinancePage() {
     updateTransaction,
     addOwner,
     deleteOwner,
+    refetchStats,
   } = useFinance();
+
+  const { refreshPurchases } = usePurchases();
 
   const [activeTab, setActiveTab] = useState<FinanceTab>("overview");
   const [modalOpen, setModalOpen] = useState(false);
@@ -77,12 +82,34 @@ export default function FinancePage() {
   const [ownerToDelete, setOwnerToDelete] = useState<typeof owners[0] | null>(null);
   const [rebuilding, setRebuilding] = useState(false);
 
+  // ── Frozen stats for charts only ────────────────────────────────────────────
+  // FinanceCards uses live `stats` (real-time via onSnapshot).
+  // FinanceCharts uses `frozenStats` which only updates on explicit rebuild,
+  // preventing intermediate Cloud Function write states from corrupting charts.
+  const [frozenStats, setFrozenStats] = useState(stats);
+  const frozenInitialized = useRef(false);
+  useEffect(() => {
+    // Capture the first real (non-default) stats load as the initial frozen state.
+    if (!loading && !frozenInitialized.current) {
+      setFrozenStats(stats);
+      frozenInitialized.current = true;
+    }
+  }, [loading, stats]);
+
   const handleRebuild = async () => {
     if (rebuilding) return;
     setRebuilding(true);
     try {
       const fn = httpsCallable(getFunctions(app), "rebuildFinanceStats");
       const result = (await fn({})) as any;
+      // After CF finishes, do a fresh getDoc for charts + refresh purchases.
+      // We do NOT rely on the onSnapshot state here because React setState
+      // is async and might not have caught up yet.
+      const [freshStats] = await Promise.all([
+        refetchStats(),     // returns the freshly-fetched FinanceStats
+        refreshPurchases(), // re-fetches all purchases for PurchaseCharts
+      ]);
+      setFrozenStats(freshStats); // update charts with correct final data
       toast.success(
         `Finance rebuilt — ${result.data.processed} transactions processed`,
       );
@@ -365,7 +392,12 @@ export default function FinancePage() {
 
           <SectionLabel label="Analytics" />
           <Box sx={{ mb: 4 }}>
-            <FinanceCharts stats={stats} loading={loading} />
+            <FinanceCharts stats={frozenStats} loading={loading} />
+          </Box>
+
+          <SectionLabel label="Purchase Analytics" />
+          <Box sx={{ mb: 4 }}>
+            <PurchaseCharts loading={loading} />
           </Box>
         </>
       )}

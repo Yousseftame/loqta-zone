@@ -29,9 +29,9 @@
  * Transfers show "—" in Balance After and "⇄ N EGP" in Amount (balance-neutral).
  */
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Box, Paper, Chip, IconButton, Tooltip } from "@mui/material";
-import { ChevronLeft, ChevronRight, Pencil } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pencil, Search, X } from "lucide-react";
 import { colors } from "../../Products/products-data";
 import {
   CATEGORY_LABEL,
@@ -666,6 +666,14 @@ export default function TransactionsTable({
   } | null>(null);
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
 
+  // ── Search / filter state ─────────────────────────────────────────────────
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [methodFilter, setMethodFilter] = useState("all");
+  useEffect(() => {
+    setPage(1);
+  }, [search, typeFilter, methodFilter]);
+
   const currentAvailable = stats.cashBalance + stats.bankBalance;
 
   // ── Sort split parts within groups, keeping overall order intact ──────────
@@ -679,18 +687,51 @@ export default function TransactionsTable({
     [sortedTransactions, currentAvailable],
   );
 
+  // Pair each tx with its pre-computed balance BEFORE filtering.
+  // This guarantees "Balance After" is always accurate regardless of
+  // which rows are currently visible — filtering cannot corrupt the running balance.
+  const filteredWithBalance = useMemo(() => {
+    const result: { tx: Transaction; balance: number }[] = [];
+    for (let i = 0; i < sortedTransactions.length; i++) {
+      const tx = sortedTransactions[i];
+      if (typeFilter !== "all" && tx.type !== typeFilter) continue;
+      if (methodFilter !== "all" && tx.method !== methodFilter) continue;
+      if (search) {
+        const q = search.toLowerCase();
+        const note = (tx.note ?? "").toLowerCase();
+        const cat = (CATEGORY_LABEL[tx.category] ?? tx.category).toLowerCase();
+        const by = (tx.createdByName ?? "").toLowerCase();
+        if (!note.includes(q) && !cat.includes(q) && !by.includes(q)) continue;
+      }
+      result.push({ tx, balance: allBalances[i] });
+    }
+    return result;
+  }, [sortedTransactions, allBalances, search, typeFilter, methodFilter]);
+
+  const hasFilters =
+    search !== "" || typeFilter !== "all" || methodFilter !== "all";
+  const clearFilters = () => {
+    setSearch("");
+    setTypeFilter("all");
+    setMethodFilter("all");
+  };
+
   const totalPages = Math.max(
     1,
-    Math.ceil(sortedTransactions.length / PAGE_SIZE),
+    Math.ceil(filteredWithBalance.length / PAGE_SIZE),
   );
   const safePage = Math.min(page, totalPages);
   const pageStart = (safePage - 1) * PAGE_SIZE;
   const pageEnd = safePage * PAGE_SIZE;
-  const pageData = sortedTransactions.slice(pageStart, pageEnd);
-  const pageBalances = allBalances.slice(pageStart, pageEnd);
+  const pageData = filteredWithBalance
+    .slice(pageStart, pageEnd)
+    .map((x) => x.tx);
+  const pageBalances = filteredWithBalance
+    .slice(pageStart, pageEnd)
+    .map((x) => x.balance);
 
-  // Build a map of groupId → all transactions in that group (from the full
-  // sorted list) so the header row shows correct totals in part order.
+  // groupMap is built from the FULL sorted list so split-group header rows
+  // always show correct totals even when some parts are filtered out.
   const groupMap = useMemo(() => {
     const map = new Map<string, Transaction[]>();
     for (const tx of sortedTransactions) {
@@ -812,7 +853,11 @@ export default function TransactionsTable({
             />
             {sortedTransactions.length > 0 && (
               <Chip
-                label={`${sortedTransactions.length} total`}
+                label={
+                  hasFilters
+                    ? `${filteredWithBalance.length} / ${sortedTransactions.length}`
+                    : `${sortedTransactions.length} total`
+                }
                 size="small"
                 sx={{
                   bgcolor: colors.primaryBg,
@@ -824,6 +869,117 @@ export default function TransactionsTable({
               />
             )}
           </Box>
+        </Box>
+
+        {/* ── Filter bar ─────────────────────────────────────────────────────── */}
+        <Box
+          sx={{
+            px: 2,
+            py: 1.5,
+            borderBottom: `1px solid ${colors.border}`,
+            bgcolor: "#FAFAFA",
+            display: "flex",
+            gap: 1.5,
+            flexWrap: "wrap",
+            alignItems: "center",
+          }}
+        >
+          {/* Search */}
+          <Box sx={{ position: "relative", flex: "1 1 160px", maxWidth: 320 }}>
+            <Search
+              size={13}
+              style={{
+                position: "absolute",
+                left: 9,
+                top: "50%",
+                transform: "translateY(-50%)",
+                color: colors.textMuted,
+                pointerEvents: "none",
+              }}
+            />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search note, category, done by…"
+              style={{
+                width: "100%",
+                padding: "6px 10px 6px 30px",
+                border: `1px solid ${colors.border}`,
+                borderRadius: 8,
+                fontSize: "0.8rem",
+                color: "#1E293B",
+                background: "#fff",
+                outline: "none",
+                fontFamily: "system-ui,sans-serif",
+                boxSizing: "border-box",
+              }}
+            />
+          </Box>
+          {/* Type */}
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            style={{
+              padding: "6px 10px",
+              border: `1px solid ${colors.border}`,
+              borderRadius: 8,
+              fontSize: "0.8rem",
+              color: "#1E293B",
+              background: "#fff",
+              cursor: "pointer",
+              fontFamily: "system-ui,sans-serif",
+              outline: "none",
+            }}
+          >
+            <option value="all">All Types</option>
+            <option value="income">Income</option>
+            <option value="expense">Expense</option>
+            <option value="owner_withdrawal">Owner Draw</option>
+            <option value="owner_return">↩ Return</option>
+            <option value="transfer">Transfer</option>
+          </select>
+          {/* Method */}
+          <select
+            value={methodFilter}
+            onChange={(e) => setMethodFilter(e.target.value)}
+            style={{
+              padding: "6px 10px",
+              border: `1px solid ${colors.border}`,
+              borderRadius: 8,
+              fontSize: "0.8rem",
+              color: "#1E293B",
+              background: "#fff",
+              cursor: "pointer",
+              fontFamily: "system-ui,sans-serif",
+              outline: "none",
+            }}
+          >
+            <option value="all">All Methods</option>
+            <option value="cash">💵 Cash</option>
+            <option value="bank">🏦 Bank</option>
+          </select>
+          {/* Clear */}
+          {hasFilters && (
+            <button
+              onClick={clearFilters}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
+                padding: "6px 12px",
+                border: `1px solid ${colors.border}`,
+                borderRadius: 8,
+                fontSize: "0.78rem",
+                fontWeight: 600,
+                color: colors.textMuted,
+                background: "#fff",
+                cursor: "pointer",
+                fontFamily: "system-ui,sans-serif",
+              }}
+            >
+              <X size={12} /> Clear
+            </button>
+          )}
         </Box>
 
         {/* ── Table ── */}
@@ -1057,7 +1213,13 @@ export default function TransactionsTable({
                       >
                         {CATEGORY_LABEL[tx.category] ?? tx.category}
                         {tx.ownerName && (
-                          <span style={{ color: colors.textMuted, fontSize: '0.75rem', marginLeft: 6 }}>
+                          <span
+                            style={{
+                              color: colors.textMuted,
+                              fontSize: "0.75rem",
+                              marginLeft: 6,
+                            }}
+                          >
                             ({tx.ownerName})
                           </span>
                         )}

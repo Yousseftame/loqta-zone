@@ -8,13 +8,15 @@
  * Pagination: 10 rows per page with prev/next controls.
  */
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Box, Paper, Chip } from "@mui/material";
 import {
   TrendingUp,
   TrendingDown,
   ChevronLeft,
   ChevronRight,
+  Search,
+  X,
 } from "lucide-react";
 import { colors } from "../../Products/products-data";
 import type { TopAuction, TopAuctionsAnalytics } from "../analytics-data";
@@ -28,19 +30,54 @@ interface Props {
 
 export default function MarginReportTable({ topAuctions, loading }: Props) {
   const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const [profitFilter, setProfitFilter] = useState("all"); // "all" | "profit" | "loss"
 
   // Use the full financialReport list; fall back to byWinningBid for legacy
-  // Firestore docs written before financialReport was added (no rebuild yet).
   const data = useMemo(() => {
     const full = topAuctions.financialReport ?? [];
     return full.length > 0 ? full : (topAuctions.byWinningBid ?? []);
   }, [topAuctions.financialReport, topAuctions.byWinningBid]);
 
-  const totalPages = Math.max(1, Math.ceil(data.length / PAGE_SIZE));
+  // Apply search + profit filter
+  const filteredData = useMemo(() => {
+    return data.filter((row) => {
+      if (search) {
+        const q = search.toLowerCase();
+        const matchesAuction = String(row.auctionNumber).includes(q);
+        const matchesProduct = (row.productTitle ?? "")
+          .toLowerCase()
+          .includes(q);
+        const matchesWinner = (row.winnerName ?? "").toLowerCase().includes(q);
+        if (!matchesAuction && !matchesProduct && !matchesWinner) return false;
+      }
+      if (profitFilter !== "all") {
+        const p = row.totalActualProfit ?? row.actualProfit ?? 0;
+        if (profitFilter === "profit" && p < 0) return false;
+        if (profitFilter === "loss" && p >= 0) return false;
+      }
+      return true;
+    });
+  }, [data, search, profitFilter]);
 
-  // Clamp page whenever data length changes (e.g. after rebuild)
+  const hasFilters = search !== "" || profitFilter !== "all";
+  const clearFilters = () => {
+    setSearch("");
+    setProfitFilter("all");
+  };
+
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [search, profitFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredData.length / PAGE_SIZE));
+
   const safePage = Math.min(page, totalPages);
-  const pageData = data.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const pageData = filteredData.slice(
+    (safePage - 1) * PAGE_SIZE,
+    safePage * PAGE_SIZE,
+  );
 
   const handlePrev = () => setPage((p) => Math.max(1, p - 1));
   const handleNext = () => setPage((p) => Math.min(totalPages, p + 1));
@@ -90,7 +127,11 @@ export default function MarginReportTable({ topAuctions, loading }: Props) {
           />
           {data.length > 0 && (
             <Chip
-              label={`${data.length} total`}
+              label={
+                hasFilters
+                  ? `${filteredData.length} / ${data.length}`
+                  : `${data.length} total`
+              }
               size="small"
               sx={{
                 bgcolor: colors.primaryBg,
@@ -103,6 +144,98 @@ export default function MarginReportTable({ topAuctions, loading }: Props) {
           )}
         </Box>
       </Box>
+
+      {/* ── Filter bar ─────────────────────────────────────────────────────── */}
+      {!loading && data.length > 0 && (
+        <Box
+          sx={{
+            px: 2,
+            py: 1.5,
+            borderBottom: `1px solid ${colors.border}`,
+            bgcolor: "#FAFAFA",
+            display: "flex",
+            gap: 1.5,
+            flexWrap: "wrap",
+            alignItems: "center",
+          }}
+        >
+          {/* Search */}
+          <Box sx={{ position: "relative", flex: "1 1 160px", maxWidth: 300 }}>
+            <Search
+              size={13}
+              style={{
+                position: "absolute",
+                left: 9,
+                top: "50%",
+                transform: "translateY(-50%)",
+                color: colors.textMuted,
+                pointerEvents: "none",
+              }}
+            />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search auction, product, winner…"
+              style={{
+                width: "100%",
+                padding: "6px 10px 6px 30px",
+                border: `1px solid ${colors.border}`,
+                borderRadius: 8,
+                fontSize: "0.8rem",
+                color: "#1E293B",
+                background: "#fff",
+                outline: "none",
+                fontFamily: "system-ui,sans-serif",
+                boxSizing: "border-box",
+              }}
+            />
+          </Box>
+
+          {/* Profit/Loss filter */}
+          <select
+            value={profitFilter}
+            onChange={(e) => setProfitFilter(e.target.value)}
+            style={{
+              padding: "6px 10px",
+              border: `1px solid ${colors.border}`,
+              borderRadius: 8,
+              fontSize: "0.8rem",
+              color: "#1E293B",
+              background: "#fff",
+              cursor: "pointer",
+              fontFamily: "system-ui,sans-serif",
+              outline: "none",
+            }}
+          >
+            <option value="all">All Results</option>
+            <option value="profit">📈 Profitable</option>
+            <option value="loss">📉 Loss-making</option>
+          </select>
+
+          {/* Clear */}
+          {hasFilters && (
+            <button
+              onClick={clearFilters}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
+                padding: "6px 12px",
+                border: `1px solid ${colors.border}`,
+                borderRadius: 8,
+                fontSize: "0.78rem",
+                fontWeight: 600,
+                color: colors.textMuted,
+                background: "#fff",
+                cursor: "pointer",
+                fontFamily: "system-ui,sans-serif",
+              }}
+            >
+              <X size={12} /> Clear
+            </button>
+          )}
+        </Box>
+      )}
 
       {/* ── Body ───────────────────────────────────────────────────────────── */}
       {loading ? (
@@ -126,13 +259,14 @@ export default function MarginReportTable({ topAuctions, loading }: Props) {
             </Box>
           ))}
         </Box>
-      ) : data.length === 0 ? (
+      ) : filteredData.length === 0 ? (
         <Box sx={{ p: 5, textAlign: "center" }}>
           <p
             style={{ color: colors.textMuted, margin: 0, fontSize: "0.85rem" }}
           >
-            No ended auctions yet — financial data will appear here once
-            auctions resolve.
+            {hasFilters
+              ? "No auctions match the current filters."
+              : "No ended auctions yet — financial data will appear here once auctions resolve."}
           </p>
         </Box>
       ) : (
@@ -179,7 +313,7 @@ export default function MarginReportTable({ topAuctions, loading }: Props) {
                   const entryFeeRevenue = row.entryFeeRevenue ?? 0;
                   // totalProfit = bid margin profit + entry fee revenue
                   const totalProfit =
-                    row.totalActualProfit ?? (profit + entryFeeRevenue);
+                    row.totalActualProfit ?? profit + entryFeeRevenue;
                   // Margin % uses totalActualProfit so entry fees are included
                   const displayMargin = hasPrice
                     ? (totalProfit / row.actualPrice) * 100
@@ -383,13 +517,13 @@ export default function MarginReportTable({ topAuctions, loading }: Props) {
                 Showing{" "}
                 <strong style={{ color: colors.textPrimary }}>
                   {(safePage - 1) * PAGE_SIZE + 1}–
-                  {Math.min(safePage * PAGE_SIZE, data.length)}
+                  {Math.min(safePage * PAGE_SIZE, filteredData.length)}
                 </strong>{" "}
                 of{" "}
                 <strong style={{ color: colors.textPrimary }}>
-                  {data.length}
+                  {filteredData.length}
                 </strong>{" "}
-                auctions
+                {hasFilters ? "filtered" : ""} auctions
               </span>
 
               {/* Controls */}

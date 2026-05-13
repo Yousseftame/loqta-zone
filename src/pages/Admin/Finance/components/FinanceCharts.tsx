@@ -376,26 +376,33 @@ function MonthlyExpensesBar({
   );
 }
 
-// ─── 3. Available Balance vs Expenses Line ────────────────────────────────────
-// "Available Balance" per month = monthlyIncome[i] - monthlyExpenses[i]
-// This shows the net available (income minus expenses) for each month,
-// replacing the previous "Total Income" line.
+// ─── 3. Net Profit vs Expenses — per month ────────────────────────────────────
+// Net Profit for a month  = monthlyIncome[i] - monthlyExpenses[i]
+// Both values are INDEPENDENT per month — each new month resets to 0.
+// monthlyIncome / monthlyExpenses are maintained by the Cloud Function;
+// they bucket transactions by their createdAt month (0-indexed, Jan=0).
 
-function AvailableVsExpensesLine({
+function NetProfitVsExpensesLine({
   stats,
   loading,
 }: {
   stats: FinanceStats;
   loading: boolean;
 }) {
+  const currentMonth = new Date().getMonth(); // 0-indexed
+
   const data = MONTH_LABELS.map((month, i) => ({
     month,
-    available: (stats.monthlyIncome[i] ?? 0) - (stats.monthlyExpenses[i] ?? 0),
-    expenses: stats.monthlyExpenses[i] ?? 0,
+    // Per-month values — each month is independent (starts at 0 on 1st of month).
+    // Future months stay 0 so the chart doesn't show phantom data.
+    netProfit: i <= currentMonth
+      ? (stats.monthlyIncome[i] ?? 0) - (stats.monthlyExpenses[i] ?? 0)
+      : 0,
+    expenses: i <= currentMonth ? (stats.monthlyExpenses[i] ?? 0) : 0,
   }));
 
   return (
-    <ChartCard title="Available Balance vs Expenses" chip="Monthly">
+    <ChartCard title="Net Profit vs Expenses" chip="Per Month">
       {loading ? (
         <Box
           sx={{
@@ -433,7 +440,7 @@ function AvailableVsExpensesLine({
               contentStyle={tooltipStyle}
               formatter={(v, n) => [
                 fmtEGP(Number(v ?? 0)) + " EGP",
-                n === "available" ? "Available Balance" : "Expenses",
+                n === "netProfit" ? "Net Profit" : "Expenses",
               ]}
             />
             <Legend
@@ -447,13 +454,13 @@ function AvailableVsExpensesLine({
                     fontWeight: 600,
                   }}
                 >
-                  {v === "available" ? "Available Balance" : "Expenses"}
+                  {v === "netProfit" ? "Net Profit" : "Expenses"}
                 </span>
               )}
             />
             <Line
               type="monotone"
-              dataKey="available"
+              dataKey="netProfit"
               stroke={AVAILABLE_CLR}
               strokeWidth={2.5}
               dot={false}
@@ -492,7 +499,7 @@ export default function FinanceCharts({ stats, loading = false }: Props) {
     >
       <ExpensesPie stats={stats} loading={loading} />
       <MonthlyExpensesBar stats={stats} loading={loading} />
-      <AvailableVsExpensesLine stats={stats} loading={loading} />
+      <NetProfitVsExpensesLine stats={stats} loading={loading} />
     </Box>
   );
 }

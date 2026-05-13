@@ -11,7 +11,7 @@
  *   - Filtered views: All / Unpaid / Overdue / Partial
  */
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Table,
   TableBody,
@@ -33,7 +33,6 @@ import {
   Chip,
   Tab,
   Tabs,
-  Divider,
   Tooltip,
   MenuItem,
 } from "@mui/material";
@@ -46,7 +45,7 @@ import {
   Trash2,
   RefreshCw,
   ShoppingCart,
-  Package,
+
   TrendingUp,
   CheckCircle2,
   CreditCard,
@@ -59,7 +58,6 @@ import {
 } from "lucide-react";
 import { colors } from "@/pages/Admin/Products/products-data";
 import { usePurchases } from "@/store/AdminContext/PurchaseContext/PurchaseContext";
-import { useAuth } from "@/store/AuthContext/AuthContext";
 import type {
   Purchase,
   PurchaseFormData,
@@ -255,8 +253,8 @@ function RecordPaymentDialog({
     }
     try {
       await onRecord(form);
-    } catch (e: any) {
-      setError(e?.message ?? "Failed to record payment.");
+    } catch (e: unknown) {
+      setError((e as Error)?.message ?? "Failed to record payment.");
     }
   };
 
@@ -684,6 +682,112 @@ function PaymentHistoryDialog({
   );
 }
 
+// ─── Mark Fully Paid Confirmation Dialog ─────────────────────────────────────
+
+function MarkFullyPaidDialog({
+  open,
+  purchase,
+  saving,
+  onClose,
+  onConfirm,
+}: {
+  open: boolean;
+  purchase: Purchase | null;
+  saving: boolean;
+  onClose: () => void;
+  onConfirm: () => Promise<void>;
+}) {
+  if (!purchase) return null;
+  return (
+    <Dialog
+      open={open}
+      onClose={() => !saving && onClose()}
+      maxWidth="xs"
+      fullWidth
+      PaperProps={{ sx: { borderRadius: 3 } }}
+    >
+      <DialogTitle
+        sx={{
+          fontWeight: 700,
+          fontSize: "0.95rem",
+          color: "#0D9488",
+          borderBottom: `1px solid ${colors.border}`,
+          pb: 2,
+          display: "flex",
+          alignItems: "center",
+          gap: 1,
+        }}
+      >
+        <CheckCheck size={18} style={{ color: "#0D9488" }} />
+        Confirm Full Payment
+      </DialogTitle>
+
+      <DialogContent sx={{ pt: "20px !important", display: "flex", flexDirection: "column", gap: 2 }}>
+        {/* Summary */}
+        <Box
+          sx={{
+            p: 1.5,
+            borderRadius: 2,
+            bgcolor: "#F0FDFA",
+            border: "1px solid #99F6E4",
+          }}
+        >
+          <p style={{ margin: 0, fontSize: "0.78rem", fontWeight: 600, color: "#0F766E" }}>
+            {purchase.productTitle} — {purchase.supplierName}
+          </p>
+          <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, mt: 1 }}>
+            <Box>
+              <p style={{ margin: 0, fontSize: "0.62rem", color: colors.textMuted, textTransform: "uppercase", fontWeight: 600 }}>Total Cost</p>
+              <p style={{ margin: "2px 0 0", fontSize: "0.85rem", fontWeight: 700, color: colors.textPrimary }}>{fmtEGP(purchase.totalCost)}</p>
+            </Box>
+            <Box>
+              <p style={{ margin: 0, fontSize: "0.62rem", color: "#7F1D1D", textTransform: "uppercase", fontWeight: 600 }}>Remaining to Pay</p>
+              <p style={{ margin: "2px 0 0", fontSize: "0.85rem", fontWeight: 700, color: "#DC2626" }}>{fmtEGP(purchase.remainingAmount)}</p>
+            </Box>
+          </Box>
+        </Box>
+
+        {/* Warning */}
+        <Box sx={{ display: "flex", gap: 1.5, p: 1.5, borderRadius: 2, bgcolor: "#FFFBEB", border: "1px solid #FDE68A" }}>
+          <span style={{ fontSize: "1rem", flexShrink: 0 }}>⚠️</span>
+          <p style={{ margin: 0, fontSize: "0.72rem", color: "#92400E", lineHeight: 1.5 }}>
+            This will mark the entire remaining balance of{" "}
+            <strong>{fmtEGP(purchase.remainingAmount)}</strong> as paid and
+            close this purchase. This action <strong>cannot be undone</strong> —
+            it creates a payment record in the audit trail.
+          </p>
+        </Box>
+      </DialogContent>
+
+      <DialogActions sx={{ px: 3, pb: 2.5, borderTop: `1px solid ${colors.border}`, gap: 1 }}>
+        <Button
+          onClick={onClose}
+          disabled={saving}
+          sx={{ textTransform: "none", color: colors.textSecondary }}
+        >
+          Cancel
+        </Button>
+        <Button
+          variant="contained"
+          onClick={onConfirm}
+          disabled={saving}
+          startIcon={saving ? <CircularProgress size={14} color="inherit" /> : <CheckCheck size={15} />}
+          sx={{
+            textTransform: "none",
+            fontWeight: 700,
+            bgcolor: "#0D9488",
+            "&:hover": { bgcolor: "#0F766E" },
+            minWidth: 150,
+            borderRadius: 2,
+          }}
+        >
+          {saving ? "Processing…" : "Yes, Mark Fully Paid"}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
 // ─── Tab values ───────────────────────────────────────────────────────────────
 
 type FilterTab = "all" | "unpaid" | "overdue" | "partial";
@@ -691,7 +795,6 @@ type FilterTab = "all" | "unpaid" | "overdue" | "partial";
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function PurchasesList() {
-  const { user } = useAuth();
   const {
     purchases,
     loading,
@@ -731,6 +834,11 @@ export default function PurchasesList() {
   const [historyTarget, setHistoryTarget] = useState<Purchase | null>(null);
   const [historyPayments, setHistoryPayments] = useState<PurchasePayment[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+
+  // Mark fully paid confirmation
+  const [markPaidDialog, setMarkPaidDialog] = useState(false);
+  const [markPaidTarget, setMarkPaidTarget] = useState<Purchase | null>(null);
+  const [markPaidSaving, setMarkPaidSaving] = useState(false);
 
   // ── Computed stats ──────────────────────────────────────────────────────────
 
@@ -848,11 +956,22 @@ export default function PurchasesList() {
     }
   };
 
-  const handleMarkFullyPaid = async (p: Purchase) => {
+  const openMarkPaidConfirm = (p: Purchase) => {
+    setMarkPaidTarget(p);
+    setMarkPaidDialog(true);
+  };
+
+  const handleMarkFullyPaid = async () => {
+    if (!markPaidTarget) return;
+    setMarkPaidSaving(true);
     try {
-      await markFullyPaid(p.id);
+      await markFullyPaid(markPaidTarget.id);
+      setMarkPaidDialog(false);
+      setMarkPaidTarget(null);
     } catch {
       /* toast handled in context */
+    } finally {
+      setMarkPaidSaving(false);
     }
   };
 
@@ -1035,7 +1154,7 @@ export default function PurchasesList() {
       <Box
         sx={{
           display: "grid",
-          gap: 2,
+          gap: { xs: 1.5, md: 2 },
           gridTemplateColumns: {
             xs: "1fr 1fr",
             sm: "repeat(3, 1fr)",
@@ -1049,7 +1168,7 @@ export default function PurchasesList() {
             key={label}
             elevation={0}
             sx={{
-              p: 2,
+              p: { xs: 1.5, md: 2 },
               borderRadius: 3,
               background: warn
                 ? "linear-gradient(135deg, #DC2626 0%, #EF4444 100%)"
@@ -1062,26 +1181,32 @@ export default function PurchasesList() {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
+                gap: 1,
               }}
             >
-              <div>
+              <div style={{ minWidth: 0, flex: 1 }}>
                 <p
                   style={{
-                    fontSize: "0.62rem",
+                    fontSize: "0.58rem",
                     fontWeight: 600,
                     opacity: 0.8,
                     textTransform: "uppercase",
-                    letterSpacing: "0.06em",
+                    letterSpacing: "0.05em",
                     margin: 0,
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
                   }}
                 >
                   {label}
                 </p>
                 <p
                   style={{
-                    fontSize: typeof value === "number" ? "1.75rem" : "1rem",
+                    fontSize: typeof value === "number" ? "1.4rem" : "0.85rem",
                     fontWeight: 700,
                     margin: "4px 0 0",
+                    lineHeight: 1.1,
+                    wordBreak: "break-all",
                   }}
                 >
                   {value}
@@ -1089,8 +1214,9 @@ export default function PurchasesList() {
               </div>
               <Box
                 sx={{
-                  width: 38,
-                  height: 38,
+                  width: { xs: 30, md: 38 },
+                  height: { xs: 30, md: 38 },
+                  flexShrink: 0,
                   borderRadius: 10,
                   background: "rgba(255,255,255,0.2)",
                   display: "flex",
@@ -1177,14 +1303,18 @@ export default function PurchasesList() {
         <Tabs
           value={activeTab}
           onChange={(_e, v) => setActiveTab(v)}
+          variant="scrollable"
+          scrollButtons="auto"
+          allowScrollButtonsMobile
           sx={{
             minHeight: 36,
             "& .MuiTab-root": {
               textTransform: "none",
-              fontSize: "0.8rem",
+              fontSize: { xs: "0.72rem", sm: "0.8rem" },
               minHeight: 36,
               py: 0.5,
-              px: 2,
+              px: { xs: 1.5, sm: 2 },
+              minWidth: { xs: "auto", sm: 90 },
             },
             "& .Mui-selected": { color: colors.primary, fontWeight: 700 },
             "& .MuiTabs-indicator": { bgcolor: colors.primary },
@@ -1525,12 +1655,12 @@ export default function PurchasesList() {
                             </Tooltip>
                           )}
 
-                          {/* Mark fully paid */}
+                          {/* Mark fully paid — opens confirmation dialog */}
                           {isUnpaid && (
                             <Tooltip title="Mark as Fully Paid">
                               <IconButton
                                 size="small"
-                                onClick={() => handleMarkFullyPaid(p)}
+                                onClick={() => openMarkPaidConfirm(p)}
                                 sx={{
                                   color: "#0D9488",
                                   "&:hover": { bgcolor: "#F0FDFA" },
@@ -1647,6 +1777,18 @@ export default function PurchasesList() {
           setHistoryTarget(null);
           setHistoryPayments([]);
         }}
+      />
+
+      {/* ── Mark Fully Paid Confirmation ── */}
+      <MarkFullyPaidDialog
+        open={markPaidDialog}
+        purchase={markPaidTarget}
+        saving={markPaidSaving}
+        onClose={() => {
+          setMarkPaidDialog(false);
+          setMarkPaidTarget(null);
+        }}
+        onConfirm={handleMarkFullyPaid}
       />
 
       {/* ── Delete Confirm ── */}

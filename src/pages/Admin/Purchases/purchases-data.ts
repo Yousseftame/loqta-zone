@@ -35,9 +35,9 @@
  *   parent purchase doc atomically. This gives a full audit trail.
  */
 
-export type PurchaseStatus  = "pending" | "received" | "cancelled";
-export type PaymentType     = "cash" | "credit" | "partial";
-export type PaymentStatus   = "unpaid" | "partial" | "paid" | "overdue";
+export type PurchaseStatus = "pending" | "received" | "cancelled";
+export type PaymentType    = "cash" | "credit" | "partial";
+export type PaymentStatus  = "unpaid" | "partial" | "paid" | "overdue";
 
 // ─── Purchase Payment (subcollection doc) ─────────────────────────────────────
 // Stored at: purchases/{purchaseId}/purchasePayments/{paymentId}
@@ -48,8 +48,9 @@ export interface PurchasePayment {
   method: "cash" | "bank";
   note: string;
   paidAt: Date;
-  recordedBy: string;      // admin uid
-  recordedByName: string;  // admin display name (denormalized)
+  recordedBy: string;       // admin uid
+  recordedByName: string;   // admin display name (denormalized)
+  createdAt: Date;
 }
 
 // ─── Main Purchase document ───────────────────────────────────────────────────
@@ -89,43 +90,46 @@ export interface PurchaseFormData {
   unitCost: string;
   status: PurchaseStatus;
   notes: string;
-  purchaseDate: string;          // "YYYY-MM-DD"
+  purchaseDate: string;    // "YYYY-MM-DD"
 
   // Payment fields
   paymentType: PaymentType;
-  paidAmount: string;            // empty string = 0 for credit
-  dueDate: string;               // "YYYY-MM-DD" or "" for cash
+  paidAmount: string;      // empty string = 0 for credit; ignored for cash
+  dueDate: string;         // "YYYY-MM-DD" or "" for cash
+  /** Which wallet (cash / bank) the initial payment comes from */
+  paymentMethod: "cash" | "bank";
 }
 
-// ─── Partial payment recording form ──────────────────────────────────────────
+// ─── Record payment form ──────────────────────────────────────────────────────
 
 export interface RecordPaymentFormData {
   amount: string;
   method: "cash" | "bank";
   note: string;
-  paidAt: string;                // "YYYY-MM-DD"
+  paidAt: string;          // "YYYY-MM-DD"
 }
 
 // ─── Defaults ─────────────────────────────────────────────────────────────────
 
 export const DEFAULT_PURCHASE_FORM: PurchaseFormData = {
-  supplierId:  "",
-  productId:   "",
-  quantity:    "",
-  unitCost:    "",
-  status:      "pending",
-  notes:       "",
+  supplierId:   "",
+  productId:    "",
+  quantity:     "",
+  unitCost:     "",
+  status:       "pending",
+  notes:        "",
   purchaseDate: new Date().toISOString().split("T")[0],
-  paymentType:  "cash",
-  paidAmount:   "",
-  dueDate:      "",
+  paymentType:   "cash",
+  paidAmount:    "",
+  dueDate:       "",
+  paymentMethod: "cash",
 };
 
 export const DEFAULT_RECORD_PAYMENT_FORM: RecordPaymentFormData = {
-  amount:  "",
-  method:  "cash",
-  note:    "",
-  paidAt:  new Date().toISOString().split("T")[0],
+  amount: "",
+  method: "cash",
+  note:   "",
+  paidAt: new Date().toISOString().split("T")[0],
 };
 
 // ─── Status configs ───────────────────────────────────────────────────────────
@@ -143,12 +147,12 @@ export const PAYMENT_TYPE_CONFIG: Record<
   PaymentType,
   { label: string; bg: string; color: string; border: string; icon: string; description: string }
 > = {
-  cash:    {
+  cash: {
     label: "Cash",
     bg: "#DCFCE7", color: "#14532D", border: "#86EFAC", icon: "💵",
     description: "Paid in full at time of purchase",
   },
-  credit:  {
+  credit: {
     label: "Credit",
     bg: "#FEF3C7", color: "#92400E", border: "#FCD34D", icon: "📋",
     description: "Full amount to be paid later (supplier credit)",
@@ -164,14 +168,19 @@ export const PAYMENT_STATUS_CONFIG: Record<
   PaymentStatus,
   { label: string; bg: string; color: string; border: string; dot: string; emoji: string }
 > = {
-  unpaid:  { label: "Unpaid",   bg: "#FEE2E2", color: "#7F1D1D", border: "#FCA5A5", dot: "#EF4444", emoji: "🔴" },
-  partial: { label: "Partial",  bg: "#DBEAFE", color: "#1E40AF", border: "#93C5FD", dot: "#3B82F6", emoji: "🔵" },
-  paid:    { label: "Paid",     bg: "#DCFCE7", color: "#14532D", border: "#86EFAC", dot: "#22C55E", emoji: "🟢" },
-  overdue: { label: "Overdue",  bg: "#FFF7ED", color: "#7C2D12", border: "#FED7AA", dot: "#F97316", emoji: "🟠" },
+  unpaid:  { label: "Unpaid",  bg: "#FEE2E2", color: "#7F1D1D", border: "#FCA5A5", dot: "#EF4444", emoji: "🔴" },
+  partial: { label: "Partial", bg: "#DBEAFE", color: "#1E40AF", border: "#93C5FD", dot: "#3B82F6", emoji: "🔵" },
+  paid:    { label: "Paid",    bg: "#DCFCE7", color: "#14532D", border: "#86EFAC", dot: "#22C55E", emoji: "🟢" },
+  overdue: { label: "Overdue", bg: "#FFF7ED", color: "#7C2D12", border: "#FED7AA", dot: "#F97316", emoji: "🟠" },
 };
 
 // ─── Pure helper: derive paymentStatus from purchase fields ───────────────────
-// This is used both in the service (for writes) and in the UI (for display).
+// Used both in the service (writes) and in the UI (display).
+// Rules:
+//   - If fully paid → "paid"  (terminal, always wins)
+//   - If past due date and still owes money → "overdue"
+//   - If credit with nothing paid → "unpaid"
+//   - If partial (some paid, some remaining) → "partial"
 
 export function derivePaymentStatus(
   paymentType: PaymentType,
@@ -179,17 +188,23 @@ export function derivePaymentStatus(
   totalCost: number,
   dueDate: Date | null,
 ): PaymentStatus {
+  // Fully paid — terminal state, no further checks needed
   if (paidAmount >= totalCost) return "paid";
-  if (paidAmount === 0 && paymentType === "credit") {
-    if (dueDate && new Date() > dueDate) return "overdue";
-    return "unpaid";
-  }
-  // partial > 0 but < totalCost
+
+  // Past due and still owes → overdue (applies to both credit and partial)
   if (dueDate && new Date() > dueDate) return "overdue";
+
+  // Credit: nothing paid yet, not overdue
+  if (paymentType === "credit") return "unpaid";
+
+  // Partial: some paid, some remaining, not overdue
   return "partial";
 }
 
-// ─── Pure helper: derive paidAmount from form ─────────────────────────────────
+// ─── Pure helper: derive paidAmount from form fields ─────────────────────────
+//   cash    → totalCost (fully paid immediately)
+//   credit  → 0         (nothing paid yet)
+//   partial → parsed value from form, clamped 0..totalCost
 
 export function derivePaidAmount(
   paymentType: PaymentType,
@@ -200,5 +215,6 @@ export function derivePaidAmount(
   if (paymentType === "credit") return 0;
   // partial
   const v = parseFloat(paidAmountStr);
-  return isNaN(v) || v < 0 ? 0 : Math.min(v, totalCost);
+  if (isNaN(v) || v < 0) return 0;
+  return Math.min(v, totalCost);
 }

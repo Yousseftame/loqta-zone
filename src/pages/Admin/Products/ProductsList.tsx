@@ -33,7 +33,7 @@ import {
   RefreshCw,
   CheckCircle2,
 } from "lucide-react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   type Product,
   colors,
@@ -43,20 +43,13 @@ import {
 import { useProducts } from "@/store/AdminContext/ProductContext/ProductsCotnext";
 import { useCategories } from "@/store/AdminContext/CategoryContext/CategoryContext";
 import { usePermissions } from "@/permissions/usePermissions";
-import { useAuth } from "@/store/AuthContext/AuthContext";
-import { useFinance } from "@/hooks/useFinance";
-import AddTransactionModal from "../Finance/components/AddTransactionModal";
-import type { TransactionFormValues } from "../Finance/finance-data";
 
 export default function ProductsList() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const { user } = useAuth();
   const { products, loading, error, refreshProducts, removeProduct } =
     useProducts();
   const { categories } = useCategories();
   const { can } = usePermissions();
-  const { adding, addTransaction } = useFinance();
 
   const [filtered, setFiltered] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -65,23 +58,6 @@ export default function ProductsList() {
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [loadingDelete, setLoadingDelete] = useState(false);
-
-  const [expenseModalOpen, setExpenseModalOpen] = useState(false);
-  const [expensePrefill, setExpensePrefill] = useState<
-    Partial<TransactionFormValues> | undefined
-  >(undefined);
-
-  useEffect(() => {
-    const state = location.state as {
-      openExpenseModal?: boolean;
-      expensePrefill?: Partial<TransactionFormValues>;
-    } | null;
-    if (state?.openExpenseModal) {
-      setExpensePrefill(state.expensePrefill);
-      setExpenseModalOpen(true);
-      window.history.replaceState({}, "", location.pathname);
-    }
-  }, []);
 
   const getCategoryName = (categoryId: string, lang?: "en" | "ar"): string => {
     if (!categoryId) return "—";
@@ -121,12 +97,6 @@ export default function ProductsList() {
     } finally {
       setLoadingDelete(false);
     }
-  };
-
-  const handleExpenseSubmit = async (values: TransactionFormValues) => {
-    await addTransaction(values, user?.uid ?? "", user?.displayName ?? "Admin");
-    setExpenseModalOpen(false);
-    setExpensePrefill(undefined);
   };
 
   const activeCount = products.filter((p) => p.isActive).length;
@@ -771,16 +741,6 @@ export default function ProductsList() {
         </DialogActions>
       </Dialog>
 
-      <AddTransactionModal
-        open={expenseModalOpen}
-        adding={adding}
-        onClose={() => {
-          setExpenseModalOpen(false);
-          setExpensePrefill(undefined);
-        }}
-        onSubmit={handleExpenseSubmit}
-        initialValues={expensePrefill}
-      />
     </Box>
   );
 }

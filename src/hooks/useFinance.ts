@@ -16,10 +16,11 @@
  * trigger handles each one separately, keeping aggregation correct.
  */
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import {
   doc, collection,
   onSnapshot,
+  getDoc,
   query, orderBy, addDoc, updateDoc, deleteDoc,
   serverTimestamp, Timestamp,
   writeBatch,
@@ -102,6 +103,19 @@ export function useFinance() {
   const [updating, setUpdating]         = useState(false);
   const [error, setError]               = useState<string | null>(null);
 
+  // fetchStatsDoc is used ONLY for the explicit rebuild flow in FinancePage.
+  // onSnapshot below handles real-time balance card updates.
+  const fetchStatsDoc = useCallback(async (): Promise<FinanceStats> => {
+    try {
+      const snap = await getDoc(doc(db, "finance_stats", "dashboard"));
+      const s = snap.exists() ? parseStats(snap.data()) : DEFAULT_FINANCE_STATS;
+      return s;
+    } catch (err: any) {
+      console.error("[useFinance] refetch error:", err?.code);
+      return DEFAULT_FINANCE_STATS;
+    }
+  }, []);
+
   useEffect(() => {
     let loaded = 0;
     const unsubs: Unsubscribe[] = [];
@@ -111,7 +125,10 @@ export function useFinance() {
       if (loaded >= 3) setLoading(false);
     };
 
-    // ── finance_stats/dashboard ──────────────────────────────────────────────
+    // ── finance_stats/dashboard — LIVE listener (powers balance cards) ─────────
+    // Charts use a separate "frozenStats" in FinancePage that only updates
+    // on explicit rebuild — this way balances are real-time while charts
+    // are immune to intermediate Cloud Function write states.
     const unsubStats = onSnapshot(
       doc(db, "finance_stats", "dashboard"),
       (snap) => {
@@ -165,7 +182,7 @@ export function useFinance() {
     unsubs.push(unsubOwners);
 
     return () => unsubs.forEach((u) => u());
-  }, []);
+  }, [fetchStatsDoc]);
 
   // ─── Add transaction ───────────────────────────────────────────────────────
   // Handles both single and split payment modes.
@@ -292,5 +309,5 @@ export function useFinance() {
     }
   }, []);
 
-  return { stats, transactions, owners, loading, adding, updating, error, addTransaction, updateTransaction, addOwner, deleteOwner };
+  return { stats, transactions, owners, loading, adding, updating, error, addTransaction, updateTransaction, addOwner, deleteOwner, refetchStats: fetchStatsDoc };
 }

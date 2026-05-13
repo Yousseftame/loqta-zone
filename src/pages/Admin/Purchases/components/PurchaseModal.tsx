@@ -11,8 +11,13 @@
  *
  * ─── Validation rules ─────────────────────────────────────────────────────────
  *   All types: supplier, product, quantity, unitCost, purchaseDate required.
- *   credit:    dueDate required and must be in the future.
+ *   credit:    dueDate required.
  *   partial:   paidAmount > 0, paidAmount < totalCost, dueDate required.
+ *
+ * ─── Edit behaviour ───────────────────────────────────────────────────────────
+ *   When editing a credit purchase the paidAmount field is hidden (stays 0).
+ *   When editing a partial purchase the original paidAmount is shown but is
+ *   read-only — use "Record Payment" to add further payments instead.
  */
 
 import { useState, useEffect, useMemo } from "react";
@@ -28,12 +33,10 @@ import {
   CircularProgress,
   Alert,
   InputAdornment,
-  ToggleButtonGroup,
-  ToggleButton,
   Divider,
   Tooltip,
 } from "@mui/material";
-import { ShoppingCart, Info } from "lucide-react";
+import { ShoppingCart, Info, Lock } from "lucide-react";
 import { colors } from "@/pages/Admin/Products/products-data";
 import { useSuppliers } from "@/store/AdminContext/SupplierContext/SupplierContext";
 import { useProducts } from "@/store/AdminContext/ProductContext/ProductsCotnext";
@@ -73,7 +76,7 @@ interface Props {
   onSave: (formData: PurchaseFormData) => Promise<void>;
 }
 
-// ─── Form initialiser ─────────────────────────────────────────────────────────
+// ─── Build form from existing purchase (edit mode) ────────────────────────────
 
 function buildFormFromPurchase(p: Purchase): PurchaseFormData {
   const purchaseDateStr =
@@ -84,7 +87,9 @@ function buildFormFromPurchase(p: Purchase): PurchaseFormData {
   const dueDateStr =
     p.dueDate instanceof Date ? p.dueDate.toISOString().split("T")[0] : "";
 
-  // For partial purchases, show the paidAmount as a string
+  // For partial, show the current paidAmount so the admin can see it.
+  // It becomes read-only in the UI — further payments go through "Record Payment".
+  // For cash/credit we always derive (totalCost or 0), so keep empty string.
   const paidAmountStr = p.paymentType === "partial" ? String(p.paidAmount) : "";
 
   return {
@@ -98,6 +103,7 @@ function buildFormFromPurchase(p: Purchase): PurchaseFormData {
     paymentType: p.paymentType,
     paidAmount: paidAmountStr,
     dueDate: dueDateStr,
+    paymentMethod: "cash",  // default for edits; method of initial payment is not re-logged
   };
 }
 
@@ -120,7 +126,7 @@ export default function PurchaseModal({
   const activeSuppliers = suppliers.filter((s) => s.isActive);
   const activeProducts = products.filter((p) => p.isActive);
 
-  // Reset form whenever the modal opens/closes or the editing target changes
+  // Reset whenever the modal opens or the target purchase changes
   useEffect(() => {
     if (open) {
       setError(null);
@@ -152,7 +158,7 @@ export default function PurchaseModal({
     v: PurchaseFormData[K],
   ) => setForm((prev) => ({ ...prev, [k]: v }));
 
-  // Auto-fill unit cost from product's actualPrice when product changes (new only)
+  // Auto-fill unit cost from product's actualPrice on new orders only
   const handleProductChange = (productId: string) => {
     set("productId", productId);
     if (!isEdit) {
@@ -162,7 +168,7 @@ export default function PurchaseModal({
     }
   };
 
-  // When payment type changes, reset payment-specific fields
+  // Switching payment type resets payment-specific fields
   const handlePaymentTypeChange = (type: PaymentType) => {
     setForm((prev) => ({
       ...prev,
@@ -180,7 +186,7 @@ export default function PurchaseModal({
     if (!form.quantity || isNaN(qty) || qty <= 0)
       return "Quantity must be greater than 0.";
     if (!form.unitCost || isNaN(unitCost) || unitCost <= 0)
-      return "Unit cost must be greater than 0.";
+      return "Unit cost could not be determined — please select a product with a valid cost price.";
     if (!form.purchaseDate) return "Please select a purchase date.";
 
     if (form.paymentType === "partial") {
@@ -188,7 +194,7 @@ export default function PurchaseModal({
       if (!form.paidAmount || isNaN(paid) || paid <= 0)
         return "Enter the amount paid upfront (down payment).";
       if (paid >= totalCost)
-        return "For a partial payment the paid amount must be less than the total cost. Use 'Cash' if fully paid.";
+        return "For partial payment the paid amount must be less than the total. Use 'Cash' if fully paid.";
       if (!form.dueDate)
         return "Please set a due date for the remaining balance.";
     }
@@ -209,12 +215,12 @@ export default function PurchaseModal({
     }
     try {
       await onSave(form);
-    } catch (e: any) {
-      setError(e?.message ?? "Failed to save purchase.");
+    } catch (e: unknown) {
+      setError((e as Error)?.message ?? "Failed to save purchase.");
     }
   };
 
-  // ── Payment type card ───────────────────────────────────────────────────────
+  // ── Payment type options ────────────────────────────────────────────────────
 
   const paymentTypes: PaymentType[] = ["cash", "credit", "partial"];
 
@@ -230,7 +236,7 @@ export default function PurchaseModal({
         sx: { borderRadius: 3, border: `1px solid ${colors.border}` },
       }}
     >
-      {/* Header */}
+      {/* ── Header ── */}
       <DialogTitle
         sx={{
           fontWeight: 700,
@@ -344,13 +350,13 @@ export default function PurchaseModal({
             sx={inputSx}
           />
           <TextField
-            label="Unit Cost (EGP) *"
+            label="Unit Cost (EGP)"
             type="number"
             size="small"
             fullWidth
             value={form.unitCost}
-            onChange={(e) => set("unitCost", e.target.value)}
-            inputProps={{ min: 0, step: "0.01" }}
+            disabled
+            inputProps={{ readOnly: true }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -359,10 +365,100 @@ export default function PurchaseModal({
                   </span>
                 </InputAdornment>
               ),
+              endAdornment: (
+                <InputAdornment position="end">
+                  <Tooltip title="Auto-filled from the selected product's cost price">
+                    <Lock size={14} style={{ color: colors.textMuted }} />
+                  </Tooltip>
+                </InputAdornment>
+              ),
             }}
-            sx={inputSx}
+            helperText={
+              form.productId
+                ? "Auto-filled from product — read only"
+                : "Select a product first"
+            }
+            FormHelperTextProps={{
+              sx: { fontSize: "0.7rem", color: colors.textMuted },
+            }}
+            sx={{
+              "& .MuiOutlinedInput-root": {
+                bgcolor: "#F8FAFC",
+                "& fieldset": { borderColor: colors.border },
+              },
+              "& .MuiInputLabel-root": { color: colors.textMuted },
+            }}
           />
         </Box>
+
+        {/* ── Sensitive-data warning ── */}
+        {isEdit ? (
+          <Box
+            sx={{
+              display: "flex",
+              gap: 1.5,
+              p: 1.5,
+              borderRadius: 2,
+              bgcolor: "#FFF1F2",
+              border: "1px solid #FECDD3",
+            }}
+          >
+            <span style={{ fontSize: "1rem", flexShrink: 0 }}>🚨</span>
+            <Box>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: "0.75rem",
+                  fontWeight: 700,
+                  color: "#9F1239",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.04em",
+                }}
+              >
+                Editing these fields is very risky
+              </p>
+              <p
+                style={{
+                  margin: "4px 0 0",
+                  fontSize: "0.72rem",
+                  color: "#BE123C",
+                  lineHeight: 1.5,
+                }}
+              >
+                Changing the <strong>Quantity</strong> or{" "}
+                <strong>Unit Cost</strong> will recalculate the Total Cost and
+                may break the payment balance — especially if payments have
+                already been recorded against this purchase. Only edit these if
+                you are correcting a genuine data-entry mistake.
+              </p>
+            </Box>
+          </Box>
+        ) : (
+          <Box
+            sx={{
+              display: "flex",
+              gap: 1.5,
+              p: 1.5,
+              borderRadius: 2,
+              bgcolor: "#FFFBEB",
+              border: "1px solid #FDE68A",
+            }}
+          >
+            <span style={{ fontSize: "1rem", flexShrink: 0 }}>⚠️</span>
+            <p
+              style={{
+                margin: 0,
+                fontSize: "0.72rem",
+                color: "#92400E",
+                lineHeight: 1.5,
+              }}
+            >
+              <strong>Double-check Quantity and Unit Cost</strong> before
+              saving. These values determine the Total Cost and drive all payment
+              accounting — they should match the supplier invoice exactly.
+            </p>
+          </Box>
+        )}
 
         {/* ── Total cost preview ── */}
         {totalCost > 0 && (
@@ -424,6 +520,7 @@ export default function PurchaseModal({
               />
             </Tooltip>
           </Box>
+
           <Box
             sx={{
               display: "grid",
@@ -482,20 +579,28 @@ export default function PurchaseModal({
           </Box>
         </Box>
 
-        {/* ── Partial: down payment amount ── */}
+        {/* ── Partial: down payment amount ─────────────────────────────────────
+            In edit mode this field is read-only — use "Record Payment" to add
+            further payments against the outstanding balance.              ── */}
         {form.paymentType === "partial" && (
           <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
             <TextField
-              label="Down Payment Amount (EGP) *"
+              label={
+                isEdit
+                  ? "Original Down Payment (EGP)"
+                  : "Down Payment Amount (EGP) *"
+              }
               type="number"
               size="small"
               fullWidth
               value={form.paidAmount}
-              onChange={(e) => set("paidAmount", e.target.value)}
+              onChange={(e) => !isEdit && set("paidAmount", e.target.value)}
+              disabled={isEdit}
               inputProps={{
                 min: 0,
                 step: "0.01",
                 max: totalCost > 0 ? totalCost - 0.01 : undefined,
+                readOnly: isEdit,
               }}
               InputProps={{
                 startAdornment: (
@@ -507,19 +612,30 @@ export default function PurchaseModal({
                     </span>
                   </InputAdornment>
                 ),
+                endAdornment: isEdit ? (
+                  <InputAdornment position="end">
+                    <Tooltip title="To add more payments use the Record Payment action on the table row">
+                      <Lock size={14} style={{ color: colors.textMuted }} />
+                    </Tooltip>
+                  </InputAdornment>
+                ) : undefined,
               }}
               helperText={
-                totalCost > 0
-                  ? `Between 1 and ${(totalCost - 0.01).toLocaleString("en-EG")} EGP`
-                  : "Enter quantity and unit cost first"
+                isEdit
+                  ? "Original down payment — use Record Payment to add further payments"
+                  : totalCost > 0
+                    ? `Between 1 and ${(totalCost - 0.01).toLocaleString("en-EG")} EGP`
+                    : "Enter quantity and unit cost first"
               }
               FormHelperTextProps={{
                 sx: { fontSize: "0.7rem", color: colors.textMuted },
               }}
               sx={inputSx}
             />
-            {/* Payment breakdown */}
-            {totalCost > 0 &&
+
+            {/* Payment breakdown preview (new orders only) */}
+            {!isEdit &&
+              totalCost > 0 &&
               effectivePaidAmount > 0 &&
               effectivePaidAmount < totalCost && (
                 <Box
@@ -584,10 +700,29 @@ export default function PurchaseModal({
           </Box>
         )}
 
+        {/* ── Payment method (wallet) — only for paid/partial new orders ────
+            This tells the finance log which wallet the money came from.   ── */}
+        {!isEdit && form.paymentType !== "credit" && (
+          <TextField
+            label="Payment Method *"
+            select
+            size="small"
+            fullWidth
+            value={form.paymentMethod}
+            onChange={(e) => set("paymentMethod", e.target.value as "cash" | "bank")}
+            helperText="Which wallet the paid amount comes from — recorded in finance"
+            FormHelperTextProps={{ sx: { fontSize: "0.7rem", color: colors.textMuted } }}
+            sx={inputSx}
+          >
+            <MenuItem value="cash">💵 Cash</MenuItem>
+            <MenuItem value="bank">🏦 Bank</MenuItem>
+          </TextField>
+        )}
+
         {/* ── Credit / Partial: due date ── */}
         {(form.paymentType === "credit" || form.paymentType === "partial") && (
           <TextField
-            label={`Payment Due Date *`}
+            label="Payment Due Date *"
             type="date"
             size="small"
             fullWidth

@@ -262,23 +262,7 @@ export default function ProductForm() {
         navigate("/admin/Products");
       } else {
         await addProduct(form);
-        const costPrice = Number(form.actualPrice.trim());
-        if (costPrice > 0) {
-          navigate("/admin/Products", {
-            state: {
-              openExpenseModal: true,
-              expensePrefill: {
-                type: "expense" as const,
-                amount: String(costPrice),
-                method: "cash" as const,
-                category: "products" as const,
-                note: `Cost price for product: ${form.titleEn.trim()}`,
-              },
-            },
-          });
-        } else {
-          navigate("/admin/Products");
-        }
+        navigate("/admin/Products");
       }
     } catch {
       // toast already shown in context/service
