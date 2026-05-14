@@ -71,6 +71,8 @@ export interface Purchase {
   paidAmount: number;            // amount paid so far
   remainingAmount: number;       // totalCost - paidAmount
   dueDate: Date | null;          // null for cash purchases
+  /** Cash/bank used for money paid at create time (no purchasePayments row yet) */
+  initialPayMethod?: "cash" | "bank";
 
   // ── Purchase status ─────────────────────────────────────────────────────────
   status: PurchaseStatus;

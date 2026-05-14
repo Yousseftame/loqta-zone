@@ -89,6 +89,8 @@ export interface Transaction {
   /** Only present for type="owner_withdrawal" | "owner_return" */
   ownerId?: string;
   ownerName?: string;
+  /** Set when this row was created from the Purchases module (expense / refund). */
+  purchaseId?: string;
 }
 
 // ─── finance_stats/dashboard ────────────────────────────────────────────────

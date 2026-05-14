@@ -190,6 +190,10 @@ function docToPurchase(id: string, data: Record<string, unknown>): Purchase {
   // Always re-derive — don't trust stale stored value
   const paymentStatus = derivePaymentStatus(paymentType, paidAmount, totalCost, dueDate);
 
+  const rawInitMethod = data.initialPayMethod as string | undefined;
+  const initialPayMethod: "cash" | "bank" | undefined =
+    rawInitMethod === "bank" || rawInitMethod === "cash" ? rawInitMethod : undefined;
+
   const purchase: Purchase = {
     id,
     supplierId:      (data.supplierId    as string) ?? "",
@@ -204,6 +208,7 @@ function docToPurchase(id: string, data: Record<string, unknown>): Purchase {
     paidAmount,
     remainingAmount,
     dueDate,
+    initialPayMethod,
     status:          (data.status        as PurchaseStatus) ?? "pending",
     notes:           (data.notes         as string) ?? "",
     purchaseDate:    toDate(data.purchaseDate),
@@ -250,6 +255,11 @@ export async function createPurchase(
 
   const payment = buildPaymentPayload(formData, totalCost);
 
+  const methodAtCreate =
+    payment.paidAmount > 0
+      ? ((formData.paymentMethod ?? "cash") as "cash" | "bank")
+      : undefined;
+
   const payload: Record<string, unknown> = {
     supplierId:    formData.supplierId,
     supplierName,
@@ -259,6 +269,7 @@ export async function createPurchase(
     unitCost:      unit,
     totalCost,
     ...payment,
+    ...(methodAtCreate ? { initialPayMethod: methodAtCreate } : {}),
     status:        formData.status,
     notes:         formData.notes.trim(),
     purchaseDate:  formData.purchaseDate
@@ -385,9 +396,10 @@ export async function updatePurchase(
     });
   } else if (delta < 0) {
     // Less money is paid after edit — log reversal (refund)
+    const revMethod = (formData.paymentMethod ?? "cash") as "cash" | "bank";
     await logPurchaseReversal({
       amount:     Math.abs(delta),
-      method:     "cash",
+      method:     revMethod,
       note:       `Purchase edited — payment reduced: ${productTitle} × ${oldQty} unit(s) from ${supplierName}`,
       adminUid,
       adminName,
@@ -436,22 +448,48 @@ export async function deletePurchase(
   adminUid = "",
   adminName = "Admin",
 ): Promise<void> {
-  // Snapshot before delete to drive the reversal
   const purchase = await fetchPurchase(id);
+  if (!purchase) {
+    await deleteDoc(doc(db, COL_PURCHASES, id));
+    return;
+  }
+
+  // Reverse finance **before** deleting the parent doc so a failed write leaves data intact.
+  if (purchase.paidAmount > 0) {
+    const payments   = await fetchPurchasePayments(id);
+    const subTotal   = payments.reduce((s, p) => s + (p.amount > 0 ? p.amount : 0), 0);
+    const remainder  = Math.max(0, purchase.paidAmount - subTotal);
+    const baseNote   = `Purchase deleted — reversal: ${purchase.productTitle} × ${purchase.quantity} unit(s) from ${purchase.supplierName}`;
+
+    for (const p of payments) {
+      if (p.amount <= 0) continue;
+      await logPurchaseReversal({
+        amount:     p.amount,
+        method:     p.method,
+        note:       `${baseNote} (${p.method})`,
+        adminUid,
+        adminName,
+        purchaseId: id,
+      });
+    }
+
+    if (remainder > 0) {
+      const method =
+        purchase.initialPayMethod === "bank" || purchase.initialPayMethod === "cash"
+          ? purchase.initialPayMethod
+          : ("cash" as const);
+      await logPurchaseReversal({
+        amount:     remainder,
+        method,
+        note:       `${baseNote} (initial payment)`,
+        adminUid,
+        adminName,
+        purchaseId: id,
+      });
+    }
+  }
 
   await deleteDoc(doc(db, COL_PURCHASES, id));
-
-  // Reverse any money that was already logged as expense
-  if (purchase && purchase.paidAmount > 0) {
-    await logPurchaseReversal({
-      amount:     purchase.paidAmount,
-      method:     "cash",  // we don't store the original method, use cash as default
-      note:       `Purchase deleted — reversal: ${purchase.productTitle} × ${purchase.quantity} unit(s) from ${purchase.supplierName}`,
-      adminUid,
-      adminName,
-      purchaseId: id,
-    });
-  }
 }
 
 // ─── UPDATE STATUS ONLY ───────────────────────────────────────────────────────
@@ -503,6 +541,11 @@ export async function recordPayment(
     current.dueDate,
   );
 
+  const method = (formData.method ?? "cash") as "cash" | "bank";
+  if (effectiveAmount > 0) {
+    await assertSufficientBalance(effectiveAmount, method);
+  }
+
   const batch = writeBatch(db);
 
   // 1. New payment subdoc
@@ -529,17 +572,17 @@ export async function recordPayment(
 
   await batch.commit();
 
-  // ── Balance check + finance expense for the amount actually applied ─────────
-  const method = (formData.method ?? "cash") as "cash" | "bank";
-  await assertSufficientBalance(effectiveAmount, method);
-  await logPurchaseExpense({
-    amount:     effectiveAmount,
-    method,
-    note:       `Payment recorded: ${current.productTitle} × ${current.quantity} unit(s) from ${current.supplierName}`,
-    adminUid,
-    adminName,
-    purchaseId,
-  });
+  // ── Finance expense for the amount actually applied (balance already verified) ─
+  if (effectiveAmount > 0) {
+    await logPurchaseExpense({
+      amount:     effectiveAmount,
+      method,
+      note:       `Payment recorded: ${current.productTitle} × ${current.quantity} unit(s) from ${current.supplierName}`,
+      adminUid,
+      adminName,
+      purchaseId,
+    });
+  }
 
   const saved = await fetchPurchase(purchaseId);
   const purchase = saved ?? {
@@ -567,6 +610,10 @@ export async function markPurchaseFullyPaid(
   if (!current) throw new Error("Purchase not found.");
   if (current.paymentStatus === "paid") throw new Error("Already fully paid.");
 
+  if (current.remainingAmount > 0) {
+    await assertSufficientBalance(current.remainingAmount, "cash");
+  }
+
   const batch = writeBatch(db);
 
   // Record the remaining balance as a final payment entry (audit trail)
@@ -593,9 +640,8 @@ export async function markPurchaseFullyPaid(
 
   await batch.commit();
 
-  // ── Balance check + finance expense for the final remaining balance ────────
+  // ── Finance expense for the final remaining balance (balance already verified) ─
   if (current.remainingAmount > 0) {
-    await assertSufficientBalance(current.remainingAmount, "cash");
     await logPurchaseExpense({
       amount:     current.remainingAmount,
       method:     "cash",

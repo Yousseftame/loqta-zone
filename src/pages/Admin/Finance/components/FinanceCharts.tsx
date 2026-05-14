@@ -7,8 +7,12 @@
  *     This is the monthly available (net) income, not total income.
  *  2. Expenses pie chart: ALL categories now render. Small slices (<7%) have their
  *     percentage label rendered OUTSIDE the slice with a connector line, so nothing is hidden.
+ *  3. "Net Profit vs Expenses" net line = income − expenses − owner draws (+ owner returns),
+ *     computed per calendar month from `transactions` — same rules as NetProfitLoss / Monthly P&L.
+ *     (Aggregated `monthlyIncome` − `monthlyExpenses` omits owner balance movements.)
  */
 
+import { useMemo } from "react";
 import { Box, Paper, Chip } from "@mui/material";
 import {
   PieChart,
@@ -30,6 +34,7 @@ import {
   MONTH_LABELS,
   CATEGORY_LABEL,
   type FinanceStats,
+  type Transaction,
 } from "../finance-data";
 
 const PIE_COLORS = [
@@ -47,12 +52,14 @@ const PIE_COLORS = [
 const AVAILABLE_CLR = "#818cf8"; // indigo — matches Available Balance card
 const EXPENSE_CLR = "#F43F5E";
 
-const fmtEGP = (v: number) =>
-  v >= 1_000_000
-    ? `${(v / 1_000_000).toFixed(1)}M`
-    : v >= 1_000
-      ? `${(v / 1_000).toFixed(0)}k`
-      : v.toLocaleString();
+const fmtEGP = (v: number) => {
+  const abs = Math.abs(v);
+  const sign = v < 0 ? "−" : "";
+  if (abs >= 1_000_000)
+    return `${sign}${(abs / 1_000_000).toFixed(1)}M`;
+  if (abs >= 1_000) return `${sign}${(abs / 1_000).toFixed(0)}k`;
+  return `${sign}${abs.toLocaleString()}`;
+};
 
 const tooltipStyle = {
   borderRadius: 10,
@@ -377,28 +384,58 @@ function MonthlyExpensesBar({
 }
 
 // ─── 3. Net Profit vs Expenses — per month ────────────────────────────────────
-// Net Profit for a month  = monthlyIncome[i] - monthlyExpenses[i]
-// Both values are INDEPENDENT per month — each new month resets to 0.
-// monthlyIncome / monthlyExpenses are maintained by the Cloud Function;
-// they bucket transactions by their createdAt month (0-indexed, Jan=0).
+// Net P&L per month matches NetProfitLoss.tsx / Monthly P&L History:
+//   income − expenses − owner_withdrawals + owner_returns
+// (transfers excluded). Sourced from `transactions` so owner balance moves are included.
+// The red "Expenses" series stays `stats.monthlyExpenses` (operating expenses only).
+
+function netPlForCalendarMonth(
+  txs: Transaction[],
+  year: number,
+  monthIndex: number,
+): number {
+  const from = new Date(year, monthIndex, 1, 0, 0, 0, 0);
+  const to = new Date(year, monthIndex + 1, 1, 0, 0, 0, 0);
+  let income = 0;
+  let expenses = 0;
+  let ownerDraws = 0;
+  for (const tx of txs) {
+    const d = tx.createdAt;
+    if (!d || d < from || d >= to) continue;
+    if (tx.type === "income") income += tx.amount;
+    else if (tx.type === "expense") expenses += tx.amount;
+    else if (tx.type === "owner_withdrawal") ownerDraws += tx.amount;
+    else if (tx.type === "owner_return") ownerDraws -= tx.amount;
+  }
+  return income - expenses - ownerDraws;
+}
 
 function NetProfitVsExpensesLine({
   stats,
+  transactions,
   loading,
 }: {
   stats: FinanceStats;
+  transactions: Transaction[];
   loading: boolean;
 }) {
-  const currentMonth = new Date().getMonth(); // 0-indexed
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const chartYear = now.getFullYear();
+
+  const monthlyNetPl = useMemo(() => {
+    const row: number[] = [];
+    for (let m = 0; m < 12; m++) {
+      row.push(netPlForCalendarMonth(transactions, chartYear, m));
+    }
+    return row;
+  }, [transactions, chartYear]);
 
   const data = MONTH_LABELS.map((month, i) => ({
     month,
-    // Per-month values — each month is independent (starts at 0 on 1st of month).
-    // Future months stay 0 so the chart doesn't show phantom data.
-    netProfit: i <= currentMonth
-      ? (stats.monthlyIncome[i] ?? 0) - (stats.monthlyExpenses[i] ?? 0)
-      : 0,
-    expenses: i <= currentMonth ? (stats.monthlyExpenses[i] ?? 0) : 0,
+    netProfit:
+      i <= currentMonth ? monthlyNetPl[i] ?? 0 : 0,
+    expenses: i <= currentMonth ? stats.monthlyExpenses[i] ?? 0 : 0,
   }));
 
   return (
@@ -430,11 +467,12 @@ function NetProfitVsExpensesLine({
               tickLine={false}
             />
             <YAxis
-              tickFormatter={fmtEGP}
+              tickFormatter={(v) => fmtEGP(Number(v))}
               tick={{ fontSize: 10, fill: colors.textMuted }}
               axisLine={false}
               tickLine={false}
               width={44}
+              domain={["auto", "auto"]}
             />
             <RTooltip
               contentStyle={tooltipStyle}
@@ -485,10 +523,15 @@ function NetProfitVsExpensesLine({
 
 interface Props {
   stats: FinanceStats;
+  transactions: Transaction[];
   loading?: boolean;
 }
 
-export default function FinanceCharts({ stats, loading = false }: Props) {
+export default function FinanceCharts({
+  stats,
+  transactions,
+  loading = false,
+}: Props) {
   return (
     <Box
       sx={{
@@ -499,7 +542,11 @@ export default function FinanceCharts({ stats, loading = false }: Props) {
     >
       <ExpensesPie stats={stats} loading={loading} />
       <MonthlyExpensesBar stats={stats} loading={loading} />
-      <NetProfitVsExpensesLine stats={stats} loading={loading} />
+      <NetProfitVsExpensesLine
+        stats={stats}
+        transactions={transactions}
+        loading={loading}
+      />
     </Box>
   );
 }

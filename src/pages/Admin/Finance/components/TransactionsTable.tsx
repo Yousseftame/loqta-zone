@@ -30,8 +30,15 @@
  */
 
 import { useState, useMemo, useEffect } from "react";
-import { Box, Paper, Chip, IconButton, Tooltip } from "@mui/material";
-import { ChevronLeft, ChevronRight, Pencil, Search, X } from "lucide-react";
+import { Box, Paper, Chip, Collapse, IconButton, Tooltip } from "@mui/material";
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Pencil,
+  Search,
+  X,
+} from "lucide-react";
 import { colors } from "../../Products/products-data";
 import {
   CATEGORY_LABEL,
@@ -171,6 +178,26 @@ function sortSplitPartsInOrder(transactions: Transaction[]): Transaction[] {
  * Transactions arrive sorted newest-first. We anchor on the current
  * available balance and walk backwards, undoing each transaction.
  */
+/** Local date range (YYYY-MM-DD from `<input type="date" />`) vs transaction timestamp */
+function inDateRange(
+  createdAt: Date | null,
+  dateFrom: string,
+  dateTo: string,
+): boolean {
+  if (!dateFrom && !dateTo) return true;
+  if (!createdAt) return false;
+  const t = createdAt.getTime();
+  if (dateFrom) {
+    const start = new Date(`${dateFrom}T00:00:00`);
+    if (t < start.getTime()) return false;
+  }
+  if (dateTo) {
+    const end = new Date(`${dateTo}T23:59:59.999`);
+    if (t > end.getTime()) return false;
+  }
+  return true;
+}
+
 function computeRunningBalances(
   transactions: Transaction[],
   currentAvailable: number,
@@ -670,9 +697,28 @@ export default function TransactionsTable({
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [methodFilter, setMethodFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [ownerFilter, setOwnerFilter] = useState("all");
+  const [splitFilter, setSplitFilter] = useState("all"); // all | split | standalone
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [amountMin, setAmountMin] = useState("");
+  const [amountMax, setAmountMax] = useState("");
+  const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
   useEffect(() => {
     setPage(1);
-  }, [search, typeFilter, methodFilter]);
+  }, [
+    search,
+    typeFilter,
+    methodFilter,
+    categoryFilter,
+    ownerFilter,
+    splitFilter,
+    dateFrom,
+    dateTo,
+    amountMin,
+    amountMax,
+  ]);
 
   const currentAvailable = stats.cashBalance + stats.bankBalance;
 
@@ -681,6 +727,25 @@ export default function TransactionsTable({
     () => sortSplitPartsInOrder(transactions),
     [transactions],
   );
+
+  const categoryOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const tx of sortedTransactions) set.add(tx.category);
+    return [...set].sort((a, b) =>
+      (CATEGORY_LABEL[a] ?? a).localeCompare(CATEGORY_LABEL[b] ?? b),
+    );
+  }, [sortedTransactions]);
+
+  const ownerOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const tx of sortedTransactions) {
+      if (tx.ownerId)
+        map.set(tx.ownerId, tx.ownerName?.trim() || tx.ownerId.slice(0, 8));
+    }
+    return [...map.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [sortedTransactions]);
 
   const allBalances = useMemo(
     () => computeRunningBalances(sortedTransactions, currentAvailable),
@@ -696,24 +761,91 @@ export default function TransactionsTable({
       const tx = sortedTransactions[i];
       if (typeFilter !== "all" && tx.type !== typeFilter) continue;
       if (methodFilter !== "all" && tx.method !== methodFilter) continue;
+      if (categoryFilter !== "all" && tx.category !== categoryFilter) continue;
+      if (ownerFilter !== "all" && tx.ownerId !== ownerFilter) continue;
+      if (splitFilter === "split" && !tx.groupId) continue;
+      if (splitFilter === "standalone" && tx.groupId) continue;
+      if (!inDateRange(tx.createdAt, dateFrom, dateTo)) continue;
+      if (amountMin !== "") {
+        const n = parseFloat(amountMin.replace(/,/g, ""));
+        if (!Number.isNaN(n) && tx.amount < n) continue;
+      }
+      if (amountMax !== "") {
+        const n = parseFloat(amountMax.replace(/,/g, ""));
+        if (!Number.isNaN(n) && tx.amount > n) continue;
+      }
       if (search) {
         const q = search.toLowerCase();
         const note = (tx.note ?? "").toLowerCase();
         const cat = (CATEGORY_LABEL[tx.category] ?? tx.category).toLowerCase();
         const by = (tx.createdByName ?? "").toLowerCase();
-        if (!note.includes(q) && !cat.includes(q) && !by.includes(q)) continue;
+        const ownerNm = (tx.ownerName ?? "").toLowerCase();
+        const idPart = (tx.id ?? "").toLowerCase();
+        const transferTo = (tx.transferTo ?? "").toLowerCase();
+        const amountStr = tx.amount.toLocaleString("en-EG").toLowerCase();
+        const plainAmount = String(tx.amount);
+        if (
+          !note.includes(q) &&
+          !cat.includes(q) &&
+          !by.includes(q) &&
+          !ownerNm.includes(q) &&
+          !amountStr.includes(q) &&
+          !plainAmount.includes(q) &&
+          !idPart.includes(q) &&
+          !transferTo.includes(q)
+        )
+          continue;
       }
       result.push({ tx, balance: allBalances[i] });
     }
     return result;
-  }, [sortedTransactions, allBalances, search, typeFilter, methodFilter]);
+  }, [
+    sortedTransactions,
+    allBalances,
+    search,
+    typeFilter,
+    methodFilter,
+    categoryFilter,
+    ownerFilter,
+    splitFilter,
+    dateFrom,
+    dateTo,
+    amountMin,
+    amountMax,
+  ]);
 
   const hasFilters =
-    search !== "" || typeFilter !== "all" || methodFilter !== "all";
+    search !== "" ||
+    typeFilter !== "all" ||
+    methodFilter !== "all" ||
+    categoryFilter !== "all" ||
+    ownerFilter !== "all" ||
+    splitFilter !== "all" ||
+    dateFrom !== "" ||
+    dateTo !== "" ||
+    amountMin !== "" ||
+    amountMax !== "";
+  const hasAdvancedFilters =
+    typeFilter !== "all" ||
+    methodFilter !== "all" ||
+    categoryFilter !== "all" ||
+    ownerFilter !== "all" ||
+    splitFilter !== "all" ||
+    dateFrom !== "" ||
+    dateTo !== "" ||
+    amountMin !== "" ||
+    amountMax !== "";
   const clearFilters = () => {
     setSearch("");
     setTypeFilter("all");
     setMethodFilter("all");
+    setCategoryFilter("all");
+    setOwnerFilter("all");
+    setSplitFilter("all");
+    setDateFrom("");
+    setDateTo("");
+    setAmountMin("");
+    setAmountMax("");
   };
 
   const totalPages = Math.max(
@@ -820,7 +952,7 @@ export default function TransactionsTable({
         {/* ── Table header bar ── */}
         <Box
           sx={{
-            px: 3,
+            px: { xs: 1.5, sm: 3 },
             py: 2,
             borderBottom: `1px solid ${colors.border}`,
             bgcolor: colors.primaryBg,
@@ -874,36 +1006,333 @@ export default function TransactionsTable({
         {/* ── Filter bar ─────────────────────────────────────────────────────── */}
         <Box
           sx={{
-            px: 2,
+            px: { xs: 1.5, sm: 2 },
             py: 1.5,
             borderBottom: `1px solid ${colors.border}`,
             bgcolor: "#FAFAFA",
             display: "flex",
+            flexDirection: "column",
             gap: 1.5,
-            flexWrap: "wrap",
-            alignItems: "center",
           }}
         >
-          {/* Search */}
-          <Box sx={{ position: "relative", flex: "1 1 160px", maxWidth: 320 }}>
-            <Search
-              size={13}
+          <Box
+            sx={{
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              gap: 1.5,
+            }}
+          >
+            <Box
+              sx={{
+                position: "relative",
+                flex: "1 1 200px",
+                minWidth: 0,
+                maxWidth: { sm: 420 },
+              }}
+            >
+              <Search
+                size={13}
+                style={{
+                  position: "absolute",
+                  left: 9,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  color: colors.textMuted,
+                  pointerEvents: "none",
+                }}
+              />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search note, category, user, amount, owner, tx ID…"
+                style={{
+                  width: "100%",
+                  padding: "8px 10px 8px 30px",
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: 8,
+                  fontSize: "0.8rem",
+                  color: "#1E293B",
+                  background: "#fff",
+                  outline: "none",
+                  fontFamily: "system-ui,sans-serif",
+                  boxSizing: "border-box",
+                }}
+              />
+            </Box>
+
+            <Box
+              sx={{
+                display: "flex",
+                flexWrap: "wrap",
+                alignItems: "center",
+                gap: 1,
+                justifyContent: { xs: "stretch", sm: "flex-end" },
+                flex: { xs: "1 1 100%", sm: "0 0 auto" },
+              }}
+            >
+              <Box
+                component="button"
+                type="button"
+                onClick={() => setAdvancedFiltersOpen((o) => !o)}
+                aria-expanded={advancedFiltersOpen}
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 0.5,
+                  py: 1,
+                  px: 1.5,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: 2,
+                  fontSize: "0.78rem",
+                  fontWeight: 600,
+                  color: colors.primary,
+                  bgcolor: "#fff",
+                  cursor: "pointer",
+                  fontFamily: "system-ui,sans-serif",
+                  flex: { xs: 1, sm: "0 0 auto" },
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Advanced filters
+                {hasAdvancedFilters && !advancedFiltersOpen ? (
+                  <Box
+                    component="span"
+                    sx={{
+                      color: "#D97706",
+                      fontSize: "0.72rem",
+                      fontWeight: 700,
+                    }}
+                  >
+                    · on
+                  </Box>
+                ) : null}
+                <ChevronDown
+                  size={16}
+                  color={colors.primary}
+                  style={{
+                    flexShrink: 0,
+                    transform: advancedFiltersOpen
+                      ? "rotate(180deg)"
+                      : "rotate(0deg)",
+                    transition: "transform 0.2s ease",
+                  }}
+                />
+              </Box>
+
+              {hasFilters && (
+                <Box
+                  component="button"
+                  type="button"
+                  onClick={clearFilters}
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 0.75,
+                    py: 1,
+                    px: 2,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: 2,
+                    fontSize: "0.78rem",
+                    fontWeight: 600,
+                    color: colors.textMuted,
+                    bgcolor: "#fff",
+                    cursor: "pointer",
+                    fontFamily: "system-ui,sans-serif",
+                    flex: { xs: 1, sm: "0 0 auto" },
+                  }}
+                >
+                  <X size={12} /> Clear all
+                </Box>
+              )}
+            </Box>
+          </Box>
+
+          <Collapse in={advancedFiltersOpen} timeout="auto">
+            <Box
+              sx={{
+                display: "grid",
+                width: "100%",
+                gap: 1.5,
+                pt: 0.25,
+                gridTemplateColumns: {
+                  xs: "minmax(0, 1fr)",
+                  sm: "repeat(2, minmax(0, 1fr))",
+                  md: "repeat(auto-fill, minmax(min(100%, 148px), 1fr))",
+                },
+                alignItems: "stretch",
+              }}
+            >
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
               style={{
-                position: "absolute",
-                left: 9,
-                top: "50%",
-                transform: "translateY(-50%)",
-                color: colors.textMuted,
-                pointerEvents: "none",
+                width: "100%",
+                padding: "8px 10px",
+                border: `1px solid ${colors.border}`,
+                borderRadius: 8,
+                fontSize: "0.8rem",
+                color: "#1E293B",
+                background: "#fff",
+                cursor: "pointer",
+                fontFamily: "system-ui,sans-serif",
+                outline: "none",
+                boxSizing: "border-box",
+              }}
+            >
+              <option value="all">All Types</option>
+              <option value="income">Income</option>
+              <option value="expense">Expense</option>
+              <option value="owner_withdrawal">Owner Draw</option>
+              <option value="owner_return">↩ Return</option>
+              <option value="transfer">Transfer</option>
+            </select>
+
+            <select
+              value={methodFilter}
+              onChange={(e) => setMethodFilter(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "8px 10px",
+                border: `1px solid ${colors.border}`,
+                borderRadius: 8,
+                fontSize: "0.8rem",
+                color: "#1E293B",
+                background: "#fff",
+                cursor: "pointer",
+                fontFamily: "system-ui,sans-serif",
+                outline: "none",
+                boxSizing: "border-box",
+              }}
+            >
+              <option value="all">All Methods</option>
+              <option value="cash">💵 Cash</option>
+              <option value="bank">🏦 Bank</option>
+            </select>
+
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "8px 10px",
+                border: `1px solid ${colors.border}`,
+                borderRadius: 8,
+                fontSize: "0.8rem",
+                color: "#1E293B",
+                background: "#fff",
+                cursor: "pointer",
+                fontFamily: "system-ui,sans-serif",
+                outline: "none",
+                boxSizing: "border-box",
+              }}
+            >
+              <option value="all">All Categories</option>
+              {categoryOptions.map((c) => (
+                <option key={c} value={c}>
+                  {CATEGORY_LABEL[c] ?? c}
+                </option>
+              ))}
+            </select>
+
+            {ownerOptions.length > 0 && (
+              <select
+                value={ownerFilter}
+                onChange={(e) => setOwnerFilter(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "8px 10px",
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: 8,
+                  fontSize: "0.8rem",
+                  color: "#1E293B",
+                  background: "#fff",
+                  cursor: "pointer",
+                  fontFamily: "system-ui,sans-serif",
+                  outline: "none",
+                  boxSizing: "border-box",
+                }}
+              >
+                <option value="all">All Owners</option>
+                {ownerOptions.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.name}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            <select
+              value={splitFilter}
+              onChange={(e) => setSplitFilter(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "8px 10px",
+                border: `1px solid ${colors.border}`,
+                borderRadius: 8,
+                fontSize: "0.8rem",
+                color: "#1E293B",
+                background: "#fff",
+                cursor: "pointer",
+                fontFamily: "system-ui,sans-serif",
+                outline: "none",
+                boxSizing: "border-box",
+              }}
+            >
+              <option value="all">All Payments</option>
+              <option value="split">Split payments only</option>
+              <option value="standalone">Single-line only</option>
+            </select>
+
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              aria-label="From date"
+              style={{
+                width: "100%",
+                padding: "8px 10px",
+                border: `1px solid ${colors.border}`,
+                borderRadius: 8,
+                fontSize: "0.8rem",
+                color: "#1E293B",
+                background: "#fff",
+                fontFamily: "system-ui,sans-serif",
+                outline: "none",
+                boxSizing: "border-box",
               }}
             />
             <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search note, category, done by…"
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              aria-label="To date"
               style={{
                 width: "100%",
-                padding: "6px 10px 6px 30px",
+                padding: "8px 10px",
+                border: `1px solid ${colors.border}`,
+                borderRadius: 8,
+                fontSize: "0.8rem",
+                color: "#1E293B",
+                background: "#fff",
+                fontFamily: "system-ui,sans-serif",
+                outline: "none",
+                boxSizing: "border-box",
+              }}
+            />
+
+            <input
+              type="text"
+              inputMode="decimal"
+              value={amountMin}
+              onChange={(e) => setAmountMin(e.target.value)}
+              placeholder="Min amount (EGP)"
+              aria-label="Minimum amount in EGP"
+              style={{
+                width: "100%",
+                padding: "8px 10px",
                 border: `1px solid ${colors.border}`,
                 borderRadius: 8,
                 fontSize: "0.8rem",
@@ -914,72 +1343,28 @@ export default function TransactionsTable({
                 boxSizing: "border-box",
               }}
             />
-          </Box>
-          {/* Type */}
-          <select
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
-            style={{
-              padding: "6px 10px",
-              border: `1px solid ${colors.border}`,
-              borderRadius: 8,
-              fontSize: "0.8rem",
-              color: "#1E293B",
-              background: "#fff",
-              cursor: "pointer",
-              fontFamily: "system-ui,sans-serif",
-              outline: "none",
-            }}
-          >
-            <option value="all">All Types</option>
-            <option value="income">Income</option>
-            <option value="expense">Expense</option>
-            <option value="owner_withdrawal">Owner Draw</option>
-            <option value="owner_return">↩ Return</option>
-            <option value="transfer">Transfer</option>
-          </select>
-          {/* Method */}
-          <select
-            value={methodFilter}
-            onChange={(e) => setMethodFilter(e.target.value)}
-            style={{
-              padding: "6px 10px",
-              border: `1px solid ${colors.border}`,
-              borderRadius: 8,
-              fontSize: "0.8rem",
-              color: "#1E293B",
-              background: "#fff",
-              cursor: "pointer",
-              fontFamily: "system-ui,sans-serif",
-              outline: "none",
-            }}
-          >
-            <option value="all">All Methods</option>
-            <option value="cash">💵 Cash</option>
-            <option value="bank">🏦 Bank</option>
-          </select>
-          {/* Clear */}
-          {hasFilters && (
-            <button
-              onClick={clearFilters}
+            <input
+              type="text"
+              inputMode="decimal"
+              value={amountMax}
+              onChange={(e) => setAmountMax(e.target.value)}
+              placeholder="Max amount (EGP)"
+              aria-label="Maximum amount in EGP"
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 5,
-                padding: "6px 12px",
+                width: "100%",
+                padding: "8px 10px",
                 border: `1px solid ${colors.border}`,
                 borderRadius: 8,
-                fontSize: "0.78rem",
-                fontWeight: 600,
-                color: colors.textMuted,
+                fontSize: "0.8rem",
+                color: "#1E293B",
                 background: "#fff",
-                cursor: "pointer",
+                outline: "none",
                 fontFamily: "system-ui,sans-serif",
+                boxSizing: "border-box",
               }}
-            >
-              <X size={12} /> Clear
-            </button>
-          )}
+            />
+            </Box>
+          </Collapse>
         </Box>
 
         {/* ── Table ── */}
@@ -1059,6 +1444,19 @@ export default function TransactionsTable({
                     }}
                   >
                     No transactions yet
+                  </td>
+                </tr>
+              ) : filteredWithBalance.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={9}
+                    style={{
+                      padding: "40px 16px",
+                      textAlign: "center",
+                      color: colors.textMuted,
+                    }}
+                  >
+                    No transactions match the current filters.
                   </td>
                 </tr>
               ) : (
@@ -1389,7 +1787,7 @@ export default function TransactionsTable({
         {!loading && totalPages > 1 && (
           <Box
             sx={{
-              px: 3,
+              px: { xs: 1.5, sm: 3 },
               py: 1.5,
               borderTop: `1px solid ${colors.border}`,
               bgcolor: "#FAFAFA",
@@ -1409,13 +1807,14 @@ export default function TransactionsTable({
             >
               Showing{" "}
               <strong style={{ color: colors.textPrimary }}>
-                {pageStart + 1}–{Math.min(pageEnd, sortedTransactions.length)}
+                {pageStart + 1}–
+                {Math.min(pageEnd, filteredWithBalance.length)}
               </strong>{" "}
               of{" "}
               <strong style={{ color: colors.textPrimary }}>
-                {sortedTransactions.length}
+                {filteredWithBalance.length}
               </strong>{" "}
-              transactions
+              {hasFilters ? "filtered " : ""}transactions
             </span>
 
             <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>

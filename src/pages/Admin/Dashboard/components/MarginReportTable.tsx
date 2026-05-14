@@ -9,10 +9,11 @@
  */
 
 import { useState, useMemo, useEffect } from "react";
-import { Box, Paper, Chip } from "@mui/material";
+import { Box, Paper, Chip, Collapse } from "@mui/material";
 import {
   TrendingUp,
   TrendingDown,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Search,
@@ -23,6 +24,17 @@ import type { TopAuction, TopAuctionsAnalytics } from "../analytics-data";
 
 const PAGE_SIZE = 10;
 
+/** Margin % aligned with table body (includes entry fees when cost exists). */
+function getRowDisplayMarginPct(row: TopAuction): number {
+  const hasPrice = row.actualPrice > 0;
+  const profit =
+    row.actualProfit ?? (hasPrice ? row.winningBid - row.actualPrice : 0);
+  const entryFeeRevenue = row.entryFeeRevenue ?? 0;
+  const totalProfit = row.totalActualProfit ?? profit + entryFeeRevenue;
+  if (hasPrice) return (totalProfit / row.actualPrice) * 100;
+  return row.margin ?? 0;
+}
+
 interface Props {
   topAuctions: TopAuctionsAnalytics;
   loading?: boolean;
@@ -32,6 +44,12 @@ export default function MarginReportTable({ topAuctions, loading }: Props) {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [profitFilter, setProfitFilter] = useState("all"); // "all" | "profit" | "loss"
+  const [marginPctFilter, setMarginPctFilter] = useState("all");
+  const [entryFeeFilter, setEntryFeeFilter] = useState("all"); // all | with | without
+  const [minBids, setMinBids] = useState("");
+  const [minWinBid, setMinWinBid] = useState("");
+  const [maxWinBid, setMaxWinBid] = useState("");
+  const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
 
   // Use the full financialReport list; fall back to byWinningBid for legacy
   const data = useMemo(() => {
@@ -39,7 +57,7 @@ export default function MarginReportTable({ topAuctions, loading }: Props) {
     return full.length > 0 ? full : (topAuctions.byWinningBid ?? []);
   }, [topAuctions.financialReport, topAuctions.byWinningBid]);
 
-  // Apply search + profit filter
+  // Apply search + filters
   const filteredData = useMemo(() => {
     return data.filter((row) => {
       if (search) {
@@ -49,27 +67,96 @@ export default function MarginReportTable({ topAuctions, loading }: Props) {
           .toLowerCase()
           .includes(q);
         const matchesWinner = (row.winnerName ?? "").toLowerCase().includes(q);
-        if (!matchesAuction && !matchesProduct && !matchesWinner) return false;
+        const matchesAuctionId = (row.auctionId ?? "").toLowerCase().includes(q);
+        const matchesWinnerId = (row.winnerId ?? "").toLowerCase().includes(q);
+        const bidStr = String(row.winningBid);
+        if (
+          !matchesAuction &&
+          !matchesProduct &&
+          !matchesWinner &&
+          !matchesAuctionId &&
+          !matchesWinnerId &&
+          !bidStr.includes(q)
+        )
+          return false;
       }
       if (profitFilter !== "all") {
         const p = row.totalActualProfit ?? row.actualProfit ?? 0;
         if (profitFilter === "profit" && p < 0) return false;
         if (profitFilter === "loss" && p >= 0) return false;
       }
+      if (marginPctFilter !== "all") {
+        const m = getRowDisplayMarginPct(row);
+        if (marginPctFilter === "strong" && m < 25) return false;
+        if (marginPctFilter === "moderate" && (m < 10 || m >= 25)) return false;
+        if (marginPctFilter === "weak" && (m < 0 || m >= 10)) return false;
+        if (marginPctFilter === "negative" && m >= 0) return false;
+      }
+      const efr = row.entryFeeRevenue ?? 0;
+      if (entryFeeFilter === "with" && efr <= 0) return false;
+      if (entryFeeFilter === "without" && efr > 0) return false;
+      if (minBids.trim() !== "") {
+        const n = parseInt(minBids, 10);
+        if (!Number.isNaN(n) && row.totalBids < n) return false;
+      }
+      if (minWinBid.trim() !== "") {
+        const n = parseFloat(minWinBid.replace(/,/g, ""));
+        if (!Number.isNaN(n) && row.winningBid < n) return false;
+      }
+      if (maxWinBid.trim() !== "") {
+        const n = parseFloat(maxWinBid.replace(/,/g, ""));
+        if (!Number.isNaN(n) && row.winningBid > n) return false;
+      }
       return true;
     });
-  }, [data, search, profitFilter]);
+  }, [
+    data,
+    search,
+    profitFilter,
+    marginPctFilter,
+    entryFeeFilter,
+    minBids,
+    minWinBid,
+    maxWinBid,
+  ]);
 
-  const hasFilters = search !== "" || profitFilter !== "all";
+  const hasFilters =
+    search !== "" ||
+    profitFilter !== "all" ||
+    marginPctFilter !== "all" ||
+    entryFeeFilter !== "all" ||
+    minBids.trim() !== "" ||
+    minWinBid.trim() !== "" ||
+    maxWinBid.trim() !== "";
+  const hasAdvancedFilters =
+    profitFilter !== "all" ||
+    marginPctFilter !== "all" ||
+    entryFeeFilter !== "all" ||
+    minBids.trim() !== "" ||
+    minWinBid.trim() !== "" ||
+    maxWinBid.trim() !== "";
   const clearFilters = () => {
     setSearch("");
     setProfitFilter("all");
+    setMarginPctFilter("all");
+    setEntryFeeFilter("all");
+    setMinBids("");
+    setMinWinBid("");
+    setMaxWinBid("");
   };
 
   // Reset page when filters change
   useEffect(() => {
     setPage(1);
-  }, [search, profitFilter]);
+  }, [
+    search,
+    profitFilter,
+    marginPctFilter,
+    entryFeeFilter,
+    minBids,
+    minWinBid,
+    maxWinBid,
+  ]);
 
   const totalPages = Math.max(1, Math.ceil(filteredData.length / PAGE_SIZE));
 
@@ -94,7 +181,7 @@ export default function MarginReportTable({ topAuctions, loading }: Props) {
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <Box
         sx={{
-          px: 3,
+          px: { xs: 1.5, sm: 3 },
           py: 2,
           borderBottom: `1px solid ${colors.border}`,
           bgcolor: colors.primaryBg,
@@ -149,36 +236,243 @@ export default function MarginReportTable({ topAuctions, loading }: Props) {
       {!loading && data.length > 0 && (
         <Box
           sx={{
-            px: 2,
+            px: { xs: 1.5, sm: 2 },
             py: 1.5,
             borderBottom: `1px solid ${colors.border}`,
             bgcolor: "#FAFAFA",
             display: "flex",
+            flexDirection: "column",
             gap: 1.5,
-            flexWrap: "wrap",
-            alignItems: "center",
           }}
         >
-          {/* Search */}
-          <Box sx={{ position: "relative", flex: "1 1 160px", maxWidth: 300 }}>
-            <Search
-              size={13}
-              style={{
-                position: "absolute",
-                left: 9,
-                top: "50%",
-                transform: "translateY(-50%)",
-                color: colors.textMuted,
-                pointerEvents: "none",
+          <Box
+            sx={{
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              gap: 1.5,
+            }}
+          >
+            <Box
+              sx={{
+                position: "relative",
+                flex: "1 1 200px",
+                minWidth: 0,
+                maxWidth: { sm: 420 },
               }}
-            />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search auction, product, winner…"
+            >
+              <Search
+                size={13}
+                style={{
+                  position: "absolute",
+                  left: 9,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  color: colors.textMuted,
+                  pointerEvents: "none",
+                }}
+              />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search auction #, product, winner, IDs, winning bid…"
+                style={{
+                  width: "100%",
+                  padding: "8px 10px 8px 30px",
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: 8,
+                  fontSize: "0.8rem",
+                  color: "#1E293B",
+                  background: "#fff",
+                  outline: "none",
+                  fontFamily: "system-ui,sans-serif",
+                  boxSizing: "border-box",
+                }}
+              />
+            </Box>
+
+            <Box
+              sx={{
+                display: "flex",
+                flexWrap: "wrap",
+                alignItems: "center",
+                gap: 1,
+                justifyContent: { xs: "stretch", sm: "flex-end" },
+                flex: { xs: "1 1 100%", sm: "0 0 auto" },
+              }}
+            >
+              <Box
+                component="button"
+                type="button"
+                onClick={() => setAdvancedFiltersOpen((o) => !o)}
+                aria-expanded={advancedFiltersOpen}
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 0.5,
+                  py: 1,
+                  px: 1.5,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: 2,
+                  fontSize: "0.78rem",
+                  fontWeight: 600,
+                  color: colors.primary,
+                  bgcolor: "#fff",
+                  cursor: "pointer",
+                  fontFamily: "system-ui,sans-serif",
+                  flex: { xs: 1, sm: "0 0 auto" },
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Advanced filters
+                {hasAdvancedFilters && !advancedFiltersOpen ? (
+                  <Box
+                    component="span"
+                    sx={{
+                      color: "#D97706",
+                      fontSize: "0.72rem",
+                      fontWeight: 700,
+                    }}
+                  >
+                    · on
+                  </Box>
+                ) : null}
+                <ChevronDown
+                  size={16}
+                  color={colors.primary}
+                  style={{
+                    flexShrink: 0,
+                    transform: advancedFiltersOpen
+                      ? "rotate(180deg)"
+                      : "rotate(0deg)",
+                    transition: "transform 0.2s ease",
+                  }}
+                />
+              </Box>
+
+              {hasFilters && (
+                <Box
+                  component="button"
+                  type="button"
+                  onClick={clearFilters}
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 0.75,
+                    py: 1,
+                    px: 2,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: 2,
+                    fontSize: "0.78rem",
+                    fontWeight: 600,
+                    color: colors.textMuted,
+                    bgcolor: "#fff",
+                    cursor: "pointer",
+                    fontFamily: "system-ui,sans-serif",
+                    flex: { xs: 1, sm: "0 0 auto" },
+                  }}
+                >
+                  <X size={12} /> Clear all
+                </Box>
+              )}
+            </Box>
+          </Box>
+
+          <Collapse in={advancedFiltersOpen} timeout="auto">
+            <Box
+              sx={{
+                display: "grid",
+                width: "100%",
+                gap: 1.5,
+                pt: 0.25,
+                gridTemplateColumns: {
+                  xs: "minmax(0, 1fr)",
+                  sm: "repeat(2, minmax(0, 1fr))",
+                  md: "repeat(auto-fill, minmax(min(100%, 148px), 1fr))",
+                },
+                alignItems: "stretch",
+              }}
+            >
+            <select
+              value={profitFilter}
+              onChange={(e) => setProfitFilter(e.target.value)}
               style={{
                 width: "100%",
-                padding: "6px 10px 6px 30px",
+                padding: "8px 10px",
+                border: `1px solid ${colors.border}`,
+                borderRadius: 8,
+                fontSize: "0.8rem",
+                color: "#1E293B",
+                background: "#fff",
+                cursor: "pointer",
+                fontFamily: "system-ui,sans-serif",
+                outline: "none",
+                boxSizing: "border-box",
+              }}
+            >
+              <option value="all">All Results</option>
+              <option value="profit">📈 Profitable (EGP)</option>
+              <option value="loss">📉 Loss-making (EGP)</option>
+            </select>
+
+            <select
+              value={marginPctFilter}
+              onChange={(e) => setMarginPctFilter(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "8px 10px",
+                border: `1px solid ${colors.border}`,
+                borderRadius: 8,
+                fontSize: "0.8rem",
+                color: "#1E293B",
+                background: "#fff",
+                cursor: "pointer",
+                fontFamily: "system-ui,sans-serif",
+                outline: "none",
+                boxSizing: "border-box",
+              }}
+            >
+              <option value="all">All margins %</option>
+              <option value="strong">Strong (≥ 25%)</option>
+              <option value="moderate">Moderate (10–25%)</option>
+              <option value="weak">Weak (0–10%)</option>
+              <option value="negative">Negative (&lt; 0%)</option>
+            </select>
+
+            <select
+              value={entryFeeFilter}
+              onChange={(e) => setEntryFeeFilter(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "8px 10px",
+                border: `1px solid ${colors.border}`,
+                borderRadius: 8,
+                fontSize: "0.8rem",
+                color: "#1E293B",
+                background: "#fff",
+                cursor: "pointer",
+                fontFamily: "system-ui,sans-serif",
+                outline: "none",
+                boxSizing: "border-box",
+              }}
+            >
+              <option value="all">Entry fees: any</option>
+              <option value="with">With entry fee revenue</option>
+              <option value="without">No entry fee revenue</option>
+            </select>
+
+            <input
+              type="text"
+              inputMode="numeric"
+              value={minBids}
+              onChange={(e) => setMinBids(e.target.value.replace(/[^\d]/g, ""))}
+              placeholder="Min. total bids"
+              aria-label="Minimum total bids"
+              style={{
+                width: "100%",
+                padding: "8px 10px",
                 border: `1px solid ${colors.border}`,
                 borderRadius: 8,
                 fontSize: "0.8rem",
@@ -189,51 +483,49 @@ export default function MarginReportTable({ topAuctions, loading }: Props) {
                 boxSizing: "border-box",
               }}
             />
-          </Box>
 
-          {/* Profit/Loss filter */}
-          <select
-            value={profitFilter}
-            onChange={(e) => setProfitFilter(e.target.value)}
-            style={{
-              padding: "6px 10px",
-              border: `1px solid ${colors.border}`,
-              borderRadius: 8,
-              fontSize: "0.8rem",
-              color: "#1E293B",
-              background: "#fff",
-              cursor: "pointer",
-              fontFamily: "system-ui,sans-serif",
-              outline: "none",
-            }}
-          >
-            <option value="all">All Results</option>
-            <option value="profit">📈 Profitable</option>
-            <option value="loss">📉 Loss-making</option>
-          </select>
-
-          {/* Clear */}
-          {hasFilters && (
-            <button
-              onClick={clearFilters}
+            <input
+              type="text"
+              inputMode="decimal"
+              value={minWinBid}
+              onChange={(e) => setMinWinBid(e.target.value)}
+              placeholder="Min winning bid (EGP)"
+              aria-label="Minimum winning bid in EGP"
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 5,
-                padding: "6px 12px",
+                width: "100%",
+                padding: "8px 10px",
                 border: `1px solid ${colors.border}`,
                 borderRadius: 8,
-                fontSize: "0.78rem",
-                fontWeight: 600,
-                color: colors.textMuted,
+                fontSize: "0.8rem",
+                color: "#1E293B",
                 background: "#fff",
-                cursor: "pointer",
+                outline: "none",
                 fontFamily: "system-ui,sans-serif",
+                boxSizing: "border-box",
               }}
-            >
-              <X size={12} /> Clear
-            </button>
-          )}
+            />
+            <input
+              type="text"
+              inputMode="decimal"
+              value={maxWinBid}
+              onChange={(e) => setMaxWinBid(e.target.value)}
+              placeholder="Max winning bid (EGP)"
+              aria-label="Maximum winning bid in EGP"
+              style={{
+                width: "100%",
+                padding: "8px 10px",
+                border: `1px solid ${colors.border}`,
+                borderRadius: 8,
+                fontSize: "0.8rem",
+                color: "#1E293B",
+                background: "#fff",
+                outline: "none",
+                fontFamily: "system-ui,sans-serif",
+                boxSizing: "border-box",
+              }}
+            />
+            </Box>
+          </Collapse>
         </Box>
       )}
 
@@ -495,7 +787,7 @@ export default function MarginReportTable({ topAuctions, loading }: Props) {
           {totalPages > 1 && (
             <Box
               sx={{
-                px: 3,
+                px: { xs: 1.5, sm: 3 },
                 py: 1.5,
                 borderTop: `1px solid ${colors.border}`,
                 bgcolor: "#FAFAFA",

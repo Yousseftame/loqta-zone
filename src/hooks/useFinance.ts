@@ -89,6 +89,7 @@ function parseTransaction(id: string, data: Record<string, any>): Transaction {
     splitTotal:    data.splitTotal    ?? undefined,
     ownerId:       data.ownerId       ?? undefined,
     ownerName:     data.ownerName     ?? undefined,
+    purchaseId:    data.purchaseId    ?? undefined,
   };
 }
 

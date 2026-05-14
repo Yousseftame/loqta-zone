@@ -14,8 +14,9 @@
  *   Credit purchase (0 paid)     → no expense (no cash left the business)
  *   Record payment               → 1 expense for effectiveAmount
  *   Mark as fully paid           → 1 expense for remainingAmount (final tranche)
- *   Edit (paidAmount delta)      → expense (positive delta) or income/refund (negative)
- *   Delete purchase              → income/refund for total paidAmount
+ *   Edit (paidAmount delta)      → expense (positive delta) or negative expense (negative)
+ *   Delete purchase              → negative expense rows (same category as purchase) so
+ *                                  totalExpenses / products roll back with cash/bank.
  */
 
 import {
@@ -121,7 +122,11 @@ export async function logPurchaseExpense(
 // ─── Reversal logger ──────────────────────────────────────────────────────────
 
 /**
- * Log a purchase-payment reversal (income/refund) to the `transactions` collection.
+ * Log a purchase-payment reversal as a **negative expense** (category `products`).
+ * The Cloud Function treats income as revenue (totalIncome++) and does not reduce
+ * totalExpenses — so reversals must mirror `logPurchaseExpense` with a negative amount
+ * to restore cash/bank and expense aggregates together.
+ *
  * Used when a purchase is deleted or when an edit reduces the paid amount.
  * Silently no-ops if amount <= 0.
  */
@@ -136,10 +141,10 @@ export async function logPurchaseReversal(payload: {
   if (payload.amount <= 0) return;
 
   await addDoc(collection(db, "transactions"), {
-    type:          "income",
-    amount:        payload.amount,
+    type:          "expense",
+    amount:        -payload.amount,
     method:        payload.method,
-    category:      "refund_received",
+    category:      "products",
     note:          payload.note.trim(),
     purchaseId:    payload.purchaseId,
     createdAt:     serverTimestamp(),

@@ -18,6 +18,7 @@ import {
   LayoutDashboard,
   BarChart2,
   UserPlus,
+  FileSpreadsheet,
 } from "lucide-react";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import toast from "react-hot-toast";
@@ -35,11 +36,12 @@ import NetProfitLoss from "./components/NetProfitLoss";
 import PaymentAccountsTab from "./components/PaymentAccountsTab";
 import AnalyticsDashboardTab from "./components/AnalyticsDashboardTab";
 import PurchaseCharts from "./components/PurchaseCharts";
+import PeriodFinancialReportTab from "./components/PeriodFinancialReportTab";
 import type { TransactionFormValues } from "./finance-data";
 
 // ─── Tab definitions ──────────────────────────────────────────────────────────
 
-type FinanceTab = "overview" | "transactions" | "accounts" | "analytics";
+type FinanceTab = "overview" | "transactions" | "accounts" | "analytics" | "reports";
 
 const TABS: { key: FinanceTab; label: string; icon: React.ReactNode }[] = [
   { key: "overview", label: "Overview", icon: <LayoutDashboard size={15} /> },
@@ -53,6 +55,11 @@ const TABS: { key: FinanceTab; label: string; icon: React.ReactNode }[] = [
     key: "analytics",
     label: "Analytics Dashboard",
     icon: <BarChart2 size={15} />,
+  },
+  {
+    key: "reports",
+    label: "Period statement",
+    icon: <FileSpreadsheet size={15} />,
   },
 ];
 
@@ -392,7 +399,11 @@ export default function FinancePage() {
 
           <SectionLabel label="Analytics" />
           <Box sx={{ mb: 4 }}>
-            <FinanceCharts stats={frozenStats} loading={loading} />
+            <FinanceCharts
+              stats={frozenStats}
+              transactions={transactions}
+              loading={loading}
+            />
           </Box>
 
           <SectionLabel label="Purchase Analytics" />
@@ -423,6 +434,19 @@ export default function FinancePage() {
 
       {/* ANALYTICS tab */}
       {activeTab === "analytics" && <AnalyticsDashboardTab />}
+
+      {/* PERIOD STATEMENT / REPORT tab */}
+      {activeTab === "reports" && (
+        <>
+          <SectionLabel label="Custom period statement" />
+          <PeriodFinancialReportTab
+            transactions={transactions}
+            owners={owners}
+            stats={stats}
+            loading={loading}
+          />
+        </>
+      )}
 
       {/* ── Add Transaction Modal (available on all tabs except accounts) ── */}
       <AddTransactionModal
