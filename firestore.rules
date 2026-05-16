@@ -193,7 +193,8 @@ match /suppliers/{supplierId} {
         request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly([
             "type", "amount", "method", "category", "note",
-            "transferTo", "ownerId", "ownerName", "updatedBy", "updatedByName", "updatedAt"
+            "transferTo", "transferToAccountId", "accountId",
+            "ownerId", "ownerName", "updatedBy", "updatedByName", "updatedAt"
           ]);
     }
 

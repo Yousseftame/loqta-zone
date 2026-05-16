@@ -9,9 +9,8 @@
  *   - Per update:    1 read per changed document (Cloud Function writes trigger it)
  *   - Per session:   ~2–10 reads/day depending on how active the platform is
  *
- * avgWinningBid is derived client-side from totalRevenue / endedAuctions
- * instead of being stored on the server, eliminating the concurrency race
- * that existed when two auctions resolved at the same time.
+ * avgWinningBid is derived client-side from totalRevenue / resolvedAuctions
+ * (time-based endedAuctions is only for status pie charts).
  */
 
 import { useEffect, useState, useCallback, useRef } from "react";
@@ -40,8 +39,9 @@ function toDate(v: any): Date | null {
 }
 
 function parseAnalytics(data: Record<string, any>): DashboardAnalytics {
-  const totalRevenue  = data.totalRevenue  ?? 0;
-  const endedAuctions = data.endedAuctions ?? 0;
+  const totalRevenue      = data.totalRevenue      ?? 0;
+  const endedAuctions     = data.endedAuctions     ?? 0;
+  const resolvedAuctions  = data.resolvedAuctions  ?? 0;
 
   return {
     totalUsers:           data.totalUsers          ?? 0,
@@ -59,11 +59,15 @@ function parseAnalytics(data: Record<string, any>): DashboardAnalytics {
     liveAuctions:         data.liveAuctions         ?? 0,
     upcomingAuctions:     data.upcomingAuctions     ?? 0,
     endedAuctions,
+    resolvedAuctions,
     activeAuctions:       data.activeAuctions       ?? 0,
     inactiveAuctions:     data.inactiveAuctions     ?? 0,
     totalBids:            data.totalBids            ?? 0,
     highestWinningBid:    data.highestWinningBid    ?? 0,
-    avgWinningBid:        endedAuctions > 0 ? totalRevenue / endedAuctions : 0,
+    avgWinningBid:
+      resolvedAuctions > 0
+        ? totalRevenue / resolvedAuctions
+        : 0,
     totalVouchers:        data.totalVouchers        ?? 0,
     totalAuctionRequests: data.totalAuctionRequests ?? 0,
     avgRating:            data.avgRating            ?? 0,

@@ -56,7 +56,13 @@ import {
   logPurchaseExpense,
   logPurchaseReversal,
   assertSufficientBalance,
+  assertSufficientPaymentBalance,
+  resolvePurchasePayment,
 } from "@/service/finance/financeService";
+import {
+  fetchPaymentAccounts,
+  getDefaultAccountIdForMethod,
+} from "@/service/finance/paymentAccounts";
 
 // ─── Collection / subcollection name constants ────────────────────────────────
 // Keep these as the single source of truth — never inline the strings.
@@ -280,16 +286,27 @@ export async function createPurchase(
     createdBy:     createdByUid,
   };
 
+  if (payment.paidAmount > 0) {
+    const pay = await resolvePurchasePayment(
+      (formData.paymentMethod ?? "cash") as "cash" | "bank",
+      formData.paymentAccountId?.trim() || undefined,
+    );
+    await assertSufficientPaymentBalance(
+      payment.paidAmount,
+      pay.method,
+      pay.accountId,
+    );
+  }
+
   const docRef = await addDoc(collection(db, COL_PURCHASES), payload);
   const saved  = await fetchPurchase(docRef.id);
 
-  // ── Balance check + finance log for any amount paid immediately ────────────────
-  // Credit purchases (paidAmount === 0) generate no expense — no cash left business.
+  // ── Finance log for any amount paid immediately ───────────────────────────────
   if (payment.paidAmount > 0) {
-    const method = (formData.paymentMethod ?? "cash") as "cash" | "bank";
-    // Throws if balance insufficient — purchase doc already written so we
-    // do not undo it; the admin is informed and can record cash later.
-    await assertSufficientBalance(payment.paidAmount, method);
+    const pay = await resolvePurchasePayment(
+      (formData.paymentMethod ?? "cash") as "cash" | "bank",
+      formData.paymentAccountId?.trim() || undefined,
+    );
 
     const noteMap: Record<string, string> = {
       cash:    `Purchase paid (cash): ${productTitle} × ${qty} unit(s) from ${supplierName}`,
@@ -298,7 +315,8 @@ export async function createPurchase(
     };
     await logPurchaseExpense({
       amount:     payment.paidAmount,
-      method,
+      method:     pay.method,
+      accountId:  pay.accountId,
       note:       noteMap[payment.paymentType] ?? `Purchase: ${productTitle} × ${qty} unit(s)`,
       adminUid:   createdByUid,
       adminName:  createdByName,
@@ -541,9 +559,20 @@ export async function recordPayment(
     current.dueDate,
   );
 
-  const method = (formData.method ?? "cash") as "cash" | "bank";
+  const pay =
+    effectiveAmount > 0
+      ? await resolvePurchasePayment(
+          (formData.method ?? "cash") as "cash" | "bank",
+          formData.paymentAccountId?.trim() || undefined,
+        )
+      : { method: (formData.method ?? "cash") as "cash" | "bank", accountId: undefined };
+
   if (effectiveAmount > 0) {
-    await assertSufficientBalance(effectiveAmount, method);
+    await assertSufficientPaymentBalance(
+      effectiveAmount,
+      pay.method,
+      pay.accountId,
+    );
   }
 
   const batch = writeBatch(db);
@@ -552,7 +581,8 @@ export async function recordPayment(
   const paymentRef = doc(collection(db, COL_PURCHASES, purchaseId, COL_PAYMENTS));
   batch.set(paymentRef, {
     amount:         effectiveAmount,
-    method:         formData.method,
+    method:         pay.method,
+    ...(pay.accountId ? { accountId: pay.accountId } : {}),
     note:           formData.note.trim(),
     paidAt:         formData.paidAt
       ? Timestamp.fromDate(new Date(formData.paidAt))
@@ -576,7 +606,8 @@ export async function recordPayment(
   if (effectiveAmount > 0) {
     await logPurchaseExpense({
       amount:     effectiveAmount,
-      method,
+      method:     pay.method,
+      accountId:  pay.accountId,
       note:       `Payment recorded: ${current.productTitle} × ${current.quantity} unit(s) from ${current.supplierName}`,
       adminUid,
       adminName,
@@ -610,8 +641,22 @@ export async function markPurchaseFullyPaid(
   if (!current) throw new Error("Purchase not found.");
   if (current.paymentStatus === "paid") throw new Error("Already fully paid.");
 
+  const paymentAccounts = await fetchPaymentAccounts();
+  const defaultCashAccountId = getDefaultAccountIdForMethod(
+    paymentAccounts,
+    "cash",
+  );
+  const pay =
+    current.remainingAmount > 0
+      ? await resolvePurchasePayment("cash", defaultCashAccountId)
+      : { method: "cash" as const, accountId: defaultCashAccountId };
+
   if (current.remainingAmount > 0) {
-    await assertSufficientBalance(current.remainingAmount, "cash");
+    await assertSufficientPaymentBalance(
+      current.remainingAmount,
+      pay.method,
+      pay.accountId,
+    );
   }
 
   const batch = writeBatch(db);
@@ -621,7 +666,8 @@ export async function markPurchaseFullyPaid(
     const paymentRef = doc(collection(db, COL_PURCHASES, purchaseId, COL_PAYMENTS));
     batch.set(paymentRef, {
       amount:         current.remainingAmount,
-      method:         "cash",
+      method:         pay.method,
+      ...(pay.accountId ? { accountId: pay.accountId } : {}),
       note:           "Marked as fully paid (manual override)",
       paidAt:         Timestamp.now(),
       recordedBy:     adminUid,
@@ -644,7 +690,8 @@ export async function markPurchaseFullyPaid(
   if (current.remainingAmount > 0) {
     await logPurchaseExpense({
       amount:     current.remainingAmount,
-      method:     "cash",
+      method:     pay.method,
+      accountId:  pay.accountId,
       note:       `Final payment (fully paid): ${current.productTitle} × ${current.quantity} unit(s) from ${current.supplierName}`,
       adminUid,
       adminName,

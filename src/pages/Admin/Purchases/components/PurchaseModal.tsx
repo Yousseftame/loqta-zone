@@ -53,6 +53,15 @@ import {
   PAYMENT_TYPE_CONFIG,
   derivePaidAmount,
 } from "../purchases-data";
+import type { Transaction } from "@/pages/Admin/Finance/finance-data";
+import { fetchTransactionsForBalance } from "@/service/finance/financeService";
+import PaymentAccountSelect, {
+  pickDefaultAccountId,
+} from "@/pages/Admin/Finance/components/PaymentAccountSelect";
+import {
+  usePaymentAccounts,
+  getActiveAccounts,
+} from "@/hooks/usePaymentAccounts";
 
 // ─── Shared input style ───────────────────────────────────────────────────────
 
@@ -103,7 +112,8 @@ function buildFormFromPurchase(p: Purchase): PurchaseFormData {
     paymentType: p.paymentType,
     paidAmount: paidAmountStr,
     dueDate: dueDateStr,
-    paymentMethod: "cash",  // default for edits; method of initial payment is not re-logged
+    paymentMethod: "cash",
+    paymentAccountId: "",
   };
 }
 
@@ -118,25 +128,37 @@ export default function PurchaseModal({
 }: Props) {
   const { suppliers } = useSuppliers();
   const { products } = useProducts();
+  const { accounts } = usePaymentAccounts();
+  const activeAccounts = useMemo(() => getActiveAccounts(accounts), [accounts]);
 
   const [form, setForm] = useState<PurchaseFormData>(DEFAULT_PURCHASE_FORM);
   const [error, setError] = useState<string | null>(null);
+  const [ledgerTx, setLedgerTx] = useState<Transaction[]>([]);
 
   const isEdit = !!editingPurchase;
   const activeSuppliers = suppliers.filter((s) => s.isActive);
   const activeProducts = products.filter((p) => p.isActive);
 
+  useEffect(() => {
+    if (!open) return;
+    fetchTransactionsForBalance().then(setLedgerTx).catch(() => setLedgerTx([]));
+  }, [open]);
+
   // Reset whenever the modal opens or the target purchase changes
   useEffect(() => {
     if (open) {
       setError(null);
-      setForm(
-        editingPurchase
-          ? buildFormFromPurchase(editingPurchase)
-          : DEFAULT_PURCHASE_FORM,
-      );
+      if (editingPurchase) {
+        setForm(buildFormFromPurchase(editingPurchase));
+      } else {
+        const method = DEFAULT_PURCHASE_FORM.paymentMethod;
+        setForm({
+          ...DEFAULT_PURCHASE_FORM,
+          paymentAccountId: pickDefaultAccountId(activeAccounts, method),
+        });
+      }
     }
-  }, [open, editingPurchase]);
+  }, [open, editingPurchase, activeAccounts]);
 
   // ── Derived totals ──────────────────────────────────────────────────────────
 
@@ -201,6 +223,16 @@ export default function PurchaseModal({
 
     if (form.paymentType === "credit") {
       if (!form.dueDate) return "Please set a due date for the credit payment.";
+    }
+
+    if (
+      !isEdit &&
+      form.paymentType !== "credit" &&
+      effectivePaidAmount > 0 &&
+      activeAccounts.length > 0 &&
+      !form.paymentAccountId
+    ) {
+      return "Please select the payment account for this purchase.";
     }
 
     return null;
@@ -703,20 +735,19 @@ export default function PurchaseModal({
         {/* ── Payment method (wallet) — only for paid/partial new orders ────
             This tells the finance log which wallet the money came from.   ── */}
         {!isEdit && form.paymentType !== "credit" && (
-          <TextField
-            label="Payment Method *"
-            select
-            size="small"
-            fullWidth
-            value={form.paymentMethod}
-            onChange={(e) => set("paymentMethod", e.target.value as "cash" | "bank")}
-            helperText="Which wallet the paid amount comes from — recorded in finance"
-            FormHelperTextProps={{ sx: { fontSize: "0.7rem", color: colors.textMuted } }}
-            sx={inputSx}
-          >
-            <MenuItem value="cash">💵 Cash</MenuItem>
-            <MenuItem value="bank">🏦 Bank</MenuItem>
-          </TextField>
+          <PaymentAccountSelect
+            value={form.paymentAccountId}
+            transactions={ledgerTx}
+            amountToValidate={effectivePaidAmount}
+            onChange={(accountId, method) =>
+              setForm((p) => ({
+                ...p,
+                paymentAccountId: accountId,
+                paymentMethod: method,
+              }))
+            }
+            helperText="Wallet debited in Finance when this order is saved"
+          />
         )}
 
         {/* ── Credit / Partial: due date ── */}

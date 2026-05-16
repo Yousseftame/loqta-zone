@@ -32,6 +32,8 @@ export interface DashboardAnalytics {
   liveAuctions: number;
   upcomingAuctions: number;
   endedAuctions: number;
+  /** Auctions with a real winner and winning bid > 0 (avg bid / margin divisor). */
+  resolvedAuctions: number;
   activeAuctions: number;
   inactiveAuctions: number;
   totalBids: number;
@@ -129,6 +131,7 @@ export const DEFAULT_ANALYTICS: DashboardAnalytics = {
   liveAuctions: 0,
   upcomingAuctions: 0,
   endedAuctions: 0,
+  resolvedAuctions: 0,
   activeAuctions: 0,
   inactiveAuctions: 0,
   totalBids: 0,

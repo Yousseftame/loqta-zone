@@ -23,11 +23,21 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
+  query,
+  orderBy,
   addDoc,
   serverTimestamp,
 } from "firebase/firestore";
 import { db } from "@/firebase/firebase";
 import type { PaymentMethod } from "@/pages/Admin/Finance/finance-data";
+import {
+  fetchPaymentAccounts,
+  getDefaultAccountIdForMethod,
+  validateAccountBalance,
+} from "@/service/finance/paymentAccounts";
+import type { Transaction } from "@/pages/Admin/Finance/finance-data";
+import { toDate } from "@/pages/Admin/Finance/finance-data";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -44,6 +54,21 @@ export interface PurchaseExpensePayload {
   adminName: string;
   /** Purchase document ID — stored for cross-referencing */
   purchaseId: string;
+  /** Optional wallet; defaults to the active default account for `method` */
+  accountId?: string;
+}
+
+async function resolveAccountId(
+  method: PaymentMethod,
+  explicit?: string,
+): Promise<string | undefined> {
+  if (explicit) return explicit;
+  try {
+    const accounts = await fetchPaymentAccounts();
+    return getDefaultAccountIdForMethod(accounts, method);
+  } catch {
+    return undefined;
+  }
 }
 
 // ─── Balance check ─────────────────────────────────────────────────────────────
@@ -94,6 +119,71 @@ export async function assertSufficientBalance(
   }
 }
 
+export async function fetchTransactionsForBalance(): Promise<Transaction[]> {
+  const q = query(
+    collection(db, "transactions"),
+    orderBy("createdAt", "desc"),
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => {
+    const data = d.data();
+    return {
+      id: d.id,
+      type: data.type,
+      amount: data.amount ?? 0,
+      method: data.method ?? "cash",
+      category: data.category ?? "other",
+      note: data.note ?? "",
+      createdAt: toDate(data.createdAt),
+      createdBy: data.createdBy ?? "",
+      createdByName: data.createdByName,
+      transferTo: data.transferTo,
+      accountId: data.accountId,
+      transferToAccountId: data.transferToAccountId,
+    } as Transaction;
+  });
+}
+
+/**
+ * Pool-level check (finance_stats) plus per-wallet check when accountId is set.
+ */
+export async function assertSufficientPaymentBalance(
+  amount: number,
+  method: PaymentMethod,
+  accountId?: string,
+): Promise<void> {
+  await assertSufficientBalance(amount, method);
+  if (!accountId || amount <= 0) return;
+
+  const transactions = await fetchTransactionsForBalance();
+  const msg = validateAccountBalance(
+    accountId,
+    amount,
+    transactions,
+    null,
+    ["expense", "owner_withdrawal", "transfer"],
+  );
+  if (msg) throw new Error(msg);
+}
+
+export async function resolvePurchasePayment(
+  paymentMethod: PaymentMethod,
+  paymentAccountId?: string,
+): Promise<{ method: PaymentMethod; accountId?: string }> {
+  const accounts = await fetchPaymentAccounts();
+  if (paymentAccountId) {
+    const acc = accounts.find(
+      (a) => a.id === paymentAccountId && a.status === "active",
+    );
+    if (!acc) {
+      throw new Error("Selected payment account is not available.");
+    }
+    return { method: acc.method, accountId: acc.id };
+  }
+  const defaultId = getDefaultAccountIdForMethod(accounts, paymentMethod);
+  return { method: paymentMethod, accountId: defaultId };
+}
+
 // ─── Expense logger ───────────────────────────────────────────────────────────
 
 /**
@@ -106,6 +196,8 @@ export async function logPurchaseExpense(
 ): Promise<void> {
   if (payload.amount <= 0) return;
 
+  const accountId = await resolveAccountId(payload.method, payload.accountId);
+
   await addDoc(collection(db, "transactions"), {
     type:          "expense",
     amount:        payload.amount,
@@ -113,6 +205,7 @@ export async function logPurchaseExpense(
     category:      "products",
     note:          payload.note.trim(),
     purchaseId:    payload.purchaseId,
+    ...(accountId ? { accountId } : {}),
     createdAt:     serverTimestamp(),
     createdBy:     payload.adminUid,
     createdByName: payload.adminName,
@@ -137,8 +230,11 @@ export async function logPurchaseReversal(payload: {
   adminUid: string;
   adminName: string;
   purchaseId: string;
+  accountId?: string;
 }): Promise<void> {
   if (payload.amount <= 0) return;
+
+  const accountId = await resolveAccountId(payload.method, payload.accountId);
 
   await addDoc(collection(db, "transactions"), {
     type:          "expense",
@@ -147,6 +243,7 @@ export async function logPurchaseReversal(payload: {
     category:      "products",
     note:          payload.note.trim(),
     purchaseId:    payload.purchaseId,
+    ...(accountId ? { accountId } : {}),
     createdAt:     serverTimestamp(),
     createdBy:     payload.adminUid,
     createdByName: payload.adminName,

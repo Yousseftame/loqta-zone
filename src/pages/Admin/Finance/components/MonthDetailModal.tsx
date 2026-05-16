@@ -25,6 +25,10 @@ import {
 } from "lucide-react";
 import { colors } from "../../Products/products-data";
 import { CATEGORY_LABEL, type Transaction } from "../finance-data";
+import {
+  buildMethodDisplay,
+  type PaymentAccount,
+} from "@/hooks/usePaymentAccounts";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -37,6 +41,7 @@ interface MonthDetailModalProps {
   income: number;
   expenses: number;
   ownerDraws: number;
+  paymentAccounts?: PaymentAccount[];
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -186,13 +191,16 @@ function TxRow({
   isLast,
   isInsideGroup,
   partIndex,
+  paymentAccounts = [],
 }: {
   tx: Transaction;
   cfg: (typeof TYPE_CONFIG)[string];
   isLast: boolean;
   isInsideGroup: boolean;
   partIndex?: number;
+  paymentAccounts?: PaymentAccount[];
 }) {
+  const methodLabel = buildMethodDisplay(tx, paymentAccounts);
   return (
     <div
       style={{
@@ -268,12 +276,13 @@ function TxRow({
           padding: "2px 7px",
           alignSelf: "center",
           whiteSpace: "nowrap",
+          maxWidth: "min(200px, 45vw)",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
         }}
+        title={methodLabel}
       >
-        {tx.method === "cash" ? "💵 Cash" : "🏦 Bank"}
-        {tx.type === "transfer" && tx.transferTo && (
-          <> → {tx.transferTo === "cash" ? "💵" : "🏦"}</>
-        )}
+        {methodLabel}
       </div>
 
       {/* Amount */}
@@ -301,10 +310,12 @@ function SplitGroupCard({
   parts,
   cfg,
   groupIndex,
+  paymentAccounts = [],
 }: {
   parts: Transaction[];
   cfg: (typeof TYPE_CONFIG)[string];
   groupIndex: number;
+  paymentAccounts?: PaymentAccount[];
 }) {
   const sortedParts = [...parts].sort(
     (a, b) =>
@@ -472,6 +483,7 @@ function SplitGroupCard({
               isLast={isLast}
               isInsideGroup
               partIndex={idx}
+              paymentAccounts={paymentAccounts}
             />
           </div>
         );
@@ -486,10 +498,12 @@ function TypeSection({
   type,
   txs,
   cfg,
+  paymentAccounts = [],
 }: {
   type: string;
   txs: Transaction[];
   cfg: (typeof TYPE_CONFIG)[string];
+  paymentAccounts?: PaymentAccount[];
 }) {
   // Separate split parts from standalone transactions
   const groupMap = new Map<string, Transaction[]>();
@@ -578,6 +592,7 @@ function TypeSection({
               parts={item.parts}
               cfg={cfg}
               groupIndex={i}
+              paymentAccounts={paymentAccounts}
             />
           );
         }
@@ -595,7 +610,13 @@ function TypeSection({
               marginBottom: 10,
             }}
           >
-            <TxRow tx={item.tx} cfg={cfg} isLast isInsideGroup={false} />
+            <TxRow
+              tx={item.tx}
+              cfg={cfg}
+              isLast
+              isInsideGroup={false}
+              paymentAccounts={paymentAccounts}
+            />
           </div>
         );
       })}
@@ -614,6 +635,7 @@ export default function MonthDetailModal({
   income,
   expenses,
   ownerDraws,
+  paymentAccounts = [],
 }: MonthDetailModalProps) {
   if (!open) return null;
 
@@ -913,7 +935,15 @@ export default function MonthDetailModal({
               const txs = grouped[type];
               if (!txs || txs.length === 0) return null;
               const cfg = TYPE_CONFIG[type];
-              return <TypeSection key={type} type={type} txs={txs} cfg={cfg} />;
+              return (
+                <TypeSection
+                  key={type}
+                  type={type}
+                  txs={txs}
+                  cfg={cfg}
+                  paymentAccounts={paymentAccounts}
+                />
+              );
             })}
 
             {transactionCount === 0 && (

@@ -90,7 +90,21 @@ function parseTransaction(id: string, data: Record<string, any>): Transaction {
     ownerId:       data.ownerId       ?? undefined,
     ownerName:     data.ownerName     ?? undefined,
     purchaseId:    data.purchaseId    ?? undefined,
+    accountId:       data.accountId       ?? undefined,
+    transferToAccountId: data.transferToAccountId ?? undefined,
   };
+}
+
+function applyAccountPayload(
+  payload: Record<string, unknown>,
+  accountId?: string,
+  transferToAccountId?: string,
+  isTransfer?: boolean,
+): void {
+  if (accountId) payload.accountId = accountId;
+  if (isTransfer && transferToAccountId) {
+    payload.transferToAccountId = transferToAccountId;
+  }
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -218,6 +232,7 @@ export function useFinance() {
             splitLabel:    `Part ${index + 1} of ${totalParts}`,
             splitTotal:    totalParts,
           };
+          applyAccountPayload(payload, part.accountId);
           batch.set(ref, payload);
         });
 
@@ -242,6 +257,12 @@ export function useFinance() {
           payload.ownerId = values.ownerId;
           payload.ownerName = values.ownerName;
         }
+        applyAccountPayload(
+          payload,
+          values.accountId,
+          values.transferToAccountId,
+          values.type === "transfer",
+        );
 
         await addDoc(collection(db, "transactions"), payload);
       }
@@ -275,6 +296,9 @@ export function useFinance() {
         transferTo:    values.type === "transfer" ? (values.transferTo ?? null) : null,
         ownerId:       (values.type === "owner_withdrawal" || values.type === "owner_return") ? (values.ownerId ?? null) : null,
         ownerName:     (values.type === "owner_withdrawal" || values.type === "owner_return") ? (values.ownerName ?? null) : null,
+        accountId:     values.accountId ?? null,
+        transferToAccountId:
+          values.type === "transfer" ? (values.transferToAccountId ?? null) : null,
       };
 
       await updateDoc(doc(db, "transactions", txId), payload);

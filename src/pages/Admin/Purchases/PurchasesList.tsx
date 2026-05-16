@@ -73,6 +73,15 @@ import {
   DEFAULT_RECORD_PAYMENT_FORM,
 } from "./purchases-data";
 import PurchaseModal from "./components/PurchaseModal";
+import PaymentAccountSelect, {
+  pickDefaultAccountId,
+} from "@/pages/Admin/Finance/components/PaymentAccountSelect";
+import {
+  usePaymentAccounts,
+  getActiveAccounts,
+} from "@/hooks/usePaymentAccounts";
+import type { Transaction } from "@/pages/Admin/Finance/finance-data";
+import { fetchTransactionsForBalance } from "@/service/finance/financeService";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -212,22 +221,34 @@ function RecordPaymentDialog({
   onClose: () => void;
   onRecord: (formData: RecordPaymentFormData) => Promise<void>;
 }) {
+  const { accounts } = usePaymentAccounts();
+  const activeAccounts = useMemo(() => getActiveAccounts(accounts), [accounts]);
   const [form, setForm] = useState<RecordPaymentFormData>(
     DEFAULT_RECORD_PAYMENT_FORM,
   );
   const [error, setError] = useState<string | null>(null);
+  const [ledgerTx, setLedgerTx] = useState<Transaction[]>([]);
+
+  useEffect(() => {
+    if (open) {
+      fetchTransactionsForBalance().then(setLedgerTx).catch(() => setLedgerTx([]));
+    }
+  }, [open]);
 
   useEffect(() => {
     if (open) {
       setError(null);
+      const method = "cash" as const;
       setForm({
         ...DEFAULT_RECORD_PAYMENT_FORM,
         amount: purchase?.remainingAmount
           ? String(purchase.remainingAmount)
           : "",
+        paymentAccountId: pickDefaultAccountId(activeAccounts, method),
+        method,
       });
     }
-  }, [open, purchase]);
+  }, [open, purchase, activeAccounts]);
 
   const set = <K extends keyof RecordPaymentFormData>(
     k: K,
@@ -241,6 +262,9 @@ function RecordPaymentDialog({
     if (purchase && amount > purchase.remainingAmount)
       return `Amount cannot exceed remaining balance of ${fmtEGP(purchase.remainingAmount)}.`;
     if (!form.paidAt) return "Select a payment date.";
+    if (activeAccounts.length > 0 && !form.paymentAccountId) {
+      return "Please select a payment account.";
+    }
     return null;
   };
 
@@ -419,19 +443,14 @@ function RecordPaymentDialog({
           sx={inputSx}
         />
 
-        {/* Method */}
-        <TextField
-          label="Payment Method"
-          select
-          size="small"
-          fullWidth
-          value={form.method}
-          onChange={(e) => set("method", e.target.value as "cash" | "bank")}
-          sx={inputSx}
-        >
-          <MenuItem value="cash">💵 Cash</MenuItem>
-          <MenuItem value="bank">🏦 Bank Transfer</MenuItem>
-        </TextField>
+        <PaymentAccountSelect
+          value={form.paymentAccountId}
+          transactions={ledgerTx}
+          amountToValidate={parseFloat(form.amount) || 0}
+          onChange={(accountId, method) =>
+            setForm((p) => ({ ...p, paymentAccountId: accountId, method }))
+          }
+        />
 
         {/* Date */}
         <TextField

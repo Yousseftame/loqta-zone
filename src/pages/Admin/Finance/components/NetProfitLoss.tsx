@@ -31,6 +31,7 @@ import {
 import { colors } from "../../Products/products-data";
 import type { Transaction } from "../finance-data";
 import MonthDetailModal from "./MonthDetailModal";
+import { usePaymentAccounts } from "@/hooks/usePaymentAccounts";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -487,6 +488,7 @@ function MonthlyHistoryTable({
 }) {
   const [expanded, setExpanded] = useState(true);
   const [modalRow, setModalRow] = useState<MonthRow | null>(null);
+  const { accounts: paymentAccounts } = usePaymentAccounts();
 
   // ── Filter state ──────────────────────────────────────────────────────────
   const [search, setSearch] = useState("");
@@ -531,6 +533,7 @@ function MonthlyHistoryTable({
           income={modalRow.income}
           expenses={modalRow.expenses}
           ownerDraws={modalRow.ownerDraws}
+          paymentAccounts={paymentAccounts}
         />
       )}
 

@@ -433,7 +433,11 @@ export default function FinancePage() {
 
       {/* PAYMENT ACCOUNTS tab */}
       {activeTab === "accounts" && (
-        <PaymentAccountsTab transactions={transactions} loading={loading} />
+        <PaymentAccountsTab
+          transactions={transactions}
+          stats={stats}
+          loading={loading}
+        />
       )}
 
       {/* ANALYTICS tab */}
@@ -461,6 +465,7 @@ export default function FinancePage() {
         onSubmit={handleAddTransaction}
         stats={stats}
         owners={owners}
+        transactions={transactions}
       />
 
       {/* ── Add Owner Modal ── */}

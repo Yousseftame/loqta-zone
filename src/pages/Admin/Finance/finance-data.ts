@@ -58,6 +58,8 @@ export interface SplitPart {
   key: string;
   method: PaymentMethod;
   amount: string;
+  /** Optional link to paymentAccounts/{id} */
+  accountId?: string;
 }
 
 // ─── Transaction document ───────────────────────────────────────────────────
@@ -91,6 +93,10 @@ export interface Transaction {
   ownerName?: string;
   /** Set when this row was created from the Purchases module (expense / refund). */
   purchaseId?: string;
+  /** Optional link to paymentAccounts/{id} */
+  accountId?: string;
+  /** Transfer destination account (type=transfer only) */
+  transferToAccountId?: string;
 }
 
 // ─── finance_stats/dashboard ────────────────────────────────────────────────
@@ -124,6 +130,8 @@ export interface TransactionFormValues {
   splits?: SplitPart[];
   ownerId?: string;
   ownerName?: string;
+  accountId?: string;
+  transferToAccountId?: string;
 }
 
 // ─── Defaults ───────────────────────────────────────────────────────────────

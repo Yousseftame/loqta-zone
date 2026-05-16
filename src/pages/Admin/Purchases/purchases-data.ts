@@ -100,6 +100,8 @@ export interface PurchaseFormData {
   dueDate: string;         // "YYYY-MM-DD" or "" for cash
   /** Which wallet (cash / bank) the initial payment comes from */
   paymentMethod: "cash" | "bank";
+  /** Named payment account (preferred over paymentMethod when set) */
+  paymentAccountId: string;
 }
 
 // ─── Record payment form ──────────────────────────────────────────────────────
@@ -107,6 +109,7 @@ export interface PurchaseFormData {
 export interface RecordPaymentFormData {
   amount: string;
   method: "cash" | "bank";
+  paymentAccountId: string;
   note: string;
   paidAt: string;          // "YYYY-MM-DD"
 }
@@ -125,11 +128,13 @@ export const DEFAULT_PURCHASE_FORM: PurchaseFormData = {
   paidAmount:    "",
   dueDate:       "",
   paymentMethod: "cash",
+  paymentAccountId: "",
 };
 
 export const DEFAULT_RECORD_PAYMENT_FORM: RecordPaymentFormData = {
   amount: "",
   method: "cash",
+  paymentAccountId: "",
   note:   "",
   paidAt: new Date().toISOString().split("T")[0],
 };

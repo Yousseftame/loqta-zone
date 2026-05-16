@@ -47,6 +47,7 @@ import {
   type TransactionFormValues,
 } from "../finance-data";
 import AddTransactionModal from "./AddTransactionModal";
+import { usePaymentAccounts, buildMethodDisplay } from "@/hooks/usePaymentAccounts";
 
 const PAGE_SIZE = 10;
 
@@ -98,19 +99,8 @@ function fmtBalance(n: number): string {
   return n < 0 ? `−${abs}` : abs;
 }
 
-function buildMethodDisplay(tx: Transaction): string {
-  if (tx.type === "transfer") {
-    const from = tx.method === "cash" ? "💵 Cash" : "🏦 Bank";
-    const to = tx.transferTo === "cash" ? "💵 Cash" : "🏦 Bank";
-    return `${from} → ${to}`;
-  }
-  if (tx.type === "owner_return") {
-    return tx.method === "cash" ? "💵 Cash (in)" : "🏦 Bank (in)";
-  }
-  return tx.method === "cash" ? "💵 Cash" : "🏦 Bank";
-}
-
 /**
+
  * Extract the part number from a splitLabel string like "Part 3 of 5" → 3.
  * Returns Infinity if it can't parse, so unparseable labels sort to the end.
  */
@@ -353,11 +343,13 @@ function SplitGroupHeaderRow({
 function TransactionDetailModal({
   tx,
   balance,
+  methodLabel,
   onClose,
   onEdit,
 }: {
   tx: Transaction;
   balance: number;
+  methodLabel: string;
   onClose: () => void;
   onEdit: () => void;
 }) {
@@ -365,7 +357,6 @@ function TransactionDetailModal({
   const isSplitPart = !!tx.groupId;
   const typeChip = TYPE_CHIP[tx.type] ?? TYPE_CHIP.income;
   const amtStyle = AMOUNT_STYLE[tx.type] ?? AMOUNT_STYLE.income;
-  const methodLabel = buildMethodDisplay(tx);
   const balNeg = balance < 0;
 
   const doneBy =
@@ -686,6 +677,10 @@ export default function TransactionsTable({
   updating = false,
   onUpdateTransaction,
 }: Props) {
+  const { accounts: paymentAccounts } = usePaymentAccounts();
+  const methodLabelFor = (tx: Transaction) =>
+    buildMethodDisplay(tx, paymentAccounts);
+
   const [page, setPage] = useState(1);
   const [selectedTx, setSelectedTx] = useState<{
     tx: Transaction;
@@ -924,6 +919,7 @@ export default function TransactionsTable({
         <TransactionDetailModal
           tx={selectedTx.tx}
           balance={selectedTx.balance}
+          methodLabel={methodLabelFor(selectedTx.tx)}
           onClose={() => setSelectedTx(null)}
           onEdit={handleEditFromDetail}
         />
@@ -939,6 +935,7 @@ export default function TransactionsTable({
         onUpdate={handleEditSubmit}
         editingTx={editingTx}
         stats={stats}
+        transactions={transactions}
       />
 
       <Paper
@@ -1467,7 +1464,7 @@ export default function TransactionsTable({
                   const amtStyle = AMOUNT_STYLE[tx.type] ?? AMOUNT_STYLE.income;
                   const bal = pageBalances[i];
                   const balNeg = bal < 0;
-                  const methodLabel = buildMethodDisplay(tx);
+                  const methodLabel = methodLabelFor(tx);
 
                   const methodChipStyle = isTransfer
                     ? { bg: "#EDE9FE", color: "#4C1D95" }

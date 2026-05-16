@@ -6,6 +6,10 @@
  */
 
 import type { Transaction, FinanceStats } from "./finance-data";
+import {
+  buildMethodDisplay as buildMethodDisplayForTx,
+  type PaymentAccount,
+} from "@/service/finance/paymentAccounts";
 
 function parseSplitPartNumber(splitLabel: string | undefined): number {
   if (!splitLabel) return Infinity;
@@ -73,17 +77,12 @@ export function computeRunningBalances(
   return result;
 }
 
-/** Same display strings as TransactionsTable `buildMethodDisplay`. */
-export function buildMethodDisplay(tx: Transaction): string {
-  if (tx.type === "transfer") {
-    const from = tx.method === "cash" ? "💵 Cash" : "🏦 Bank";
-    const to = tx.transferTo === "cash" ? "💵 Cash" : "🏦 Bank";
-    return `${from} → ${to}`;
-  }
-  if (tx.type === "owner_return") {
-    return tx.method === "cash" ? "💵 Cash (in)" : "🏦 Bank (in)";
-  }
-  return tx.method === "cash" ? "💵 Cash" : "🏦 Bank";
+/** Same display strings as TransactionsTable (optional wallet names). */
+export function buildMethodDisplay(
+  tx: Transaction,
+  accounts: PaymentAccount[] = [],
+): string {
+  return buildMethodDisplayForTx(tx, accounts);
 }
 
 export type TxLedgerMeta = {
@@ -96,6 +95,7 @@ export type TxLedgerMeta = {
 export function buildLedgerMetaByTxId(
   allTransactions: Transaction[],
   stats: FinanceStats,
+  accounts: PaymentAccount[] = [],
 ): Map<string, TxLedgerMeta> {
   const sorted = sortSplitPartsInOrder(allTransactions);
   const currentAvailable = stats.cashBalance + stats.bankBalance;
@@ -108,7 +108,7 @@ export function buildLedgerMetaByTxId(
       (tx.createdBy ? `${tx.createdBy.slice(0, 8)}…` : "—");
     map.set(tx.id, {
       balanceAfter: tx.type === "transfer" ? null : balances[i],
-      methodLabel: buildMethodDisplay(tx),
+      methodLabel: buildMethodDisplay(tx, accounts),
       doneBy,
     });
   }

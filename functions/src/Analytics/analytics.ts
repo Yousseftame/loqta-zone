@@ -49,6 +49,76 @@ function wasDeleted(before: any, after: any): boolean {
   return !!before && !after;
 }
 
+type AuctionPhase = "upcoming" | "live" | "ended";
+
+function toAuctionDate(v: any): Date {
+  if (v instanceof Timestamp) return v.toDate();
+  return new Date(v);
+}
+
+/** Matches client computeAuctionStatus (auctions-data.ts). */
+function classifyAuctionPhase(data: any, now: Date = new Date()): AuctionPhase {
+  if (!(data?.isActive ?? true)) return "ended";
+  const startTime = toAuctionDate(data.startTime);
+  const endTime   = toAuctionDate(data.endTime);
+  if (now < startTime) return "upcoming";
+  if (now >= startTime && now <= endTime) return "live";
+  return "ended";
+}
+
+function phaseField(phase: AuctionPhase): string {
+  if (phase === "upcoming") return "upcomingAuctions";
+  if (phase === "live")     return "liveAuctions";
+  return "endedAuctions";
+}
+
+function applyAuctionPhaseDelta(
+  updates: Record<string, any>,
+  before: any,
+  after:  any,
+): void {
+  const now = new Date();
+  if (wasCreated(before, after)) {
+    updates[phaseField(classifyAuctionPhase(after, now))] = FieldValue.increment(1);
+    return;
+  }
+  if (wasDeleted(before, after)) {
+    updates[phaseField(classifyAuctionPhase(before, now))] = FieldValue.increment(-1);
+    return;
+  }
+  if (!before || !after) return;
+  const beforePhase = classifyAuctionPhase(before, now);
+  const afterPhase  = classifyAuctionPhase(after, now);
+  if (beforePhase !== afterPhase) {
+    updates[phaseField(beforePhase)] = FieldValue.increment(-1);
+    updates[phaseField(afterPhase)]  = FieldValue.increment(1);
+  }
+}
+
+function isResolvedAuction(data: any): boolean {
+  const winnerId = data?.winnerId;
+  return !!winnerId && winnerId !== "NO_WINNER" && (data?.winningBid ?? 0) > 0;
+}
+
+function applyUserRoleBucket(
+  updates: Record<string, any>,
+  role: string,
+  isBlocked: boolean,
+  delta: number,
+): void {
+  if (role === "admin") {
+    updates.totalAdmins = FieldValue.increment(delta);
+    return;
+  }
+  if (role === "superAdmin") {
+    updates.totalSuperAdmins = FieldValue.increment(delta);
+    return;
+  }
+  updates.totalUsers = FieldValue.increment(delta);
+  if (!isBlocked) updates.activeUsers   = FieldValue.increment(delta);
+  else            updates.inactiveUsers = FieldValue.increment(delta);
+}
+
 // ─── 1. User written ──────────────────────────────────────────────────────────
 
 export const onUserWritten = onDocumentWritten(
@@ -61,33 +131,31 @@ export const onUserWritten = onDocumentWritten(
     const updates: Record<string, any> = { updatedAt: FieldValue.serverTimestamp() };
 
     if (wasCreated(before, after)) {
-      const role = after?.role ?? "user";
-      updates.totalUsers       = FieldValue.increment(role === "user"       ? 1 : 0);
-      updates.totalAdmins      = FieldValue.increment(role === "admin"      ? 1 : 0);
-      updates.totalSuperAdmins = FieldValue.increment(role === "superAdmin" ? 1 : 0);
-      if (!after?.isBlocked) updates.activeUsers   = FieldValue.increment(role === "user" ? 1 : 0);
-      else                   updates.inactiveUsers = FieldValue.increment(role === "user" ? 1 : 0);
+      applyUserRoleBucket(updates, after?.role ?? "user", after?.isBlocked ?? false, 1);
 
     } else if (wasDeleted(before, after)) {
-      const role = before?.role ?? "user";
-      updates.totalUsers       = FieldValue.increment(role === "user"       ? -1 : 0);
-      updates.totalAdmins      = FieldValue.increment(role === "admin"      ? -1 : 0);
-      updates.totalSuperAdmins = FieldValue.increment(role === "superAdmin" ? -1 : 0);
-      if (!before?.isBlocked) updates.activeUsers   = FieldValue.increment(role === "user" ? -1 : 0);
-      else                    updates.inactiveUsers = FieldValue.increment(role === "user" ? -1 : 0);
+      applyUserRoleBucket(updates, before?.role ?? "user", before?.isBlocked ?? false, -1);
 
     } else {
-      const wasBlocked    = before?.isBlocked ?? false;
-      const isBlocked     = after?.isBlocked  ?? false;
-      const isRegularUser = (after?.role ?? "user") === "user";
+      const beforeRole = before?.role ?? "user";
+      const afterRole  = after?.role  ?? "user";
 
-      if (wasBlocked !== isBlocked && isRegularUser) {
-        if (isBlocked) {
-          updates.activeUsers   = FieldValue.increment(-1);
-          updates.inactiveUsers = FieldValue.increment(1);
-        } else {
-          updates.activeUsers   = FieldValue.increment(1);
-          updates.inactiveUsers = FieldValue.increment(-1);
+      if (beforeRole !== afterRole) {
+        applyUserRoleBucket(updates, beforeRole, before?.isBlocked ?? false, -1);
+        applyUserRoleBucket(updates, afterRole,  after?.isBlocked  ?? false,  1);
+      } else {
+        const wasBlocked    = before?.isBlocked ?? false;
+        const isBlocked     = after?.isBlocked  ?? false;
+        const isRegularUser = afterRole === "user";
+
+        if (wasBlocked !== isBlocked && isRegularUser) {
+          if (isBlocked) {
+            updates.activeUsers   = FieldValue.increment(-1);
+            updates.inactiveUsers = FieldValue.increment(1);
+          } else {
+            updates.activeUsers   = FieldValue.increment(1);
+            updates.inactiveUsers = FieldValue.increment(-1);
+          }
         }
       }
     }
@@ -179,6 +247,8 @@ export const onAuctionWritten = onDocumentWritten(
 
     const updates: Record<string, any> = { updatedAt: FieldValue.serverTimestamp() };
 
+    applyAuctionPhaseDelta(updates, before, after);
+
     if (wasCreated(before, after)) {
       updates.totalAuctions    = FieldValue.increment(1);
       updates.activeAuctions   = FieldValue.increment(after?.isActive ? 1 : 0);
@@ -188,6 +258,13 @@ export const onAuctionWritten = onDocumentWritten(
       updates.totalAuctions    = FieldValue.increment(-1);
       updates.activeAuctions   = FieldValue.increment(before?.isActive ? -1 :  0);
       updates.inactiveAuctions = FieldValue.increment(before?.isActive ?  0 : -1);
+
+      if (isResolvedAuction(before)) {
+        const wb = before?.winningBid ?? 0;
+        updates.totalRevenue      = FieldValue.increment(-wb);
+        updates.resolvedAuctions  = FieldValue.increment(-1);
+        await removeFromTopAuctions(auctionId);
+      }
 
     } else {
       if ((before?.isActive ?? true) !== (after?.isActive ?? true)) {
@@ -213,8 +290,8 @@ export const onAuctionWritten = onDocumentWritten(
     if (justResolved && after) {
       const winningBid = after.winningBid ?? 0;
 
-      updates.totalRevenue  = FieldValue.increment(winningBid);
-      updates.endedAuctions = FieldValue.increment(1);
+      updates.totalRevenue     = FieldValue.increment(winningBid);
+      updates.resolvedAuctions = FieldValue.increment(1);
 
       const dashSnap = await ref.get();
       const dashData  = dashSnap.exists ? (dashSnap.data() ?? {}) : {};
@@ -243,11 +320,11 @@ export const onAuctionWritten = onDocumentWritten(
       }
 
       if (actualPrice > 0) {
-        const endedCount       = (dashData.endedAuctions ?? 0) + 1;
+        const resolvedCount    = (dashData.resolvedAuctions ?? 0) + 1;
         const margin           = ((winningBid - actualPrice) / actualPrice) * 100;
         const currentAvgMargin = dashData.avgMargin ?? 0;
         updates.avgMargin      =
-          (currentAvgMargin * (endedCount - 1) + margin) / endedCount;
+          (currentAvgMargin * (resolvedCount - 1) + margin) / resolvedCount;
       }
 
       await updateTopAuctions(auctionId, after, productTitle, actualPrice);
@@ -256,6 +333,30 @@ export const onAuctionWritten = onDocumentWritten(
     await ref.set(updates, { merge: true });
   },
 );
+
+// ─── Helper: remove auction from topAuctions ─────────────────────────────────
+
+async function removeFromTopAuctions(auctionId: string): Promise<void> {
+  try {
+    const topRef  = db.collection(ANALYTICS).doc(TOP_AUCTIONS);
+    const topSnap = await topRef.get();
+    if (!topSnap.exists) return;
+
+    const existing = topSnap.data()!;
+    const strip = (arr: any[]) =>
+      (arr ?? []).filter((a: any) => a.auctionId !== auctionId);
+
+    await topRef.set({
+      byBids:          strip(existing.byBids),
+      byParticipants:  strip(existing.byParticipants),
+      byWinningBid:    strip(existing.byWinningBid),
+      financialReport: strip(existing.financialReport ?? []),
+      updatedAt:       FieldValue.serverTimestamp(),
+    });
+  } catch (err) {
+    console.error("[Analytics] removeFromTopAuctions failed:", err);
+  }
+}
 
 // ─── Helper: update topAuctions document ─────────────────────────────────────
 
@@ -538,7 +639,7 @@ export const rebuildAnalytics = onCall(
 
     let totalAuctions = 0, liveAuctions = 0, upcomingAuctions = 0, endedAuctions = 0;
     let activeAuctions = 0, inactiveAuctions = 0;
-    let totalBids = 0, highestWinningBid = 0, totalRevenue = 0;
+    let totalBids = 0, highestWinningBid = 0, totalRevenue = 0, resolvedAuctions = 0;
     let marginSum = 0, marginCount = 0;
     const topEntries: any[] = [];
 
@@ -560,80 +661,73 @@ export const rebuildAnalytics = onCall(
       totalBids += a.totalBids ?? 0;
       if (a.isActive) activeAuctions++; else inactiveAuctions++;
 
-      const startTime = a.startTime instanceof Timestamp
-        ? a.startTime.toDate() : new Date(a.startTime);
-      const endTime = a.endTime instanceof Timestamp
-        ? a.endTime.toDate()   : new Date(a.endTime);
+      const phase = classifyAuctionPhase(a, now);
+      if      (phase === "upcoming") upcomingAuctions++;
+      else if (phase === "live")     liveAuctions++;
+      else                           endedAuctions++;
 
-      if      (now < startTime) upcomingAuctions++;
-      else if (now <= endTime)  liveAuctions++;
-      else {
-        endedAuctions++;
+      if (isResolvedAuction(a)) {
         const wb = a.winningBid ?? 0;
-        if (wb > 0) {
-          totalRevenue += wb;
-          if (wb > highestWinningBid) highestWinningBid = wb;
+        resolvedAuctions++;
+        totalRevenue += wb;
+        if (wb > highestWinningBid) highestWinningBid = wb;
 
-          const product = productMap[a.productId];
-          const ap      = product?.actualPrice ?? 0;
-          if (ap > 0) {
-            const margin = ((wb - ap) / ap) * 100;
-            marginSum  += margin;
-            marginCount++;
-          }
-
-          // ← i18n: resolve title from product map
-          const rawTitle = product?.title;
-          const resolvedTitle = resolveProductTitle(rawTitle);
-
-          const auctionEntryType = a.entryType ?? "free";
-          const auctionEntryFee  = a.entryFee  ?? 0;
-          let entryFeeRevenue = 0;
-
-          if (auctionEntryType === "paid" && auctionEntryFee > 0) {
-            try {
-              const participantsSnap = await db
-                .collection("auctions")
-                .doc(d.id)
-                .collection("Participants")
-                .get();
-
-              for (const pDoc of participantsSnap.docs) {
-                const p = pDoc.data();
-                if (p.voucherUsed === true) {
-                  const discountApplied = p.discountApplied ?? 0;
-                  const effective = Math.max(0, auctionEntryFee - discountApplied);
-                  entryFeeRevenue += effective;
-                } else if (p.hasPaid === true) {
-                  entryFeeRevenue += auctionEntryFee;
-                }
-              }
-            } catch (err) {
-              console.warn(`[Analytics] Failed to fetch participants for auction ${d.id}:`, err);
-            }
-          }
-
-          const actualProfit = (product?.actualPrice ?? 0) > 0 ? wb - (product?.actualPrice ?? 0) : 0;
-          const totalActualProfit = actualProfit + entryFeeRevenue;
-
-          topEntries.push({
-            auctionId:         d.id,
-            auctionNumber:     a.auctionNumber     ?? 0,
-            productTitle:      resolvedTitle,
-            totalBids:         a.totalBids          ?? 0,
-            totalParticipants: a.totalParticipants  ?? 0,
-            winningBid:        wb,
-            actualPrice:       product?.actualPrice ?? 0,
-            actualProfit,
-            margin:            (product?.actualPrice ?? 0) > 0
-                                 ? ((wb - (product?.actualPrice ?? 0)) / (product?.actualPrice ?? 0)) * 100
-                                 : 0,
-            winnerId:          a.winnerId            ?? "",
-            winnerName:        userMap[a.winnerId ?? ""] ?? "Unknown",
-            entryFeeRevenue,
-            totalActualProfit,
-          });
+        const product = productMap[a.productId];
+        const ap      = product?.actualPrice ?? 0;
+        if (ap > 0) {
+          const margin = ((wb - ap) / ap) * 100;
+          marginSum  += margin;
+          marginCount++;
         }
+
+        const rawTitle = product?.title;
+        const resolvedTitle = resolveProductTitle(rawTitle);
+
+        const auctionEntryType = a.entryType ?? "free";
+        const auctionEntryFee  = a.entryFee  ?? 0;
+        let entryFeeRevenue = 0;
+
+        if (auctionEntryType === "paid" && auctionEntryFee > 0) {
+          try {
+            const participantsSnap = await db
+              .collection("auctions")
+              .doc(d.id)
+              .collection("Participants")
+              .get();
+
+            for (const pDoc of participantsSnap.docs) {
+              const p = pDoc.data();
+              if (p.voucherUsed === true) {
+                const discountApplied = p.discountApplied ?? 0;
+                const effective = Math.max(0, auctionEntryFee - discountApplied);
+                entryFeeRevenue += effective;
+              } else if (p.hasPaid === true) {
+                entryFeeRevenue += auctionEntryFee;
+              }
+            }
+          } catch (err) {
+            console.warn(`[Analytics] Failed to fetch participants for auction ${d.id}:`, err);
+          }
+        }
+
+        const actualProfit = ap > 0 ? wb - ap : 0;
+        const totalActualProfit = actualProfit + entryFeeRevenue;
+
+        topEntries.push({
+          auctionId:         d.id,
+          auctionNumber:     a.auctionNumber     ?? 0,
+          productTitle:      resolvedTitle,
+          totalBids:         a.totalBids          ?? 0,
+          totalParticipants: a.totalParticipants  ?? 0,
+          winningBid:        wb,
+          actualPrice:       ap,
+          actualProfit,
+          margin:            ap > 0 ? ((wb - ap) / ap) * 100 : 0,
+          winnerId:          a.winnerId            ?? "",
+          winnerName:        userMap[a.winnerId ?? ""] ?? "Unknown",
+          entryFeeRevenue,
+          totalActualProfit,
+        });
       }
     }
 
@@ -656,7 +750,7 @@ export const rebuildAnalytics = onCall(
       totalInventory,    totalInventoryValue,
       totalAuctions,     liveAuctions,      upcomingAuctions,  endedAuctions,
       activeAuctions,    inactiveAuctions,
-      totalBids,         highestWinningBid,
+      totalBids,         highestWinningBid, resolvedAuctions,
       totalVouchers:     vouchersSnap.size,
       totalAuctionRequests: requestsSnap.size,
       avgRating,         totalRatings: validRatings.length,    ratingSum,

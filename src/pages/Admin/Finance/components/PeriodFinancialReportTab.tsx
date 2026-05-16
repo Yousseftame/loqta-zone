@@ -30,6 +30,7 @@ import {
 } from "../finance-period-report";
 import { downloadPeriodReportExcel } from "../period-report-excel";
 import { buildLedgerMetaByTxId, fmtBalanceCell } from "../finance-ledger-balance";
+import { usePaymentAccounts } from "@/hooks/usePaymentAccounts";
 
 interface Props {
   transactions: Transaction[];
@@ -85,6 +86,8 @@ export default function PeriodFinancialReportTab({
     setTxPage(0);
   }, [statement]);
 
+  const { accounts: paymentAccounts } = usePaymentAccounts();
+
   const ownerNameById = useMemo(() => {
     const m = new Map<string, string>();
     for (const o of owners) m.set(o.id, o.name);
@@ -93,8 +96,8 @@ export default function PeriodFinancialReportTab({
 
   /** Same running balance / method / done-by as the main Transactions table. */
   const ledgerMetaByTxId = useMemo(
-    () => buildLedgerMetaByTxId(transactions, stats),
-    [transactions, stats],
+    () => buildLedgerMetaByTxId(transactions, stats, paymentAccounts),
+    [transactions, stats, paymentAccounts],
   );
 
   /**
@@ -131,14 +134,14 @@ export default function PeriodFinancialReportTab({
       downloadPeriodReportExcel(
         statement,
         `Loqta_finance_statement_${fromStr}_to_${toStr}`,
-        { stats, allTransactions: transactions },
+        { stats, allTransactions: transactions, paymentAccounts },
       );
       toast.success("Excel file downloaded.");
     } catch (e: any) {
       console.error(e);
       toast.error(e?.message ?? "Export failed");
     }
-  }, [statement, stats, transactions]);
+  }, [statement, stats, transactions, paymentAccounts]);
 
   const s = statement?.summary;
 

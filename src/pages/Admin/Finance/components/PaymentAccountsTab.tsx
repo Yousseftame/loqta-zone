@@ -19,47 +19,33 @@
  * ─── Zero breaking changes ────────────────────────────────────────────────────
  * - finance-data.ts: unchanged
  * - finance.ts Cloud Function: unchanged
- * - useFinance.ts: unchanged
- * - FinancePage.tsx: add <PaymentAccountsTab /> as a new section only
+ * Linked via transactions.accountId / transferToAccountId (see AddTransactionModal).
  */
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   collection,
   doc,
-  getDocs,
   addDoc,
   updateDoc,
-  deleteDoc,
   serverTimestamp,
-  Timestamp,
-  query,
-  orderBy,
 } from "firebase/firestore";
 import { db } from "@/firebase/firebase";
 import { useAuth } from "@/store/AuthContext/AuthContext";
 import { colors } from "../../Products/products-data";
-import type { Transaction } from "../finance-data";
+import type { Transaction, FinanceStats } from "../finance-data";
+import {
+  usePaymentAccounts,
+  computeAccountBalance,
+  computeUnassignedForMethod,
+  computeReconciliation,
+  type PaymentAccount,
+} from "@/hooks/usePaymentAccounts";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type AccountMethod = "cash" | "bank";
 type AccountStatus = "active" | "archived";
-
-interface PaymentAccount {
-  id: string;
-  name: string;
-  method: AccountMethod;
-  accountNumber?: string;
-  notes?: string;
-  isDefault: boolean;
-  status: AccountStatus;
-  color: string;
-  icon: string;
-  createdAt: Date;
-  updatedAt: Date;
-  createdBy: string;
-}
 
 interface AccountFormData {
   name: string;
@@ -94,71 +80,11 @@ const PRESET_COLORS = [
   "#0D9488",
 ];
 
-// ─── Firestore helpers ────────────────────────────────────────────────────────
-
-function docToAccount(id: string, data: Record<string, any>): PaymentAccount {
-  return {
-    id,
-    name: data.name ?? "",
-    method: data.method ?? "bank",
-    accountNumber: data.accountNumber ?? "",
-    notes: data.notes ?? "",
-    isDefault: data.isDefault ?? false,
-    status: data.status ?? "active",
-    color: data.color ?? "#2A4863",
-    icon: data.icon ?? "🏦",
-    createdAt:
-      data.createdAt instanceof Timestamp
-        ? data.createdAt.toDate()
-        : new Date(),
-    updatedAt:
-      data.updatedAt instanceof Timestamp
-        ? data.updatedAt.toDate()
-        : new Date(),
-    createdBy: data.createdBy ?? "",
-  };
-}
-
-async function fetchAccounts(): Promise<PaymentAccount[]> {
-  const q = query(
-    collection(db, "paymentAccounts"),
-    orderBy("createdAt", "asc"),
-  );
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => docToAccount(d.id, d.data()));
-}
-
-// ─── Account balance computation ──────────────────────────────────────────────
-// Reads accountId from transactions (optional field). Transactions without
-// accountId are counted in "Unassigned" totals only — never in account totals.
-
-function computeAccountBalance(
-  accountId: string,
-  transactions: Transaction[],
-): { balance: number; income: number; expenses: number; txCount: number } {
-  let income = 0,
-    expenses = 0;
-  let txCount = 0;
-
-  for (const tx of transactions) {
-    // Only count transactions explicitly linked to this account
-    if ((tx as any).accountId !== accountId) continue;
-    txCount++;
-    if (tx.type === "income" || tx.type === "owner_return") {
-      income += tx.amount;
-    } else if (tx.type === "expense" || tx.type === "owner_withdrawal") {
-      expenses += tx.amount;
-    }
-    // transfers are balance-neutral — not counted
-  }
-
-  return { balance: income - expenses, income, expenses, txCount };
-}
-
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface Props {
   transactions: Transaction[];
+  stats: FinanceStats;
   loading?: boolean;
 }
 
@@ -611,6 +537,7 @@ function UnassignedCard({
     </div>
   );
 }
+
 
 // ─── Account Form Modal ───────────────────────────────────────────────────────
 
@@ -1197,14 +1124,234 @@ function DeleteConfirm({
   );
 }
 
+// ─── Summary stat cards (Finance overview scheme) ─────────────────────────────
+
+type SummaryCardTone =
+  | "cashNamed"
+  | "bankNamed"
+  | "unassigned"
+  | "dashboard"
+  | "meta";
+
+const SUMMARY_CARD_THEMES: Record<
+  SummaryCardTone,
+  {
+    gradient: string;
+    chip: string;
+    chipBg: string;
+    accentLine: string;
+    shadow: string;
+    hoverShadow: string;
+  }
+> = {
+  cashNamed: {
+    gradient:
+      "linear-gradient(135deg, #1a2f47 0%, #2A4863 55%, #3D6A8A 100%)",
+    chip: "CASH",
+    chipBg: "rgba(255,255,255,0.14)",
+    accentLine: "linear-gradient(90deg, #4A90BE, #38BDF8)",
+    shadow: "0 14px 44px rgba(42,72,99,0.32)",
+    hoverShadow: "0 20px 56px rgba(42,72,99,0.42)",
+  },
+  bankNamed: {
+    gradient:
+      "linear-gradient(135deg, #0f2027 0%, #1a3a4a 55%, #2c5364 100%)",
+    chip: "BANK",
+    chipBg: "rgba(255,255,255,0.14)",
+    accentLine: "linear-gradient(90deg, #0EA5E9, #38BDF8)",
+    shadow: "0 14px 44px rgba(15,32,39,0.35)",
+    hoverShadow: "0 20px 56px rgba(15,32,39,0.45)",
+  },
+  unassigned: {
+    gradient:
+      "linear-gradient(135deg, #334155 0%, #475569 52%, #64748B 100%)",
+    chip: "POOL",
+    chipBg: "rgba(255,255,255,0.12)",
+    accentLine: "linear-gradient(90deg, #94A3B8, #CBD5E1)",
+    shadow: "0 12px 36px rgba(51,65,85,0.28)",
+    hoverShadow: "0 18px 48px rgba(51,65,85,0.38)",
+  },
+  dashboard: {
+    gradient:
+      "linear-gradient(135deg, #1e1b4b 0%, #312e81 45%, #4338ca 80%, #6366f1 100%)",
+    chip: "OVERVIEW",
+    chipBg: "rgba(255,255,255,0.15)",
+    accentLine: "linear-gradient(90deg, #818cf8, #c7d2fe)",
+    shadow: "0 14px 44px rgba(99,102,241,0.35)",
+    hoverShadow: "0 22px 60px rgba(99,102,241,0.45)",
+  },
+  meta: {
+    gradient:
+      "linear-gradient(135deg, #451a03 0%, #78350f 50%, #92400e 100%)",
+    chip: "ACCOUNTS",
+    chipBg: "rgba(255,255,255,0.12)",
+    accentLine: "linear-gradient(90deg, #F59E0B, #FCD34D)",
+    shadow: "0 14px 44px rgba(120,53,15,0.32)",
+    hoverShadow: "0 20px 56px rgba(120,53,15,0.42)",
+  },
+};
+
+function SummaryStatCard({
+  label,
+  value,
+  icon,
+  tone,
+  isCount,
+  highlight,
+}: {
+  label: string;
+  value: number;
+  icon: string;
+  tone: SummaryCardTone;
+  isCount?: boolean;
+  highlight?: boolean;
+}) {
+  const theme = SUMMARY_CARD_THEMES[tone];
+  const isNeg = !isCount && value < 0;
+  const display = isCount
+    ? String(value)
+    : `${isNeg ? "−" : ""}${Math.abs(value).toLocaleString("en-EG")} EGP`;
+
+  return (
+    <div
+      style={{
+        position: "relative",
+        borderRadius: 16,
+        background: theme.gradient,
+        padding: "18px 18px 16px",
+        minHeight: 118,
+        overflow: "hidden",
+        boxShadow: theme.shadow,
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        transition: "transform 0.22s ease, box-shadow 0.22s ease",
+        cursor: "default",
+        outline: highlight
+          ? `2px solid ${colors.accent}`
+          : undefined,
+        outlineOffset: highlight ? 2 : undefined,
+      }}
+      onMouseEnter={(e) => {
+        const el = e.currentTarget as HTMLDivElement;
+        el.style.transform = "translateY(-3px)";
+        el.style.boxShadow = theme.hoverShadow;
+      }}
+      onMouseLeave={(e) => {
+        const el = e.currentTarget as HTMLDivElement;
+        el.style.transform = "";
+        el.style.boxShadow = theme.shadow;
+      }}
+    >
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          borderRadius: 16,
+          background:
+            "linear-gradient(135deg, rgba(255,255,255,0.08) 0%, transparent 55%)",
+          pointerEvents: "none",
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          top: -28,
+          right: -28,
+          width: 96,
+          height: 96,
+          borderRadius: "50%",
+          background: "rgba(255,255,255,0.05)",
+          pointerEvents: "none",
+        }}
+      />
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          gap: 8,
+          position: "relative",
+        }}
+      >
+        <span
+          style={{
+            fontSize: 22,
+            lineHeight: 1,
+            filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.2))",
+          }}
+        >
+          {icon}
+        </span>
+        <span
+          style={{
+            fontSize: "0.58rem",
+            fontWeight: 800,
+            letterSpacing: "0.12em",
+            textTransform: "uppercase",
+            color: "rgba(255,255,255,0.95)",
+            background: theme.chipBg,
+            borderRadius: 999,
+            padding: "3px 9px",
+            whiteSpace: "nowrap",
+            fontFamily: "system-ui, sans-serif",
+          }}
+        >
+          {theme.chip}
+        </span>
+      </div>
+
+      <div style={{ position: "relative", marginTop: 10 }}>
+        <div
+          style={{
+            fontSize: isCount ? "1.65rem" : "clamp(1.05rem, 2.5vw, 1.35rem)",
+            fontWeight: 800,
+            color: "#fff",
+            letterSpacing: "-0.02em",
+            fontFamily: "system-ui, sans-serif",
+            lineHeight: 1.15,
+            wordBreak: "break-word",
+          }}
+        >
+          {display}
+        </div>
+        <div
+          style={{
+            height: 2,
+            borderRadius: 999,
+            background: theme.accentLine,
+            opacity: 0.85,
+            marginTop: 10,
+            marginBottom: 8,
+          }}
+        />
+        <div
+          style={{
+            fontSize: "0.68rem",
+            fontWeight: 600,
+            color: "rgba(255,255,255,0.72)",
+            lineHeight: 1.35,
+            fontFamily: "system-ui, sans-serif",
+          }}
+        >
+          {label}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Summary Bar ──────────────────────────────────────────────────────────────
 
 function SummaryBar({
   accounts,
   transactions,
+  stats,
 }: {
   accounts: PaymentAccount[];
   transactions: Transaction[];
+  stats: FinanceStats;
 }) {
   const active = accounts.filter((a) => a.status === "active");
 
@@ -1216,95 +1363,99 @@ function SummaryBar({
       if (acc.method === "cash") totalCash += balance;
       else totalBank += balance;
     }
-    return { totalCash, totalBank, total: totalCash + totalBank };
-  }, [active, transactions]);
+    const unCash = computeUnassignedForMethod(transactions, "cash");
+    const unBank = computeUnassignedForMethod(transactions, "bank");
+    const recon = computeReconciliation(stats, accounts, transactions);
+    return {
+      totalCash,
+      totalBank,
+      unCash: unCash.balance,
+      unBank: unBank.balance,
+      recon,
+    };
+  }, [active, accounts, transactions, stats]);
 
   return (
+    <>
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-        gap: 12,
-        marginBottom: 24,
+        gridTemplateColumns:
+          "repeat(auto-fill, minmax(min(100%, 200px), 1fr))",
+        gap: 14,
+        marginBottom: 16,
       }}
     >
-      {[
-        {
-          label: "Total Tracked (Cash)",
-          value: totals.totalCash,
-          color: "#2A4863",
-          icon: "💵",
-        },
-        {
-          label: "Total Tracked (Bank)",
-          value: totals.totalBank,
-          color: "#059669",
-          icon: "🏦",
-        },
-        {
-          label: "Combined Balance",
-          value: totals.total,
-          color: "#7C3AED",
-          icon: "💰",
-        },
-        {
-          label: "Active Accounts",
-          value: active.length,
-          color: "#D97706",
-          icon: "🗂️",
-          isCount: true,
-        },
-      ].map((item) => (
-        <div
-          key={item.label}
-          style={{
-            background: "#fff",
-            borderRadius: 12,
-            border: `1px solid ${colors.border}`,
-            padding: "14px 16px",
-            boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              marginBottom: 6,
-            }}
-          >
-            <span style={{ fontSize: 16 }}>{item.icon}</span>
-            <span
-              style={{
-                fontSize: "0.68rem",
-                fontWeight: 700,
-                color: colors.textMuted,
-                textTransform: "uppercase",
-                letterSpacing: "0.08em",
-              }}
-            >
-              {item.label}
-            </span>
-          </div>
-          <div
-            style={{
-              fontSize: "1.25rem",
-              fontWeight: 800,
-              color: (item as any).isCount
-                ? item.color
-                : item.value < 0
-                  ? "#DC2626"
-                  : item.color,
-              fontFamily: "system-ui",
-            }}
-          >
-            {(item as any).isCount
-              ? item.value
-              : `${item.value < 0 ? "−" : ""}${Math.abs(item.value).toLocaleString("en-EG")} EGP`}
-          </div>
-        </div>
-      ))}
+      <SummaryStatCard
+        label="Named accounts (Cash)"
+        value={totals.totalCash}
+        icon="💵"
+        tone="cashNamed"
+      />
+      <SummaryStatCard
+        label="Named accounts (Bank)"
+        value={totals.totalBank}
+        icon="🏦"
+        tone="bankNamed"
+      />
+      <SummaryStatCard
+        label="Unassigned (Cash)"
+        value={totals.unCash}
+        icon="📋"
+        tone="unassigned"
+        highlight={totals.unCash > 0}
+      />
+      <SummaryStatCard
+        label="Unassigned (Bank)"
+        value={totals.unBank}
+        icon="📋"
+        tone="unassigned"
+        highlight={totals.unBank > 0}
+      />
+      <SummaryStatCard
+        label="Dashboard cash (Finance overview)"
+        value={stats.cashBalance}
+        icon="📊"
+        tone="dashboard"
+      />
+      <SummaryStatCard
+        label="Dashboard bank (Finance overview)"
+        value={stats.bankBalance}
+        icon="📊"
+        tone="dashboard"
+      />
+      <SummaryStatCard
+        label="Active wallet accounts"
+        value={active.length}
+        icon="🗂️"
+        tone="meta"
+        isCount
+      />
     </div>
+    {(Math.abs(totals.recon.cash.delta) > 0.01 ||
+      Math.abs(totals.recon.bank.delta) > 0.01) && (
+      <div
+        style={{
+          marginBottom: 20,
+          padding: "12px 16px",
+          borderRadius: 12,
+          background: colors.accentBg,
+          border: `1px solid ${colors.accent}`,
+          fontSize: "0.75rem",
+          color: colors.textPrimary,
+          lineHeight: 1.55,
+        }}
+      >
+        <strong style={{ color: "#92400E" }}>Reconciliation:</strong> Named
+        accounts + unassigned should match
+        Finance overview. Cash gap:{" "}
+        {totals.recon.cash.delta.toLocaleString("en-EG")} EGP · Bank gap:{" "}
+        {totals.recon.bank.delta.toLocaleString("en-EG")} EGP. New transactions
+        auto-link when you pick a wallet in Add Transaction; purchases use the
+        default account per method.
+      </div>
+    )}
+    </>
   );
 }
 
@@ -1312,34 +1463,17 @@ function SummaryBar({
 
 export default function PaymentAccountsTab({
   transactions,
+  stats,
   loading = false,
 }: Props) {
   const { user } = useAuth();
+  const { accounts, loading: fetching, refresh } = usePaymentAccounts();
 
-  const [accounts, setAccounts] = useState<PaymentAccount[]>([]);
-  const [fetching, setFetching] = useState(true);
   const [saving, setSaving] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<PaymentAccount | null>(null);
   const [archiving, setArchiving] = useState<PaymentAccount | null>(null);
   const [showArchived, setShowArchived] = useState(false);
-
-  // Load accounts from Firestore
-  const load = useCallback(async () => {
-    setFetching(true);
-    try {
-      const list = await fetchAccounts();
-      setAccounts(list);
-    } catch (err) {
-      console.error("[PaymentAccounts] fetch failed:", err);
-    } finally {
-      setFetching(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
 
   // Compute per-account balances (from linked transactions only)
   const accountBalances = useMemo(() => {
@@ -1350,37 +1484,15 @@ export default function PaymentAccountsTab({
     return map;
   }, [accounts, transactions]);
 
-  // Compute unassigned balances (transactions without accountId per method)
   const unassigned = useMemo(() => {
-    const linkedIds = new Set(
-      transactions.map((tx) => (tx as any).accountId).filter(Boolean),
-    );
-    let cashBalance = 0,
-      bankBalance = 0;
-    let cashCount = 0,
-      bankCount = 0;
-
-    for (const tx of transactions) {
-      if ((tx as any).accountId) continue; // linked — skip
-      if (tx.type === "income" || tx.type === "owner_return") {
-        if (tx.method === "cash") {
-          cashBalance += tx.amount;
-          cashCount++;
-        } else {
-          bankBalance += tx.amount;
-          bankCount++;
-        }
-      } else if (tx.type === "expense" || tx.type === "owner_withdrawal") {
-        if (tx.method === "cash") {
-          cashBalance -= tx.amount;
-          cashCount++;
-        } else {
-          bankBalance -= tx.amount;
-          bankCount++;
-        }
-      }
-    }
-    return { cashBalance, bankBalance, cashCount, bankCount };
+    const cash = computeUnassignedForMethod(transactions, "cash");
+    const bank = computeUnassignedForMethod(transactions, "bank");
+    return {
+      cashBalance: cash.balance,
+      bankBalance: bank.balance,
+      cashCount: cash.txCount,
+      bankCount: bank.txCount,
+    };
   }, [transactions]);
 
   // CRUD handlers
@@ -1436,7 +1548,7 @@ export default function PaymentAccountsTab({
           createdBy: user?.uid ?? "",
         });
       }
-      await load();
+      await refresh();
       setModalOpen(false);
       setEditing(null);
     } finally {
@@ -1452,7 +1564,7 @@ export default function PaymentAccountsTab({
       updatedAt: serverTimestamp(),
     });
     setArchiving(null);
-    await load();
+    await refresh();
   };
 
   const handleSetDefault = async (account: PaymentAccount) => {
@@ -1466,7 +1578,7 @@ export default function PaymentAccountsTab({
     await updateDoc(doc(db, "paymentAccounts", account.id), {
       isDefault: true,
     });
-    await load();
+    await refresh();
   };
 
   const activeAccounts = accounts.filter((a) => a.status === "active");
@@ -1561,8 +1673,12 @@ export default function PaymentAccountsTab({
       </div>
 
       {/* Summary bar */}
-      {!fetching && activeAccounts.length > 0 && (
-        <SummaryBar accounts={activeAccounts} transactions={transactions} />
+      {!fetching && (activeAccounts.length > 0 || transactions.length > 0) && (
+        <SummaryBar
+          accounts={activeAccounts}
+          transactions={transactions}
+          stats={stats}
+        />
       )}
 
       {/* Empty state */}
@@ -1622,7 +1738,8 @@ export default function PaymentAccountsTab({
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+            gridTemplateColumns:
+              "repeat(auto-fill, minmax(min(100%, 280px), 1fr))",
             gap: 16,
           }}
         >
@@ -1673,7 +1790,8 @@ export default function PaymentAccountsTab({
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+                  gridTemplateColumns:
+              "repeat(auto-fill, minmax(min(100%, 280px), 1fr))",
                   gap: 16,
                 }}
               >
@@ -1734,7 +1852,8 @@ export default function PaymentAccountsTab({
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+                  gridTemplateColumns:
+              "repeat(auto-fill, minmax(min(100%, 280px), 1fr))",
                   gap: 16,
                 }}
               >
@@ -1797,7 +1916,8 @@ export default function PaymentAccountsTab({
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+              gridTemplateColumns:
+              "repeat(auto-fill, minmax(min(100%, 280px), 1fr))",
               gap: 16,
             }}
           >
@@ -1818,35 +1938,47 @@ export default function PaymentAccountsTab({
         </div>
       )}
 
-      {/* Note about integration */}
-      {!fetching && activeAccounts.length > 0 && (
-        <div
-          style={{
-            marginTop: 24,
-            padding: "12px 16px",
-            borderRadius: 10,
-            background: "#EFF6FF",
-            border: "1px solid #BFDBFE",
-            fontSize: "0.75rem",
-            color: "#1E40AF",
-            lineHeight: 1.6,
-          }}
-        >
-          💡 <strong>Tip:</strong> To link a transaction to an account, add the{" "}
-          <code
-            style={{
-              background: "#DBEAFE",
-              padding: "1px 5px",
-              borderRadius: 4,
-            }}
-          >
-            accountId
-          </code>{" "}
-          field when creating transactions. Unlinked transactions continue to
-          appear in your total Cash/Bank balances as before — this feature is
-          fully backwards-compatible.
-        </div>
-      )}
+      {!fetching &&
+        activeAccounts.length === 0 &&
+        (unassigned.cashCount > 0 || unassigned.bankCount > 0) && (
+          <div style={{ marginBottom: 24 }}>
+            <div
+              style={{
+                fontSize: "0.72rem",
+                fontWeight: 700,
+                color: colors.textMuted,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                marginBottom: 12,
+              }}
+            >
+              Unassigned transactions
+            </div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns:
+              "repeat(auto-fill, minmax(min(100%, 280px), 1fr))",
+                gap: 16,
+              }}
+            >
+              {unassigned.cashCount > 0 && (
+                <UnassignedCard
+                  method="cash"
+                  balance={unassigned.cashBalance}
+                  txCount={unassigned.cashCount}
+                />
+              )}
+              {unassigned.bankCount > 0 && (
+                <UnassignedCard
+                  method="bank"
+                  balance={unassigned.bankBalance}
+                  txCount={unassigned.bankCount}
+                />
+              )}
+            </div>
+          </div>
+        )}
 
       {/* Modals */}
       <AccountModal

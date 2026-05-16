@@ -20,7 +20,7 @@
  * against available balances before saving.
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -56,6 +56,14 @@ import {
   type SplitPart,
   type Owner,
 } from "../finance-data";
+import {
+  usePaymentAccounts,
+  getDefaultAccountIdForMethod,
+  getActiveAccounts,
+  accountMatchesMethod,
+  validateAccountBalance,
+  type PaymentAccount,
+} from "@/hooks/usePaymentAccounts";
 
 // ─── Defaults by type ─────────────────────────────────────────────────────────
 
@@ -76,6 +84,8 @@ const EMPTY: TransactionFormValues = {
   transferTo: "bank",
   isSplit: false,
   splits: [],
+  accountId: undefined,
+  transferToAccountId: undefined,
 };
 
 // Split is only allowed for income and expense
@@ -158,6 +168,8 @@ interface Props {
   /** Current live stats — used for balance validation */
   stats?: FinanceStats;
   owners?: Owner[];
+  /** Full ledger — used for per-account balance checks */
+  transactions?: Transaction[];
 }
 
 // ─── Helper: derive transferTo and category from method for transfers ─────────
@@ -185,6 +197,8 @@ function buildFormFromTx(tx: Transaction): TransactionFormValues {
     splits: [],
     ownerId: tx.ownerId,
     ownerName: tx.ownerName,
+    accountId: tx.accountId,
+    transferToAccountId: tx.transferToAccountId,
   };
 }
 
@@ -211,10 +225,14 @@ function newSplitKey(): string {
 }
 
 /** Build default initial splits (2 parts) */
-function buildDefaultSplits(): SplitPart[] {
+function buildDefaultSplits(
+  accounts: PaymentAccount[] = [],
+): SplitPart[] {
+  const bankId = getDefaultAccountIdForMethod(accounts, "bank");
+  const cashId = getDefaultAccountIdForMethod(accounts, "cash");
   return [
-    { key: newSplitKey(), method: "bank", amount: "" },
-    { key: newSplitKey(), method: "cash", amount: "" },
+    { key: newSplitKey(), method: "bank", amount: "", accountId: bankId },
+    { key: newSplitKey(), method: "cash", amount: "", accountId: cashId },
   ];
 }
 
@@ -321,6 +339,7 @@ interface SplitEditorProps {
   splits: SplitPart[];
   stats: FinanceStats | undefined;
   transactionType: TransactionType;
+  accounts: PaymentAccount[];
   onChange: (splits: SplitPart[]) => void;
 }
 
@@ -328,8 +347,10 @@ function SplitEditor({
   splits,
   stats,
   transactionType,
+  accounts,
   onChange,
 }: SplitEditorProps) {
+  const active = getActiveAccounts(accounts);
   const totalCash = splits
     .filter((s) => s.method === "cash")
     .reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
@@ -338,8 +359,24 @@ function SplitEditor({
     .reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
   const grandTotal = totalCash + totalBank;
 
-  const updatePart = (key: string, field: keyof SplitPart, value: string) => {
-    onChange(splits.map((p) => (p.key === key ? { ...p, [field]: value } : p)));
+  const updatePart = (
+    key: string,
+    field: keyof SplitPart,
+    value: string | PaymentMethod,
+  ) => {
+    onChange(
+      splits.map((p) => {
+        if (p.key !== key) return p;
+        const next = { ...p, [field]: value } as SplitPart;
+        if (field === "method") {
+          next.accountId = getDefaultAccountIdForMethod(
+            accounts,
+            value as PaymentMethod,
+          );
+        }
+        return next;
+      }),
+    );
   };
 
   const removePart = (key: string) => {
@@ -357,7 +394,12 @@ function SplitEditor({
         : "cash";
     onChange([
       ...splits,
-      { key: newSplitKey(), method: nextMethod, amount: "" },
+      {
+        key: newSplitKey(),
+        method: nextMethod,
+        amount: "",
+        accountId: getDefaultAccountIdForMethod(accounts, nextMethod),
+      },
     ]);
   };
 
@@ -380,9 +422,12 @@ function SplitEditor({
             key={part.key}
             sx={{
               display: "flex",
-              gap: 1,
-              alignItems: "flex-start",
+              flexDirection: { xs: "column", sm: "row" },
+              flexWrap: "wrap",
+              gap: 1.5,
+              alignItems: { xs: "stretch", sm: "flex-start" },
               p: 1.5,
+              pt: 2,
               borderRadius: 2,
               border: `1px solid ${isOverBalance ? "#FECACA" : "#E2E8F0"}`,
               bgcolor: isOverBalance ? "#FFF5F5" : "#F8FAFC",
@@ -414,17 +459,60 @@ function SplitEditor({
             <TextField
               select
               size="small"
+              label="Method"
               value={part.method}
               onChange={(e) => updatePart(part.key, "method", e.target.value)}
               sx={{
-                width: 120,
+                width: { xs: "100%", sm: 112 },
                 flexShrink: 0,
                 "& .MuiOutlinedInput-root": { borderRadius: 1.5 },
               }}
+            >
+              <MenuItem value="cash">💵 Cash</MenuItem>
+              <MenuItem value="bank">🏦 Bank</MenuItem>
+            </TextField>
+
+            {active.length > 0 && (
+              <TextField
+                select
+                size="small"
+                label="Wallet account"
+                required
+                value={part.accountId ?? ""}
+                onChange={(e) =>
+                  updatePart(part.key, "accountId", e.target.value)
+                }
+                sx={{
+                  flex: { xs: "1 1 100%", sm: "1 1 180px" },
+                  minWidth: { sm: 160 },
+                  "& .MuiOutlinedInput-root": { borderRadius: 1.5 },
+                }}
+              >
+                {active
+                  .filter((a) => a.method === part.method)
+                  .map((a) => (
+                    <MenuItem key={a.id} value={a.id}>
+                      {a.icon} {a.name}
+                      {a.isDefault ? " · default" : ""}
+                    </MenuItem>
+                  ))}
+              </TextField>
+            )}
+
+            <TextField
+              label="Amount (EGP)"
+              type="number"
+              size="small"
+              value={part.amount}
+              onChange={(e) => updatePart(part.key, "amount", e.target.value)}
+              inputProps={{ min: 0, step: "0.01" }}
+              error={isOverBalance}
               helperText={
-                stats
-                  ? `${part.method === "cash" ? "💵" : "🏦"} ${balanceAvailable.toLocaleString("en-EG")} EGP`
-                  : undefined
+                isOverBalance
+                  ? `Exceeds ${part.method === "cash" ? "cash" : "bank"} pool`
+                  : stats
+                    ? `Pool: ${balanceAvailable.toLocaleString("en-EG")} EGP`
+                    : undefined
               }
               FormHelperTextProps={{
                 sx: {
@@ -433,35 +521,17 @@ function SplitEditor({
                   mt: 0.3,
                 },
               }}
-            >
-              <MenuItem value="cash">💵 Cash</MenuItem>
-              <MenuItem value="bank">🏦 Bank</MenuItem>
-            </TextField>
-
-            {/* Amount */}
-            <TextField
-              label="Amount (EGP)"
-              type="number"
-              size="small"
-              fullWidth
-              value={part.amount}
-              onChange={(e) => updatePart(part.key, "amount", e.target.value)}
-              inputProps={{ min: 0, step: "0.01" }}
-              error={isOverBalance}
-              helperText={
-                isOverBalance
-                  ? `Exceeds ${part.method === "cash" ? "cash" : "bank"} balance`
-                  : undefined
-              }
-              FormHelperTextProps={{ sx: { fontSize: "0.65rem", mt: 0.3 } }}
-              sx={{ "& .MuiOutlinedInput-root": { borderRadius: 1.5 } }}
+              sx={{
+                flex: { xs: "1 1 100%", sm: "1 1 140px" },
+                minWidth: { sm: 120 },
+                "& .MuiOutlinedInput-root": { borderRadius: 1.5 },
+              }}
             />
 
-            {/* Remove part button */}
             <Tooltip
               title={splits.length <= 2 ? "Minimum 2 parts" : "Remove part"}
             >
-              <span>
+              <span style={{ alignSelf: "flex-end" }}>
                 <IconButton
                   size="small"
                   onClick={() => removePart(part.key)}
@@ -471,7 +541,6 @@ function SplitEditor({
                     "&:hover": {
                       bgcolor: splits.length <= 2 ? "transparent" : "#FEE2E2",
                     },
-                    mt: 0.5,
                     flexShrink: 0,
                   }}
                 >
@@ -602,18 +671,34 @@ export default function AddTransactionModal({
   initialValues,
   stats,
   owners = [],
+  transactions = [],
 }: Props) {
   const isEditMode = !!editingTx;
   const isBusy = adding || updating;
+  const { accounts: paymentAccounts } = usePaymentAccounts();
+  const activeAccounts = useMemo(
+    () => getActiveAccounts(paymentAccounts),
+    [paymentAccounts],
+  );
 
   const [form, setForm] = useState<TransactionFormValues>(EMPTY);
   const [error, setError] = useState<string | null>(null);
+  const [transferKind, setTransferKind] = useState<"pool" | "account">("pool");
 
   // Initialise form when modal opens or editingTx changes
   useEffect(() => {
     if (open) {
       if (editingTx) {
-        setForm(buildFormFromTx(editingTx));
+        const next = buildFormFromTx(editingTx);
+        setForm(next);
+        if (editingTx.type === "transfer") {
+          const dest =
+            editingTx.transferTo ??
+            deriveTransferFields(editingTx.method).transferTo;
+          setTransferKind(
+            dest !== editingTx.method ? "pool" : "account",
+          );
+        }
       } else {
         setForm(buildInitialForm(initialValues));
       }
@@ -654,14 +739,24 @@ export default function AddTransactionModal({
   const handleTypeChange = (newType: TransactionType) => {
     const newSplitAllowed = SPLIT_ALLOWED_TYPES.includes(newType);
     if (newType === "transfer") {
+      const useAccounts = activeAccounts.length >= 2;
+      setTransferKind(useAccounts ? "account" : "pool");
+      const cashDefault = getDefaultAccountIdForMethod(activeAccounts, "cash");
+      const bankDefault = getDefaultAccountIdForMethod(activeAccounts, "bank");
       setForm((p) => ({
         ...p,
         type: "transfer",
         method: "cash",
-        transferTo: "bank",
-        category: "cash_to_bank",
+        transferTo: useAccounts ? "cash" : "bank",
+        category: useAccounts ? "cash_to_bank" : "cash_to_bank",
         isSplit: false,
         splits: [],
+        accountId: useAccounts ? cashDefault : undefined,
+        transferToAccountId: useAccounts
+          ? activeAccounts.find(
+              (a) => a.method === "cash" && a.id !== cashDefault,
+            )?.id ?? bankDefault
+          : undefined,
       }));
     } else {
       setForm((p) => ({
@@ -682,7 +777,91 @@ export default function AddTransactionModal({
       method: source,
       transferTo,
       category,
+      accountId: getDefaultAccountIdForMethod(activeAccounts, source),
+      transferToAccountId: getDefaultAccountIdForMethod(
+        activeAccounts,
+        transferTo,
+      ),
     }));
+  };
+
+  const handleMethodChange = (method: PaymentMethod) => {
+    setForm((p) => ({
+      ...p,
+      method,
+      accountId:
+        p.accountId && accountMatchesMethod(activeAccounts, p.accountId, method)
+          ? p.accountId
+          : getDefaultAccountIdForMethod(activeAccounts, method),
+    }));
+  };
+
+  const enrichFormForSubmit = (
+    values: TransactionFormValues,
+  ): TransactionFormValues => {
+    if (values.isSplit && values.splits?.length) {
+      return {
+        ...values,
+        splits: values.splits.map((part) => ({
+          ...part,
+          accountId:
+            part.accountId ||
+            getDefaultAccountIdForMethod(activeAccounts, part.method),
+        })),
+      };
+    }
+    if (values.type === "transfer" && transferKind === "account") {
+      const from = activeAccounts.find((a) => a.id === values.accountId);
+      const m = from?.method ?? values.method;
+      return {
+        ...values,
+        method: m,
+        transferTo: m,
+        accountId: values.accountId,
+        transferToAccountId: values.transferToAccountId,
+      };
+    }
+    if (values.type === "transfer") {
+      const dest =
+        values.transferTo ?? deriveTransferFields(values.method).transferTo;
+      return {
+        ...values,
+        transferTo: dest,
+        accountId:
+          values.accountId ||
+          getDefaultAccountIdForMethod(activeAccounts, values.method),
+        transferToAccountId:
+          values.transferToAccountId ||
+          getDefaultAccountIdForMethod(activeAccounts, dest),
+      };
+    }
+    return {
+      ...values,
+      accountId:
+        values.accountId ||
+        getDefaultAccountIdForMethod(activeAccounts, values.method),
+    };
+  };
+
+  const checkAccountBalance = (
+    values: TransactionFormValues,
+    amount: number,
+  ): string | null => {
+    if (!values.accountId || !transactions.length) return null;
+    const debitTypes: Transaction["type"][] =
+      values.type === "transfer"
+        ? ["transfer"]
+        : values.type === "expense" || values.type === "owner_withdrawal"
+          ? [values.type]
+          : [];
+    if (!debitTypes.length) return null;
+    return validateAccountBalance(
+      values.accountId,
+      amount,
+      transactions,
+      editingTx ?? null,
+      debitTypes,
+    );
   };
 
   const handleSplitToggle = (enabled: boolean) => {
@@ -690,7 +869,7 @@ export default function AddTransactionModal({
       setForm((p) => ({
         ...p,
         isSplit: true,
-        splits: buildDefaultSplits(),
+        splits: buildDefaultSplits(activeAccounts),
         amount: "",
       }));
     } else {
@@ -724,6 +903,10 @@ export default function AddTransactionModal({
           );
           return;
         }
+        if (activeAccounts.length > 0 && !splits[i].accountId) {
+          setError(`Part ${i + 1}: select a wallet account.`);
+          return;
+        }
       }
 
       const balanceError = validateBalance(form, stats, null);
@@ -732,8 +915,28 @@ export default function AddTransactionModal({
         return;
       }
 
+      const prepared = enrichFormForSubmit(form);
+      if (form.type === "expense") {
+        for (const part of prepared.splits ?? []) {
+          const amt = Number(part.amount);
+          const accErr = part.accountId
+            ? validateAccountBalance(
+                part.accountId,
+                amt,
+                transactions,
+                null,
+                ["expense"],
+              )
+            : null;
+          if (accErr) {
+            setError(accErr);
+            return;
+          }
+        }
+      }
+
       try {
-        await onSubmit(form);
+        await onSubmit(prepared);
         setForm(EMPTY);
         onClose();
       } catch (err: any) {
@@ -749,9 +952,45 @@ export default function AddTransactionModal({
       return;
     }
 
-    if (isTransfer && form.method === form.transferTo) {
+    if (isTransfer && transferKind === "pool" && form.method === form.transferTo) {
       setError("Source and destination must be different.");
       return;
+    }
+
+    if (isTransfer && transferKind === "pool" && activeAccounts.length > 0) {
+      const dest =
+        form.transferTo ?? deriveTransferFields(form.method).transferTo;
+      if (!form.accountId || !form.transferToAccountId) {
+        setError("Select both source and destination wallet accounts.");
+        return;
+      }
+      const fromAcc = activeAccounts.find((a) => a.id === form.accountId);
+      const toAcc = activeAccounts.find((a) => a.id === form.transferToAccountId);
+      if (fromAcc && fromAcc.method !== form.method) {
+        setError("Source account must match the cash/bank direction.");
+        return;
+      }
+      if (toAcc && toAcc.method !== dest) {
+        setError("Destination account must match the transfer destination type.");
+        return;
+      }
+    }
+
+    if (isTransfer && transferKind === "account") {
+      if (!form.accountId || !form.transferToAccountId) {
+        setError("Select both source and destination accounts.");
+        return;
+      }
+      if (form.accountId === form.transferToAccountId) {
+        setError("Source and destination accounts must be different.");
+        return;
+      }
+      const fromAcc = activeAccounts.find((a) => a.id === form.accountId);
+      const toAcc = activeAccounts.find((a) => a.id === form.transferToAccountId);
+      if (fromAcc && toAcc && fromAcc.method !== toAcc.method) {
+        setError("Both accounts must be the same type (cash or bank).");
+        return;
+      }
     }
 
     if (isOwner || isOwnerReturn) {
@@ -771,11 +1010,28 @@ export default function AddTransactionModal({
       return;
     }
 
+    const prepared = enrichFormForSubmit(form);
+    const accountErr = checkAccountBalance(prepared, amount);
+    if (accountErr) {
+      setError(accountErr);
+      return;
+    }
+
+    if (isTransfer && prepared.transferToAccountId) {
+      const destAcc = activeAccounts.find(
+        (a) => a.id === prepared.transferToAccountId,
+      );
+      if (destAcc && destAcc.method !== prepared.transferTo) {
+        setError("Destination account must match the transfer destination type.");
+        return;
+      }
+    }
+
     try {
       if (isEditMode && onUpdate) {
-        await onUpdate(form);
+        await onUpdate(prepared);
       } else {
-        await onSubmit(form);
+        await onSubmit(prepared);
       }
       setForm(EMPTY);
       onClose();
@@ -1127,9 +1383,10 @@ export default function AddTransactionModal({
         {/* ── Split editor OR single amount ── */}
         {isSplitActive ? (
           <SplitEditor
-            splits={form.splits ?? buildDefaultSplits()}
+            splits={form.splits ?? buildDefaultSplits(activeAccounts)}
             stats={stats}
             transactionType={form.type}
+            accounts={paymentAccounts}
             onChange={handleSplitsChange}
           />
         ) : (
@@ -1165,82 +1422,215 @@ export default function AddTransactionModal({
                   inputProps={{ min: 0, step: "0.01" }}
                   sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
                 />
-                <TextField
-                  label="From (source)"
-                  select
-                  size="small"
-                  fullWidth
-                  value={form.method}
-                  onChange={(e) =>
-                    handleTransferSourceChange(e.target.value as PaymentMethod)
-                  }
-                  sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
-                  helperText={
-                    stats
-                      ? `Available: ${(form.method === "cash" ? stats.cashBalance : stats.bankBalance).toLocaleString("en-EG")} EGP`
-                      : "Money will be taken from this balance"
-                  }
-                >
-                  <MenuItem value="cash">💵 Cash</MenuItem>
-                  <MenuItem value="bank">🏦 Bank</MenuItem>
-                </TextField>
-
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 1,
-                    py: 0.5,
-                  }}
-                >
-                  <Box
-                    sx={{
-                      height: 1,
-                      flex: 1,
-                      bgcolor: "#DDD6FE",
-                      borderRadius: 1,
+                {activeAccounts.length >= 2 && (
+                  <ToggleButtonGroup
+                    exclusive
+                    size="small"
+                    value={transferKind}
+                    onChange={(_e, v) => {
+                      if (!v) return;
+                      setTransferKind(v);
+                      if (v === "pool") {
+                        handleTransferSourceChange(form.method || "cash");
+                      }
                     }}
-                  />
-                  <Box
-                    sx={{
-                      px: 1.5,
-                      py: 0.5,
-                      bgcolor: "#EDE9FE",
-                      border: "1px solid #DDD6FE",
-                      borderRadius: 999,
-                      fontSize: "0.72rem",
-                      fontWeight: 700,
-                      color: "#6D28D9",
-                      whiteSpace: "nowrap",
-                    }}
+                    sx={{ alignSelf: "flex-start" }}
                   >
-                    🔄 Transfer to
-                  </Box>
-                  <Box
-                    sx={{
-                      height: 1,
-                      flex: 1,
-                      bgcolor: "#DDD6FE",
-                      borderRadius: 1,
-                    }}
-                  />
-                </Box>
-
-                <TextField
-                  label="To (destination)"
-                  size="small"
-                  fullWidth
-                  value={form.transferTo === "cash" ? "💵 Cash" : "🏦 Bank"}
-                  InputProps={{ readOnly: true }}
-                  sx={{
-                    "& .MuiOutlinedInput-root": {
-                      borderRadius: 2,
-                      bgcolor: "#F5F3FF",
-                    },
-                  }}
-                  helperText="Money will be added to this balance"
-                />
+                    <ToggleButton value="account" sx={{ textTransform: "none", px: 2 }}>
+                      Between accounts
+                    </ToggleButton>
+                    <ToggleButton value="pool" sx={{ textTransform: "none", px: 2 }}>
+                      Cash ↔ Bank pool
+                    </ToggleButton>
+                  </ToggleButtonGroup>
+                )}
+                {activeAccounts.length > 0 && transferKind === "account" ? (
+                  <>
+                    <TextField
+                      label="From account"
+                      select
+                      size="small"
+                      fullWidth
+                      required
+                      value={form.accountId ?? ""}
+                      onChange={(e) => {
+                        const id = e.target.value;
+                        if (!id) return;
+                        const acc = activeAccounts.find((a) => a.id === id);
+                        if (!acc) return;
+                        const peer = activeAccounts.find(
+                          (a) =>
+                            a.method === acc.method && a.id !== acc.id,
+                        );
+                        setForm((p) => ({
+                          ...p,
+                          accountId: id,
+                          method: acc.method,
+                          transferTo: acc.method,
+                          category:
+                            acc.method === "cash"
+                              ? "cash_to_bank"
+                              : "bank_to_cash",
+                          transferToAccountId:
+                            p.transferToAccountId &&
+                            activeAccounts.find(
+                              (a) => a.id === p.transferToAccountId,
+                            )?.method === acc.method &&
+                            p.transferToAccountId !== id
+                              ? p.transferToAccountId
+                              : peer?.id,
+                        }));
+                      }}
+                      sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+                    >
+                      {activeAccounts.map((a) => (
+                        <MenuItem key={a.id} value={a.id}>
+                          {a.icon} {a.name} ({a.method})
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                    <TextField
+                      label="To account"
+                      select
+                      size="small"
+                      fullWidth
+                      required
+                      value={form.transferToAccountId ?? ""}
+                      onChange={(e) => {
+                        const id = e.target.value;
+                        const acc = activeAccounts.find((a) => a.id === id);
+                        if (!acc) return;
+                        setForm((p) => ({
+                          ...p,
+                          transferToAccountId: id,
+                          transferTo: acc.method,
+                        }));
+                      }}
+                      sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+                    >
+                      {activeAccounts
+                        .filter(
+                          (a) =>
+                            a.method ===
+                              activeAccounts.find((x) => x.id === form.accountId)
+                                ?.method && a.id !== form.accountId,
+                        )
+                        .map((a) => (
+                          <MenuItem key={a.id} value={a.id}>
+                            {a.icon} {a.name}
+                          </MenuItem>
+                        ))}
+                    </TextField>
+                  </>
+                ) : activeAccounts.length > 0 && transferKind === "pool" ? (
+                  <>
+                    <TextField
+                      label="Direction"
+                      select
+                      size="small"
+                      fullWidth
+                      value={form.method}
+                      onChange={(e) =>
+                        handleTransferSourceChange(e.target.value as PaymentMethod)
+                      }
+                      sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+                      helperText={
+                        stats
+                          ? `${form.method === "cash" ? "Cash" : "Bank"} pool: ${(form.method === "cash" ? stats.cashBalance : stats.bankBalance).toLocaleString("en-EG")} EGP`
+                          : undefined
+                      }
+                    >
+                      <MenuItem value="cash">💵 Cash → Bank</MenuItem>
+                      <MenuItem value="bank">🏦 Bank → Cash</MenuItem>
+                    </TextField>
+                    <TextField
+                      label={`From (${form.method === "cash" ? "cash" : "bank"} wallet)`}
+                      select
+                      size="small"
+                      fullWidth
+                      required
+                      value={form.accountId ?? ""}
+                      onChange={(e) => {
+                        const id = e.target.value;
+                        if (!id) return;
+                        setForm((p) => ({ ...p, accountId: id }));
+                      }}
+                      sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+                    >
+                      {activeAccounts
+                        .filter((a) => a.method === form.method)
+                        .map((a) => (
+                          <MenuItem key={a.id} value={a.id}>
+                            {a.icon} {a.name}
+                            {a.isDefault ? " · default" : ""}
+                          </MenuItem>
+                        ))}
+                    </TextField>
+                    <TextField
+                      label={`To (${(form.transferTo ?? deriveTransferFields(form.method).transferTo) === "cash" ? "cash" : "bank"} wallet)`}
+                      select
+                      size="small"
+                      fullWidth
+                      required
+                      value={form.transferToAccountId ?? ""}
+                      onChange={(e) => {
+                        const id = e.target.value;
+                        if (!id) return;
+                        setForm((p) => ({ ...p, transferToAccountId: id }));
+                      }}
+                      sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+                    >
+                      {activeAccounts
+                        .filter(
+                          (a) =>
+                            a.method ===
+                            (form.transferTo ??
+                              deriveTransferFields(form.method).transferTo),
+                        )
+                        .map((a) => (
+                          <MenuItem key={a.id} value={a.id}>
+                            {a.icon} {a.name}
+                            {a.isDefault ? " · default" : ""}
+                          </MenuItem>
+                        ))}
+                    </TextField>
+                  </>
+                ) : (
+                  <>
+                    <TextField
+                      label="From (source)"
+                      select
+                      size="small"
+                      fullWidth
+                      value={form.method}
+                      onChange={(e) =>
+                        handleTransferSourceChange(e.target.value as PaymentMethod)
+                      }
+                      sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+                      helperText={
+                        stats
+                          ? `Available: ${(form.method === "cash" ? stats.cashBalance : stats.bankBalance).toLocaleString("en-EG")} EGP`
+                          : undefined
+                      }
+                    >
+                      <MenuItem value="cash">💵 Cash</MenuItem>
+                      <MenuItem value="bank">🏦 Bank</MenuItem>
+                    </TextField>
+                    <TextField
+                      label="To (destination)"
+                      size="small"
+                      fullWidth
+                      value={form.transferTo === "cash" ? "💵 Cash" : "🏦 Bank"}
+                      InputProps={{ readOnly: true }}
+                      sx={{
+                        "& .MuiOutlinedInput-root": {
+                          borderRadius: 2,
+                          bgcolor: "#F5F3FF",
+                        },
+                      }}
+                    />
+                  </>
+                )}
               </Box>
             ) : (
               !isSplitActive && (
@@ -1281,20 +1671,46 @@ export default function AddTransactionModal({
                     fullWidth
                     value={form.method}
                     onChange={(e) =>
-                      set("method", e.target.value as PaymentMethod)
+                      handleMethodChange(e.target.value as PaymentMethod)
                     }
                     sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
                     helperText={
                       isOwner
-                        ? "The balance that will be reduced"
+                        ? "The balance pool that will be reduced"
                         : isOwnerReturn
-                          ? "The balance that will be increased"
+                          ? "The balance pool that will be increased"
                           : undefined
                     }
                   >
                     <MenuItem value="cash">💵 Cash</MenuItem>
                     <MenuItem value="bank">🏦 Bank</MenuItem>
                   </TextField>
+                  {activeAccounts.length > 0 && (
+                    <TextField
+                      label="Wallet account"
+                      select
+                      size="small"
+                      fullWidth
+                      value={form.accountId ?? ""}
+                      onChange={(e) =>
+                        set("accountId", e.target.value || undefined)
+                      }
+                      sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+                      helperText="Optional — links this row to a named account"
+                    >
+                      <MenuItem value="">
+                        <em>Unassigned ({form.method})</em>
+                      </MenuItem>
+                      {activeAccounts
+                        .filter((a) => a.method === form.method)
+                        .map((a) => (
+                          <MenuItem key={a.id} value={a.id}>
+                            {a.icon} {a.name}
+                            {a.isDefault ? " · default" : ""}
+                          </MenuItem>
+                        ))}
+                    </TextField>
+                  )}
                 </Box>
               )
             )}

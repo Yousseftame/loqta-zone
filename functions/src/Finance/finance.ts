@@ -117,15 +117,19 @@ function buildUpdate(
 
   } else if (type === "transfer") {
     const dest = transferTo ?? (method === "cash" ? "bank" : "cash");
-    if (method === "cash") {
-      update.cashBalance = FieldValue.increment(-amt);  // source loses
-    } else {
-      update.bankBalance = FieldValue.increment(-amt);  // source loses
+    // Net per pool — same-method wallet→wallet must not change cash/bank totals.
+    // (Assigning increment twice on one field overwrites the first in JS.)
+    let cashDelta = 0;
+    let bankDelta = 0;
+    if (method === "cash") cashDelta -= amt;
+    else bankDelta -= amt;
+    if (dest === "cash") cashDelta += amt;
+    else bankDelta += amt;
+    if (cashDelta !== 0) {
+      update.cashBalance = FieldValue.increment(cashDelta);
     }
-    if (dest === "cash") {
-      update.cashBalance = FieldValue.increment(amt);   // dest gains
-    } else {
-      update.bankBalance = FieldValue.increment(amt);   // dest gains
+    if (bankDelta !== 0) {
+      update.bankBalance = FieldValue.increment(bankDelta);
     }
   }
 

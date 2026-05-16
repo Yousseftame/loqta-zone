@@ -12,10 +12,12 @@ import { CATEGORY_LABEL } from "./finance-data";
 import {
   buildLedgerMetaByTxId,
 } from "./finance-ledger-balance";
+import type { PaymentAccount } from "@/hooks/usePaymentAccounts";
 
 export type PeriodReportExcelContext = {
   stats: FinanceStats;
   allTransactions: Transaction[];
+  paymentAccounts?: PaymentAccount[];
 };
 
 function fmtDateTime(d: Date | null): string {
@@ -74,8 +76,12 @@ export function downloadPeriodReportExcel(
   fileBaseName: string,
   ctx: PeriodReportExcelContext,
 ): void {
-  const { stats, allTransactions } = ctx;
-  const metaById = buildLedgerMetaByTxId(allTransactions, stats);
+  const { stats, allTransactions, paymentAccounts = [] } = ctx;
+  const metaById = buildLedgerMetaByTxId(
+    allTransactions,
+    stats,
+    paymentAccounts,
+  );
   const exportedAt = new Date().toISOString();
 
   const wb = XLSX.utils.book_new();
