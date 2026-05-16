@@ -271,9 +271,9 @@ export const routes = createBrowserRouter([
       {
         path: "purchases",
         element: (
-         
+          <ProtectedRoute allowedRoles={["superAdmin"]}>
             <PurchasesList />
-          
+          </ProtectedRoute>
         ),
       },
 

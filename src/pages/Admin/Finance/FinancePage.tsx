@@ -406,10 +406,14 @@ export default function FinancePage() {
             />
           </Box>
 
-          <SectionLabel label="Purchase Analytics" />
-          <Box sx={{ mb: 4 }}>
-            <PurchaseCharts loading={loading} />
-          </Box>
+          {role === "superAdmin" && (
+            <>
+              <SectionLabel label="Purchase Analytics" />
+              <Box sx={{ mb: 4 }}>
+                <PurchaseCharts loading={loading} />
+              </Box>
+            </>
+          )}
         </>
       )}
 

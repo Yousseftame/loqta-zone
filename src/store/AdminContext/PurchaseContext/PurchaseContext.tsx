@@ -100,7 +100,7 @@ export const PurchaseProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     if (authLoading) return;
-    if (!user || (role !== "admin" && role !== "superAdmin")) {
+    if (!user || role !== "superAdmin") {
       setLoading(false);
       return;
     }

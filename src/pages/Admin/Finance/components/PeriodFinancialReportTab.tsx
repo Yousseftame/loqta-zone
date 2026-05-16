@@ -14,6 +14,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TablePagination,
   Typography,
   Alert,
 } from "@mui/material";
@@ -70,12 +71,19 @@ export default function PeriodFinancialReportTab({
     null,
   );
   const [parseError, setParseError] = useState<string | null>(null);
+  const [txPage, setTxPage] = useState(0);
+  const [txRowsPerPage, setTxRowsPerPage] = useState(25);
 
   /** Changing dates invalidates the last generated view so ranges cannot be confused. */
   useEffect(() => {
     setStatement(null);
     setParseError(null);
+    setTxPage(0);
   }, [fromIso, toIso]);
+
+  useEffect(() => {
+    setTxPage(0);
+  }, [statement]);
 
   const ownerNameById = useMemo(() => {
     const m = new Map<string, string>();
@@ -133,6 +141,10 @@ export default function PeriodFinancialReportTab({
   }, [statement, stats, transactions]);
 
   const s = statement?.summary;
+
+  const txInRange = statement?.transactionsSorted ?? [];
+  const txPageStart = txPage * txRowsPerPage;
+  const txPageRows = txInRange.slice(txPageStart, txPageStart + txRowsPerPage);
 
   return (
     <Box>
@@ -454,7 +466,7 @@ export default function PeriodFinancialReportTab({
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {statement.transactionsSorted.slice(0, 80).map((tx) => {
+                  {txPageRows.map((tx) => {
                     const meta = ledgerMetaByTxId.get(tx.id);
                     return (
                       <TableRow key={tx.id}>
@@ -507,12 +519,18 @@ export default function PeriodFinancialReportTab({
                 </TableBody>
               </Table>
             </TableContainer>
-            {statement.transactionsSorted.length > 80 && (
-              <Typography variant="caption" sx={{ p: 1.5, display: "block" }}>
-                Showing 80 of {statement.transactionsSorted.length} rows — full
-                list is in the Excel export.
-              </Typography>
-            )}
+            <TablePagination
+              component="div"
+              count={txInRange.length}
+              page={txPage}
+              onPageChange={(_e, p) => setTxPage(p)}
+              rowsPerPage={txRowsPerPage}
+              onRowsPerPageChange={(e) => {
+                setTxRowsPerPage(parseInt(e.target.value, 10));
+                setTxPage(0);
+              }}
+              rowsPerPageOptions={[10, 25, 50, 100]}
+            />
           </Paper>
         </>
       )}

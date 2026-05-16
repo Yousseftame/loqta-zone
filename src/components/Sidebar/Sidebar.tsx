@@ -402,7 +402,7 @@ const Sidebar = () => {
       label: "Purchases",
       icon: ShoppingCartIcon,
       path: "/admin/purchases",
-      roles: ["admin", "superAdmin"],
+      roles: ["superAdmin"],
     },
 
     {
