@@ -272,7 +272,7 @@ export default function SplashScreen({
           display: block;
           width: 100%;
           height: 100%;
-          object-fit: cover; /* expands video to fill the entire width and height */
+          object-fit: cover; /* spans completely from left to right, filling the screen */
         }
 
         /* Fade-out transitions on Exit */
@@ -294,6 +294,14 @@ export default function SplashScreen({
         }
 
         /* Removed max-width constraint on mobile for true full screen */
+
+        @media (max-width: 768px) {
+          .sp-video {
+            object-fit: contain;
+            max-width: 100%; /* keeps mobile exactly as user liked */
+            max-height: 100%;
+          }
+        }
 
         @media (max-width: 500px) {
           .sp-corner { width: 20px; height: 20px; }
