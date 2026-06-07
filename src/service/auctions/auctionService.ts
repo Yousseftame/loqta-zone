@@ -43,6 +43,7 @@ function docToAuction(id: string, data: Record<string, any>): Auction {
     minimumIncrement: data.minimumIncrement ?? 0,
     bidType: data.bidType ?? "fixed",
     fixedBidValue: data.fixedBidValue ?? null,
+    maximumBidLimit: data.maximumBidLimit ?? undefined,
     minimumPrice: data.minimumPrice ?? undefined,
     startTime,
     endTime,
@@ -80,6 +81,10 @@ function formToPayload(formData: AuctionFormData, createdBy = "") {
     fixedBidValue:
       formData.bidType === "fixed" && formData.fixedBidValue
         ? Number(formData.fixedBidValue)
+        : null,
+    maximumBidLimit:
+      formData.bidType !== "decreasing" && formData.maximumBidLimit
+        ? Number(formData.maximumBidLimit)
         : null,
     minimumPrice:
       formData.bidType === "decreasing" && formData.minimumPrice !== ""
@@ -158,6 +163,10 @@ export async function createAuction(
       formData.bidType === "fixed" && formData.fixedBidValue
         ? Number(formData.fixedBidValue)
         : null,
+    maximumBidLimit:
+      formData.bidType !== "decreasing" && formData.maximumBidLimit
+        ? Number(formData.maximumBidLimit)
+        : undefined,
     minimumPrice:
       formData.bidType === "decreasing" && formData.minimumPrice !== ""
         ? Number(formData.minimumPrice)
@@ -224,6 +233,10 @@ export async function updateAuction(
       formData.bidType === "fixed" && formData.fixedBidValue
         ? Number(formData.fixedBidValue)
         : null,
+    maximumBidLimit:
+      formData.bidType !== "decreasing" && formData.maximumBidLimit
+        ? Number(formData.maximumBidLimit)
+        : undefined,
     minimumPrice:
       formData.bidType === "decreasing" && formData.minimumPrice !== ""
         ? Number(formData.minimumPrice)

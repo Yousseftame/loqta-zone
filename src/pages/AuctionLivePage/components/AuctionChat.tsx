@@ -285,13 +285,24 @@ export default function AuctionChat({
         .auction-chat-container {
           display: flex;
           flex-direction: column;
-          background: #0d1723;
-          border: 1px solid rgba(255,255,255,0.05);
+          background: #1e3652;
+          border: 1px solid rgba(229,224,198,0.15);
           border-radius: 16px;
           overflow: hidden;
           box-shadow: 0 10px 30px rgba(0,0,0,0.4);
           margin-top: 24px;
           height: 450px;
+          position: relative;
+        }
+        .auction-chat-container::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background: url('/loqta-removebg-preview.png') no-repeat center center;
+          background-size: 100%;
+          opacity: 0.25;
+          pointer-events: none;
+          z-index: 0;
         }
 
         /* ── Header ── */
@@ -300,9 +311,11 @@ export default function AuctionChat({
           align-items: center;
           justify-content: space-between;
           padding: 14px 20px;
-          background: rgba(255,255,255,0.03);
-          border-bottom: 1px solid rgba(255,255,255,0.05);
+          background: linear-gradient(90deg, #1e3652, #2A4863);
+          border-bottom: 1px solid rgba(201,169,110,0.15);
           flex-shrink: 0;
+          position: relative;
+          z-index: 1;
         }
         .ac-header-title {
           font-size: 14px;
@@ -358,6 +371,8 @@ export default function AuctionChat({
           display: flex;
           flex-direction: column;
           overscroll-behavior: contain;
+          position: relative;
+          z-index: 1;
         }
         .ac-messages-area::-webkit-scrollbar { width: 4px; }
         .ac-messages-area::-webkit-scrollbar-track { background: transparent; }
@@ -425,8 +440,9 @@ export default function AuctionChat({
           max-width: 100%;
         }
         .ac-theirs .ac-bubble {
-          background: rgba(255,255,255,0.06);
+          background: rgba(13, 23, 35, 0.5);
           color: rgba(255,255,255,0.9);
+          border: 1px solid rgba(229,224,198,0.08);
           border-radius: 14px 14px 14px 4px;
         }
         .ac-mine .ac-bubble {
@@ -445,9 +461,11 @@ export default function AuctionChat({
         /* ── Input area ── */
         .ac-input-area {
           padding: 14px 16px;
-          background: rgba(0,0,0,0.25);
-          border-top: 1px solid rgba(255,255,255,0.05);
+          background: rgba(255, 255, 255, 0.03);
+          border-top: 1px solid rgba(255, 255, 255, 0.08);
           flex-shrink: 0;
+          position: relative;
+          z-index: 1;
         }
         .ac-form {
           display: flex;
@@ -455,8 +473,8 @@ export default function AuctionChat({
         }
         .ac-input {
           flex: 1;
-          background: rgba(255,255,255,0.04);
-          border: 1px solid rgba(255,255,255,0.08);
+          background: rgba(42,72,99,0.15);
+          border: 1px solid rgba(42,72,99,0.3);
           border-radius: 20px;
           padding: 11px 48px 11px 18px;
           color: #fff;

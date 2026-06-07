@@ -1,4 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
+// ── Kick off homepage data fetches NOW so they're ready when splash ends ──────
+import "@/lib/homeDataCache";
 
 interface SplashScreenProps {
   onComplete: () => void;
@@ -259,20 +261,41 @@ export default function SplashScreen({
 
         .sp-video-frame {
           position: relative;
-          width: 100%;
-          height: 100%;
+          width: auto;
+          height: auto;
+          max-width: 80vw;
+          max-height: 80vh;
           display: flex;
           align-items: center;
           justify-content: center;
           overflow: hidden;
-          background: transparent;
+          border-radius: 12px;
+          box-shadow: 0 0 80px rgba(0,0,0,0.9), 0 0 0 1px rgba(201,169,110,0.12);
+          background: #000;
+        }
+
+        /* Blurred video backdrop for cinematic effect on desktop */
+        .sp-video-bg {
+          position: absolute;
+          inset: 0;
+          z-index: 0;
+          overflow: hidden;
+        }
+        .sp-video-bg video {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          filter: blur(40px) brightness(0.35) saturate(0.5);
+          transform: scale(1.15);
         }
 
         .sp-video {
           display: block;
           width: 100%;
           height: 100%;
-          object-fit: cover; /* spans completely from left to right, filling the screen */
+          object-fit: contain; /* show full video on desktop without cropping */
+          max-width: 100%;
+          max-height: 100%;
         }
 
         /* Fade-out transitions on Exit */
@@ -296,9 +319,15 @@ export default function SplashScreen({
         /* Removed max-width constraint on mobile for true full screen */
 
         @media (max-width: 768px) {
+          .sp-video-frame {
+            max-width: 100vw;
+            max-height: 100vh;
+            border-radius: 0;
+            box-shadow: none;
+          }
           .sp-video {
             object-fit: contain;
-            max-width: 100%; /* keeps mobile exactly as user liked */
+            max-width: 100%;
             max-height: 100%;
           }
         }
@@ -349,6 +378,18 @@ export default function SplashScreen({
         {/* Centered Luxury Video Frame */}
         <div className={`sp-video-wrapper ${isVideoActive ? "video-active" : ""}`}>
           <div className="sp-video-frame">
+            {/* Blurred backdrop — same video, blurred & dimmed */}
+            <div className="sp-video-bg">
+              <video
+                src="/hf_20260517_083750_63fd66a2-fa5c-4488-8e53-bee0b12db710.mp4"
+                autoPlay
+                muted
+                playsInline
+                loop
+                aria-hidden="true"
+              />
+            </div>
+            {/* Main crisp video on top */}
             <video
               ref={videoRef}
               className="sp-video"
@@ -358,6 +399,7 @@ export default function SplashScreen({
               playsInline
               onPlay={handleVideoPlay}
               onEnded={handleVideoEnded}
+              style={{ position: "relative", zIndex: 1 }}
             />
           </div>
         </div>

@@ -37,6 +37,7 @@ interface AuctionData {
   minimumIncrement: number;
   bidType: "fixed" | "free" | "decreasing";
   fixedBidValue: number | null;
+  maximumBidLimit?: number;
   minimumPrice?: number;
   endTime: Date;
   startTime: Date;
@@ -215,6 +216,7 @@ export default function AuctionLivePage() {
           minimumIncrement: d.minimumIncrement ?? 0,
           bidType: d.bidType ?? "free",
           fixedBidValue: d.fixedBidValue ?? null,
+          maximumBidLimit: d.maximumBidLimit ?? undefined,
           minimumPrice: d.minimumPrice ?? undefined,
           endTime: toDate(d.endTime),
           startTime: toDate(d.startTime),

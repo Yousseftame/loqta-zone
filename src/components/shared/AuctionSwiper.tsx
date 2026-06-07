@@ -159,7 +159,7 @@ const CARD_CSS = `
   @keyframes lz-check-in { 0%{transform:scale(0) rotate(-20deg);opacity:0} 60%{transform:scale(1.2) rotate(4deg);opacity:1} 100%{transform:scale(1) rotate(0deg);opacity:1} }
   @keyframes lz-badge-glow { 0%,100%{box-shadow:0 0 0 0 rgba(201,169,110,0)} 50%{box-shadow:0 0 0 3px rgba(201,169,110,0.18)} }
 
-  .lz-card-img { height: 180px; }
+  .lz-card-img { height: 240px; }
   .lz-card-title { font-size: 11px; }
   .lz-card-subtitle { font-size: 10px; }
   .lz-card-meta { display: none !important; }
@@ -267,7 +267,7 @@ const CARD_CSS = `
   .lz-reg-btn:hover .lz-reg-arrow { transform: translateX(3px); }
 
   @media (min-width: 640px) {
-    .lz-card-img { height: 220px; } .lz-card-title { font-size: 13px; } .lz-card-subtitle { font-size: 11px; }
+    .lz-card-img { height: 300px; } .lz-card-title { font-size: 13px; } .lz-card-subtitle { font-size: 11px; }
     .lz-card-meta { display: flex !important; } .lz-card-price-label { font-size: 9px; } .lz-card-price-value { font-size: 19px; }
     .lz-card-bid-label { font-size: 9px; } .lz-card-bid-value { font-size: 13px; }
     .lz-card-body { padding: 14px 14px 16px; gap: 11px; } .lz-card-price-block { padding: 12px 12px; gap: 10px; }
@@ -282,7 +282,7 @@ const CARD_CSS = `
     .lz-reg-check { width: 14px; height: 14px; font-size: 8px; }
   }
   @media (min-width: 900px) {
-    .lz-card-img { height: 240px; } .lz-card-title { font-size: 15px; } .lz-card-subtitle { font-size: 12px; }
+    .lz-card-img { height: 340px; } .lz-card-title { font-size: 15px; } .lz-card-subtitle { font-size: 12px; }
     .lz-card-price-value { font-size: 21px; } .lz-card-bid-value { font-size: 14px; }
     .lz-card-body { padding: 18px 20px 20px; gap: 14px; } .lz-card-price-block { padding: 14px 16px; gap: 12px; }
     .lz-card-banner { font-size: 10px; padding: 8px 0; letter-spacing: 0.22em; }

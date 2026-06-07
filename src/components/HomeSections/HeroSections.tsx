@@ -8,10 +8,8 @@
  */
 
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import {
-  fetchActiveHeroSlides,
-  type HeroSlide,
-} from "@/service/heroSlide/heroSlideService";
+import { type HeroSlide } from "@/service/heroSlide/heroSlideService";
+import { getHeroSlides } from "@/lib/homeDataCache";
 
 const SLIDE_INTERVAL_MS = 7000;
 const ANIM_MS = 900;
@@ -40,7 +38,7 @@ export default function HeroSections() {
   const animLock = useRef(false);
 
   useEffect(() => {
-    fetchActiveHeroSlides()
+    getHeroSlides()
       .then((data: any) => setSlides(data))
       .catch((err: any) =>
         console.error("[HeroSections] Failed to load slides:", err),

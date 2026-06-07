@@ -7,7 +7,7 @@
 
 import * as XLSX from "xlsx";
 import type { PeriodFinancialStatement } from "./finance-period-report";
-import type { Transaction, FinanceStats } from "./finance-data";
+import type { Transaction, FinanceStats, Owner } from "./finance-data";
 import { CATEGORY_LABEL } from "./finance-data";
 import {
   buildLedgerMetaByTxId,
@@ -18,6 +18,7 @@ export type PeriodReportExcelContext = {
   stats: FinanceStats;
   allTransactions: Transaction[];
   paymentAccounts?: PaymentAccount[];
+  owners?: Owner[];
 };
 
 function fmtDateTime(d: Date | null): string {
@@ -76,12 +77,16 @@ export function downloadPeriodReportExcel(
   fileBaseName: string,
   ctx: PeriodReportExcelContext,
 ): void {
-  const { stats, allTransactions, paymentAccounts = [] } = ctx;
+  const { stats, allTransactions, paymentAccounts = [], owners = [] } = ctx;
   const metaById = buildLedgerMetaByTxId(
     allTransactions,
     stats,
     paymentAccounts,
   );
+
+  const ownerNameById = new Map<string, string>();
+  for (const o of owners) ownerNameById.set(o.id, o.name);
+
   const exportedAt = new Date().toISOString();
 
   const wb = XLSX.utils.book_new();
@@ -93,37 +98,8 @@ export function downloadPeriodReportExcel(
 
   const anchor = stats.cashBalance + stats.bankBalance;
 
-  const summaryRows: (string | number)[][] = [
-    ["Loqta — Finance period statement"],
-    ["From (inclusive)", fromStr],
-    ["To (inclusive)", toStr],
-    ["Exported at (UTC)", exportedAt],
-    [],
-    ["Current balances (anchor for Balance after column)", ""],
-    ["Cash balance (EGP)", num(stats.cashBalance)],
-    ["Bank balance (EGP)", num(stats.bankBalance)],
-    ["Available (cash + bank) anchor (EGP)", num(anchor)],
-    [],
-    ["P&L summary (period)", "Amount (EGP)"],
-    ["Total income", num(stmt.summary.income)],
-    ["Total expenses (operating)", num(stmt.summary.expenses)],
-    ["Net owner draws (withdrawals − returns)", num(stmt.summary.ownerDraws)],
-    ["Net P&L (income − expenses − owner draws)", num(stmt.summary.net)],
-    [],
-    ["Transfers in period (not in P&L)", stmt.transfers.count],
-    ["Sum of transfer amounts (informational)", num(stmt.transfers.volume)],
-    [],
-    [
-      "Note",
-      "Balance after each row uses the same running-balance rules as the Transactions table (newest-first ledger, split parts ordered).",
-    ],
-  ];
-  XLSX.utils.book_append_sheet(
-    wb,
-    XLSX.utils.aoa_to_sheet(summaryRows),
-    "Summary",
-  );
-
+  // ── Build Category and Owner sections for the Summary Sheet ──
+  
   const incTotal = stmt.summary.income || 0;
   const incRows: (string | number)[][] = [
     ["Category", "Amount (EGP)", "% of period income"],
@@ -139,7 +115,6 @@ export function downloadPeriodReportExcel(
     ]);
   }
   if (incEntries.length === 0) incRows.push(["(none)", 0, "0%"]);
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(incRows), "Income");
 
   const expTotal = stmt.summary.expenses || 0;
   const expRows: (string | number)[][] = [
@@ -156,22 +131,73 @@ export function downloadPeriodReportExcel(
     ]);
   }
   if (expEntries.length === 0) expRows.push(["(none)", 0, "0%"]);
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(expRows), "Expenses");
 
   const ownRows: (string | number)[][] = [
     ["Owner ID", "Name", "Withdrawals (EGP)", "Returns (EGP)", "Net to owner (EGP)"],
   ];
   for (const r of stmt.ownerActivity) {
+    const finalName = ownerNameById.get(r.ownerId) ?? r.displayName;
     ownRows.push([
       r.ownerId,
-      r.displayName,
+      finalName,
       num(r.withdrawals),
       num(r.returns),
       num(r.netToOwner),
     ]);
   }
   if (stmt.ownerActivity.length === 0) ownRows.push(["(none)", "", 0, 0, 0]);
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ownRows), "Owners");
+
+  const periodTxRows = buildTransactionExportRows(
+    stmt.transactionsSorted,
+    metaById,
+  );
+  const txHeaders = periodTxRows.length > 0 ? Object.keys(periodTxRows[0]) : [];
+  const txDataRows: (string | number)[][] = periodTxRows.map((row) =>
+    txHeaders.map((h) => row[h] ?? "")
+  );
+
+  const summaryRows: (string | number)[][] = [
+    ["Loqta — Finance Period Statement"],
+    ["From (inclusive)", fromStr],
+    ["To (inclusive)", toStr],
+    ["Exported at (UTC)", exportedAt],
+    [],
+    ["Current balances (anchor for Balance after column)", ""],
+    ["Cash balance (EGP)", num(stats.cashBalance)],
+    ["Bank balance (EGP)", num(stats.bankBalance)],
+    ["Available (cash + bank) anchor (EGP)", num(anchor)],
+    [],
+    ["P&L SUMMARY", "Amount (EGP)"],
+    ["Total income", num(stmt.summary.income)],
+    ["Total expenses (operating)", num(stmt.summary.expenses)],
+    ["Net owner draws (withdrawals − returns)", num(stmt.summary.ownerDraws)],
+    ["Net P&L (income − expenses − owner draws)", num(stmt.summary.net)],
+    [],
+    ["Transfers in period (not in P&L)", stmt.transfers.count],
+    ["Sum of transfer amounts (informational)", num(stmt.transfers.volume)],
+    [],
+    ["--- INCOME BY CATEGORY ---"],
+    ...incRows,
+    [],
+    ["--- EXPENSES BY CATEGORY ---"],
+    ...expRows,
+    [],
+    ["--- OWNER ACTIVITY ---"],
+    ...ownRows,
+    [],
+    ["--- TRANSACTIONS IN RANGE (NEWEST FIRST) ---"],
+    ...(periodTxRows.length > 0 ? [txHeaders, ...txDataRows] : [["(none)"]]),
+    [],
+    [
+      "IMPORTANT NOTE",
+      "Please see the other tabs at the bottom of this Excel file to view Transfers and individual filtered line sheets.",
+    ],
+  ];
+  XLSX.utils.book_append_sheet(
+    wb,
+    XLSX.utils.aoa_to_sheet(summaryRows),
+    "Statement_Summary",
+  );
 
   const trRows: Record<string, string | number>[] = [];
   for (const tx of stmt.transfers.rows) {
@@ -194,10 +220,6 @@ export function downloadPeriodReportExcel(
     "Transfers",
   );
 
-  const periodTxRows = buildTransactionExportRows(
-    stmt.transactionsSorted,
-    metaById,
-  );
   XLSX.utils.book_append_sheet(
     wb,
     XLSX.utils.json_to_sheet(

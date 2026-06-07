@@ -15,6 +15,7 @@ export interface Auction {
   minimumIncrement: number;
   bidType: BidType;
   fixedBidValue: number | null;   // only used when bidType === "fixed"
+  maximumBidLimit?: number;       // only used when bidType is "fixed" or "free"
   minimumPrice?: number;          // only used when bidType === "decreasing"
   // Time
   startTime: Date;
@@ -48,6 +49,7 @@ export interface AuctionFormData {
   minimumIncrement: string;
   bidType: BidType;
   fixedBidValue: string;          // only relevant when bidType === "fixed"
+  maximumBidLimit: string;        // optional limit for "fixed" or "free"
   minimumPrice: string;           // only relevant when bidType === "decreasing"
   startTime: string;              // ISO string from datetime-local input
   endTime: string;
@@ -78,6 +80,7 @@ export const DEFAULT_AUCTION_FORM: AuctionFormData = {
   minimumIncrement: "",
   bidType: "fixed",
   fixedBidValue: "",
+  maximumBidLimit: "",
   minimumPrice: "",
   startTime: "",
   endTime: "",

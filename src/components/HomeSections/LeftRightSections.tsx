@@ -8,14 +8,9 @@
  */
 
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import {
-  fetchActiveLeftSectionSlides,
-  type LeftSectionSlide,
-} from "@/service/leftSection/leftSectionService";
-import {
-  fetchActiveRightSectionSlides,
-  type RightSectionSlide,
-} from "@/service/rightSection/rightSectionService";
+import { type LeftSectionSlide } from "@/service/leftSection/leftSectionService";
+import { type RightSectionSlide } from "@/service/rightSection/rightSectionService";
+import { getLeftSectionSlides, getRightSectionSlides } from "@/lib/homeDataCache";
 
 const SLIDE_INTERVAL_MS = 5000;
 const ANIM_MS = 800;
@@ -471,14 +466,14 @@ export default function LeftRightSections() {
   const [rightLoading, setRightLoading] = useState(true);
 
   useEffect(() => {
-    fetchActiveLeftSectionSlides()
+    getLeftSectionSlides()
       .then(setLeftSlides)
       .catch((err) =>
         console.error("[LeftRightSections] left fetch error:", err),
       )
       .finally(() => setLeftLoading(false));
 
-    fetchActiveRightSectionSlides()
+    getRightSectionSlides()
       .then(setRightSlides)
       .catch((err) =>
         console.error("[LeftRightSections] right fetch error:", err),

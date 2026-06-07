@@ -101,6 +101,7 @@ export default function AuctionForm() {
           minimumIncrement: String(a.minimumIncrement),
           bidType: a.bidType,
           fixedBidValue: a.fixedBidValue != null ? String(a.fixedBidValue) : "",
+          maximumBidLimit: a.maximumBidLimit != null ? String(a.maximumBidLimit) : "",
           minimumPrice: a.minimumPrice != null ? String(a.minimumPrice) : "",
           startTime: toDatetimeLocal(a.startTime),
           endTime: toDatetimeLocal(a.endTime),
@@ -182,9 +183,10 @@ export default function AuctionForm() {
     )
       e.startingPrice = "Starting price is invalid";
     if (
-      !form.minimumIncrement ||
-      isNaN(Number(form.minimumIncrement)) ||
-      Number(form.minimumIncrement) < 0
+      form.bidType === "free" &&
+      (!form.minimumIncrement ||
+        isNaN(Number(form.minimumIncrement)) ||
+        Number(form.minimumIncrement) < 0)
     )
       e.minimumIncrement = "Enter a valid increment";
     if (form.bidType === "fixed") {
@@ -194,6 +196,17 @@ export default function AuctionForm() {
         Number(form.fixedBidValue) <= 0
       )
         e.fixedBidValue = "Enter a valid fixed bid amount";
+    }
+    if (
+      (form.bidType === "fixed" || form.bidType === "free") &&
+      form.maximumBidLimit &&
+      form.maximumBidLimit.trim() !== ""
+    ) {
+      const maxLimit = Number(form.maximumBidLimit);
+      const startP = Number(form.startingPrice);
+      if (isNaN(maxLimit) || maxLimit <= startP) {
+        e.maximumBidLimit = "Must be greater than starting price";
+      }
     }
     if (!form.startTime) e.startTime = "Start time is required";
     else if (new Date(form.startTime) < new Date())
@@ -623,18 +636,6 @@ export default function AuctionForm() {
                 </p>
               )}
             </Box>
-
-            <TextField
-              label="Minimum Increment *"
-              size="small"
-              type="number"
-              fullWidth
-              value={form.minimumIncrement}
-              onChange={(e) => field("minimumIncrement", e.target.value)}
-              error={!!errors.minimumIncrement}
-              helperText={errors.minimumIncrement}
-              sx={inputSx}
-            />
           </Box>
 
           {/* Row 3 — Start Time + End Time */}
@@ -845,6 +846,56 @@ export default function AuctionForm() {
                 error={!!errors.fixedBidValue}
                 helperText={
                   errors.fixedBidValue || "Each bid will be exactly this amount"
+                }
+                sx={inputSx}
+              />
+            </Box>
+          )}
+
+          {/* Minimum Increment — only relevant for free bid type */}
+          {form.bidType === "free" && (
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: { xs: "1fr", sm: "1fr 2fr" },
+                gap: 2.5,
+              }}
+            >
+              <TextField
+                label="Minimum Increment *"
+                size="small"
+                type="number"
+                fullWidth
+                value={form.minimumIncrement}
+                onChange={(e) => field("minimumIncrement", e.target.value)}
+                error={!!errors.minimumIncrement}
+                helperText={
+                  errors.minimumIncrement || "Smallest allowed bid increase"
+                }
+                sx={inputSx}
+              />
+            </Box>
+          )}
+
+          {/* Maximum Bid Limit — optional for fixed and free */}
+          {(form.bidType === "fixed" || form.bidType === "free") && (
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: { xs: "1fr", sm: "1fr 2fr" },
+                gap: 2.5,
+              }}
+            >
+              <TextField
+                label="Maximum Bid Limit (Optional)"
+                size="small"
+                type="number"
+                fullWidth
+                value={form.maximumBidLimit || ""}
+                onChange={(e) => field("maximumBidLimit", e.target.value)}
+                error={!!errors.maximumBidLimit}
+                helperText={
+                  errors.maximumBidLimit || "Leave empty for no limit"
                 }
                 sx={inputSx}
               />

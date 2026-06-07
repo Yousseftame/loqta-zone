@@ -101,6 +101,7 @@ export default function DecreasingAuctionForm() {
           minimumIncrement: String(a.minimumIncrement),
           bidType: "decreasing",
           fixedBidValue: "",
+          maximumBidLimit: "",
           minimumPrice: a.minimumPrice != null ? String(a.minimumPrice) : "",
           startTime: toDatetimeLocal(a.startTime),
           endTime: toDatetimeLocal(a.endTime),

@@ -627,6 +627,30 @@ export default function AuctionView() {
                 </span>
               ),
             },
+            ...(auction.maximumBidLimit != null
+              ? [
+                  {
+                    label: "Max Bid Limit",
+                    value: (
+                      <span style={{ fontWeight: 700, color: colors.textPrimary }}>
+                        {auction.maximumBidLimit.toFixed(2)} EGP
+                      </span>
+                    ),
+                  },
+                ]
+              : []),
+            ...(auction.minimumPrice != null
+              ? [
+                  {
+                    label: "Minimum Price",
+                    value: (
+                      <span style={{ fontWeight: 700, color: colors.textPrimary }}>
+                        {auction.minimumPrice.toFixed(2)} EGP
+                      </span>
+                    ),
+                  },
+                ]
+              : []),
             {
               label: "Last Offer",
               value: (

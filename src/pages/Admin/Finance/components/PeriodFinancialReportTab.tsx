@@ -134,7 +134,7 @@ export default function PeriodFinancialReportTab({
       downloadPeriodReportExcel(
         statement,
         `Loqta_finance_statement_${fromStr}_to_${toStr}`,
-        { stats, allTransactions: transactions, paymentAccounts },
+        { stats, allTransactions: transactions, paymentAccounts, owners },
       );
       toast.success("Excel file downloaded.");
     } catch (e: any) {

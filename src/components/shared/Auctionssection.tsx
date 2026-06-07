@@ -312,7 +312,12 @@ function usePastAuctions() {
         };
       });
 
-      setPast((prev) => [...prev, ...newItems]);
+      setPast((prev) => {
+        if (isFirst) return newItems;
+        const existingIds = new Set(prev.map((item) => item.id));
+        const uniqueNewItems = newItems.filter((item) => !existingIds.has(item.id));
+        return [...prev, ...uniqueNewItems];
+      });
     } catch (err: any) {
       console.error("[usePastAuctions]", err);
       setError("Failed to load past auctions");
@@ -591,20 +596,6 @@ const UpcomingCard = memo(function UpcomingCard({
           >
             <span style={{ color: GOLD, fontSize: 13 }}>📅</span>
             {item.sessionDate}
-          </span>
-          <span
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              color: "rgba(229,224,198,0.5)",
-            }}
-          >
-            <span style={{ color: GOLD, fontSize: 13 }}>📦</span>
-            {item.pieces}{" "}
-            {item.pieces === 1
-              ? t("auctionsSection.piece")
-              : t("auctionsSection.pieces")}
           </span>
         </div>
 
@@ -1399,7 +1390,7 @@ export default function AuctionsSection() {
         .lz-cd-digit { animation: cdFlip 0.22s cubic-bezier(0,0,0.2,1) both; }
         .tab-in  { animation: tabIn 0.38s cubic-bezier(0.22,1,0.36,1) forwards }
         .tab-out { opacity:0; transform:translateY(-8px); transition:opacity .2s ease,transform .2s ease }
-        .ac { display:grid; grid-template-columns:220px 1fr; overflow:hidden; border-radius:20px; min-width:0; box-sizing:border-box; }
+        .ac { display:grid; grid-template-columns:500px 1fr; overflow:hidden; border-radius:20px; min-width:0; box-sizing:border-box; }
         .ac-img { position:relative; overflow:hidden; background:#0d1520; min-height:220px }
         .ac-top { display:flex; align-items:flex-start; justify-content:space-between; gap:16px }
         .ac-upcoming { background:rgba(255,255,255,0.028); border:1px solid rgba(229,224,198,0.08); backdrop-filter:blur(14px); box-shadow:0 4px 24px rgba(0,0,0,0.2); border-radius:20px; transition:background .3s ease,border-color .3s ease,box-shadow .3s ease; }

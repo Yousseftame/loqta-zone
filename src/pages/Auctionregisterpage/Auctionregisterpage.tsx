@@ -877,35 +877,6 @@ export default function AuctionRegisterPage() {
                     {resolveProductTitle(product.categoryName)}
                   </span>
                 </div>
-                <div className="lz-srow">
-                  <span className="lz-sk">
-                    {t("auctionRegister.availability")}
-                  </span>
-                  <span className="lz-sdot" />
-                  <span
-                    className="lz-sv"
-                    style={{
-                      color: product.quantity > 0 ? "#4ade80" : "#f87171",
-                    }}
-                  >
-                    {product.quantity > 0
-                      ? t("auctionRegister.inStock", {
-                          count: product.quantity,
-                        })
-                      : t("auctionRegister.outOfStock")}
-                  </span>
-                </div>
-                <div className="lz-srow">
-                  <span className="lz-sk">
-                    {t("auctionRegister.sessionsLabel")}
-                  </span>
-                  <span className="lz-sdot" />
-                  <span className="lz-sv">
-                    {t("auctionRegister.totalSessions", {
-                      count: product.totalAuctions,
-                    })}
-                  </span>
-                </div>
               </div>
               {product.features.length > 0 && (
                 <div className="lz-feats">
