@@ -6,10 +6,8 @@
 import {
   addDoc,
   collection,
-  deleteDoc,
   doc,
   getDoc,
-  increment,
   serverTimestamp,
   updateDoc,
 } from "firebase/firestore";
@@ -87,7 +85,10 @@ export async function warnChatUser(params: {
   });
 }
 
-/** Restrict user, remove from participants, post public kick notice, notify user. */
+/**
+ * Restrict user from the auction (blocks room, bids, chat) and post kick notice.
+ * Participant + payment records are kept so entry-fee revenue stays in finance/analytics.
+ */
 export async function kickChatUser(params: {
   auctionId: string;
   targetUserId: string;
@@ -111,25 +112,6 @@ export async function kickChatUser(params: {
   }
 
   await restrictUserFromAuctionFull(targetUserId, auctionId, userEmail);
-
-  const participantRef = doc(
-    db,
-    "auctions",
-    auctionId,
-    "Participants",
-    targetUserId,
-  );
-  const participantSnap = await getDoc(participantRef);
-  if (participantSnap.exists()) {
-    await deleteDoc(participantRef);
-    try {
-      await updateDoc(doc(db, "auctions", auctionId), {
-        totalParticipants: increment(-1),
-      });
-    } catch {
-      /* non-fatal if count update fails */
-    }
-  }
 
   await addDoc(collection(db, "auctions", auctionId, "chat"), {
     type: "system_kick",
