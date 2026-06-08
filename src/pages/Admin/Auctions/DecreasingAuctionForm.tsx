@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import {
   TextField,
   Button,
@@ -75,6 +75,9 @@ export default function DecreasingAuctionForm() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [loadingAuction, setLoadingAuction] = useState(isEdit);
+  const initialProductIdRef = useRef<string | null>(null);
+  const initialAuctionNumberRef = useRef<string | null>(null);
+  const initialStartingPriceRef = useRef<string | null>(null);
 
   // ── Redirect if editing an ended auction ────────────────────────────────────
   useEffect(() => {
@@ -94,6 +97,9 @@ export default function DecreasingAuctionForm() {
       setLoadingAuction(true);
       const a = await getAuction(id);
       if (a) {
+        initialProductIdRef.current = a.productId;
+        initialAuctionNumberRef.current = String(a.auctionNumber);
+        initialStartingPriceRef.current = String(a.startingPrice);
         setForm({
           productId: a.productId,
           auctionNumber: String(a.auctionNumber),
@@ -131,32 +137,67 @@ export default function DecreasingAuctionForm() {
     );
   }, [auctions, form.productId, id]);
 
-  // ── Auto-assign next available number when product changes (add mode only) ───
-  // In edit mode we keep the existing number — the admin chose it already.
+  // ── Auto-assign next available number when product changes ───────────────────
+  // Edit mode: keep the saved number for the same product; reassign when product changes.
   useEffect(() => {
-    if (isEdit) return; // don't override on edit
-    if (!form.productId) return; // no product selected yet
+    if (!form.productId) return;
+
+    if (isEdit) {
+      if (!initialProductIdRef.current) return;
+
+      if (form.productId === initialProductIdRef.current) {
+        if (
+          initialAuctionNumberRef.current &&
+          form.auctionNumber !== initialAuctionNumberRef.current
+        ) {
+          setForm((f) => ({
+            ...f,
+            auctionNumber: initialAuctionNumberRef.current!,
+          }));
+        }
+        return;
+      }
+      const next = nextAvailableNumber(usedAuctionNumbers);
+      setForm((f) => ({ ...f, auctionNumber: String(next) }));
+      setErrors((e) => ({ ...e, auctionNumber: "" }));
+      return;
+    }
 
     const next = nextAvailableNumber(usedAuctionNumbers);
     setForm((f) => ({ ...f, auctionNumber: String(next) }));
     setErrors((e) => ({ ...e, auctionNumber: "" }));
   }, [form.productId, usedAuctionNumbers, isEdit]);
 
-  // ── Auto-populate starting price from selected product (add mode only) ────────
-  // In edit mode we keep the saved starting price.
+  // ── Auto-populate starting price from selected product ────────────────────────
+  // Edit mode: keep saved price for same product; use new product price when product changes.
   useEffect(() => {
-    if (isEdit) return; // don't override on edit
     if (!form.productId) {
-      // Clear starting price when no product is selected
       setForm((f) => ({ ...f, startingPrice: "" }));
       return;
     }
 
     const selectedProduct = products.find((p) => p.id === form.productId);
-    if (selectedProduct) {
-      setForm((f) => ({ ...f, startingPrice: String(selectedProduct.price) }));
-      setErrors((e) => ({ ...e, startingPrice: "" }));
+    if (!selectedProduct) return;
+
+    if (isEdit) {
+      if (!initialProductIdRef.current) return;
+
+      if (form.productId === initialProductIdRef.current) {
+        if (
+          initialStartingPriceRef.current &&
+          form.startingPrice !== initialStartingPriceRef.current
+        ) {
+          setForm((f) => ({
+            ...f,
+            startingPrice: initialStartingPriceRef.current!,
+          }));
+        }
+        return;
+      }
     }
+
+    setForm((f) => ({ ...f, startingPrice: String(selectedProduct.price) }));
+    setErrors((e) => ({ ...e, startingPrice: "" }));
   }, [form.productId, products, isEdit]);
 
   // ── Status preview ───────────────────────────────────────────────────────────
@@ -370,8 +411,6 @@ export default function DecreasingAuctionForm() {
                   setForm((f) => ({
                     ...f,
                     productId: e.target.value,
-                    auctionNumber: "",
-                    // startingPrice is handled by the useEffect above
                   }));
                   setErrors((er) => ({
                     ...er,
@@ -519,7 +558,9 @@ export default function DecreasingAuctionForm() {
                     margin: "3px 0 0 2px",
                   }}
                 >
-                  Auction number is locked while editing.
+                  {form.productId === initialProductIdRef.current
+                    ? "Auction number is locked while editing."
+                    : "Auction number reassigned for the new product."}
                 </p>
               )}
             </Box>
@@ -616,7 +657,9 @@ export default function DecreasingAuctionForm() {
                     margin: "3px 0 0 2px",
                   }}
                 >
-                  Starting price is locked while editing.
+                  {form.productId === initialProductIdRef.current
+                    ? "Starting price is locked while editing."
+                    : "Starting price updated from the new product."}
                 </p>
               )}
             </Box>

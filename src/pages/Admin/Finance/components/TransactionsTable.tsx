@@ -42,9 +42,11 @@ import {
 import { colors } from "../../Products/products-data";
 import {
   CATEGORY_LABEL,
+  resolveTransactionCategoryLabel,
   type Transaction,
   type FinanceStats,
   type TransactionFormValues,
+  type Owner,
 } from "../finance-data";
 import AddTransactionModal from "./AddTransactionModal";
 import { usePaymentAccounts, buildMethodDisplay } from "@/hooks/usePaymentAccounts";
@@ -498,7 +500,7 @@ function TransactionDetailModal({
             >
               <DetailRow
                 label="Category"
-                value={CATEGORY_LABEL[tx.category] ?? tx.category}
+                value={resolveTransactionCategoryLabel(tx)}
               />
               <DetailRow label="Method" value={methodLabel} />
               <DetailRow label="Done By" value={`👤 ${doneBy}`} />
@@ -662,17 +664,20 @@ function DetailRow({
 interface Props {
   transactions: Transaction[];
   stats: FinanceStats;
+  owners?: Owner[];
   loading?: boolean;
   updating?: boolean;
   onUpdateTransaction?: (
     txId: string,
     values: TransactionFormValues,
+    beforeTx: Transaction,
   ) => Promise<void>;
 }
 
 export default function TransactionsTable({
   transactions,
   stats,
+  owners,
   loading = false,
   updating = false,
   onUpdateTransaction,
@@ -893,7 +898,7 @@ export default function TransactionsTable({
 
   const handleEditSubmit = async (values: TransactionFormValues) => {
     if (!editingTx || !onUpdateTransaction) return;
-    await onUpdateTransaction(editingTx.id, values);
+    await onUpdateTransaction(editingTx.id, values, editingTx);
     setEditingTx(null);
   };
 
@@ -936,6 +941,7 @@ export default function TransactionsTable({
         editingTx={editingTx}
         stats={stats}
         transactions={transactions}
+        owners={owners}
       />
 
       <Paper
@@ -1606,7 +1612,7 @@ export default function TransactionsTable({
                           fontWeight: 600,
                         }}
                       >
-                        {CATEGORY_LABEL[tx.category] ?? tx.category}
+                        {resolveTransactionCategoryLabel(tx)}
                         {tx.ownerName && (
                           <span
                             style={{

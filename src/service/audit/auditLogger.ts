@@ -339,22 +339,41 @@ export const auditLogger = {
 
   // ── Admin: Auctions ───────────────────────────────────────────────────────
 
-  adminAuctionCreated(actor: AuditActor, auctionId: string, auctionName: string) {
-    log("ADMIN_AUCTION_CREATED", actor, "Auction", `Auction "${auctionName}" created`, {
-      entityId: auctionId, entityName: auctionName,
-    });
+  adminAuctionCreated(
+    actor: AuditActor,
+    auctionId: string,
+    auctionName: string,
+    description?: string,
+  ) {
+    log("ADMIN_AUCTION_CREATED", actor, "Auction",
+      description ?? `Auction "${auctionName}" created`,
+      { entityId: auctionId, entityName: auctionName },
+    );
   },
 
-  adminAuctionUpdated(actor: AuditActor, auctionId: string, auctionName: string, changes?: AuditChange[]) {
-    log("ADMIN_AUCTION_UPDATED", actor, "Auction", `Auction "${auctionName}" updated`, {
-      entityId: auctionId, entityName: auctionName, changes,
-    });
+  adminAuctionUpdated(
+    actor: AuditActor,
+    auctionId: string,
+    auctionName: string,
+    description?: string,
+    changes?: AuditChange[],
+  ) {
+    log("ADMIN_AUCTION_UPDATED", actor, "Auction",
+      description ?? `Auction "${auctionName}" updated`,
+      { entityId: auctionId, entityName: auctionName, changes },
+    );
   },
 
-  adminAuctionDeleted(actor: AuditActor, auctionId: string, auctionName: string) {
-    log("ADMIN_AUCTION_DELETED", actor, "Auction", `Auction "${auctionName}" deleted`, {
-      entityId: auctionId, entityName: auctionName,
-    });
+  adminAuctionDeleted(
+    actor: AuditActor,
+    auctionId: string,
+    auctionName: string,
+    description?: string,
+  ) {
+    log("ADMIN_AUCTION_DELETED", actor, "Auction",
+      description ?? `Auction "${auctionName}" deleted`,
+      { entityId: auctionId, entityName: auctionName },
+    );
   },
 
   // ── Admin: Products ───────────────────────────────────────────────────────
@@ -456,6 +475,199 @@ export const auditLogger = {
       `Participant "${participantName}" removed from auction`,
       { entityId: auctionId, entityName: participantName },
     );
+  },
+
+  adminAuctionToggled(
+    actor: AuditActor,
+    auctionId: string,
+    auctionName: string,
+    isActive: boolean,
+    description?: string,
+  ) {
+    log("ADMIN_AUCTION_TOGGLED", actor, "Auction",
+      description ?? `Auction "${auctionName}" ${isActive ? "activated" : "deactivated"}`,
+      { entityId: auctionId, entityName: auctionName },
+    );
+  },
+
+  // ── Admin: Finance Transactions ───────────────────────────────────────────
+
+  adminTransactionCreated(
+    actor: AuditActor,
+    txId: string,
+    description: string,
+    entityName?: string,
+  ) {
+    log("ADMIN_TRANSACTION_CREATED", actor, "Transaction", description, {
+      entityId: txId,
+      entityName: entityName ?? description.slice(0, 80),
+    });
+  },
+
+  adminTransactionUpdated(
+    actor: AuditActor,
+    txId: string,
+    description: string,
+    changes?: AuditChange[],
+    entityName?: string,
+  ) {
+    log("ADMIN_TRANSACTION_UPDATED", actor, "Transaction", description, {
+      entityId: txId,
+      entityName: entityName ?? description.slice(0, 80),
+      changes,
+    });
+  },
+
+  adminTransactionDeleted(
+    actor: AuditActor,
+    txId: string,
+    description: string,
+    entityName?: string,
+  ) {
+    log("ADMIN_TRANSACTION_DELETED", actor, "Transaction", description, {
+      entityId: txId,
+      entityName: entityName ?? description.slice(0, 80),
+    });
+  },
+
+  adminOwnerCreated(actor: AuditActor, ownerId: string, description: string) {
+    log("ADMIN_OWNER_CREATED", actor, "Owner", description, {
+      entityId: ownerId,
+      entityName: description,
+    });
+  },
+
+  adminOwnerDeleted(actor: AuditActor, ownerId: string, description: string) {
+    log("ADMIN_OWNER_DELETED", actor, "Owner", description, {
+      entityId: ownerId,
+      entityName: description,
+    });
+  },
+
+  adminPaymentAccountCreated(
+    actor: AuditActor,
+    accountId: string,
+    description: string,
+    accountName: string,
+  ) {
+    log("ADMIN_PAYMENT_ACCOUNT_CREATED", actor, "PaymentAccount", description, {
+      entityId: accountId,
+      entityName: accountName,
+    });
+  },
+
+  adminPaymentAccountUpdated(
+    actor: AuditActor,
+    accountId: string,
+    description: string,
+    accountName: string,
+    changes?: AuditChange[],
+  ) {
+    log("ADMIN_PAYMENT_ACCOUNT_UPDATED", actor, "PaymentAccount", description, {
+      entityId: accountId,
+      entityName: accountName,
+      changes,
+    });
+  },
+
+  adminPaymentAccountArchived(
+    actor: AuditActor,
+    accountId: string,
+    description: string,
+    accountName: string,
+  ) {
+    log("ADMIN_PAYMENT_ACCOUNT_ARCHIVED", actor, "PaymentAccount", description, {
+      entityId: accountId,
+      entityName: accountName,
+    });
+  },
+
+  adminPaymentAccountDefaultSet(
+    actor: AuditActor,
+    accountId: string,
+    description: string,
+    accountName: string,
+  ) {
+    log("ADMIN_PAYMENT_ACCOUNT_DEFAULT_SET", actor, "PaymentAccount", description, {
+      entityId: accountId,
+      entityName: accountName,
+    });
+  },
+
+  // ── Admin: Purchases ──────────────────────────────────────────────────────
+
+  adminPurchaseCreated(
+    actor: AuditActor,
+    purchaseId: string,
+    purchaseName: string,
+    description: string,
+  ) {
+    log("ADMIN_PURCHASE_CREATED", actor, "Purchase", description, {
+      entityId: purchaseId,
+      entityName: purchaseName,
+    });
+  },
+
+  adminPurchaseUpdated(
+    actor: AuditActor,
+    purchaseId: string,
+    purchaseName: string,
+    description: string,
+    changes?: AuditChange[],
+  ) {
+    log("ADMIN_PURCHASE_UPDATED", actor, "Purchase", description, {
+      entityId: purchaseId,
+      entityName: purchaseName,
+      changes,
+    });
+  },
+
+  adminPurchaseDeleted(
+    actor: AuditActor,
+    purchaseId: string,
+    purchaseName: string,
+    description: string,
+  ) {
+    log("ADMIN_PURCHASE_DELETED", actor, "Purchase", description, {
+      entityId: purchaseId,
+      entityName: purchaseName,
+    });
+  },
+
+  adminPurchaseStatusChanged(
+    actor: AuditActor,
+    purchaseId: string,
+    purchaseName: string,
+    description: string,
+  ) {
+    log("ADMIN_PURCHASE_STATUS_CHANGED", actor, "Purchase", description, {
+      entityId: purchaseId,
+      entityName: purchaseName,
+    });
+  },
+
+  adminPurchasePaymentRecorded(
+    actor: AuditActor,
+    purchaseId: string,
+    purchaseName: string,
+    description: string,
+  ) {
+    log("ADMIN_PURCHASE_PAYMENT_RECORDED", actor, "Purchase", description, {
+      entityId: purchaseId,
+      entityName: purchaseName,
+    });
+  },
+
+  adminPurchaseMarkedPaid(
+    actor: AuditActor,
+    purchaseId: string,
+    purchaseName: string,
+    description: string,
+  ) {
+    log("ADMIN_PURCHASE_MARKED_PAID", actor, "Purchase", description, {
+      entityId: purchaseId,
+      entityName: purchaseName,
+    });
   },
 };
 

@@ -52,7 +52,8 @@ export const useRightSectionSlides = () => {
 };
 
 export const RightSectionProvider = ({ children }: { children: ReactNode }) => {
-  const { user, loading: authLoading } = useAuth();
+  const { user, role, loading: authLoading } = useAuth();
+  const isAdmin = role === "admin" || role === "superAdmin";
   const [slides, setSlides] = useState<RightSectionSlide[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -74,12 +75,12 @@ export const RightSectionProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     if (authLoading) return;
-    if (!user) {
+    if (!user || !isAdmin) {
       setLoading(false);
       return;
     }
     refreshSlides();
-  }, [authLoading, user, refreshSlides]);
+  }, [authLoading, user, isAdmin, refreshSlides]);
 
   const addSlide = useCallback(
     async (formData: RightSectionSlideFormData) => {

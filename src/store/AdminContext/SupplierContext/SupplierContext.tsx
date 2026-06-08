@@ -45,7 +45,8 @@ export const useSuppliers = () => {
 };
 
 export const SupplierProvider = ({ children }: { children: ReactNode }) => {
-  const { user, loading: authLoading } = useAuth();
+  const { user, role, loading: authLoading } = useAuth();
+  const isAdmin = role === "admin" || role === "superAdmin";
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -67,12 +68,12 @@ export const SupplierProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     if (authLoading) return;
-    if (!user) {
+    if (!user || !isAdmin) {
       setLoading(false);
       return;
     }
     refreshSuppliers();
-  }, [authLoading, user, refreshSuppliers]);
+  }, [authLoading, user, isAdmin, refreshSuppliers]);
 
   const getSupplier = useCallback(async (id: string) => {
     try {

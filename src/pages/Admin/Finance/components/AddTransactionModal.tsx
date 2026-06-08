@@ -184,6 +184,10 @@ function deriveTransferFields(method: PaymentMethod): {
   return { transferTo: "cash", category: "bank_to_cash" };
 }
 
+function deriveSameMethodTransferCategory(method: PaymentMethod): TransferCategory {
+  return method === "cash" ? "cash_to_cash" : "bank_to_bank";
+}
+
 /** Build form from an existing transaction (edit mode) */
 function buildFormFromTx(tx: Transaction): TransactionFormValues {
   return {
@@ -748,7 +752,7 @@ export default function AddTransactionModal({
         type: "transfer",
         method: "cash",
         transferTo: useAccounts ? "cash" : "bank",
-        category: useAccounts ? "cash_to_bank" : "cash_to_bank",
+        category: useAccounts ? "cash_to_cash" : "cash_to_bank",
         isSplit: false,
         splits: [],
         accountId: useAccounts ? cashDefault : undefined,
@@ -817,6 +821,7 @@ export default function AddTransactionModal({
         ...values,
         method: m,
         transferTo: m,
+        category: deriveSameMethodTransferCategory(m),
         accountId: values.accountId,
         transferToAccountId: values.transferToAccountId,
       };
@@ -1467,10 +1472,7 @@ export default function AddTransactionModal({
                           accountId: id,
                           method: acc.method,
                           transferTo: acc.method,
-                          category:
-                            acc.method === "cash"
-                              ? "cash_to_bank"
-                              : "bank_to_cash",
+                          category: deriveSameMethodTransferCategory(acc.method),
                           transferToAccountId:
                             p.transferToAccountId &&
                             activeAccounts.find(

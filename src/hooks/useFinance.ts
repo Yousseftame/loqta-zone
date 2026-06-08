@@ -35,6 +35,20 @@ import {
   type Owner,
   toDate,
 } from "@/pages/Admin/Finance/finance-data";
+import { auditLogger } from "@/service/audit/auditLogger";
+import type { AuditActor } from "@/service/audit/audit-log-data";
+import type { PaymentAccount } from "@/service/finance/paymentAccounts";
+import {
+  describeTransactionCreated,
+  describeTransactionUpdated,
+  describeOwnerCreated,
+  describeOwnerDeleted,
+} from "@/service/audit/audit-description-helpers";
+
+export interface FinanceAuditMeta {
+  accounts?: PaymentAccount[];
+  beforeTx?: Transaction;
+}
 
 // ─── Simple UUID generator (no external dependency) ──────────────────────────
 function generateGroupId(): string {
@@ -206,6 +220,8 @@ export function useFinance() {
     values: TransactionFormValues,
     adminId: string,
     adminName: string,
+    actor?: AuditActor,
+    meta?: FinanceAuditMeta,
   ) => {
     setAdding(true);
     try {
@@ -237,6 +253,21 @@ export function useFinance() {
         });
 
         await batch.commit();
+
+        if (actor) {
+          const splitParts = values.splits!.map((p) => ({
+            method: p.method,
+            amount: Number(p.amount),
+            accountId: p.accountId,
+          }));
+          const desc = describeTransactionCreated(
+            values,
+            meta?.accounts ?? [],
+            adminName,
+            splitParts,
+          );
+          auditLogger.adminTransactionCreated(actor, groupId, desc);
+        }
       } else {
         // ── Single payment: same as before ──────────────────────────────────
         const payload: Record<string, any> = {
@@ -264,8 +295,17 @@ export function useFinance() {
           values.type === "transfer",
         );
 
-        await addDoc(collection(db, "transactions"), payload);
-      }
+        const ref = await addDoc(collection(db, "transactions"), payload);
+
+        if (actor) {
+          const desc = describeTransactionCreated(
+            values,
+            meta?.accounts ?? [],
+            adminName,
+          );
+          auditLogger.adminTransactionCreated(actor, ref.id, desc);
+        }
+      } // end else (single)
     } finally {
       setAdding(false);
     }
@@ -280,6 +320,8 @@ export function useFinance() {
     values: TransactionFormValues,
     adminId: string,
     adminName: string,
+    actor?: AuditActor,
+    meta?: FinanceAuditMeta,
   ) => {
     setUpdating(true);
     try {
@@ -302,33 +344,66 @@ export function useFinance() {
       };
 
       await updateDoc(doc(db, "transactions", txId), payload);
+
+      if (actor && meta?.beforeTx) {
+        const { description, changes } = describeTransactionUpdated(
+          meta.beforeTx,
+          values,
+          meta.accounts ?? [],
+          adminName,
+        );
+        auditLogger.adminTransactionUpdated(actor, txId, description, changes);
+      }
     } finally {
       setUpdating(false);
     }
   }, []);
 
   // ─── Add Owner ─────────────────────────────────────────────────────────────
-  const addOwner = useCallback(async (name: string) => {
+  const addOwner = useCallback(async (
+    name: string,
+    actor?: AuditActor,
+    adminName = "Admin",
+  ) => {
     setAdding(true);
     try {
-      await addDoc(collection(db, "owners"), {
+      const ref = await addDoc(collection(db, "owners"), {
         name: name.trim(),
         createdAt: serverTimestamp(),
       });
+      if (actor) {
+        auditLogger.adminOwnerCreated(
+          actor,
+          ref.id,
+          describeOwnerCreated(name, adminName),
+        );
+      }
     } finally {
       setAdding(false);
     }
   }, []);
 
   // ─── Delete Owner ──────────────────────────────────────────────────────────
-  const deleteOwner = useCallback(async (ownerId: string, currentBalance: number) => {
+  const deleteOwner = useCallback(async (
+    ownerId: string,
+    currentBalance: number,
+    ownerName?: string,
+    actor?: AuditActor,
+    adminName = "Admin",
+  ) => {
     if (currentBalance !== 0) {
       throw new Error(`Cannot delete owner with a non-zero balance (${currentBalance.toLocaleString("en-EG")} EGP). Please settle their balance first.`);
     }
     setAdding(true);
     try {
-      // Delete the owner document. The Cloud Function onOwnerDeleted will clean up finance_stats.
       await deleteDoc(doc(db, "owners", ownerId));
+      if (actor && ownerName) {
+        auditLogger.adminOwnerDeleted(
+          actor,
+          ownerId,
+          describeOwnerDeleted(ownerName, adminName),
+        );
+      }
     } finally {
       setAdding(false);
     }

@@ -33,6 +33,19 @@ import {
   markPurchaseFullyPaid,
 } from "@/service/purchases/purchaseService";
 import { useAuth } from "@/store/AuthContext/AuthContext";
+import { auditLogger, buildActor } from "@/service/audit/auditLogger";
+import {
+  describePurchaseCreated,
+  describePurchaseUpdated,
+  describePurchaseDeleted,
+  describePurchaseStatusChanged,
+  describePurchasePaymentRecorded,
+  describePurchaseMarkedPaid,
+} from "@/service/audit/audit-description-helpers";
+import {
+  accountNameById,
+  fetchPaymentAccounts,
+} from "@/service/finance/paymentAccounts";
 
 interface PurchaseContextType {
   purchases: Purchase[];
@@ -124,6 +137,17 @@ export const PurchaseProvider = ({ children }: { children: ReactNode }) => {
         const purchase = await createPurchase(formData, adminUid, adminName);
         setPurchases((prev) => [purchase, ...prev]);
         toast.success("Purchase order created");
+
+        if (user && role) {
+          const actor = buildActor(user, role as "admin" | "superAdmin");
+          auditLogger.adminPurchaseCreated(
+            actor,
+            purchase.id,
+            purchase.productTitle,
+            describePurchaseCreated(purchase, adminName),
+          );
+        }
+
         return purchase;
       } catch (err: unknown) {
         toast.error((err as Error)?.message ?? "Failed to create purchase");
@@ -136,45 +160,91 @@ export const PurchaseProvider = ({ children }: { children: ReactNode }) => {
   const editPurchase = useCallback(
     async (id: string, formData: PurchaseFormData) => {
       try {
+        const before = purchases.find((p) => p.id === id);
         const updated = await updatePurchase(id, formData, adminUid, adminName);
         setPurchases((prev) => prev.map((p) => (p.id === id ? updated : p)));
         toast.success("Purchase order updated");
+
+        if (user && role && before) {
+          const actor = buildActor(user, role as "admin" | "superAdmin");
+          const { description, changes } = describePurchaseUpdated(
+            before,
+            updated,
+            adminName,
+          );
+          auditLogger.adminPurchaseUpdated(
+            actor,
+            id,
+            updated.productTitle,
+            description,
+            changes,
+          );
+        }
+
         return updated;
       } catch (err: unknown) {
         toast.error((err as Error)?.message ?? "Failed to update purchase");
         throw err;
       }
     },
-    [adminUid, adminName],
+    [adminUid, adminName, purchases, user, role],
   );
 
   const removePurchase = useCallback(async (id: string) => {
     try {
+      // Capture name before deletion
+      const existing = purchases.find((p) => p.id === id);
       await deletePurchase(id, adminUid, adminName);
       setPurchases((prev) => prev.filter((p) => p.id !== id));
       toast.success("Purchase order deleted");
+
+      if (user && role && existing) {
+        const actor = buildActor(user, role as "admin" | "superAdmin");
+        auditLogger.adminPurchaseDeleted(
+          actor,
+          id,
+          existing.productTitle,
+          describePurchaseDeleted(existing, adminName),
+        );
+      }
     } catch (err: unknown) {
       toast.error((err as Error)?.message ?? "Failed to delete purchase");
       throw err;
     }
-  }, [adminUid, adminName]);
+  }, [adminUid, adminName, purchases, user, role]);
 
   const changeStatus = useCallback(
     async (id: string, status: PurchaseStatus) => {
       try {
         await updatePurchaseStatus(id, status);
+        const existing = purchases.find((p) => p.id === id);
         setPurchases((prev) =>
           prev.map((p) =>
             p.id === id ? { ...p, status, updatedAt: new Date() } : p,
           ),
         );
         toast.success(`Marked as ${status}`);
+
+        if (user && role && existing) {
+          const actor = buildActor(user, role as "admin" | "superAdmin");
+          auditLogger.adminPurchaseStatusChanged(
+            actor,
+            id,
+            existing.productTitle,
+            describePurchaseStatusChanged(
+              existing,
+              existing.status,
+              status,
+              adminName,
+            ),
+          );
+        }
       } catch (err: unknown) {
         toast.error((err as Error)?.message ?? "Failed to update status");
         throw err;
       }
     },
-    [],
+    [purchases, user, role, adminName],
   );
 
   // ── Payment management ────────────────────────────────────────────────────────
@@ -203,13 +273,36 @@ export const PurchaseProvider = ({ children }: { children: ReactNode }) => {
           );
         }
 
+        if (user && role) {
+          const actor = buildActor(user, role as "admin" | "superAdmin");
+          const existing = purchases.find((p) => p.id === purchaseId) ?? updated;
+          const accounts = await fetchPaymentAccounts();
+          const accountLabel = accountNameById(
+            accounts,
+            formData.paymentAccountId?.trim() || undefined,
+          );
+          auditLogger.adminPurchasePaymentRecorded(
+            actor,
+            purchaseId,
+            existing.productTitle,
+            describePurchasePaymentRecorded(
+              existing,
+              effectiveAmount,
+              formData.method ?? "cash",
+              formData.paymentAccountId ? accountLabel : undefined,
+              adminName,
+              updated.remainingAmount,
+            ),
+          );
+        }
+
         return updated;
       } catch (err: unknown) {
         toast.error((err as Error)?.message ?? "Failed to record payment");
         throw err;
       }
     },
-    [adminUid, adminName],
+    [adminUid, adminName, purchases, user, role],
   );
 
   const handleMarkFullyPaid = useCallback(
@@ -224,13 +317,25 @@ export const PurchaseProvider = ({ children }: { children: ReactNode }) => {
           prev.map((p) => (p.id === purchaseId ? updated : p)),
         );
         toast.success("Purchase marked as fully paid ✅");
+
+        if (user && role) {
+          const actor = buildActor(user, role as "admin" | "superAdmin");
+          const existing = purchases.find((p) => p.id === purchaseId) ?? updated;
+          auditLogger.adminPurchaseMarkedPaid(
+            actor,
+            purchaseId,
+            existing.productTitle,
+            describePurchaseMarkedPaid(existing, adminName),
+          );
+        }
+
         return updated;
       } catch (err: unknown) {
         toast.error((err as Error)?.message ?? "Failed to mark as paid");
         throw err;
       }
     },
-    [adminUid, adminName],
+    [adminUid, adminName, purchases, user, role],
   );
 
   const getPurchasePayments = useCallback(async (purchaseId: string) => {

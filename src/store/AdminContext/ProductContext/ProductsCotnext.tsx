@@ -46,7 +46,8 @@ export const useProducts = () => {
 };
 
 export const ProductProvider = ({ children }: { children: ReactNode }) => {
-  const { user, loading: authLoading } = useAuth();
+  const { user, role, loading: authLoading } = useAuth();
+  const isAdmin = role === "admin" || role === "superAdmin";
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -68,12 +69,12 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     if (authLoading) return;
-    if (!user) {
+    if (!user || !isAdmin) {
       setLoading(false);
       return;
     }
     refreshProducts();
-  }, [authLoading, user, refreshProducts]);
+  }, [authLoading, user, isAdmin, refreshProducts]);
 
   const getProduct = useCallback(async (id: string) => {
     try {

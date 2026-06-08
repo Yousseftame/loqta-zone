@@ -155,8 +155,18 @@ export async function fetchAuditLogs(
     } else if (filters.quickFilter === "auth_only") {
       constraints.push(where("category", "==", "auth"));
     } else if (filters.quickFilter === "contact_only") {
-      // ← NEW: filter to contact + feedback submissions
+      // filter to contact + feedback submissions
       constraints.push(where("category", "==", "contact"));
+    } else if (filters.quickFilter === "auction_admin") {
+      // filter to admin auction CRUD actions specifically
+      constraints.push(where("category", "==", "admin"));
+      constraints.push(where("entityType", "==", "Auction"));
+    } else if (filters.quickFilter === "finance_only") {
+      // finance transactions, owners, and payment accounts
+      constraints.push(where("entityType", "in", ["Transaction", "Owner", "PaymentAccount"]));
+    } else if (filters.quickFilter === "purchase_only") {
+      // filter to purchase admin actions
+      constraints.push(where("entityType", "==", "Purchase"));
     }
   }
 

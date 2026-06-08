@@ -42,7 +42,8 @@ export const useVouchers = () => {
 };
 
 export const VoucherProvider = ({ children }: { children: ReactNode }) => {
-  const { user, loading: authLoading } = useAuth();
+  const { user, role, loading: authLoading } = useAuth();
+  const isAdmin = role === "admin" || role === "superAdmin";
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -64,12 +65,12 @@ export const VoucherProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     if (authLoading) return;
-    if (!user) {
+    if (!user || !isAdmin) {
       setLoading(false);
       return;
     }
     refreshVouchers();
-  }, [authLoading, user, refreshVouchers]);
+  }, [authLoading, user, isAdmin, refreshVouchers]);
 
   const getVoucher = useCallback(async (id: string) => {
     try {

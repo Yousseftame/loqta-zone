@@ -100,26 +100,34 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (registrationInProgressRef.current) return;
 
       if (currentUser) {
-        // Read the Firestore doc once — extract both role and verified field
-        const snap = await getDoc(doc(db, "users", currentUser.uid));
-        const data = snap.exists() ? snap.data() : {};
-        const userRole = (data.role as UserRole) || "user";
-        const firestoreVerified = data.verified === true;
+        try {
+          // Read the Firestore doc once — extract both role and verified field
+          const snap = await getDoc(doc(db, "users", currentUser.uid));
+          const data = snap.exists() ? snap.data() : {};
+          const userRole = (data.role as UserRole) || "user";
+          const firestoreVerified = data.verified === true;
 
-        // Non-user roles (admin, superAdmin) bypass the email-verification gate.
-        // Regular users must have emailVerified=true OR Firestore verified=true.
-        if (userRole !== "user" || currentUser.emailVerified || firestoreVerified) {
+          // Non-user roles (admin, superAdmin) bypass the email-verification gate.
+          // Regular users must have emailVerified=true OR Firestore verified=true.
+          if (userRole !== "user" || currentUser.emailVerified || firestoreVerified) {
+            setUser(currentUser);
+            setRole(userRole);
+            setEmailVerificationPending(false);
+          } else {
+            // Unverified regular user:
+            // Keep the Firebase session alive (auth.currentUser stays set so the
+            // /verify-email page can send emails), but do NOT expose the user to
+            // the rest of the app. The VerificationGuard will redirect any route.
+            setUser(null);
+            setRole(null);
+            setEmailVerificationPending(true);
+          }
+        } catch (err) {
+          console.error("[Auth] Failed to load user profile:", err);
+          // Still expose the Firebase session so the user isn't locked out.
           setUser(currentUser);
-          setRole(userRole);
+          setRole("user");
           setEmailVerificationPending(false);
-        } else {
-          // Unverified regular user:
-          // Keep the Firebase session alive (auth.currentUser stays set so the
-          // /verify-email page can send emails), but do NOT expose the user to
-          // the rest of the app. The VerificationGuard will redirect any route.
-          setUser(null);
-          setRole(null);
-          setEmailVerificationPending(true);
         }
       } else {
         setUser(null);
@@ -198,6 +206,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         "auth/too-many-requests":
           "Too many failed attempts. Please try again later.",
         "auth/network-request-failed": "Network error. Check your connection.",
+        "permission-denied":
+          "Could not verify your account. Please try again in a moment.",
       };
       toast.error(messages[error.code] || "Login failed. Please try again.");
       throw error;

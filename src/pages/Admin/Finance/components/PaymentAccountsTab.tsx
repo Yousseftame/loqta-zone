@@ -32,6 +32,13 @@ import {
 } from "firebase/firestore";
 import { db } from "@/firebase/firebase";
 import { useAuth } from "@/store/AuthContext/AuthContext";
+import { auditLogger, buildActor } from "@/service/audit/auditLogger";
+import {
+  describePaymentAccountCreated,
+  describePaymentAccountUpdated,
+  describePaymentAccountArchived,
+  describePaymentAccountDefaultSet,
+} from "@/service/audit/audit-description-helpers";
 import { colors } from "../../Products/products-data";
 import type { Transaction, FinanceStats } from "../finance-data";
 import {
@@ -1466,7 +1473,8 @@ export default function PaymentAccountsTab({
   stats,
   loading = false,
 }: Props) {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
+  const adminName = user?.displayName ?? "Admin";
   const { accounts, loading: fetching, refresh } = usePaymentAccounts();
 
   const [saving, setSaving] = useState(false);
@@ -1522,6 +1530,29 @@ export default function PaymentAccountsTab({
           icon: data.icon,
           updatedAt: serverTimestamp(),
         });
+        if (user && role) {
+          const actor = buildActor(user, role as "admin" | "superAdmin");
+          const { description, changes } = describePaymentAccountUpdated(
+            editing,
+            {
+              name: data.name.trim(),
+              method: data.method,
+              accountNumber: data.accountNumber.trim(),
+              notes: data.notes.trim(),
+              isDefault: data.isDefault,
+              color: data.color,
+              icon: data.icon,
+            },
+            adminName,
+          );
+          auditLogger.adminPaymentAccountUpdated(
+            actor,
+            editing.id,
+            description,
+            data.name.trim(),
+            changes,
+          );
+        }
       } else {
         // New account
         if (data.isDefault) {
@@ -1534,7 +1565,7 @@ export default function PaymentAccountsTab({
             });
           }
         }
-        await addDoc(collection(db, "paymentAccounts"), {
+        const ref = await addDoc(collection(db, "paymentAccounts"), {
           name: data.name.trim(),
           method: data.method,
           accountNumber: data.accountNumber.trim(),
@@ -1547,6 +1578,23 @@ export default function PaymentAccountsTab({
           updatedAt: serverTimestamp(),
           createdBy: user?.uid ?? "",
         });
+        if (user && role) {
+          const actor = buildActor(user, role as "admin" | "superAdmin");
+          auditLogger.adminPaymentAccountCreated(
+            actor,
+            ref.id,
+            describePaymentAccountCreated(
+              {
+                name: data.name.trim(),
+                method: data.method,
+                icon: data.icon,
+                isDefault: data.isDefault,
+              },
+              adminName,
+            ),
+            data.name.trim(),
+          );
+        }
       }
       await refresh();
       setModalOpen(false);
@@ -1563,6 +1611,15 @@ export default function PaymentAccountsTab({
       status: newStatus,
       updatedAt: serverTimestamp(),
     });
+    if (user && role) {
+      const actor = buildActor(user, role as "admin" | "superAdmin");
+      auditLogger.adminPaymentAccountArchived(
+        actor,
+        archiving.id,
+        describePaymentAccountArchived(archiving, newStatus === "archived", adminName),
+        archiving.name,
+      );
+    }
     setArchiving(null);
     await refresh();
   };
@@ -1578,6 +1635,15 @@ export default function PaymentAccountsTab({
     await updateDoc(doc(db, "paymentAccounts", account.id), {
       isDefault: true,
     });
+    if (user && role) {
+      const actor = buildActor(user, role as "admin" | "superAdmin");
+      auditLogger.adminPaymentAccountDefaultSet(
+        actor,
+        account.id,
+        describePaymentAccountDefaultSet(account, adminName),
+        account.name,
+      );
+    }
     await refresh();
   };
 

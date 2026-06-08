@@ -35,6 +35,7 @@ export type AuditActionType =
   | "ADMIN_AUCTION_CREATED"
   | "ADMIN_AUCTION_UPDATED"
   | "ADMIN_AUCTION_DELETED"
+  | "ADMIN_AUCTION_TOGGLED"
   | "ADMIN_PRODUCT_CREATED"
   | "ADMIN_PRODUCT_UPDATED"
   | "ADMIN_PRODUCT_DELETED"
@@ -50,7 +51,24 @@ export type AuditActionType =
   | "ADMIN_LAST_OFFER_ACCEPTED"
   | "ADMIN_LAST_OFFER_REJECTED"
   | "ADMIN_BID_DELETED"
-  | "ADMIN_PARTICIPANT_REMOVED";
+  | "ADMIN_PARTICIPANT_REMOVED"
+  // Admin — Finance / Transactions
+  | "ADMIN_TRANSACTION_CREATED"
+  | "ADMIN_TRANSACTION_UPDATED"
+  | "ADMIN_TRANSACTION_DELETED"
+  | "ADMIN_OWNER_CREATED"
+  | "ADMIN_OWNER_DELETED"
+  | "ADMIN_PAYMENT_ACCOUNT_CREATED"
+  | "ADMIN_PAYMENT_ACCOUNT_UPDATED"
+  | "ADMIN_PAYMENT_ACCOUNT_ARCHIVED"
+  | "ADMIN_PAYMENT_ACCOUNT_DEFAULT_SET"
+  // Admin — Purchases
+  | "ADMIN_PURCHASE_CREATED"
+  | "ADMIN_PURCHASE_UPDATED"
+  | "ADMIN_PURCHASE_DELETED"
+  | "ADMIN_PURCHASE_STATUS_CHANGED"
+  | "ADMIN_PURCHASE_PAYMENT_RECORDED"
+  | "ADMIN_PURCHASE_MARKED_PAID";
 
 // ─── Action Category (for color coding) ──────────────────────────────────────
 
@@ -74,8 +92,12 @@ export type AuditEntityType =
   | "Voucher"
   | "Category"
   | "AuctionRequest"
-  | "ContactMessage"   // ← NEW
-  | "FeedbackMessage"  // ← NEW
+  | "ContactMessage"
+  | "FeedbackMessage"
+  | "Transaction"
+  | "Purchase"
+  | "Owner"
+  | "PaymentAccount"
   | "System"
   | "Page";
 
@@ -174,6 +196,22 @@ export const ACTION_CATEGORY_MAP: Record<AuditActionType, AuditActionCategory> =
   ADMIN_LAST_OFFER_REJECTED:    "admin",
   ADMIN_BID_DELETED:            "admin",
   ADMIN_PARTICIPANT_REMOVED:    "admin",
+  ADMIN_AUCTION_TOGGLED:        "admin",
+  ADMIN_TRANSACTION_CREATED:    "admin",
+  ADMIN_TRANSACTION_UPDATED:    "admin",
+  ADMIN_TRANSACTION_DELETED:    "admin",
+  ADMIN_OWNER_CREATED:          "admin",
+  ADMIN_OWNER_DELETED:          "admin",
+  ADMIN_PAYMENT_ACCOUNT_CREATED:    "admin",
+  ADMIN_PAYMENT_ACCOUNT_UPDATED:    "admin",
+  ADMIN_PAYMENT_ACCOUNT_ARCHIVED: "admin",
+  ADMIN_PAYMENT_ACCOUNT_DEFAULT_SET: "admin",
+  ADMIN_PURCHASE_CREATED:       "admin",
+  ADMIN_PURCHASE_UPDATED:       "admin",
+  ADMIN_PURCHASE_DELETED:       "admin",
+  ADMIN_PURCHASE_STATUS_CHANGED:    "admin",
+  ADMIN_PURCHASE_PAYMENT_RECORDED:  "admin",
+  ADMIN_PURCHASE_MARKED_PAID:       "admin",
 };
 
 // ─── Action → Status mapping ──────────────────────────────────────────────────
@@ -216,6 +254,22 @@ export const ACTION_STATUS_MAP: Record<AuditActionType, AuditLog["status"]> = {
   ADMIN_LAST_OFFER_REJECTED:    "danger",
   ADMIN_BID_DELETED:            "danger",
   ADMIN_PARTICIPANT_REMOVED:    "danger",
+  ADMIN_AUCTION_TOGGLED:        "info",
+  ADMIN_TRANSACTION_CREATED:    "success",
+  ADMIN_TRANSACTION_UPDATED:    "warning",
+  ADMIN_TRANSACTION_DELETED:    "danger",
+  ADMIN_OWNER_CREATED:          "success",
+  ADMIN_OWNER_DELETED:          "danger",
+  ADMIN_PAYMENT_ACCOUNT_CREATED:    "success",
+  ADMIN_PAYMENT_ACCOUNT_UPDATED:    "warning",
+  ADMIN_PAYMENT_ACCOUNT_ARCHIVED:   "warning",
+  ADMIN_PAYMENT_ACCOUNT_DEFAULT_SET: "info",
+  ADMIN_PURCHASE_CREATED:       "success",
+  ADMIN_PURCHASE_UPDATED:       "warning",
+  ADMIN_PURCHASE_DELETED:       "danger",
+  ADMIN_PURCHASE_STATUS_CHANGED:    "warning",
+  ADMIN_PURCHASE_PAYMENT_RECORDED:  "success",
+  ADMIN_PURCHASE_MARKED_PAID:       "success",
 };
 
 // ─── Category UI config ───────────────────────────────────────────────────────
@@ -254,12 +308,15 @@ export interface QuickFilter {
 }
 
 export const QUICK_FILTERS: QuickFilter[] = [
-  { key: "today",        label: "Today",       description: "Logs from today"           },
-  { key: "last7days",    label: "Last 7 Days", description: "Logs from last 7 days"     },
-  { key: "admin_only",   label: "Admin Only",  description: "Admin actions only"        },
-  { key: "danger_only",  label: "Errors",      description: "Danger/warning actions"    },
-  { key: "auth_only",    label: "Auth Events", description: "Login/logout/register"     },
-  { key: "contact_only", label: "Contact",     description: "Contact & feedback forms"  }, // ← NEW
+  { key: "today",         label: "Today",       description: "Logs from today"             },
+  { key: "last7days",     label: "Last 7 Days", description: "Logs from last 7 days"       },
+  { key: "admin_only",    label: "Admin Only",  description: "All admin actions"           },
+  { key: "danger_only",   label: "Errors",      description: "Danger/warning actions"      },
+  { key: "auth_only",     label: "Auth Events", description: "Login/logout/register"       },
+  { key: "contact_only",  label: "Contact",     description: "Contact & feedback forms"    },
+  { key: "auction_admin", label: "Auctions",    description: "Admin auction CRUD actions"  },
+  { key: "finance_only",  label: "Finance",     description: "Finance transaction logs"    },
+  { key: "purchase_only", label: "Purchases",   description: "Purchase order logs"         },
 ];
 
 // ─── Default/empty audit log for UI placeholders ──────────────────────────────

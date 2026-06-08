@@ -45,7 +45,8 @@ export const useCategories = () => {
 };
 
 export const CategoryProvider = ({ children }: { children: ReactNode }) => {
-  const { user, loading: authLoading } = useAuth();
+  const { user, role, loading: authLoading } = useAuth();
+  const isAdmin = role === "admin" || role === "superAdmin";
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -67,12 +68,12 @@ export const CategoryProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     if (authLoading) return;
-    if (!user) {
+    if (!user || !isAdmin) {
       setLoading(false);
       return;
     }
     refreshCategories();
-  }, [authLoading, user, refreshCategories]);
+  }, [authLoading, user, isAdmin, refreshCategories]);
 
   const getCategory = useCallback(async (id: string) => {
     try {

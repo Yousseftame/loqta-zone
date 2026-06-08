@@ -27,6 +27,9 @@ import { useAuth } from "@/store/AuthContext/AuthContext";
 import { colors } from "../Products/products-data";
 import { useFinance } from "@/hooks/useFinance";
 import { usePurchases } from "@/store/AdminContext/PurchaseContext/PurchaseContext";
+import { buildActor } from "@/service/audit/auditLogger";
+import { usePaymentAccounts } from "@/hooks/usePaymentAccounts";
+import type { Transaction } from "./finance-data";
 
 import FinanceCards from "./components/FinanceCards";
 import FinanceCharts from "./components/FinanceCharts";
@@ -81,6 +84,7 @@ export default function FinancePage() {
   } = useFinance();
 
   const { refreshPurchases } = usePurchases();
+  const { accounts: paymentAccounts } = usePaymentAccounts();
 
   const [activeTab, setActiveTab] = useState<FinanceTab>("overview");
   const [modalOpen, setModalOpen] = useState(false);
@@ -127,19 +131,31 @@ export default function FinancePage() {
     }
   };
 
+  const adminName = user?.displayName ?? "Admin";
+  const actor = buildActor(user, (role as "admin" | "superAdmin") ?? "admin");
+
   const handleAddTransaction = async (values: TransactionFormValues) => {
-    await addTransaction(values, user?.uid ?? "", user?.displayName ?? "Admin");
+    await addTransaction(
+      values,
+      user?.uid ?? "",
+      adminName,
+      actor,
+      { accounts: paymentAccounts },
+    );
   };
 
   const handleUpdateTransaction = async (
     txId: string,
     values: TransactionFormValues,
+    beforeTx: Transaction,
   ) => {
     await updateTransaction(
       txId,
       values,
       user?.uid ?? "",
-      user?.displayName ?? "Admin",
+      adminName,
+      actor,
+      { accounts: paymentAccounts, beforeTx },
     );
     toast.success("Transaction updated successfully.");
   };
@@ -147,7 +163,7 @@ export default function FinancePage() {
   const handleAddOwner = async () => {
     if (!newOwnerName.trim()) return;
     try {
-      await addOwner(newOwnerName);
+      await addOwner(newOwnerName, actor, adminName);
       toast.success("Owner added successfully!");
       setOwnerModalOpen(false);
       setNewOwnerName("");
@@ -166,7 +182,13 @@ export default function FinancePage() {
     if (!ownerToDelete) return;
     const currentBalance = stats.ownerBalances?.[ownerToDelete.id] ?? 0;
     try {
-      await deleteOwner(ownerToDelete.id, currentBalance);
+      await deleteOwner(
+        ownerToDelete.id,
+        currentBalance,
+        ownerToDelete.name,
+        actor,
+        adminName,
+      );
       toast.success("Owner deleted successfully");
       setOwnerToDelete(null);
     } catch (err: any) {
@@ -424,6 +446,7 @@ export default function FinancePage() {
           <TransactionsTable
             transactions={transactions}
             stats={stats}
+            owners={owners}
             loading={loading}
             updating={updating}
             onUpdateTransaction={handleUpdateTransaction}

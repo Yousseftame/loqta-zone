@@ -24,8 +24,29 @@ import {
   deleteAuction,
   toggleAuctionActive,
 } from "@/service/auctions/auctionService";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/firebase/firebase";
 import { useAuth } from "@/store/AuthContext/AuthContext";
 import { auditLogger, buildActor } from "@/service/audit/auditLogger";
+import {
+  titleFromProductData,
+  describeAuctionCreated,
+  describeAuctionUpdated,
+  describeAuctionDeleted,
+  describeAuctionToggled,
+} from "@/service/audit/audit-description-helpers";
+
+async function fetchProductTitle(productId: string): Promise<string> {
+  if (!productId) return "Unknown product";
+  try {
+    const snap = await getDoc(doc(db, "products", productId));
+    return snap.exists()
+      ? titleFromProductData(snap.data()?.title)
+      : productId;
+  } catch {
+    return productId;
+  }
+}
 
 interface AuctionContextType {
   auctions: Auction[];
@@ -49,6 +70,8 @@ export const useAuctions = () => {
 
 export const AuctionProvider = ({ children }: { children: ReactNode }) => {
   const { user, role, loading: authLoading } = useAuth();
+  const isAdmin = role === "admin" || role === "superAdmin";
+  const adminName = user?.displayName ?? "Admin";
   const [auctions, setAuctions] = useState<Auction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -70,12 +93,12 @@ export const AuctionProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     if (authLoading) return;
-    if (!user) {
+    if (!user || !isAdmin) {
       setLoading(false);
       return;
     }
     refreshAuctions();
-  }, [authLoading, user, refreshAuctions]);
+  }, [authLoading, user, isAdmin, refreshAuctions]);
 
   const getAuction = useCallback(async (id: string) => {
     try {
@@ -93,15 +116,16 @@ export const AuctionProvider = ({ children }: { children: ReactNode }) => {
         setAuctions((prev) => [auction, ...prev]);
         toast.success("Auction created successfully");
 
-        // // 🔥 AUDIT LOG: admin auction created
-        // if (user && role) {
-        //   const actor = buildActor(user, role as "admin" | "superAdmin");
-        //   auditLogger.adminAuctionCreated(
-        //     actor,
-        //     auction.id,
-        //     formData.productId ?? auction.id,
-        //   );
-        // }
+        if (user && role) {
+          const actor = buildActor(user, role as "admin" | "superAdmin");
+          const productTitle = await fetchProductTitle(auction.productId);
+          auditLogger.adminAuctionCreated(
+            actor,
+            auction.id,
+            productTitle,
+            describeAuctionCreated(auction, productTitle, adminName),
+          );
+        }
 
         return auction;
       } catch (err: any) {
@@ -115,15 +139,32 @@ export const AuctionProvider = ({ children }: { children: ReactNode }) => {
   const editAuction = useCallback(
     async (id: string, formData: AuctionFormData) => {
       try {
+        const before = auctions.find((a) => a.id === id);
         const updated = await updateAuction(id, formData);
         setAuctions((prev) => prev.map((a) => (a.id === id ? updated : a)));
         toast.success("Auction updated successfully");
 
-        // // 🔥 AUDIT LOG: admin auction updated
-        // if (user && role) {
-        //   const actor = buildActor(user, role as "admin" | "superAdmin");
-        //   auditLogger.adminAuctionUpdated(actor, id, formData.productId ?? id);
-        // }
+        if (user && role && before) {
+          const actor = buildActor(user, role as "admin" | "superAdmin");
+          const [titleBefore, titleAfter] = await Promise.all([
+            fetchProductTitle(before.productId),
+            fetchProductTitle(updated.productId),
+          ]);
+          const { description, changes } = describeAuctionUpdated(
+            before,
+            updated,
+            titleBefore,
+            titleAfter,
+            adminName,
+          );
+          auditLogger.adminAuctionUpdated(
+            actor,
+            id,
+            titleAfter,
+            description,
+            changes,
+          );
+        }
 
         return updated;
       } catch (err: any) {
@@ -131,7 +172,7 @@ export const AuctionProvider = ({ children }: { children: ReactNode }) => {
         throw err;
       }
     },
-    [user, role],
+    [user, role, auctions, adminName],
   );
 
   const removeAuction = useCallback(
@@ -143,35 +184,49 @@ export const AuctionProvider = ({ children }: { children: ReactNode }) => {
         setAuctions((prev) => prev.filter((a) => a.id !== id));
         toast.success("Auction deleted");
 
-        // // 🔥 AUDIT LOG: admin auction deleted
-        // if (user && role) {
-        //   const actor = buildActor(user, role as "admin" | "superAdmin");
-        //   auditLogger.adminAuctionDeleted(
-        //     actor,
-        //     id,
-        //     (auction as any)?.productTitle ?? "Auction",
-        //   );
-        // }
+        if (user && role && auction) {
+          const actor = buildActor(user, role as "admin" | "superAdmin");
+          const productTitle = await fetchProductTitle(auction.productId);
+          auditLogger.adminAuctionDeleted(
+            actor,
+            id,
+            productTitle,
+            describeAuctionDeleted(auction, productTitle, adminName),
+          );
+        }
       } catch (err: any) {
         toast.error(err?.message ?? "Failed to delete auction");
         throw err;
       }
     },
-    [user, role, auctions],
+    [user, role, auctions, adminName],
   );
 
   const toggleActive = useCallback(async (id: string, isActive: boolean) => {
     try {
       await toggleAuctionActive(id, isActive);
+      const auction = auctions.find((a) => a.id === id);
       setAuctions((prev) =>
         prev.map((a) => (a.id === id ? { ...a, isActive } : a)),
       );
       toast.success(isActive ? "Auction activated" : "Auction deactivated");
+
+      if (user && role && auction) {
+        const actor = buildActor(user, role as "admin" | "superAdmin");
+        const productTitle = await fetchProductTitle(auction.productId);
+        auditLogger.adminAuctionToggled(
+          actor,
+          id,
+          productTitle,
+          isActive,
+          describeAuctionToggled(auction, productTitle, isActive, adminName),
+        );
+      }
     } catch (err: any) {
       toast.error(err?.message ?? "Failed to toggle auction");
       throw err;
     }
-  }, []);
+  }, [user, role, auctions, adminName]);
 
   return (
     <AuctionContext.Provider

@@ -40,7 +40,11 @@ export type ExpenseCategory     = "ads" | "salary" | "products" | "maintenance" 
 export type IncomeCategory      = "auction_revenue" | "registration_fee" | "sponsorship" | "refund_received" | "other";
 export type OwnerCategory       = "owner_draw";
 export type OwnerReturnCategory = "owner_return";
-export type TransferCategory    = "cash_to_bank" | "bank_to_cash";
+export type TransferCategory    =
+  | "cash_to_bank"
+  | "bank_to_cash"
+  | "cash_to_cash"
+  | "bank_to_bank";
 export type TransactionCategory = ExpenseCategory | IncomeCategory | OwnerCategory | OwnerReturnCategory | TransferCategory;
 
 // ─── Owner document ─────────────────────────────────────────────────────────
@@ -180,6 +184,8 @@ export const OWNER_RETURN_CATEGORIES: { value: OwnerReturnCategory; label: strin
 export const TRANSFER_CATEGORIES: { value: TransferCategory; label: string }[] = [
   { value: "cash_to_bank", label: "Cash → Bank" },
   { value: "bank_to_cash", label: "Bank → Cash" },
+  { value: "cash_to_cash", label: "Cash → Cash" },
+  { value: "bank_to_bank", label: "Bank → Bank" },
 ];
 
 export const CATEGORY_LABEL: Record<string, string> = {
@@ -199,7 +205,20 @@ export const CATEGORY_LABEL: Record<string, string> = {
   owner_return:      "Owner Return",
   cash_to_bank:      "Cash → Bank",
   bank_to_cash:      "Bank → Cash",
+  cash_to_cash:      "Cash → Cash",
+  bank_to_bank:      "Bank → Bank",
 };
+
+/** Transfer category label — infers same-pool moves when stored category is stale. */
+export function resolveTransactionCategoryLabel(tx: Transaction): string {
+  if (tx.type === "transfer") {
+    const dest = tx.transferTo ?? (tx.method === "cash" ? "bank" : "cash");
+    if (dest === tx.method) {
+      return tx.method === "cash" ? "Cash → Cash" : "Bank → Bank";
+    }
+  }
+  return CATEGORY_LABEL[tx.category] ?? tx.category;
+}
 
 export const MONTH_LABELS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
