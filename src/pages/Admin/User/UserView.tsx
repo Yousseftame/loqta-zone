@@ -38,7 +38,7 @@ import {
   Save,
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
-import { colors } from "../Products/products-data";
+import { colors, resolveTitle } from "../Products/products-data";
 import type { AppUser, UserRole } from "./users-data";
 import { getRoleStyle, USER_ROLES } from "./users-data";
 import {
@@ -52,7 +52,9 @@ import {
   saveInternalNotes,
 } from "@/service/users/userService";
 import { fetchAuctions } from "@/service/auctions/auctionService";
+import { fetchProducts } from "@/service/products/productService";
 import type { Auction } from "@/pages/Admin/Auctions/auctions-data";
+import type { Product } from "@/pages/Admin/Products/products-data";
 import { useAuth } from "@/store/AuthContext/AuthContext";
 import toast from "react-hot-toast";
 
@@ -88,7 +90,20 @@ export default function UserView() {
   const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [auctions, setAuctions] = useState<Auction[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [restrictedIds, setRestrictedIds] = useState<string[]>([]);
+
+  const productTitleById = (productId: string) => {
+    const product = products.find((p) => p.id === productId);
+    return product ? resolveTitle(product.title) : "";
+  };
+
+  const auctionAccessChipLabel = (auction: Auction) => {
+    const title = productTitleById(auction.productId);
+    return title
+      ? `#${auction.auctionNumber} · ${title}`
+      : `Auction #${auction.auctionNumber}`;
+  };
 
   const [blockDialog, setBlockDialog] = useState(false);
   const [blockLoading, setBlockLoading] = useState(false);
@@ -112,13 +127,15 @@ export default function UserView() {
     if (!id) return;
     setLoading(true);
     try {
-      const [u, allAuctions, restricted] = await Promise.all([
+      const [u, allAuctions, allProducts, restricted] = await Promise.all([
         fetchUser(id),
         fetchAuctions(),
+        fetchProducts(),
         fetchUserRestrictions(id),
       ]);
       setUser(u);
       setAuctions(allAuctions);
+      setProducts(allProducts);
       setRestrictedIds(restricted);
       if (u) setSelectedRole(u.role);
       if (u) setNotesEdit(u.internalNotes ?? "");
@@ -1086,14 +1103,19 @@ export default function UserView() {
                   return (
                     <Chip
                       key={rid}
-                      label={
-                        a ? `Auction #${a.auctionNumber}` : rid.slice(0, 10)
-                      }
+                      label={a ? auctionAccessChipLabel(a) : rid.slice(0, 10)}
                       size="small"
                       sx={{
                         bgcolor: "#FEE2E2",
                         color: "#DC2626",
                         fontWeight: 700,
+                        maxWidth: { xs: "100%", sm: 280 },
+                        height: "auto",
+                        "& .MuiChip-label": {
+                          whiteSpace: "normal",
+                          lineHeight: 1.35,
+                          py: 0.5,
+                        },
                       }}
                     />
                   );
@@ -1118,8 +1140,8 @@ export default function UserView() {
                 display: "grid",
                 gridTemplateColumns: {
                   xs: "1fr",
-                  sm: "repeat(2, 1fr)",
-                  md: "repeat(3, 1fr)",
+                  sm: "repeat(2, minmax(0, 1fr))",
+                  lg: "repeat(3, minmax(0, 1fr))",
                 },
                 gap: 2,
               }}
@@ -1128,6 +1150,7 @@ export default function UserView() {
                 const isRestricted = restrictedIds.includes(auction.id);
                 const isProcessing =
                   restrictTarget?.id === auction.id && restrictLoading;
+                const productTitle = productTitleById(auction.productId);
                 return (
                   <Box
                     key={auction.id}
@@ -1137,30 +1160,46 @@ export default function UserView() {
                       border: `1px solid ${isRestricted ? "#FCA5A5" : colors.border}`,
                       bgcolor: isRestricted ? "#FEF2F2" : "#fff",
                       display: "flex",
+                      flexDirection: { xs: "column", sm: "row" },
                       justifyContent: "space-between",
-                      alignItems: "center",
-                      gap: 1,
+                      alignItems: { xs: "stretch", sm: "flex-start" },
+                      gap: 1.5,
+                      minWidth: 0,
                     }}
                   >
-                    <div style={{ flex: 1, overflow: "hidden" }}>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
                       <p
                         style={{
                           margin: 0,
-                          fontWeight: 600,
+                          fontWeight: 700,
                           fontSize: "0.85rem",
                           color: colors.textPrimary,
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
+                          lineHeight: 1.3,
                         }}
                       >
                         Auction #{auction.auctionNumber}
                       </p>
+                      {productTitle && (
+                        <p
+                          style={{
+                            margin: "4px 0 0",
+                            fontSize: "0.78rem",
+                            color: colors.textSecondary,
+                            lineHeight: 1.35,
+                            display: "-webkit-box",
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: "vertical",
+                            overflow: "hidden",
+                          }}
+                        >
+                          {productTitle}
+                        </p>
+                      )}
                       <Chip
                         label={auction.status}
                         size="small"
                         sx={{
-                          mt: 0.5,
+                          mt: 0.75,
                           fontSize: "0.65rem",
                           fontWeight: 700,
                           textTransform: "capitalize",
@@ -1178,7 +1217,7 @@ export default function UserView() {
                                 : "#64748B",
                         }}
                       />
-                    </div>
+                    </Box>
                     <Button
                       size="small"
                       onClick={() => handleRestrict(auction)}
@@ -1199,7 +1238,8 @@ export default function UserView() {
                         fontSize: "0.75rem",
                         borderRadius: 1.5,
                         flexShrink: 0,
-                        minWidth: 100,
+                        alignSelf: { xs: "stretch", sm: "center" },
+                        minWidth: { xs: "auto", sm: 100 },
                         ...(isRestricted
                           ? {
                               bgcolor: "#EF4444",

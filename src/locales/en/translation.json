@@ -1064,7 +1064,35 @@
     "chatPlaceholder": "Type a message…",
     "chatEnded": "Chat is closed — the auction has ended.",
     "chatReadOnly": "Read-only",
-    "chatAdminView": "Admin view — messages are read-only."
+    "chatAdminView": "Admin view — messages are read-only.",
+    "chatWaiting": "Opens when live",
+    "chatNotLive": "Chat opens when the auction goes live.",
+    "chatEmptyWaiting": "Chat will open when the auction goes live.",
+    "chatKicked": "You have been removed from this auction and can no longer chat.",
+    "chatModerator": "Moderator",
+    "chatModeratorHint": "Hover a message to warn or remove a participant.",
+    "chatWarn": "Warn",
+    "chatKick": "Kick",
+    "chatWarnTitle": "Warn {{name}}",
+    "chatKickTitle": "Kick {{name}}",
+    "chatWarnDesc": "The message will be removed and replaced with a public notice. The user will receive a warning notification.",
+    "chatKickDesc": "The user will be restricted from this auction and cannot bid or chat. A public notice will be posted.",
+    "chatReasonLabel": "Reason (optional)",
+    "chatReasonPlaceholder": "e.g. inappropriate language",
+    "chatDefaultReason": "violating auction chat policy",
+    "chatWarnSuccess": "{{name}} has been warned.",
+    "chatKickSuccess": "{{name}} has been removed.",
+    "chatModFailed": "Moderation action failed.",
+    "chatSendFailed": "Could not send message. Please try again.",
+    "chatSystem": {
+      "warnPublic": "Message removed for {{reason}}. {{name}} has been warned.",
+      "kickPublic": "{{name}} has been removed from this auction for {{reason}}."
+    },
+    "kicked": {
+      "title": "Removed from auction",
+      "desc": "You have been removed from this auction by a moderator. You can no longer view, bid, or chat in this room.",
+      "bidBlocked": "You have been removed from this auction and cannot place bids."
+    }
   },
   "winnerCelebration": {
     "youWon": "You Won! 🎉",
@@ -1208,6 +1236,14 @@
       "title": "New Auction #{{num}} Is Live",
       "message": "Auction #{{num}} for \"{{product}}\" starts {{date}}. Register now!",
       "messageGeneric": "Auction #{{num}} starts {{date}}. Register now!"
+    },
+    "chatWarning": {
+      "title": "⚠️ Chat Warning",
+      "message": "You received a warning in Auction #{{auctionNumber}} chat for {{reason}}. Further violations may result in removal from this auction."
+    },
+    "chatKick": {
+      "title": "🚫 Removed from Auction",
+      "message": "You have been removed from Auction #{{auctionNumber}} for {{reason}}. You can no longer participate in this auction."
     }
   },
   "profilePage": {

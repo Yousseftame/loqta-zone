@@ -28,8 +28,17 @@ import {
   Timestamp,
   increment,
   arrayUnion,
+  getDoc,
 } from "firebase/firestore";
 import { db } from "@/firebase/firebase";
+
+export class RestrictedFromAuctionError extends Error {
+  readonly code = "RESTRICTED_FROM_AUCTION" as const;
+  constructor() {
+    super("RESTRICTED_FROM_AUCTION");
+    this.name = "RestrictedFromAuctionError";
+  }
+}
 
 export interface PlaceBidParams {
   auctionId: string;
@@ -59,6 +68,13 @@ export async function placeBid({
   if (!auctionId) throw new Error("Invalid auction.");
   if (!userId) throw new Error("You must be logged in to bid.");
   if (!amount || amount <= 0) throw new Error("Invalid bid amount.");
+
+  const restrictedSnap = await getDoc(
+    doc(db, "auctions", auctionId, "restricted", userId),
+  );
+  if (restrictedSnap.exists()) {
+    throw new RestrictedFromAuctionError();
+  }
 
   const auctionRef     = doc(db, "auctions", auctionId);
   const userRef        = doc(db, "users", userId);
@@ -180,6 +196,7 @@ export async function placeBid({
   } catch (err: any) {
     // Our own validation errors: re-throw immediately with their message intact.
     if (err instanceof BidValidationError) throw err;
+    if (err instanceof RestrictedFromAuctionError) throw err;
 
     // Firestore "permission-denied" can mean two things here:
     //   a) A genuine rules violation (should not happen if rules are correct)

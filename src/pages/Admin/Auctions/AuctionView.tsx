@@ -875,7 +875,10 @@ export default function AuctionView() {
             userId="admin"
             userName="Admin"
             isEnded={auction.status === "ended"}
+            isLive={auction.status === "live"}
+            auctionNumber={auction.auctionNumber}
             readOnly
+            isModerator
           />
         </Paper>
       )}

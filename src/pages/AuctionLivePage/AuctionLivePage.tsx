@@ -16,7 +16,10 @@ import {
 } from "firebase/firestore";
 import { db, functions } from "@/firebase/firebase";
 import { useAuth } from "@/store/AuthContext/AuthContext";
-import { placeBid } from "@/service/auctions/bidService";
+import {
+  placeBid,
+  RestrictedFromAuctionError,
+} from "@/service/auctions/bidService";
 import { httpsCallable } from "firebase/functions";
 import { useTranslation } from "react-i18next";
 import WinnerCelebration from "@/components/WinnerCelebration/Winnercelebration";
@@ -120,6 +123,7 @@ export default function AuctionLivePage() {
   const [product, setProduct] = useState<ProductData | null>(null);
   const [bids, setBids] = useState<BidEntry[]>([]);
   const [isParticipant, setIsParticipant] = useState<boolean | null>(null);
+  const [isRestricted, setIsRestricted] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
   const [bidding, setBidding] = useState(false);
   const [freeBidInput, setFreeBidInput] = useState("");
@@ -195,6 +199,18 @@ export default function AuctionLivePage() {
     getDoc(doc(db, "auctions", auctionId, "Participants", user.uid))
       .then((snap) => setIsParticipant(snap.exists()))
       .catch(() => setIsParticipant(false));
+  }, [auctionId, user]);
+
+  useEffect(() => {
+    if (!auctionId || !user) {
+      setIsRestricted(false);
+      return;
+    }
+    const unsub = onSnapshot(
+      doc(db, "auctions", auctionId, "restricted", user.uid),
+      (snap) => setIsRestricted(snap.exists()),
+    );
+    return () => unsub();
   }, [auctionId, user]);
 
   useEffect(() => {
@@ -411,7 +427,16 @@ export default function AuctionLivePage() {
       toast.success(`${amount.toLocaleString()} ${cur}`);
       setFreeBidInput("");
     } catch (err: any) {
-      toast.error(err?.message ?? t("common.errorGeneric", "Bid failed."));
+      if (err instanceof RestrictedFromAuctionError) {
+        toast.error(
+          t(
+            "auctionLive.kicked.bidBlocked",
+            "You have been removed from this auction and cannot place bids.",
+          ),
+        );
+      } else {
+        toast.error(err?.message ?? t("common.errorGeneric", "Bid failed."));
+      }
     } finally {
       setBidding(false);
     }
@@ -426,7 +451,8 @@ export default function AuctionLivePage() {
   const isLive = liveStatus === "live";
   const isUpcoming = liveStatus === "upcoming";
   const isEnded = liveStatus === "ended";
-  const canBid = isLive && isParticipant === true && !bidding;
+  const canAccessRoom = isParticipant === true && !isRestricted;
+  const canBid = isLive && canAccessRoom && !bidding;
   const productImage = product?.thumbnail ?? product?.images?.[0] ?? null;
   const freeBidNum = Number(freeBidInput);
   const freeBidValid =
@@ -750,20 +776,43 @@ export default function AuctionLivePage() {
             </div>
 
             {/* Chat section */}
-            {auction.enableChat && isParticipant && user && (
+            {auction.enableChat && canAccessRoom && user && (
               <AuctionChat
                 auctionId={auction.id}
                 userId={user.uid}
                 userName={userNames[user.uid] ?? user.displayName ?? "User"}
                 userPhotoURL={user.photoURL ?? undefined}
                 isEnded={isEnded}
+                isLive={isLive}
+                auctionNumber={auction.auctionNumber}
               />
             )}
           </div>
         </div>
 
+        {/* ── KICKED / RESTRICTED OVERLAY ── */}
+        {isRestricted && (
+          <div className="al-overlay">
+            <div className="al-overlaybox">
+              <div className="al-overlayicon">🚫</div>
+              <div className="al-overlaytitle">
+                {t("auctionLive.kicked.title", "Removed from auction")}
+              </div>
+              <div className="al-overlaydesc">
+                {t(
+                  "auctionLive.kicked.desc",
+                  "You have been removed from this auction by a moderator. You can no longer view, bid, or chat in this room.",
+                )}
+              </div>
+              <button className="al-overlayback" onClick={() => navigate(-1)}>
+                {t("auctionLive.goBack")}
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* ── NON-PARTICIPANT OVERLAY ── */}
-        {isParticipant === false && (
+        {!isRestricted && isParticipant === false && (
           <div className="al-overlay">
             <div className="al-overlaybox">
               <div className="al-overlayicon">🔒</div>
@@ -794,7 +843,7 @@ export default function AuctionLivePage() {
       {/* ── MODALS ─────────────────────────────────────────────────────────── */}
 
       {/* 1. Winner celebration (fires during the live session when auction resolves) */}
-      {isParticipant === true && showCelebration && resolvedWinner && (
+      {canAccessRoom && showCelebration && resolvedWinner && (
         <WinnerCelebration
           winnerName={resolvedWinner.name}
           winningBid={resolvedWinner.bid}
@@ -804,7 +853,7 @@ export default function AuctionLivePage() {
       )}
 
       {/* 2. Post-auction summary modal */}
-      {isParticipant === true && showModal && resolvedWinner && (
+      {canAccessRoom && showModal && resolvedWinner && (
         <PostAuctionModal
           winnerName={resolvedWinner.name}
           winningBid={resolvedWinner.bid}
@@ -816,7 +865,7 @@ export default function AuctionLivePage() {
       )}
 
       {/* 3. Last offer modal — shown when the auction resolves live (user was watching) */}
-      {isParticipant === true && showLastOffer && auction && user && (
+      {canAccessRoom && showLastOffer && auction && user && (
         <LastOfferModal
           auctionId={auction.id}
           userId={user.uid}
@@ -832,7 +881,7 @@ export default function AuctionLivePage() {
       )}
 
       {/* 4. Last offer modal — triggered by ?lastOffer=1 notification deep-link */}
-      {isParticipant === true && showLastOfferFromNotif && auction && user && (
+      {canAccessRoom && showLastOfferFromNotif && auction && user && (
         <LastOfferModal
           auctionId={auction.id}
           userId={user.uid}

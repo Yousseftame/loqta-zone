@@ -11,6 +11,13 @@ service cloud.firestore {
     function isRestricted(auctionId) {
       return exists(/databases/$(database)/documents/auctions/$(auctionId)/restricted/$(request.auth.uid));
     }
+
+    function isAuctionLive(auctionId) {
+      let a = get(/databases/$(database)/documents/auctions/$(auctionId)).data;
+      return a.isActive != false
+        && a.startTime <= request.time
+        && a.endTime >= request.time;
+    }
     
     
 
@@ -29,6 +36,8 @@ service cloud.firestore {
           request.resource.data.type == "payment_confirmed" &&
           request.resource.data.keys().hasAll(["type", "auctionId", "title", "message", "isRead", "createdAt"]) &&
           request.resource.data.isRead == false;
+
+        allow create: if isAdmin();
       }
 
       match /auctions/{auctionId} {
@@ -122,8 +131,13 @@ service cloud.firestore {
         );
         allow create: if request.auth != null &&
           request.resource.data.userId == request.auth.uid &&
+          request.resource.data.get("type", "user") == "user" &&
           exists(/databases/$(database)/documents/auctions/$(auctionId)/Participants/$(request.auth.uid)) &&
-          !isRestricted(auctionId);
+          !isRestricted(auctionId) &&
+          isAuctionLive(auctionId);
+        allow create: if isAdmin() &&
+          request.resource.data.userId == "system" &&
+          request.resource.data.type == "system_kick";
         allow update, delete: if isAdmin();
       }
 

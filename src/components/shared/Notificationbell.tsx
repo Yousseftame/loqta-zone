@@ -22,6 +22,7 @@ import {
   type NotificationType,
 } from "@/hooks/useNotifications";
 import { resolveProductTitle } from "@/lib/resolveLocalized";
+import { resolveModerationReason } from "@/lib/chatModerationI18n";
 
 // ── timeAgo ───────────────────────────────────────────────────────────────────
 function timeAgo(date: Date): string {
@@ -167,6 +168,34 @@ function getLocalizedNotif(
         message: product
           ? t("notifications.auctionLoser.message", { product, num })
           : t("notifications.auctionLoser.messageGeneric", { num }),
+      };
+    }
+    case "chat_warning": {
+      const num = (data.auctionNumber ?? data.messageParams?.auctionNumber ?? 0) as number;
+      const reason = resolveModerationReason(
+        data.messageParams?.customReason ?? data.customReason,
+        t,
+      );
+      return {
+        title: t("notifications.chatWarning.title"),
+        message: t("notifications.chatWarning.message", {
+          auctionNumber: num,
+          reason,
+        }),
+      };
+    }
+    case "chat_kick": {
+      const num = (data.auctionNumber ?? data.messageParams?.auctionNumber ?? 0) as number;
+      const reason = resolveModerationReason(
+        data.messageParams?.customReason ?? data.customReason,
+        t,
+      );
+      return {
+        title: t("notifications.chatKick.title"),
+        message: t("notifications.chatKick.message", {
+          auctionNumber: num,
+          reason,
+        }),
       };
     }
     default:
@@ -1016,6 +1045,102 @@ function FormattedAuctionCreatedMessage({
   );
 }
 
+// ── ChatModerationIcon ────────────────────────────────────────────────────────
+function ChatModerationIcon({
+  variant,
+  isUnread,
+}: {
+  variant: "warn" | "kick";
+  isUnread: boolean;
+}) {
+  const border =
+    variant === "warn"
+      ? "2.5px solid rgba(251,191,36,0.55)"
+      : "2.5px solid rgba(239,68,68,0.55)";
+  const glow =
+    variant === "warn"
+      ? "0 0 16px rgba(251,191,36,0.28), 0 4px 12px rgba(0,0,0,0.35)"
+      : "0 0 16px rgba(239,68,68,0.28), 0 4px 12px rgba(0,0,0,0.35)";
+
+  return (
+    <div
+      style={{
+        width: 44,
+        height: 44,
+        borderRadius: "50%",
+        background: "linear-gradient(135deg,#1a1200 0%,#0d0900 100%)",
+        border,
+        boxShadow: isUnread ? glow : "0 4px 10px rgba(0,0,0,0.3)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexShrink: 0,
+        marginTop: 1,
+        position: "relative" as const,
+      }}
+    >
+      <img
+        src="/loqta-removebg-preview.png"
+        alt="Loqta"
+        style={{
+          width: 26,
+          height: 26,
+          objectFit: "contain",
+          filter: "drop-shadow(0 2px 6px rgba(201,169,110,0.45))",
+        }}
+      />
+      <span
+        style={{
+          position: "absolute",
+          bottom: -3,
+          right: -3,
+          fontSize: 13,
+          lineHeight: 1,
+        }}
+      >
+        {variant === "warn" ? "⚠️" : "🚫"}
+      </span>
+      {isUnread && (
+        <span
+          style={{
+            position: "absolute",
+            top: -2,
+            left: -2,
+            width: 9,
+            height: 9,
+            borderRadius: "50%",
+            background: variant === "warn" ? "#fbbf24" : "#ef4444",
+            border: "2px solid #080d1a",
+            animation: "nfDotPulse 1.8s ease-in-out infinite",
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function FormattedChatModerationMessage({ message }: { message: string }) {
+  return (
+    <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+      <img
+        src="/loqta-removebg-preview.png"
+        alt="Loqta"
+        style={{
+          width: 18,
+          height: 18,
+          objectFit: "contain",
+          flexShrink: 0,
+          marginTop: 2,
+          filter: "drop-shadow(0 1px 4px rgba(201,169,110,0.35))",
+        }}
+      />
+      <p className="nf-item-msg" style={{ margin: 0 }}>
+        {message}
+      </p>
+    </div>
+  );
+}
+
 // ── PaymentConfirmedIcon ──────────────────────────────────────────────────────
 function PaymentConfirmedIcon() {
   return (
@@ -1485,6 +1610,18 @@ const TYPE_CONFIG: Record<
     bg: "rgba(255, 157, 92, 0.1)",
     border: "rgba(255, 157, 92, 0.3)",
   },
+  chat_warning: {
+    Icon: null,
+    color: "#fbbf24",
+    bg: "rgba(251, 191, 36, 0.1)",
+    border: "rgba(251, 191, 36, 0.3)",
+  },
+  chat_kick: {
+    Icon: null,
+    color: "#ef4444",
+    bg: "rgba(239, 68, 68, 0.1)",
+    border: "rgba(239, 68, 68, 0.3)",
+  },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1531,7 +1668,9 @@ export const NotificationBell = () => {
       notif.type === "payment_confirmed" ||
       notif.type === "voucher_created" ||
       notif.type === "auction_ended" ||
-      notif.type === "auction_loser"
+      notif.type === "auction_loser" ||
+      notif.type === "chat_warning" ||
+      notif.type === "chat_kick"
     ) {
       markRead(notif.id);
       return;
@@ -1637,12 +1776,16 @@ export const NotificationBell = () => {
                   const isAuctionCreatedType = notif.type === "auction_created";
                   const isAuctionWinnerType = notif.type === "auction_winner";
                   const isAuctionLoserType = notif.type === "auction_loser";
+                  const isChatWarningType = notif.type === "chat_warning";
+                  const isChatKickType = notif.type === "chat_kick";
 
                   const isClickable =
                     !isPaymentConfirmed &&
                     !isVoucherType &&
                     !isAuctionEndedType &&
-                    !isAuctionLoserType;
+                    !isAuctionLoserType &&
+                    !isChatWarningType &&
+                    !isChatKickType;
 
                   const cfg = TYPE_CONFIG[notif.type] ?? TYPE_CONFIG.promo;
 
@@ -1704,6 +1847,16 @@ export const NotificationBell = () => {
                         <AuctionCreatedIcon
                           isUnread={!notif.isRead}
                           imageUrl={(notif as any).productThumbnail ?? ""}
+                        />
+                      ) : isChatWarningType ? (
+                        <ChatModerationIcon
+                          variant="warn"
+                          isUnread={!notif.isRead}
+                        />
+                      ) : isChatKickType ? (
+                        <ChatModerationIcon
+                          variant="kick"
+                          isUnread={!notif.isRead}
                         />
                       ) : (
                         <div
@@ -1774,6 +1927,10 @@ export const NotificationBell = () => {
                             notif={notif}
                             t={t}
                             isRTL={isRTL}
+                          />
+                        ) : isChatWarningType || isChatKickType ? (
+                          <FormattedChatModerationMessage
+                            message={localMessage}
                           />
                         ) : (
                           <p className="nf-item-msg">{localMessage}</p>
