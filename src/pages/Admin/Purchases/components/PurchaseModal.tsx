@@ -566,17 +566,20 @@ export default function PurchaseModal({
               return (
                 <Box
                   key={type}
-                  onClick={() => handlePaymentTypeChange(type)}
+                  onClick={() => {
+                    if (!isEdit) handlePaymentTypeChange(type);
+                  }}
                   sx={{
                     p: 1.5,
                     borderRadius: 2,
                     border: `2px solid ${selected ? colors.primary : colors.border}`,
                     bgcolor: selected ? colors.primaryBg : "#fff",
-                    cursor: "pointer",
+                    cursor: isEdit ? "default" : "pointer",
+                    opacity: isEdit && !selected ? 0.5 : 1,
                     transition: "all 0.15s",
                     "&:hover": {
-                      borderColor: colors.primary,
-                      bgcolor: colors.primaryBg,
+                      borderColor: isEdit ? (selected ? colors.primary : colors.border) : colors.primary,
+                      bgcolor: isEdit ? (selected ? colors.primaryBg : "#fff") : colors.primaryBg,
                     },
                     display: "flex",
                     flexDirection: "column",

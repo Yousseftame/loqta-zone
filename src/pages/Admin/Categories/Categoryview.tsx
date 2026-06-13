@@ -24,11 +24,13 @@ import { useNavigate, useParams } from "react-router-dom";
 import { colors } from "./Categories-data";
 import type { Category } from "./Categories-data";
 import { useCategories } from "@/store/AdminContext/CategoryContext/CategoryContext";
+import { usePermissions } from "@/permissions/usePermissions";
 
 export default function CategoryView() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { getCategory, removeCategory } = useCategories();
+  const { can } = usePermissions();
 
   const [category, setCategory] = useState<Category | null>(null);
   const [loading, setLoading] = useState(true);
@@ -205,14 +207,28 @@ export default function CategoryView() {
               startIcon={<Edit size={16} />}
               onClick={() => navigate(`/admin/categories/${category.id}/edit`)}
               variant="contained"
+              disabled={!can("categories", "update")}
+              title={
+                !can("categories", "update")
+                  ? "You do not have permission to edit categories"
+                  : undefined
+              }
               sx={{
-                bgcolor: "rgba(255,255,255,0.2)",
-                color: "#fff",
+                bgcolor: !can("categories", "update") ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.2)",
+                color: !can("categories", "update") ? "rgba(255,255,255,0.4)" : "#fff",
                 textTransform: "none",
                 borderRadius: 2,
                 fontWeight: 600,
                 border: "1px solid rgba(255,255,255,0.35)",
-                "&:hover": { bgcolor: "rgba(255,255,255,0.3)" },
+                "&:hover": { 
+                  bgcolor: !can("categories", "update") ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.3)" 
+                },
+                "&.Mui-disabled": {
+                  color: "rgba(255,255,255,0.38)",
+                  bgcolor: "rgba(255,255,255,0.08)",
+                  borderColor: "rgba(255,255,255,0.1)",
+                },
+                cursor: !can("categories", "update") ? "not-allowed" : "pointer",
               }}
             >
               Edit
@@ -221,13 +237,27 @@ export default function CategoryView() {
               startIcon={<Trash2 size={16} />}
               onClick={() => setDeleteDialog(true)}
               variant="contained"
+              disabled={!can("categories", "delete")}
+              title={
+                !can("categories", "delete")
+                  ? "You do not have permission to delete categories"
+                  : undefined
+              }
               sx={{
-                bgcolor: "rgba(239,68,68,0.75)",
-                color: "#fff",
+                bgcolor: !can("categories", "delete") ? "rgba(255,255,255,0.08)" : "rgba(239,68,68,0.75)",
+                color: !can("categories", "delete") ? "rgba(255,255,255,0.4)" : "#fff",
                 textTransform: "none",
                 borderRadius: 2,
                 fontWeight: 600,
-                "&:hover": { bgcolor: "rgba(239,68,68,0.9)" },
+                border: !can("categories", "delete") ? "1px solid rgba(255,255,255,0.2)" : "none",
+                "&:hover": { 
+                  bgcolor: !can("categories", "delete") ? "rgba(255,255,255,0.08)" : "rgba(239,68,68,0.9)" 
+                },
+                "&.Mui-disabled": {
+                  color: "rgba(255,255,255,0.38)",
+                  bgcolor: "rgba(255,255,255,0.08)",
+                },
+                cursor: !can("categories", "delete") ? "not-allowed" : "pointer",
               }}
             >
               Delete

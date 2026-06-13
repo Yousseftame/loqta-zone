@@ -322,6 +322,18 @@ export async function createPurchase(
       adminName:  createdByName,
       purchaseId: docRef.id,
     });
+
+    // Also record the initial payment in the purchase history
+    await addDoc(collection(db, COL_PURCHASES, docRef.id, COL_PAYMENTS), {
+      amount:         payment.paidAmount,
+      method:         pay.method,
+      ...(pay.accountId ? { accountId: pay.accountId } : {}),
+      note:           "Initial payment on creation",
+      paidAt:         payload.purchaseDate,
+      recordedBy:     createdByUid,
+      recordedByName: createdByName,
+      createdAt:      serverTimestamp(),
+    });
   }
 
   if (saved) return saved;
@@ -473,37 +485,60 @@ export async function deletePurchase(
   }
 
   // Reverse finance **before** deleting the parent doc so a failed write leaves data intact.
+  // We ALWAYS use purchase.paidAmount as the total to reverse — it is the single
+  // source of truth, kept accurate by every edit/delete operation. The subcollection
+  // amounts can be stale (e.g. a cash purchase edited to a lower quantity still
+  // has the original amount in the subcollection record).
   if (purchase.paidAmount > 0) {
-    const payments   = await fetchPurchasePayments(id);
-    const subTotal   = payments.reduce((s, p) => s + (p.amount > 0 ? p.amount : 0), 0);
-    const remainder  = Math.max(0, purchase.paidAmount - subTotal);
-    const baseNote   = `Purchase deleted — reversal: ${purchase.productTitle} × ${purchase.quantity} unit(s) from ${purchase.supplierName}`;
+    const payments = await fetchPurchasePayments(id);
+    const activePayments = payments.filter((p) => p.status !== "deleted");
+    const baseNote = `Purchase deleted — reversal: ${purchase.productTitle} × ${purchase.quantity} unit(s) from ${purchase.supplierName}`;
 
-    for (const p of payments) {
-      if (p.amount <= 0) continue;
-      await logPurchaseReversal({
-        amount:     p.amount,
-        method:     p.method,
-        note:       `${baseNote} (${p.method})`,
-        adminUid,
-        adminName,
-        purchaseId: id,
-      });
-    }
-
-    if (remainder > 0) {
+    if (activePayments.length === 0) {
+      // No subcollection records — use initialPayMethod directly
       const method =
         purchase.initialPayMethod === "bank" || purchase.initialPayMethod === "cash"
           ? purchase.initialPayMethod
           : ("cash" as const);
       await logPurchaseReversal({
-        amount:     remainder,
+        amount:     purchase.paidAmount,
         method,
         note:       `${baseNote} (initial payment)`,
         adminUid,
         adminName,
         purchaseId: id,
       });
+    } else {
+      // Distribute the reversal proportionally across active payment records
+      // using their original fractions, but always sum to exactly purchase.paidAmount.
+      const subTotal = activePayments.reduce((s, p) => s + Math.max(0, p.amount), 0);
+
+      let reversedSoFar = 0;
+      for (let i = 0; i < activePayments.length; i++) {
+        const p = activePayments[i];
+        if (p.amount <= 0) continue;
+
+        const isLast = i === activePayments.length - 1;
+        // Last payment gets the remainder to avoid floating-point drift
+        const share = isLast
+          ? purchase.paidAmount - reversedSoFar
+          : subTotal > 0
+            ? Math.round((p.amount / subTotal) * purchase.paidAmount * 100) / 100
+            : 0;
+
+        if (share <= 0) continue;
+        reversedSoFar += share;
+
+        await logPurchaseReversal({
+          amount:     share,
+          method:     p.method,
+          note:       `${baseNote} (${p.method})`,
+          adminUid,
+          adminName,
+          purchaseId: id,
+          accountId:  p.accountId,
+        });
+      }
     }
   }
 
@@ -723,11 +758,185 @@ export async function fetchPurchasePayments(purchaseId: string): Promise<Purchas
       id:             d.id,
       amount:         parseNum(data.amount),
       method:         (data.method as "cash" | "bank") ?? "cash",
+      accountId:      data.accountId as string | undefined,
       note:           (data.note as string) ?? "",
       paidAt:         toDate(data.paidAt ?? data.createdAt),
       recordedBy:     (data.recordedBy as string)     ?? "",
       recordedByName: (data.recordedByName as string) ?? "",
       createdAt:      toDate(data.createdAt),
+      status:         (data.status as "active" | "deleted") ?? "active",
+      revisions:      (data.revisions as any[])?.map((r) => ({
+        amount: parseNum(r.amount),
+        note: r.note,
+        method: r.method,
+        accountId: r.accountId,
+        editedAt: toDate(r.editedAt),
+        editedBy: r.editedBy,
+        editedByName: r.editedByName,
+      })) ?? [],
+      deletedAt:      data.deletedAt ? toDate(data.deletedAt) : undefined,
+      deletedBy:      data.deletedBy as string | undefined,
+      deletedByName:  data.deletedByName as string | undefined,
     };
   });
+}
+
+// ─── EDIT PAYMENT RECORD ──────────────────────────────────────────────────────
+
+export async function editPurchasePayment(
+  purchaseId: string,
+  paymentId: string,
+  newAmountStr: string,
+  newNote: string,
+  adminUid: string,
+  adminName: string,
+): Promise<{ purchase: Purchase }> {
+  const currentPurchase = await fetchPurchase(purchaseId);
+  if (!currentPurchase) throw new Error("Purchase not found.");
+
+  const paymentSnap = await getDoc(doc(db, COL_PURCHASES, purchaseId, COL_PAYMENTS, paymentId));
+  if (!paymentSnap.exists()) throw new Error("Payment record not found.");
+  const paymentData = paymentSnap.data();
+  if (paymentData.status === "deleted") throw new Error("Cannot edit a deleted payment.");
+
+  const oldAmount = parseNum(paymentData.amount);
+  const newAmount = parseNum(newAmountStr);
+  if (newAmount <= 0) throw new Error("Payment amount must be greater than 0.");
+
+  const delta = newAmount - oldAmount;
+  const paymentMethod = (paymentData.method as "cash" | "bank") ?? "cash";
+  const paymentAccountId = paymentData.accountId as string | undefined;
+
+  // Clamp the delta to remaining amount if it's an increase
+  if (delta > currentPurchase.remainingAmount) {
+    throw new Error(`Cannot increase payment by ${delta}. Only ${currentPurchase.remainingAmount} is remaining.`);
+  }
+
+  if (delta > 0) {
+    await assertSufficientPaymentBalance(delta, paymentMethod, paymentAccountId);
+  }
+
+  const batch = writeBatch(db);
+
+  const revisions = Array.isArray(paymentData.revisions) ? [...paymentData.revisions] : [];
+  revisions.push({
+    amount: oldAmount,
+    note: paymentData.note ?? "",
+    method: paymentMethod,
+    accountId: paymentAccountId,
+    editedAt: Timestamp.now(),
+    editedBy: adminUid,
+    editedByName: adminName,
+  });
+
+  batch.update(doc(db, COL_PURCHASES, purchaseId, COL_PAYMENTS, paymentId), {
+    amount: newAmount,
+    note: newNote.trim(),
+    revisions,
+  });
+
+  const newPaidAmount = currentPurchase.paidAmount + delta;
+  const newRemainingAmount = Math.max(0, currentPurchase.totalCost - newPaidAmount);
+  const newPaymentStatus = derivePaymentStatus(
+    currentPurchase.paymentType,
+    newPaidAmount,
+    currentPurchase.totalCost,
+    currentPurchase.dueDate,
+  );
+
+  batch.update(doc(db, COL_PURCHASES, purchaseId), {
+    paidAmount: newPaidAmount,
+    remainingAmount: newRemainingAmount,
+    paymentStatus: newPaymentStatus,
+    updatedAt: serverTimestamp(),
+  });
+
+  await batch.commit();
+
+  if (delta > 0) {
+    await logPurchaseExpense({
+      amount: delta,
+      method: paymentMethod,
+      accountId: paymentAccountId,
+      note: `Payment edited (increase): ${currentPurchase.productTitle}`,
+      adminUid,
+      adminName,
+      purchaseId,
+    });
+  } else if (delta < 0) {
+    await logPurchaseReversal({
+      amount: Math.abs(delta),
+      method: paymentMethod,
+      accountId: paymentAccountId,
+      note: `Payment edited (decrease): ${currentPurchase.productTitle}`,
+      adminUid,
+      adminName,
+      purchaseId,
+    });
+  }
+
+  const saved = await fetchPurchase(purchaseId);
+  return { purchase: saved ?? currentPurchase };
+}
+
+// ─── DELETE PAYMENT RECORD ────────────────────────────────────────────────────
+
+export async function deletePurchasePayment(
+  purchaseId: string,
+  paymentId: string,
+  adminUid: string,
+  adminName: string,
+): Promise<{ purchase: Purchase }> {
+  const currentPurchase = await fetchPurchase(purchaseId);
+  if (!currentPurchase) throw new Error("Purchase not found.");
+
+  const paymentSnap = await getDoc(doc(db, COL_PURCHASES, purchaseId, COL_PAYMENTS, paymentId));
+  if (!paymentSnap.exists()) throw new Error("Payment record not found.");
+  const paymentData = paymentSnap.data();
+  if (paymentData.status === "deleted") throw new Error("Payment is already deleted.");
+
+  const paymentAmount = parseNum(paymentData.amount);
+  const paymentMethod = (paymentData.method as "cash" | "bank") ?? "cash";
+  const paymentAccountId = paymentData.accountId as string | undefined;
+
+  if (paymentAmount > 0) {
+    await logPurchaseReversal({
+      amount: paymentAmount,
+      method: paymentMethod,
+      accountId: paymentAccountId,
+      note: `Payment record deleted: ${currentPurchase.productTitle} × ${currentPurchase.quantity} unit(s)`,
+      adminUid,
+      adminName,
+      purchaseId,
+    });
+  }
+
+  const batch = writeBatch(db);
+  batch.update(doc(db, COL_PURCHASES, purchaseId, COL_PAYMENTS, paymentId), {
+    status: "deleted",
+    deletedAt: serverTimestamp(),
+    deletedBy: adminUid,
+    deletedByName: adminName,
+  });
+
+  const newPaidAmount = Math.max(0, currentPurchase.paidAmount - paymentAmount);
+  const newRemainingAmount = currentPurchase.totalCost - newPaidAmount;
+  const newPaymentStatus = derivePaymentStatus(
+    currentPurchase.paymentType,
+    newPaidAmount,
+    currentPurchase.totalCost,
+    currentPurchase.dueDate,
+  );
+
+  batch.update(doc(db, COL_PURCHASES, purchaseId), {
+    paidAmount: newPaidAmount,
+    remainingAmount: newRemainingAmount,
+    paymentStatus: newPaymentStatus,
+    updatedAt: serverTimestamp(),
+  });
+
+  await batch.commit();
+
+  const saved = await fetchPurchase(purchaseId);
+  return { purchase: saved ?? currentPurchase };
 }

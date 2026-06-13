@@ -31,6 +31,8 @@ import {
   recordPayment,
   fetchPurchasePayments,
   markPurchaseFullyPaid,
+  editPurchasePayment,
+  deletePurchasePayment,
 } from "@/service/purchases/purchaseService";
 import { useAuth } from "@/store/AuthContext/AuthContext";
 import { auditLogger, buildActor } from "@/service/audit/auditLogger";
@@ -64,6 +66,8 @@ interface PurchaseContextType {
   ) => Promise<Purchase>;
   markFullyPaid: (purchaseId: string) => Promise<Purchase>;
   getPurchasePayments: (purchaseId: string) => Promise<PurchasePayment[]>;
+  editPayment: (purchaseId: string, paymentId: string, amount: string, note: string) => Promise<Purchase>;
+  removePayment: (purchaseId: string, paymentId: string) => Promise<Purchase>;
 }
 
 const PurchaseContext = createContext<PurchaseContextType | undefined>(
@@ -347,6 +351,48 @@ export const PurchaseProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
+  const handleEditPayment = useCallback(
+    async (purchaseId: string, paymentId: string, amount: string, note: string) => {
+      try {
+        const { purchase: updated } = await editPurchasePayment(
+          purchaseId,
+          paymentId,
+          amount,
+          note,
+          adminUid,
+          adminName
+        );
+        setPurchases((prev) => prev.map((p) => (p.id === purchaseId ? updated : p)));
+        toast.success("Payment updated successfully");
+        return updated;
+      } catch (err: unknown) {
+        toast.error((err as Error)?.message ?? "Failed to edit payment");
+        throw err;
+      }
+    },
+    [adminUid, adminName]
+  );
+
+  const handleRemovePayment = useCallback(
+    async (purchaseId: string, paymentId: string) => {
+      try {
+        const { purchase: updated } = await deletePurchasePayment(
+          purchaseId,
+          paymentId,
+          adminUid,
+          adminName
+        );
+        setPurchases((prev) => prev.map((p) => (p.id === purchaseId ? updated : p)));
+        toast.success("Payment deleted successfully");
+        return updated;
+      } catch (err: unknown) {
+        toast.error((err as Error)?.message ?? "Failed to delete payment");
+        throw err;
+      }
+    },
+    [adminUid, adminName]
+  );
+
   // ── Provider ─────────────────────────────────────────────────────────────────
 
   return (
@@ -364,6 +410,8 @@ export const PurchaseProvider = ({ children }: { children: ReactNode }) => {
         recordPayment: handleRecordPayment,
         markFullyPaid: handleMarkFullyPaid,
         getPurchasePayments,
+        editPayment: handleEditPayment,
+        removePayment: handleRemovePayment,
       }}
     >
       {children}

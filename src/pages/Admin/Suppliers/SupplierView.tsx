@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useSuppliers } from "@/store/AdminContext/SupplierContext/SupplierContext";
+import { usePermissions } from "@/permissions/usePermissions";
 import type { Supplier } from "./suppliers-data";
 
 const colors = {
@@ -49,6 +50,7 @@ export default function SupplierView() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { getSupplier, removeSupplier } = useSuppliers();
+  const { can } = usePermissions();
 
   const [supplier, setSupplier] = useState<Supplier | null>(null);
   const [loading, setLoading] = useState(true);
@@ -241,37 +243,41 @@ export default function SupplierView() {
           </Box>
 
           <Box sx={{ display: "flex", gap: 1.5, flexShrink: 0 }}>
-            <Button
-              startIcon={<Edit size={16} />}
-              onClick={() => navigate(`/admin/suppliers/${supplier.id}/edit`)}
-              variant="contained"
-              sx={{
-                bgcolor: "rgba(255,255,255,0.2)",
-                color: "#fff",
-                textTransform: "none",
-                borderRadius: 2,
-                fontWeight: 600,
-                border: "1px solid rgba(255,255,255,0.35)",
-                "&:hover": { bgcolor: "rgba(255,255,255,0.3)" },
-              }}
-            >
-              Edit
-            </Button>
-            <Button
-              startIcon={<Trash2 size={16} />}
-              onClick={() => setDeleteDialog(true)}
-              variant="contained"
-              sx={{
-                bgcolor: "rgba(239,68,68,0.75)",
-                color: "#fff",
-                textTransform: "none",
-                borderRadius: 2,
-                fontWeight: 600,
-                "&:hover": { bgcolor: "rgba(239,68,68,0.9)" },
-              }}
-            >
-              Delete
-            </Button>
+            {can("suppliers", "update") && (
+              <Button
+                startIcon={<Edit size={16} />}
+                onClick={() => navigate(`/admin/suppliers/${supplier.id}/edit`)}
+                variant="contained"
+                sx={{
+                  bgcolor: "rgba(255,255,255,0.2)",
+                  color: "#fff",
+                  textTransform: "none",
+                  borderRadius: 2,
+                  fontWeight: 600,
+                  border: "1px solid rgba(255,255,255,0.35)",
+                  "&:hover": { bgcolor: "rgba(255,255,255,0.3)" },
+                }}
+              >
+                Edit
+              </Button>
+            )}
+            {can("suppliers", "delete") && (
+              <Button
+                startIcon={<Trash2 size={16} />}
+                onClick={() => setDeleteDialog(true)}
+                variant="contained"
+                sx={{
+                  bgcolor: "rgba(239,68,68,0.75)",
+                  color: "#fff",
+                  textTransform: "none",
+                  borderRadius: 2,
+                  fontWeight: 600,
+                  "&:hover": { bgcolor: "rgba(239,68,68,0.9)" },
+                }}
+              >
+                Delete
+              </Button>
+            )}
           </Box>
         </Box>
       </Paper>

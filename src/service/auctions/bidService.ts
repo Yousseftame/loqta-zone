@@ -139,8 +139,8 @@ export async function placeBid({
       }
 
       // Check against maximumBidLimit if defined
-      const maximumBidLimit: number | undefined = auction.maximumBidLimit;
-      if (maximumBidLimit !== undefined && amount > maximumBidLimit) {
+      const maximumBidLimit: number | undefined | null = auction.maximumBidLimit;
+      if (maximumBidLimit != null && amount > maximumBidLimit) {
         throw new BidValidationError("Your bid exceeds the maximum limit for this auction.");
       }
 

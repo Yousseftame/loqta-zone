@@ -157,7 +157,6 @@ export const DEFAULT_FINANCE_STATS: FinanceStats = {
 
 export const EXPENSE_CATEGORIES: { value: ExpenseCategory; label: string }[] = [
   { value: "ads",         label: "Advertising" },
-  { value: "products",    label: "Products" },
   { value: "salary",      label: "Salary" },
   { value: "maintenance", label: "Maintenance" },
   { value: "equipment",   label: "Equipment" },

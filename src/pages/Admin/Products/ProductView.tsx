@@ -44,6 +44,7 @@ import {
   getAuctionStatusStyle,
   type AuctionStatus,
 } from "../Auctions/auctions-data";
+import { usePermissions } from "@/permissions/usePermissions";
 
 const auctionStatusIcon = (s: AuctionStatus) =>
   s === "live" ? (
@@ -61,6 +62,7 @@ export default function ProductView() {
   const { auctions } = useAuctions();
   const { categories } = useCategories();
   const { suppliers } = useSuppliers();
+  const { can } = usePermissions();
 
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
@@ -317,14 +319,28 @@ export default function ProductView() {
               startIcon={<Edit size={16} />}
               onClick={() => navigate(`/admin/products/${product.id}/edit`)}
               variant="contained"
+              disabled={!can("products", "update")}
+              title={
+                !can("products", "update")
+                  ? "You do not have permission to edit products"
+                  : undefined
+              }
               sx={{
-                bgcolor: "rgba(255,255,255,0.2)",
-                color: "#fff",
+                bgcolor: !can("products", "update") ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.2)",
+                color: !can("products", "update") ? "rgba(255,255,255,0.4)" : "#fff",
                 textTransform: "none",
                 borderRadius: 2,
                 fontWeight: 600,
                 border: "1px solid rgba(255,255,255,0.35)",
-                "&:hover": { bgcolor: "rgba(255,255,255,0.3)" },
+                "&:hover": { 
+                  bgcolor: !can("products", "update") ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.3)" 
+                },
+                "&.Mui-disabled": {
+                  color: "rgba(255,255,255,0.38)",
+                  bgcolor: "rgba(255,255,255,0.08)",
+                  borderColor: "rgba(255,255,255,0.1)",
+                },
+                cursor: !can("products", "update") ? "not-allowed" : "pointer",
               }}
             >
               Edit
@@ -333,13 +349,27 @@ export default function ProductView() {
               startIcon={<Trash2 size={16} />}
               onClick={() => setDeleteDialog(true)}
               variant="contained"
+              disabled={!can("products", "delete")}
+              title={
+                !can("products", "delete")
+                  ? "You do not have permission to delete products"
+                  : undefined
+              }
               sx={{
-                bgcolor: "rgba(239,68,68,0.75)",
-                color: "#fff",
+                bgcolor: !can("products", "delete") ? "rgba(255,255,255,0.08)" : "rgba(239,68,68,0.75)",
+                color: !can("products", "delete") ? "rgba(255,255,255,0.4)" : "#fff",
                 textTransform: "none",
                 borderRadius: 2,
                 fontWeight: 600,
-                "&:hover": { bgcolor: "rgba(239,68,68,0.9)" },
+                border: !can("products", "delete") ? "1px solid rgba(255,255,255,0.2)" : "none",
+                "&:hover": { 
+                  bgcolor: !can("products", "delete") ? "rgba(255,255,255,0.08)" : "rgba(239,68,68,0.9)" 
+                },
+                "&.Mui-disabled": {
+                  color: "rgba(255,255,255,0.38)",
+                  bgcolor: "rgba(255,255,255,0.08)",
+                },
+                cursor: !can("products", "delete") ? "not-allowed" : "pointer",
               }}
             >
               Delete

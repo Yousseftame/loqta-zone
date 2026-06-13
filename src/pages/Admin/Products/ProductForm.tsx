@@ -881,7 +881,7 @@ export default function ProductForm() {
               error={!!errors.actualPrice}
               helperText={
                 errors.actualPrice ||
-                "Price you paid · will prompt an expense entry"
+                "Price you paid · complete it in purchase tab  "
               }
               inputProps={numericProps}
               InputProps={{

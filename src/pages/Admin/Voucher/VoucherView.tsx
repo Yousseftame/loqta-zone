@@ -50,6 +50,7 @@ import {
 } from "./voucher-data";
 import { useVouchers } from "@/store/AdminContext/VoucherContext/VoucherContext";
 import { resolveProductTitle } from "@/lib/resolveLocalized";
+import { usePermissions } from "@/permissions/usePermissions";
 
 // ─── Auction detail helpers ───────────────────────────────────────────────────
 
@@ -179,6 +180,7 @@ export default function VoucherView() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { getVoucher, removeVoucher } = useVouchers();
+  const { can } = usePermissions();
 
   const [voucher, setVoucher] = useState<Voucher | null>(null);
   const [loading, setLoading] = useState(true);
@@ -413,14 +415,28 @@ export default function VoucherView() {
               startIcon={<Edit size={16} />}
               onClick={() => navigate(`/admin/vouchers/${voucher.id}/edit`)}
               variant="contained"
+              disabled={!can("vouchers", "update")}
+              title={
+                !can("vouchers", "update")
+                  ? "You do not have permission to edit vouchers"
+                  : undefined
+              }
               sx={{
-                bgcolor: "rgba(255,255,255,0.2)",
-                color: "#fff",
+                bgcolor: !can("vouchers", "update") ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.2)",
+                color: !can("vouchers", "update") ? "rgba(255,255,255,0.4)" : "#fff",
                 textTransform: "none",
                 borderRadius: 2,
                 fontWeight: 600,
                 border: "1px solid rgba(255,255,255,0.35)",
-                "&:hover": { bgcolor: "rgba(255,255,255,0.3)" },
+                "&:hover": { 
+                  bgcolor: !can("vouchers", "update") ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.3)" 
+                },
+                "&.Mui-disabled": {
+                  color: "rgba(255,255,255,0.38)",
+                  bgcolor: "rgba(255,255,255,0.08)",
+                  borderColor: "rgba(255,255,255,0.1)",
+                },
+                cursor: !can("vouchers", "update") ? "not-allowed" : "pointer",
               }}
             >
               Edit
@@ -429,13 +445,27 @@ export default function VoucherView() {
               startIcon={<Trash2 size={16} />}
               onClick={() => setDeleteDialog(true)}
               variant="contained"
+              disabled={!can("vouchers", "delete")}
+              title={
+                !can("vouchers", "delete")
+                  ? "You do not have permission to delete vouchers"
+                  : undefined
+              }
               sx={{
-                bgcolor: "rgba(239,68,68,0.75)",
-                color: "#fff",
+                bgcolor: !can("vouchers", "delete") ? "rgba(255,255,255,0.08)" : "rgba(239,68,68,0.75)",
+                color: !can("vouchers", "delete") ? "rgba(255,255,255,0.4)" : "#fff",
                 textTransform: "none",
                 borderRadius: 2,
                 fontWeight: 600,
-                "&:hover": { bgcolor: "rgba(239,68,68,0.9)" },
+                border: !can("vouchers", "delete") ? "1px solid rgba(255,255,255,0.2)" : "none",
+                "&:hover": { 
+                  bgcolor: !can("vouchers", "delete") ? "rgba(255,255,255,0.08)" : "rgba(239,68,68,0.9)" 
+                },
+                "&.Mui-disabled": {
+                  color: "rgba(255,255,255,0.38)",
+                  bgcolor: "rgba(255,255,255,0.08)",
+                },
+                cursor: !can("vouchers", "delete") ? "not-allowed" : "pointer",
               }}
             >
               Delete

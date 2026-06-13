@@ -315,13 +315,13 @@ export default function AdminTicketsList() {
 
                       {/* Status */}
                       <TableCell>
-                        <Tooltip title="Click to change status" placement="top" arrow>
+                        <Tooltip title={can("tickets", "update") ? "Click to change status" : "Status"} placement="top" arrow>
                           <Chip
                             label={isUpdating ? "…" : statusStyle.label}
                             size="small"
-                            onClick={(e) => setMenuAnchor({ el: e.currentTarget, id: ticket.id, type: "status" })}
-                            icon={<ChevronDown size={11} />}
-                            sx={{ bgcolor: statusStyle.bg, color: statusStyle.color, fontWeight: 700, fontSize: "0.7rem", cursor: "pointer", "& .MuiChip-icon": { color: "inherit", ml: "6px" }, "&:hover": { opacity: 0.8 } }}
+                            onClick={(e) => can("tickets", "update") && setMenuAnchor({ el: e.currentTarget, id: ticket.id, type: "status" })}
+                            icon={can("tickets", "update") ? <ChevronDown size={11} /> : undefined}
+                            sx={{ bgcolor: statusStyle.bg, color: statusStyle.color, fontWeight: 700, fontSize: "0.7rem", cursor: can("tickets", "update") ? "pointer" : "default", "& .MuiChip-icon": { color: "inherit", ml: "6px" }, "&:hover": { opacity: can("tickets", "update") ? 0.8 : 1 } }}
                           />
                         </Tooltip>
                         <Menu
@@ -344,13 +344,13 @@ export default function AdminTicketsList() {
 
                       {/* Priority — clickable to change */}
                       <TableCell>
-                        <Tooltip title="Click to change priority" placement="top" arrow>
+                        <Tooltip title={can("tickets", "update") ? "Click to change priority" : "Priority"} placement="top" arrow>
                           <Chip
                             label={isUpdating ? "…" : prioStyle.label}
                             size="small"
-                            onClick={(e) => setMenuAnchor({ el: e.currentTarget, id: ticket.id, type: "priority" })}
-                            icon={<ChevronDown size={11} />}
-                            sx={{ bgcolor: prioStyle.bg, color: prioStyle.color, fontWeight: 700, fontSize: "0.7rem", cursor: "pointer", "& .MuiChip-icon": { color: "inherit", ml: "6px" }, "&:hover": { opacity: 0.8 } }}
+                            onClick={(e) => can("tickets", "update") && setMenuAnchor({ el: e.currentTarget, id: ticket.id, type: "priority" })}
+                            icon={can("tickets", "update") ? <ChevronDown size={11} /> : undefined}
+                            sx={{ bgcolor: prioStyle.bg, color: prioStyle.color, fontWeight: 700, fontSize: "0.7rem", cursor: can("tickets", "update") ? "pointer" : "default", "& .MuiChip-icon": { color: "inherit", ml: "6px" }, "&:hover": { opacity: can("tickets", "update") ? 0.8 : 1 } }}
                           />
                         </Tooltip>
                         <Menu
@@ -379,10 +379,12 @@ export default function AdminTicketsList() {
                       {/* Actions */}
                       <TableCell align="center">
                         <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.5 }}>
-                          <IconButton size="small" onClick={() => navigate(`/admin/tickets/${ticket.id}`)} sx={{ color: colors.primary, "&:hover": { bgcolor: colors.primaryBg }, borderRadius: 1.5 }} title="View ticket">
-                            <Eye size={16} />
-                          </IconButton>
-                          {can("tickets" as any, "delete") && (
+                          {can("tickets", "read") && (
+                            <IconButton size="small" onClick={() => navigate(`/admin/tickets/${ticket.id}`)} sx={{ color: colors.primary, "&:hover": { bgcolor: colors.primaryBg }, borderRadius: 1.5 }} title="View ticket">
+                              <Eye size={16} />
+                            </IconButton>
+                          )}
+                          {can("tickets", "delete") && (
                             <IconButton size="small" onClick={() => { setToDelete(ticket); setDeleteDialog(true); }} sx={{ color: colors.error, "&:hover": { bgcolor: colors.errorBg }, borderRadius: 1.5 }} title="Delete ticket">
                               <Trash2 size={16} />
                             </IconButton>

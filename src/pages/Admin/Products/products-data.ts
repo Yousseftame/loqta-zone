@@ -93,7 +93,7 @@ export const DEFAULT_FORM_DATA: ProductFormData = {
   price: "",
   actualPrice: "",
   quantity: "",
-  isActive: true,
+  isActive: false,
   featuresEn: [],
   featuresAr: [],
   newImages: [],

@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTickets } from "@/store/AdminContext/TicketContext/TicketContext";
+import { usePermissions } from "@/permissions/usePermissions";
 import {
   colors,
   TICKET_CATEGORY_LABELS,
@@ -42,6 +43,7 @@ export default function AdminTicketView() {
   const navigate = useNavigate();
   const { getTicket, changeTicketStatus, changeTicketPriority, saveAdminNote } =
     useTickets();
+  const { can } = usePermissions();
 
   const [ticket, setTicket]         = useState<SupportTicket | null>(null);
   const [loading, setLoading]       = useState(true);
@@ -262,7 +264,7 @@ export default function AdminTicketView() {
             {/* Status */}
             <FormControl fullWidth size="small" sx={{ mb: 2 }}>
               <InputLabel>Status</InputLabel>
-              <Select value={status} label="Status" onChange={(e) => setStatus(e.target.value as TicketStatus)}>
+              <Select disabled={!can("tickets", "update")} value={status} label="Status" onChange={(e) => setStatus(e.target.value as TicketStatus)}>
                 {(Object.keys(TICKET_STATUS_LABELS) as TicketStatus[]).map((s) => {
                   const st = getTicketStatusStyle(s);
                   return (
@@ -280,7 +282,7 @@ export default function AdminTicketView() {
             {/* Priority */}
             <FormControl fullWidth size="small" sx={{ mb: 3 }}>
               <InputLabel>Priority</InputLabel>
-              <Select value={priority} label="Priority" onChange={(e) => setPriority(e.target.value as TicketPriority)}>
+              <Select disabled={!can("tickets", "update")} value={priority} label="Priority" onChange={(e) => setPriority(e.target.value as TicketPriority)}>
                 {(Object.keys(TICKET_PRIORITY_LABELS) as TicketPriority[]).map((p) => {
                   const ps = getTicketPriorityStyle(p);
                   return (
@@ -297,6 +299,7 @@ export default function AdminTicketView() {
 
             {/* Admin note */}
             <TextField
+              disabled={!can("tickets", "update")}
               label="Admin Note / Response"
               placeholder="Add a note about this ticket or describe the resolution…"
               value={adminNote}
@@ -311,7 +314,7 @@ export default function AdminTicketView() {
 
             <Button
               onClick={handleSaveAll}
-              disabled={saving}
+              disabled={saving || !can("tickets", "update")}
               fullWidth
               variant="contained"
               startIcon={saving ? <CircularProgress size={14} color="inherit" /> : <Save size={16} />}

@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useSuppliers } from "@/store/AdminContext/SupplierContext/SupplierContext";
+import { usePermissions } from "@/permissions/usePermissions";
 import type { Supplier } from "./suppliers-data";
 
 // ── Reuse the same color palette as the rest of the admin panel ───────────────
@@ -65,6 +66,7 @@ export default function SuppliersList() {
     removeSupplier,
     toggleActive,
   } = useSuppliers();
+  const { can } = usePermissions();
 
   const [filtered, setFiltered] = useState<Supplier[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -224,25 +226,27 @@ export default function SuppliersList() {
           >
             <RefreshCw size={18} />
           </IconButton>
-          <Button
-            variant="contained"
-            startIcon={<Plus size={18} />}
-            onClick={() => navigate("/admin/suppliers/add")}
-            sx={{
-              bgcolor: colors.primary,
-              color: "white",
-              textTransform: "none",
-              px: 3,
-              py: 1.5,
-              borderRadius: 2,
-              fontWeight: 600,
-              boxShadow: "none",
-              width: { xs: "100%", sm: "auto" },
-              "&:hover": { bgcolor: "#111" },
-            }}
-          >
-            Add Supplier
-          </Button>
+          {can("suppliers", "create") && (
+            <Button
+              variant="contained"
+              startIcon={<Plus size={18} />}
+              onClick={() => navigate("/admin/suppliers/add")}
+              sx={{
+                bgcolor: colors.primary,
+                color: "white",
+                textTransform: "none",
+                px: 3,
+                py: 1.5,
+                borderRadius: 2,
+                fontWeight: 600,
+                boxShadow: "none",
+                width: { xs: "100%", sm: "auto" },
+                "&:hover": { bgcolor: "#111" },
+              }}
+            >
+              Add Supplier
+            </Button>
+          )}
         </Box>
       </Box>
 
@@ -548,7 +552,7 @@ export default function SuppliersList() {
                       >
                         <Switch
                           checked={sup.isActive}
-                          disabled={togglingId === sup.id}
+                          disabled={togglingId === sup.id || !can("suppliers", "update")}
                           onChange={() => handleToggle(sup)}
                           size="small"
                           sx={{
@@ -584,47 +588,53 @@ export default function SuppliersList() {
                           gap: 0.5,
                         }}
                       >
-                        <IconButton
-                          size="small"
-                          onClick={() => navigate(`/admin/suppliers/${sup.id}`)}
-                          sx={{
-                            color: colors.primary,
-                            "&:hover": { bgcolor: colors.primaryBg },
-                            borderRadius: 1.5,
-                          }}
-                          title="View"
-                        >
-                          <Eye size={16} />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          onClick={() =>
-                            navigate(`/admin/suppliers/${sup.id}/edit`)
-                          }
-                          sx={{
-                            color: "#7C3AED",
-                            "&:hover": { bgcolor: "#F3E8FF" },
-                            borderRadius: 1.5,
-                          }}
-                          title="Edit"
-                        >
-                          <Edit size={16} />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          onClick={() => {
-                            setToDelete(sup);
-                            setDeleteDialog(true);
-                          }}
-                          sx={{
-                            color: colors.error,
-                            "&:hover": { bgcolor: colors.errorBg },
-                            borderRadius: 1.5,
-                          }}
-                          title="Delete"
-                        >
-                          <Trash2 size={16} />
-                        </IconButton>
+                        {can("suppliers", "read") && (
+                          <IconButton
+                            size="small"
+                            onClick={() => navigate(`/admin/suppliers/${sup.id}`)}
+                            sx={{
+                              color: colors.primary,
+                              "&:hover": { bgcolor: colors.primaryBg },
+                              borderRadius: 1.5,
+                            }}
+                            title="View"
+                          >
+                            <Eye size={16} />
+                          </IconButton>
+                        )}
+                        {can("suppliers", "update") && (
+                          <IconButton
+                            size="small"
+                            onClick={() =>
+                              navigate(`/admin/suppliers/${sup.id}/edit`)
+                            }
+                            sx={{
+                              color: "#7C3AED",
+                              "&:hover": { bgcolor: "#F3E8FF" },
+                              borderRadius: 1.5,
+                            }}
+                            title="Edit"
+                          >
+                            <Edit size={16} />
+                          </IconButton>
+                        )}
+                        {can("suppliers", "delete") && (
+                          <IconButton
+                            size="small"
+                            onClick={() => {
+                              setToDelete(sup);
+                              setDeleteDialog(true);
+                            }}
+                            sx={{
+                              color: colors.error,
+                              "&:hover": { bgcolor: colors.errorBg },
+                              borderRadius: 1.5,
+                            }}
+                            title="Delete"
+                          >
+                            <Trash2 size={16} />
+                          </IconButton>
+                        )}
                       </Box>
                     </TableCell>
                   </TableRow>

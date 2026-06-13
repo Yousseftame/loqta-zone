@@ -846,7 +846,11 @@ export default function AuctionsList() {
                             <IconButton
                               size="small"
                               onClick={() =>
-                                navigate(`/admin/auctions/${auction.id}/edit`)
+                                navigate(
+                                  auction.bidType === "decreasing"
+                                    ? `/admin/auctions/${auction.id}/edit-decreasing`
+                                    : `/admin/auctions/${auction.id}/edit`
+                                )
                               }
                               disabled={auction.status === "ended"}
                               sx={{

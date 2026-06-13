@@ -231,7 +231,9 @@ function RecordPaymentDialog({
 
   useEffect(() => {
     if (open) {
-      fetchTransactionsForBalance().then(setLedgerTx).catch(() => setLedgerTx([]));
+      fetchTransactionsForBalance()
+        .then(setLedgerTx)
+        .catch(() => setLedgerTx([]));
     }
   }, [open]);
 
@@ -241,9 +243,7 @@ function RecordPaymentDialog({
       const method = "cash" as const;
       setForm({
         ...DEFAULT_RECORD_PAYMENT_FORM,
-        amount: purchase?.remainingAmount
-          ? String(purchase.remainingAmount)
-          : "",
+        amount: "",
         paymentAccountId: pickDefaultAccountId(activeAccounts, method),
         method,
       });
@@ -517,13 +517,27 @@ function PaymentHistoryDialog({
   payments,
   loadingHistory,
   onClose,
+  onEdit,
+  onDelete,
 }: {
   open: boolean;
   purchase: Purchase | null;
   payments: PurchasePayment[];
   loadingHistory: boolean;
   onClose: () => void;
+  onEdit: (payment: PurchasePayment) => void;
+  onDelete: (paymentId: string) => void;
 }) {
+  const { accounts } = usePaymentAccounts();
+
+  const getAccountName = (method: "cash" | "bank", id?: string) => {
+    if (id) {
+      const acc = accounts.find((a) => a.id === id);
+      if (acc) return acc.name;
+    }
+    return method === "cash" ? "Cash" : "Bank";
+  };
+
   if (!purchase) return null;
   return (
     <Dialog
@@ -626,64 +640,146 @@ function PaymentHistoryDialog({
           </Box>
         ) : (
           <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-            {payments.map((pay) => (
-              <Box
-                key={pay.id}
-                sx={{
-                  p: 1.5,
-                  borderRadius: 2,
-                  bgcolor: "#F8FAFC",
-                  border: `1px solid ${colors.border}`,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-              >
-                <Box>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <span
-                      style={{
-                        fontWeight: 700,
-                        fontSize: "0.9rem",
-                        color: "#16A34A",
-                      }}
-                    >
-                      +{fmtEGP(pay.amount)}
-                    </span>
-                    <Chip
-                      label={pay.method === "cash" ? "💵 Cash" : "🏦 Bank"}
-                      size="small"
+            {payments.map((pay) => {
+              const isDeleted = pay.status === "deleted";
+              return (
+                <Box key={pay.id} sx={{ display: "flex", flexDirection: "column", gap: 1, pl: 2, borderLeft: `2px solid ${isDeleted ? "#FCA5A5" : colors.primaryLight || "#93C5FD"}`, ml: 1, py: 0.5, position: "relative" }}>
+                  {/* Timeline dot */}
+                  <Box sx={{ position: "absolute", left: -5, top: 18, width: 8, height: 8, borderRadius: "50%", bgcolor: isDeleted ? "#EF4444" : colors.primary }} />
+                  
+                  {/* Revisions (Audit Trail) */}
+                  {pay.revisions?.map((rev, idx) => (
+                    <Box
+                      key={`rev-${idx}`}
                       sx={{
-                        fontSize: "0.65rem",
-                        height: 18,
-                        bgcolor: "#F1F5F9",
-                        color: colors.textSecondary,
-                      }}
-                    />
-                  </Box>
-                  {pay.note && (
-                    <p
-                      style={{
-                        margin: "2px 0 0",
-                        fontSize: "0.72rem",
-                        color: colors.textMuted,
+                        p: 1.5,
+                        borderRadius: 2,
+                        bgcolor: "#F8FAFC",
+                        border: `1px dashed ${colors.border}`,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        opacity: 0.65,
                       }}
                     >
-                      {pay.note}
-                    </p>
-                  )}
-                  <p
-                    style={{
-                      margin: "2px 0 0",
-                      fontSize: "0.7rem",
-                      color: colors.textMuted,
+                      <Box sx={{ textDecoration: "line-through" }}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                          <span style={{ fontWeight: 700, fontSize: "0.9rem", color: colors.textSecondary }}>
+                            +{fmtEGP(rev.amount)}
+                          </span>
+                          <Chip
+                            label="Edited"
+                            size="small"
+                            sx={{ fontSize: "0.6rem", height: 16, bgcolor: "#E2E8F0" }}
+                          />
+                        </Box>
+                        {rev.note && <p style={{ margin: "2px 0 0", fontSize: "0.72rem" }}>{rev.note}</p>}
+                        <p style={{ margin: "2px 0 0", fontSize: "0.7rem" }}>
+                          by {idx === 0 ? pay.recordedByName : pay.revisions![idx - 1].editedByName} · {fmtDate(idx === 0 ? pay.paidAt : pay.revisions![idx - 1].editedAt)}
+                        </p>
+                      </Box>
+                    </Box>
+                  ))}
+
+                  {/* Active / Deleted Record */}
+                  <Box
+                    sx={{
+                      p: 1.5,
+                      borderRadius: 2,
+                      bgcolor: isDeleted ? "#FEF2F2" : "#F8FAFC",
+                      border: `1px solid ${isDeleted ? "#FCA5A5" : colors.border}`,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      boxShadow: isDeleted ? "none" : "0 1px 3px rgba(0,0,0,0.05)",
                     }}
                   >
-                    by {pay.recordedByName} · {fmtDate(pay.paidAt)}
-                  </p>
+                    <Box sx={{ textDecoration: isDeleted ? "line-through" : "none", opacity: isDeleted ? 0.7 : 1 }}>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                        <span
+                          style={{
+                            fontWeight: 700,
+                            fontSize: "0.9rem",
+                            color: isDeleted ? "#DC2626" : "#16A34A",
+                          }}
+                        >
+                          +{fmtEGP(pay.amount)}
+                        </span>
+                        <Chip
+                          label={
+                            pay.method === "cash"
+                              ? `💵 ${getAccountName("cash", pay.accountId)}`
+                              : `🏦 ${getAccountName("bank", pay.accountId)}`
+                          }
+                          size="small"
+                          sx={{
+                            fontSize: "0.65rem",
+                            height: 18,
+                            bgcolor: isDeleted ? "#FEE2E2" : "#F1F5F9",
+                            color: isDeleted ? "#DC2626" : colors.textSecondary,
+                          }}
+                        />
+                        {isDeleted && (
+                          <Chip
+                            label="Deleted"
+                            size="small"
+                            sx={{ fontSize: "0.6rem", height: 16, bgcolor: "#FECACA", color: "#B91C1C" }}
+                          />
+                        )}
+                      </Box>
+                      {pay.note && (
+                        <p
+                          style={{
+                            margin: "2px 0 0",
+                            fontSize: "0.72rem",
+                            color: isDeleted ? "#DC2626" : colors.textMuted,
+                          }}
+                        >
+                          {pay.note}
+                        </p>
+                      )}
+                      <p
+                        style={{
+                          margin: "4px 0 0",
+                          fontSize: "0.7rem",
+                          color: isDeleted ? "#DC2626" : colors.textMuted,
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        {isDeleted
+                          ? `Deleted by ${pay.deletedByName} · ${fmtDate(pay.deletedAt ?? new Date())}`
+                          : (() => {
+                              const hasRevisions = pay.revisions && pay.revisions.length > 0;
+                              if (!hasRevisions) {
+                                return `by ${pay.recordedByName} · ${fmtDate(pay.paidAt)}`;
+                              }
+                              const lastEditor = pay.revisions![pay.revisions!.length - 1];
+                              return (
+                                <>
+                                  Created by {pay.recordedByName} · {fmtDate(pay.paidAt)}<br/>
+                                  Last edited by {lastEditor.editedByName} · {fmtDate(lastEditor.editedAt)}
+                                </>
+                              );
+                            })()
+                        }
+                      </p>
+                    </Box>
+
+                    {/* Actions */}
+                    {!isDeleted && purchase.paymentType !== "cash" && (
+                      <Box sx={{ display: "flex", gap: 0.5 }}>
+                        <IconButton size="small" onClick={() => onEdit(pay)} sx={{ color: "#2563EB" }}>
+                          <Edit size={14} />
+                        </IconButton>
+                        <IconButton size="small" onClick={() => onDelete(pay.id)} sx={{ color: "#DC2626" }}>
+                          <Trash2 size={14} />
+                        </IconButton>
+                      </Box>
+                    )}
+                  </Box>
                 </Box>
-              </Box>
-            ))}
+              );
+            })}
           </Box>
         )}
       </DialogContent>
@@ -695,6 +791,97 @@ function PaymentHistoryDialog({
           sx={{ textTransform: "none", color: colors.textSecondary }}
         >
           Close
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+// ─── Edit Payment Dialog ──────────────────────────────────────────────────────
+
+function EditPaymentDialog({
+  open,
+  payment,
+  purchase,
+  saving,
+  onClose,
+  onSave,
+}: {
+  open: boolean;
+  payment: PurchasePayment | null;
+  purchase: Purchase | null;
+  saving: boolean;
+  onClose: () => void;
+  onSave: (amount: string, note: string) => Promise<void>;
+}) {
+  const [amount, setAmount] = useState("");
+  const [note, setNote] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (open && payment) {
+      setAmount(payment.amount.toString());
+      setNote(payment.note || "");
+      setError(null);
+    }
+  }, [open, payment]);
+
+  if (!payment || !purchase) return null;
+
+  return (
+    <Dialog open={open} onClose={() => !saving && onClose()} maxWidth="xs" fullWidth>
+      <DialogTitle sx={{ fontWeight: 700, fontSize: "0.95rem", color: colors.primaryDark, borderBottom: `1px solid ${colors.border}`, pb: 2, display: "flex", alignItems: "center", gap: 1 }}>
+        <Edit size={17} style={{ color: colors.primary }} />
+        Edit Payment Record
+      </DialogTitle>
+      <DialogContent sx={{ pt: "20px !important", display: "flex", flexDirection: "column", gap: 2 }}>
+        {error && (
+          <Box sx={{ p: 1.5, bgcolor: "#FEF2F2", color: "#B91C1C", borderRadius: 2, fontSize: "0.85rem", border: "1px solid #FECACA" }}>
+            {error}
+          </Box>
+        )}
+        <TextField
+          label="Amount Paid (EGP)"
+          type="number"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          fullWidth
+          disabled={saving}
+          autoFocus
+          inputProps={{ min: 0, step: "any" }}
+        />
+        <TextField
+          label="Notes (Optional)"
+          multiline
+          rows={2}
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          fullWidth
+          disabled={saving}
+        />
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button onClick={onClose} disabled={saving} sx={{ color: colors.textSecondary, textTransform: "none" }}>
+          Cancel
+        </Button>
+        <Button
+          onClick={async () => {
+            const num = parseFloat(amount);
+            if (isNaN(num) || num <= 0) {
+              setError("Please enter a valid amount.");
+              return;
+            }
+            try {
+              await onSave(amount, note);
+            } catch (e: any) {
+              setError(e.message || "Failed to update payment.");
+            }
+          }}
+          disabled={saving}
+          variant="contained"
+          sx={{ bgcolor: colors.primary, textTransform: "none", borderRadius: 2 }}
+        >
+          {saving ? "Saving..." : "Save Changes"}
         </Button>
       </DialogActions>
     </Dialog>
@@ -741,7 +928,14 @@ function MarkFullyPaidDialog({
         Confirm Full Payment
       </DialogTitle>
 
-      <DialogContent sx={{ pt: "20px !important", display: "flex", flexDirection: "column", gap: 2 }}>
+      <DialogContent
+        sx={{
+          pt: "20px !important",
+          display: "flex",
+          flexDirection: "column",
+          gap: 2,
+        }}
+      >
         {/* Summary */}
         <Box
           sx={{
@@ -751,25 +945,93 @@ function MarkFullyPaidDialog({
             border: "1px solid #99F6E4",
           }}
         >
-          <p style={{ margin: 0, fontSize: "0.78rem", fontWeight: 600, color: "#0F766E" }}>
+          <p
+            style={{
+              margin: 0,
+              fontSize: "0.78rem",
+              fontWeight: 600,
+              color: "#0F766E",
+            }}
+          >
             {purchase.productTitle} — {purchase.supplierName}
           </p>
-          <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, mt: 1 }}>
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 1,
+              mt: 1,
+            }}
+          >
             <Box>
-              <p style={{ margin: 0, fontSize: "0.62rem", color: colors.textMuted, textTransform: "uppercase", fontWeight: 600 }}>Total Cost</p>
-              <p style={{ margin: "2px 0 0", fontSize: "0.85rem", fontWeight: 700, color: colors.textPrimary }}>{fmtEGP(purchase.totalCost)}</p>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: "0.62rem",
+                  color: colors.textMuted,
+                  textTransform: "uppercase",
+                  fontWeight: 600,
+                }}
+              >
+                Total Cost
+              </p>
+              <p
+                style={{
+                  margin: "2px 0 0",
+                  fontSize: "0.85rem",
+                  fontWeight: 700,
+                  color: colors.textPrimary,
+                }}
+              >
+                {fmtEGP(purchase.totalCost)}
+              </p>
             </Box>
             <Box>
-              <p style={{ margin: 0, fontSize: "0.62rem", color: "#7F1D1D", textTransform: "uppercase", fontWeight: 600 }}>Remaining to Pay</p>
-              <p style={{ margin: "2px 0 0", fontSize: "0.85rem", fontWeight: 700, color: "#DC2626" }}>{fmtEGP(purchase.remainingAmount)}</p>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: "0.62rem",
+                  color: "#7F1D1D",
+                  textTransform: "uppercase",
+                  fontWeight: 600,
+                }}
+              >
+                Remaining to Pay
+              </p>
+              <p
+                style={{
+                  margin: "2px 0 0",
+                  fontSize: "0.85rem",
+                  fontWeight: 700,
+                  color: "#DC2626",
+                }}
+              >
+                {fmtEGP(purchase.remainingAmount)}
+              </p>
             </Box>
           </Box>
         </Box>
 
         {/* Warning */}
-        <Box sx={{ display: "flex", gap: 1.5, p: 1.5, borderRadius: 2, bgcolor: "#FFFBEB", border: "1px solid #FDE68A" }}>
+        <Box
+          sx={{
+            display: "flex",
+            gap: 1.5,
+            p: 1.5,
+            borderRadius: 2,
+            bgcolor: "#FFFBEB",
+            border: "1px solid #FDE68A",
+          }}
+        >
           <span style={{ fontSize: "1rem", flexShrink: 0 }}>⚠️</span>
-          <p style={{ margin: 0, fontSize: "0.72rem", color: "#92400E", lineHeight: 1.5 }}>
+          <p
+            style={{
+              margin: 0,
+              fontSize: "0.72rem",
+              color: "#92400E",
+              lineHeight: 1.5,
+            }}
+          >
             This will mark the entire remaining balance of{" "}
             <strong>{fmtEGP(purchase.remainingAmount)}</strong> as paid and
             close this purchase. This action <strong>cannot be undone</strong> —
@@ -778,7 +1040,9 @@ function MarkFullyPaidDialog({
         </Box>
       </DialogContent>
 
-      <DialogActions sx={{ px: 3, pb: 2.5, borderTop: `1px solid ${colors.border}`, gap: 1 }}>
+      <DialogActions
+        sx={{ px: 3, pb: 2.5, borderTop: `1px solid ${colors.border}`, gap: 1 }}
+      >
         <Button
           onClick={onClose}
           disabled={saving}
@@ -790,7 +1054,13 @@ function MarkFullyPaidDialog({
           variant="contained"
           onClick={onConfirm}
           disabled={saving}
-          startIcon={saving ? <CircularProgress size={14} color="inherit" /> : <CheckCheck size={15} />}
+          startIcon={
+            saving ? (
+              <CircularProgress size={14} color="inherit" />
+            ) : (
+              <CheckCheck size={15} />
+            )
+          }
           sx={{
             textTransform: "none",
             fontWeight: 700,
@@ -826,12 +1096,20 @@ export default function PurchasesList() {
     recordPayment,
     markFullyPaid,
     getPurchasePayments,
+    editPayment,
+    removePayment,
   } = usePurchases();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
+
+  const [filterSupplier, setFilterSupplier] = useState<string>("all");
+  const [filterPaymentType, setFilterPaymentType] = useState<string>("all");
+  const [filterPurchaseStatus, setFilterPurchaseStatus] =
+    useState<string>("all");
+  const [filterPaymentStatus, setFilterPaymentStatus] = useState<string>("all");
 
   // Modals
   const [modalOpen, setModalOpen] = useState(false);
@@ -854,6 +1132,16 @@ export default function PurchasesList() {
   const [historyPayments, setHistoryPayments] = useState<PurchasePayment[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
+  // Edit Payment
+  const [editPaymentDialog, setEditPaymentDialog] = useState(false);
+  const [editPaymentTarget, setEditPaymentTarget] = useState<PurchasePayment | null>(null);
+  const [editPaymentSaving, setEditPaymentSaving] = useState(false);
+
+  // Delete Payment
+  const [deletePaymentDialog, setDeletePaymentDialog] = useState(false);
+  const [deletePaymentTarget, setDeletePaymentTarget] = useState<string | null>(null);
+  const [deletePaymentSaving, setDeletePaymentSaving] = useState(false);
+
   // Mark fully paid confirmation
   const [markPaidDialog, setMarkPaidDialog] = useState(false);
   const [markPaidTarget, setMarkPaidTarget] = useState<Purchase | null>(null);
@@ -862,7 +1150,7 @@ export default function PurchasesList() {
   // ── Computed stats ──────────────────────────────────────────────────────────
 
   const stats = useMemo(() => {
-    const totalSpend = purchases.reduce((s, p) => s + p.totalCost, 0);
+    const totalSpend = purchases.reduce((s, p) => s + p.paidAmount, 0);
     const totalOwed = purchases.reduce((s, p) => s + p.remainingAmount, 0);
     const overdueAmount = purchases
       .filter((p) => p.paymentStatus === "overdue")
@@ -888,8 +1176,32 @@ export default function PurchasesList() {
 
   // ── Filtered list ───────────────────────────────────────────────────────────
 
+  const uniqueSuppliers = useMemo(() => {
+    const map = new Map<string, string>();
+    purchases.forEach((p) => {
+      if (p.supplierId && p.supplierName) {
+        map.set(p.supplierId, p.supplierName);
+      }
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [purchases]);
+
   const filtered = useMemo(() => {
     let list = purchases;
+
+    // Advanced filters
+    if (filterSupplier !== "all") {
+      list = list.filter((p) => p.supplierId === filterSupplier);
+    }
+    if (filterPaymentType !== "all") {
+      list = list.filter((p) => p.paymentType === filterPaymentType);
+    }
+    if (filterPurchaseStatus !== "all") {
+      list = list.filter((p) => p.status === filterPurchaseStatus);
+    }
+    if (filterPaymentStatus !== "all") {
+      list = list.filter((p) => p.paymentStatus === filterPaymentStatus);
+    }
 
     // Tab filter
     if (activeTab === "unpaid") {
@@ -913,7 +1225,15 @@ export default function PurchasesList() {
       );
     }
     return list;
-  }, [purchases, searchTerm, activeTab]);
+  }, [
+    purchases,
+    searchTerm,
+    activeTab,
+    filterSupplier,
+    filterPaymentType,
+    filterPurchaseStatus,
+    filterPaymentStatus,
+  ]);
 
   const paginated = filtered.slice(
     page * rowsPerPage,
@@ -922,7 +1242,14 @@ export default function PurchasesList() {
 
   useEffect(() => {
     setPage(0);
-  }, [searchTerm, activeTab]);
+  }, [
+    searchTerm,
+    activeTab,
+    filterSupplier,
+    filterPaymentType,
+    filterPurchaseStatus,
+    filterPaymentStatus,
+  ]);
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
@@ -1003,6 +1330,37 @@ export default function PurchasesList() {
     setHistoryPayments(payments);
     setLoadingHistory(false);
   };
+
+  const handleEditPayment = async (amount: string, note: string) => {
+    if (!historyTarget || !editPaymentTarget) return;
+    setEditPaymentSaving(true);
+    try {
+      await editPayment(historyTarget.id, editPaymentTarget.id, amount, note);
+      const payments = await getPurchasePayments(historyTarget.id);
+      setHistoryPayments(payments);
+      setEditPaymentDialog(false);
+      setEditPaymentTarget(null);
+    } finally {
+      setEditPaymentSaving(false);
+    }
+  };
+
+  const handleDeletePayment = async () => {
+    if (!historyTarget || !deletePaymentTarget) return;
+    setDeletePaymentSaving(true);
+    try {
+      await removePayment(historyTarget.id, deletePaymentTarget);
+      const payments = await getPurchasePayments(historyTarget.id);
+      setHistoryPayments(payments);
+      setDeletePaymentDialog(false);
+      setDeletePaymentTarget(null);
+    } catch (e) {
+      // errors handled by context toast
+    } finally {
+      setDeletePaymentSaving(false);
+    }
+  };
+
 
   // ── Loading / Error ─────────────────────────────────────────────────────────
 
@@ -1318,6 +1676,106 @@ export default function PurchasesList() {
             },
           }}
         />
+
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: {
+              xs: "1fr",
+              sm: "1fr 1fr",
+              md: "repeat(4, 1fr)",
+            },
+            gap: 2,
+            mb: 2,
+          }}
+        >
+          <TextField
+            select
+            size="small"
+            value={filterSupplier}
+            onChange={(e) => setFilterSupplier(e.target.value)}
+            label="Filter by Supplier"
+            sx={{
+              "& .MuiOutlinedInput-root": {
+                "& fieldset": { borderColor: colors.border },
+                "&:hover fieldset": { borderColor: colors.primary },
+                "&.Mui-focused fieldset": { borderColor: colors.primary },
+              },
+              "& .MuiInputLabel-root.Mui-focused": { color: colors.primary },
+            }}
+          >
+            <MenuItem value="all">All Suppliers</MenuItem>
+            {uniqueSuppliers.map((s) => (
+              <MenuItem key={s.id} value={s.id}>
+                {s.name}
+              </MenuItem>
+            ))}
+          </TextField>
+
+          <TextField
+            select
+            size="small"
+            value={filterPaymentType}
+            onChange={(e) => setFilterPaymentType(e.target.value)}
+            label="Filter by Payment Type"
+            sx={{
+              "& .MuiOutlinedInput-root": {
+                "& fieldset": { borderColor: colors.border },
+                "&:hover fieldset": { borderColor: colors.primary },
+                "&.Mui-focused fieldset": { borderColor: colors.primary },
+              },
+              "& .MuiInputLabel-root.Mui-focused": { color: colors.primary },
+            }}
+          >
+            <MenuItem value="all">All Types</MenuItem>
+            <MenuItem value="cash">Cash</MenuItem>
+            <MenuItem value="credit">Credit</MenuItem>
+            <MenuItem value="partial">Partial</MenuItem>
+          </TextField>
+
+          <TextField
+            select
+            size="small"
+            value={filterPurchaseStatus}
+            onChange={(e) => setFilterPurchaseStatus(e.target.value)}
+            label="Filter by Status"
+            sx={{
+              "& .MuiOutlinedInput-root": {
+                "& fieldset": { borderColor: colors.border },
+                "&:hover fieldset": { borderColor: colors.primary },
+                "&.Mui-focused fieldset": { borderColor: colors.primary },
+              },
+              "& .MuiInputLabel-root.Mui-focused": { color: colors.primary },
+            }}
+          >
+            <MenuItem value="all">All Statuses</MenuItem>
+            <MenuItem value="pending">Pending</MenuItem>
+            <MenuItem value="received">Received</MenuItem>
+            <MenuItem value="cancelled">Cancelled</MenuItem>
+          </TextField>
+
+          <TextField
+            select
+            size="small"
+            value={filterPaymentStatus}
+            onChange={(e) => setFilterPaymentStatus(e.target.value)}
+            label="Filter by Payment Status"
+            sx={{
+              "& .MuiOutlinedInput-root": {
+                "& fieldset": { borderColor: colors.border },
+                "&:hover fieldset": { borderColor: colors.primary },
+                "&.Mui-focused fieldset": { borderColor: colors.primary },
+              },
+              "& .MuiInputLabel-root.Mui-focused": { color: colors.primary },
+            }}
+          >
+            <MenuItem value="all">All Payment Statuses</MenuItem>
+            <MenuItem value="paid">Paid</MenuItem>
+            <MenuItem value="unpaid">Unpaid</MenuItem>
+            <MenuItem value="partial">Partial</MenuItem>
+            <MenuItem value="overdue">Overdue</MenuItem>
+          </TextField>
+        </Box>
 
         <Tabs
           value={activeTab}
@@ -1692,21 +2150,19 @@ export default function PurchasesList() {
                           )}
 
                           {/* Payment history */}
-                          {p.paymentType !== "cash" && (
-                            <Tooltip title="Payment History">
-                              <IconButton
-                                size="small"
-                                onClick={() => openHistory(p)}
-                                sx={{
-                                  color: "#7C3AED",
-                                  "&:hover": { bgcolor: "#F3E8FF" },
-                                  borderRadius: 1.5,
-                                }}
-                              >
-                                <History size={15} />
-                              </IconButton>
-                            </Tooltip>
-                          )}
+                          <Tooltip title="Payment History">
+                            <IconButton
+                              size="small"
+                              onClick={() => openHistory(p)}
+                              sx={{
+                                color: "#7C3AED",
+                                "&:hover": { bgcolor: "#F3E8FF" },
+                                borderRadius: 1.5,
+                              }}
+                            >
+                              <History size={15} />
+                            </IconButton>
+                          </Tooltip>
 
                           {/* Edit */}
                           <Tooltip title="Edit">
@@ -1796,6 +2252,27 @@ export default function PurchasesList() {
           setHistoryTarget(null);
           setHistoryPayments([]);
         }}
+        onEdit={(payment) => {
+          setEditPaymentTarget(payment);
+          setEditPaymentDialog(true);
+        }}
+        onDelete={(paymentId) => {
+          setDeletePaymentTarget(paymentId);
+          setDeletePaymentDialog(true);
+        }}
+      />
+
+      {/* ── Edit Payment Dialog ── */}
+      <EditPaymentDialog
+        open={editPaymentDialog}
+        payment={editPaymentTarget}
+        purchase={historyTarget}
+        saving={editPaymentSaving}
+        onClose={() => {
+          setEditPaymentDialog(false);
+          setEditPaymentTarget(null);
+        }}
+        onSave={handleEditPayment}
       />
 
       {/* ── Mark Fully Paid Confirmation ── */}
@@ -1894,6 +2371,48 @@ export default function PurchasesList() {
             }}
           >
             {loadingDelete ? "Deleting…" : "Delete"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Delete Payment Confirm ── */}
+      <Dialog
+        open={deletePaymentDialog}
+        onClose={() => !deletePaymentSaving && setDeletePaymentDialog(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 3 } }}
+      >
+        <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1.5, color: colors.error, pb: 1 }}>
+          <AlertTriangle size={22} /> Delete Payment Record
+        </DialogTitle>
+        <DialogContent>
+          <p style={{ color: colors.textPrimary, margin: "0 0 12px 0" }}>
+            Are you sure you want to delete this payment record?
+          </p>
+          <Box sx={{ bgcolor: "#FEE2E2", border: `1px solid ${colors.error}`, borderRadius: 2, p: 1.5 }}>
+            <p style={{ fontSize: "0.85rem", color: colors.error, margin: 0 }}>
+              <strong>Warning:</strong> This will adjust the remaining balance of the purchase and automatically log a reversal in the finance transactions.
+            </p>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5, gap: 1 }}>
+          <Button
+            onClick={() => setDeletePaymentDialog(false)}
+            disabled={deletePaymentSaving}
+            variant="outlined"
+            sx={{ textTransform: "none", borderColor: colors.border, color: colors.textPrimary, borderRadius: 2 }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDeletePayment}
+            disabled={deletePaymentSaving}
+            variant="contained"
+            startIcon={deletePaymentSaving ? <CircularProgress size={14} color="inherit" /> : <Trash2 size={16} />}
+            sx={{ textTransform: "none", bgcolor: colors.error, "&:hover": { bgcolor: "#DC2626" }, borderRadius: 2 }}
+          >
+            {deletePaymentSaving ? "Deleting…" : "Delete"}
           </Button>
         </DialogActions>
       </Dialog>

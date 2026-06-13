@@ -37,6 +37,7 @@ import {
 import { useAuctions } from "@/store/AdminContext/AuctionContext/AuctionContext";
 import { useProducts } from "@/store/AdminContext/ProductContext/ProductsCotnext";
 import AuctionChat from "@/pages/AuctionLivePage/components/AuctionChat";
+import { usePermissions } from "@/permissions/usePermissions";
 
 const statusIcon = (s: AuctionStatus) =>
   s === "live" ? (
@@ -74,6 +75,7 @@ export default function AuctionView() {
   const { id } = useParams<{ id: string }>();
   const { getAuction, removeAuction } = useAuctions();
   const { products } = useProducts();
+  const { can } = usePermissions();
 
   const [auction, setAuction] = useState<Auction | null>(null);
   const [loading, setLoading] = useState(true);
@@ -311,7 +313,13 @@ export default function AuctionView() {
           <Box sx={{ display: "flex", gap: 1.5, flexShrink: 0 }}>
             <Button
               startIcon={<Edit size={16} />}
-              onClick={() => navigate(`/admin/auctions/${auction.id}/edit`)}
+              onClick={() =>
+                navigate(
+                  auction.bidType === "decreasing"
+                    ? `/admin/auctions/${auction.id}/edit-decreasing`
+                    : `/admin/auctions/${auction.id}/edit`
+                )
+              }
               disabled={auction.status === "ended"}
               variant="contained"
               title={
@@ -349,13 +357,27 @@ export default function AuctionView() {
               startIcon={<Trash2 size={16} />}
               onClick={() => setDeleteDialog(true)}
               variant="contained"
+              disabled={!can("auctions", "delete")}
+              title={
+                !can("auctions", "delete")
+                  ? "You do not have permission to delete auctions"
+                  : undefined
+              }
               sx={{
-                bgcolor: "rgba(239,68,68,0.75)",
-                color: "#fff",
+                bgcolor: !can("auctions", "delete") ? "rgba(255,255,255,0.08)" : "rgba(239,68,68,0.75)",
+                color: !can("auctions", "delete") ? "rgba(255,255,255,0.4)" : "#fff",
                 textTransform: "none",
                 borderRadius: 2,
                 fontWeight: 600,
-                "&:hover": { bgcolor: "rgba(239,68,68,0.9)" },
+                border: !can("auctions", "delete") ? "1px solid rgba(255,255,255,0.2)" : "none",
+                "&:hover": { 
+                  bgcolor: !can("auctions", "delete") ? "rgba(255,255,255,0.08)" : "rgba(239,68,68,0.9)" 
+                },
+                "&.Mui-disabled": {
+                  color: "rgba(255,255,255,0.38)",
+                  bgcolor: "rgba(255,255,255,0.08)",
+                },
+                cursor: !can("auctions", "delete") ? "not-allowed" : "pointer",
               }}
             >
               Delete

@@ -219,19 +219,35 @@ export const routes = createBrowserRouter([
       // ── suppliers ─────────────────────────────────────────────────────────
       {
         path: "suppliers",
-        element: <SuppliersList />,
+        element: (
+          <PermissionRoute module="suppliers" action="read">
+            <SuppliersList />
+          </PermissionRoute>
+        ),
       },
       {
         path: "suppliers/add",
-        element: <SupplierForm />,
+        element: (
+          <PermissionRoute module="suppliers" action="create">
+            <SupplierForm />
+          </PermissionRoute>
+        ),
       },
       {
         path: "suppliers/:id",
-        element: <SupplierView />,
+        element: (
+          <PermissionRoute module="suppliers" action="read">
+            <SupplierView />
+          </PermissionRoute>
+        ),
       },
       {
         path: "suppliers/:id/edit",
-        element: <SupplierForm />,
+        element: (
+          <PermissionRoute module="suppliers" action="update">
+            <SupplierForm />
+          </PermissionRoute>
+        ),
       },
 
       // ── Products ─────────────────────────────────────────────────────────
@@ -315,6 +331,14 @@ export const routes = createBrowserRouter([
         element: (
           <PermissionRoute module="auctions" action="update">
             <AuctionForm />
+          </PermissionRoute>
+        ),
+      },
+      {
+        path: "auctions/:id/edit-decreasing",
+        element: (
+          <PermissionRoute module="auctions" action="update">
+            <DecreasingAuctionForm />
           </PermissionRoute>
         ),
       },
@@ -480,11 +504,19 @@ export const routes = createBrowserRouter([
       // ── Support Tickets ───────────────────────────────────────────────────
       {
         path: "tickets",
-        element: <AdminTicketsList />,
+        element: (
+          <PermissionRoute module="tickets" action="read">
+            <AdminTicketsList />
+          </PermissionRoute>
+        ),
       },
       {
         path: "tickets/:id",
-        element: <AdminTicketView />,
+        element: (
+          <PermissionRoute module="tickets" action="read">
+            <AdminTicketView />
+          </PermissionRoute>
+        ),
       },
     ],
   },

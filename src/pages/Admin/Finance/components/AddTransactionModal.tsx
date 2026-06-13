@@ -69,7 +69,7 @@ import {
 
 const DEFAULT_CATEGORY_BY_TYPE: Record<TransactionType, TransactionCategory> = {
   income: "auction_revenue",
-  expense: "products",
+  expense: "other",
   owner_withdrawal: "owner_draw",
   owner_return: "owner_return",
   transfer: "cash_to_bank",
@@ -1163,105 +1163,109 @@ export default function AddTransactionModal({
 
         {/* ── Type toggle ── */}
         <Box>
-          <label
-            style={{
-              fontSize: "0.75rem",
-              fontWeight: 700,
-              color: colors.textMuted,
-              letterSpacing: "0.06em",
-              textTransform: "uppercase",
-            }}
-          >
-            Type
-          </label>
-          <Box sx={{ mt: 0.75 }}>
-            <ToggleButtonGroup
-              exclusive
-              value={form.type}
-              size="small"
-              fullWidth
-              onChange={(_, v) => {
-                if (v) handleTypeChange(v as TransactionType);
-              }}
-              sx={{
-                "& .MuiToggleButton-root": {
-                  textTransform: "none",
+          {!isEditMode && (
+            <>
+              <label
+                style={{
+                  fontSize: "0.75rem",
                   fontWeight: 700,
-                  fontSize: "0.7rem",
-                  borderRadius: "8px !important",
-                  border: `1px solid ${colors.border} !important`,
-                  mx: 0.2,
-                  py: 0.8,
-                  px: 0.4,
-                },
-              }}
-            >
-              <ToggleButton
-                value="income"
-                sx={{
-                  "&.Mui-selected": {
-                    bgcolor: `${TAB_CONFIG.income.selectedBg} !important`,
-                    color: `${TAB_CONFIG.income.selectedColor} !important`,
-                    borderColor: `${TAB_CONFIG.income.selectedBorder} !important`,
-                  },
+                  color: colors.textMuted,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
                 }}
               >
-                📈 Income
-              </ToggleButton>
+                Type
+              </label>
+              <Box sx={{ mt: 0.75 }}>
+                <ToggleButtonGroup
+                  exclusive
+                  value={form.type}
+                  size="small"
+                  fullWidth
+                  onChange={(_, v) => {
+                    if (v) handleTypeChange(v as TransactionType);
+                  }}
+                  sx={{
+                    "& .MuiToggleButton-root": {
+                      textTransform: "none",
+                      fontWeight: 700,
+                      fontSize: "0.7rem",
+                      borderRadius: "8px !important",
+                      border: `1px solid ${colors.border} !important`,
+                      mx: 0.2,
+                      py: 0.8,
+                      px: 0.4,
+                    },
+                  }}
+                >
+                  <ToggleButton
+                    value="income"
+                    sx={{
+                      "&.Mui-selected": {
+                        bgcolor: `${TAB_CONFIG.income.selectedBg} !important`,
+                        color: `${TAB_CONFIG.income.selectedColor} !important`,
+                        borderColor: `${TAB_CONFIG.income.selectedBorder} !important`,
+                      },
+                    }}
+                  >
+                    📈 Income
+                  </ToggleButton>
 
-              <ToggleButton
-                value="expense"
-                sx={{
-                  "&.Mui-selected": {
-                    bgcolor: `${TAB_CONFIG.expense.selectedBg} !important`,
-                    color: `${TAB_CONFIG.expense.selectedColor} !important`,
-                    borderColor: `${TAB_CONFIG.expense.selectedBorder} !important`,
-                  },
-                }}
-              >
-                📉 Expense
-              </ToggleButton>
+                  <ToggleButton
+                    value="expense"
+                    sx={{
+                      "&.Mui-selected": {
+                        bgcolor: `${TAB_CONFIG.expense.selectedBg} !important`,
+                        color: `${TAB_CONFIG.expense.selectedColor} !important`,
+                        borderColor: `${TAB_CONFIG.expense.selectedBorder} !important`,
+                      },
+                    }}
+                  >
+                    📉 Expense
+                  </ToggleButton>
 
-              <ToggleButton
-                value="owner_withdrawal"
-                sx={{
-                  "&.Mui-selected": {
-                    bgcolor: `${TAB_CONFIG.owner_withdrawal.selectedBg} !important`,
-                    color: `${TAB_CONFIG.owner_withdrawal.selectedColor} !important`,
-                    borderColor: `${TAB_CONFIG.owner_withdrawal.selectedBorder} !important`,
-                  },
-                }}
-              >
-                👤 Owner
-              </ToggleButton>
+                  <ToggleButton
+                    value="owner_withdrawal"
+                    sx={{
+                      "&.Mui-selected": {
+                        bgcolor: `${TAB_CONFIG.owner_withdrawal.selectedBg} !important`,
+                        color: `${TAB_CONFIG.owner_withdrawal.selectedColor} !important`,
+                        borderColor: `${TAB_CONFIG.owner_withdrawal.selectedBorder} !important`,
+                      },
+                    }}
+                  >
+                    👤 Owner
+                  </ToggleButton>
 
-              <ToggleButton
-                value="owner_return"
-                sx={{
-                  "&.Mui-selected": {
-                    bgcolor: `${TAB_CONFIG.owner_return.selectedBg} !important`,
-                    color: `${TAB_CONFIG.owner_return.selectedColor} !important`,
-                    borderColor: `${TAB_CONFIG.owner_return.selectedBorder} !important`,
-                  },
-                }}
-              >
-                ↩️ Return
-              </ToggleButton>
+                  <ToggleButton
+                    value="owner_return"
+                    sx={{
+                      "&.Mui-selected": {
+                        bgcolor: `${TAB_CONFIG.owner_return.selectedBg} !important`,
+                        color: `${TAB_CONFIG.owner_return.selectedColor} !important`,
+                        borderColor: `${TAB_CONFIG.owner_return.selectedBorder} !important`,
+                      },
+                    }}
+                  >
+                    ↩️ Return
+                  </ToggleButton>
 
-              <ToggleButton
-                value="transfer"
-                sx={{
-                  "&.Mui-selected": {
-                    bgcolor: `${TAB_CONFIG.transfer.selectedBg} !important`,
-                    color: `${TAB_CONFIG.transfer.selectedColor} !important`,
-                    borderColor: `${TAB_CONFIG.transfer.selectedBorder} !important`,
-                  },
-                }}
-              >
-                🔄 Transfer
-              </ToggleButton>
-            </ToggleButtonGroup>
-          </Box>
+                  <ToggleButton
+                    value="transfer"
+                    sx={{
+                      "&.Mui-selected": {
+                        bgcolor: `${TAB_CONFIG.transfer.selectedBg} !important`,
+                        color: `${TAB_CONFIG.transfer.selectedColor} !important`,
+                        borderColor: `${TAB_CONFIG.transfer.selectedBorder} !important`,
+                      },
+                    }}
+                  >
+                    🔄 Transfer
+                  </ToggleButton>
+                </ToggleButtonGroup>
+              </Box>
+            </>
+          )}
 
           {isOwner && (
             <Box

@@ -42,15 +42,33 @@ export type PaymentStatus  = "unpaid" | "partial" | "paid" | "overdue";
 // ─── Purchase Payment (subcollection doc) ─────────────────────────────────────
 // Stored at: purchases/{purchaseId}/purchasePayments/{paymentId}
 
+export interface PaymentRevision {
+  amount: number;
+  note: string;
+  method: "cash" | "bank";
+  accountId?: string;
+  editedAt: Date;
+  editedBy: string;
+  editedByName: string;
+}
+
 export interface PurchasePayment {
   id: string;
   amount: number;
   method: "cash" | "bank";
+  accountId?: string;
   note: string;
   paidAt: Date;
   recordedBy: string;       // admin uid
   recordedByName: string;   // admin display name (denormalized)
   createdAt: Date;
+  
+  // Audit and history fields
+  status?: "active" | "deleted";
+  revisions?: PaymentRevision[];
+  deletedAt?: Date;
+  deletedBy?: string;
+  deletedByName?: string;
 }
 
 // ─── Main Purchase document ───────────────────────────────────────────────────

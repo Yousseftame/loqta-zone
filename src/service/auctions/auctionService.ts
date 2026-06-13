@@ -71,7 +71,7 @@ function formToPayload(formData: AuctionFormData, createdBy = "") {
   const startTime = Timestamp.fromDate(new Date(formData.startTime));
   const endTime = Timestamp.fromDate(new Date(formData.endTime));
 
-  return {
+  const payload: any = {
     productId: formData.productId,
     auctionNumber: Number(formData.auctionNumber),
     startingPrice: Number(formData.startingPrice),
@@ -81,10 +81,6 @@ function formToPayload(formData: AuctionFormData, createdBy = "") {
     fixedBidValue:
       formData.bidType === "fixed" && formData.fixedBidValue
         ? Number(formData.fixedBidValue)
-        : null,
-    maximumBidLimit:
-      formData.bidType !== "decreasing" && formData.maximumBidLimit
-        ? Number(formData.maximumBidLimit)
         : null,
     minimumPrice:
       formData.bidType === "decreasing" && formData.minimumPrice !== ""
@@ -99,6 +95,14 @@ function formToPayload(formData: AuctionFormData, createdBy = "") {
     enableChat: formData.enableChat,
     ...(createdBy && { createdBy }),
   };
+
+  if (formData.bidType !== "decreasing") {
+    payload.maximumBidLimit = formData.maximumBidLimit
+      ? Number(formData.maximumBidLimit)
+      : null;
+  }
+
+  return payload;
 }
 
 // ─── FETCH ALL ────────────────────────────────────────────────────────────────

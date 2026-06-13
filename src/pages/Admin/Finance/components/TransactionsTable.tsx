@@ -553,32 +553,34 @@ function TransactionDetailModal({
             </div>
 
             <div style={{ display: "flex", gap: 10, marginTop: 22 }}>
-              <button
-                onClick={onEdit}
-                style={{
-                  flex: 1,
-                  padding: "11px 0",
-                  borderRadius: 10,
-                  border: "1.5px solid #BFDBFE",
-                  background: "#EFF6FF",
-                  color: "#1E40AF",
-                  fontSize: "14px",
-                  fontWeight: 700,
-                  cursor: "pointer",
-                  fontFamily: "system-ui, sans-serif",
-                  transition: "all 0.18s ease",
-                }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.background =
-                    "#DBEAFE";
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.background =
-                    "#EFF6FF";
-                }}
-              >
-                ✏️ Edit
-              </button>
+              {!tx.purchaseId && (
+                <button
+                  onClick={onEdit}
+                  style={{
+                    flex: 1,
+                    padding: "11px 0",
+                    borderRadius: 10,
+                    border: "1.5px solid #BFDBFE",
+                    background: "#EFF6FF",
+                    color: "#1E40AF",
+                    fontSize: "14px",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    fontFamily: "system-ui, sans-serif",
+                    transition: "all 0.18s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.background =
+                      "#DBEAFE";
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.background =
+                      "#EFF6FF";
+                  }}
+                >
+                  ✏️ Edit
+                </button>
+              )}
               <button
                 onClick={onClose}
                 style={{
@@ -1750,7 +1752,7 @@ export default function TransactionsTable({
                         )}
                       </td>
 
-                      {/* Edit button */}
+                      {/* Edit button — hidden for purchase-linked transactions */}
                       <td
                         style={{
                           padding: "6px 8px",
@@ -1758,23 +1760,25 @@ export default function TransactionsTable({
                           textAlign: "center",
                         }}
                       >
-                        <Tooltip title="Edit transaction" placement="left">
-                          <IconButton
-                            size="small"
-                            onClick={(e) => handleEditFromRow(e, tx)}
-                            sx={{
-                              color: colors.textMuted,
-                              "&:hover": {
-                                color: colors.primary,
-                                bgcolor: colors.primaryBg,
-                              },
-                              borderRadius: 1.5,
-                              p: 0.75,
-                            }}
-                          >
-                            <Pencil size={13} />
-                          </IconButton>
-                        </Tooltip>
+                        {!tx.purchaseId && (
+                          <Tooltip title="Edit transaction" placement="left">
+                            <IconButton
+                              size="small"
+                              onClick={(e) => handleEditFromRow(e, tx)}
+                              sx={{
+                                color: colors.textMuted,
+                                "&:hover": {
+                                  color: colors.primary,
+                                  bgcolor: colors.primaryBg,
+                                },
+                                borderRadius: 1.5,
+                                p: 0.75,
+                              }}
+                            >
+                              <Pencil size={13} />
+                            </IconButton>
+                          </Tooltip>
+                        )}
                       </td>
                     </tr>,
                   );
