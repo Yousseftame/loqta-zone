@@ -5,6 +5,7 @@ import {
   submitFeedbackMessage,
 } from "@/service/contactFeedback/contactFeedbackService";
 import { useAuth } from "@/store/AuthContext/AuthContext";
+import { validatePhone } from "@/types/validation";
 
 // ── Design tokens ─────────────────────────────────────────────
 const GOLD = "#c9a96e";
@@ -702,6 +703,9 @@ function ContactForm({ visible }: { visible: boolean }) {
   const set = (k: keyof typeof form) => (v: string) =>
     setForm((f) => ({ ...f, [k]: v }));
 
+  const setPhone = (v: string) =>
+    setForm((f) => ({ ...f, phone: v.replace(/[^\d+\-\s()]/g, "") }));
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const submitName = user ? (user.displayName || "User") : form.name;
@@ -711,6 +715,14 @@ function ContactForm({ visible }: { visible: boolean }) {
       setError(t("contactPage.contactForm.errorRequired"));
       return;
     }
+    // Phone is only collected from guests; logged-in users use their profile phone.
+    if (!user && form.phone.trim()) {
+      const phoneCheck = validatePhone(form.phone);
+      if (!phoneCheck.valid) {
+        setError(t("contactPage.contactForm.errorPhone"));
+        return;
+      }
+    }
     setError("");
     setLoading(true);
     try {
@@ -718,6 +730,7 @@ function ContactForm({ visible }: { visible: boolean }) {
         ...form,
         name: submitName,
         email: submitEmail,
+        phone: user ? "" : form.phone,
       });
       setSent(true);
     } catch (err) {
@@ -809,18 +822,28 @@ function ContactForm({ visible }: { visible: boolean }) {
             />
           </div>
         )}
-        <div
-          style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}
-          className="form-row"
-        >
-          <Field
-            label={t("contactPage.contactForm.fields.phone")}
-            type="tel"
-            placeholder={t("contactPage.contactForm.fields.phonePlaceholder")}
-            value={form.phone}
-            onChange={set("phone")}
-            icon="📞"
-          />
+        {!user ? (
+          <div
+            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}
+            className="form-row"
+          >
+            <Field
+              label={t("contactPage.contactForm.fields.phone")}
+              type="tel"
+              placeholder={t("contactPage.contactForm.fields.phonePlaceholder")}
+              value={form.phone}
+              onChange={setPhone}
+              icon="📞"
+            />
+            <SelectField
+              label={t("contactPage.contactForm.fields.subject")}
+              icon="◈"
+              value={form.subject}
+              onChange={set("subject")}
+              options={subjectOptions}
+            />
+          </div>
+        ) : (
           <SelectField
             label={t("contactPage.contactForm.fields.subject")}
             icon="◈"
@@ -828,7 +851,7 @@ function ContactForm({ visible }: { visible: boolean }) {
             onChange={set("subject")}
             options={subjectOptions}
           />
-        </div>
+        )}
         <Field
           label={t("contactPage.contactForm.fields.message")}
           placeholder={t("contactPage.contactForm.fields.messagePlaceholder")}

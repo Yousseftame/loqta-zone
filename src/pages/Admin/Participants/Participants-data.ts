@@ -5,6 +5,7 @@ export interface Participant {
   auctionId: string;
   userId: string;
   fullName: string;       // resolved from /users/{uid}.fullName
+  email?: string;         // resolved from /users/{uid}.email
   hasPaid: boolean;
   joinedAt: Date;
   paymentId: string;

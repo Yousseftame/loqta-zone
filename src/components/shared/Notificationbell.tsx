@@ -15,7 +15,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/store/AuthContext/AuthContext";
-import { X, Gavel, Trophy, Heart, Tag, Clock, Bell, Gift } from "lucide-react";
+import { X, Gavel, Trophy, Heart, Tag, Clock, Bell, Gift, MessageSquare, LifeBuoy } from "lucide-react";
 import {
   useNotifications,
   type AppNotification,
@@ -196,6 +196,37 @@ function getLocalizedNotif(
           auctionNumber: num,
           reason,
         }),
+      };
+    }
+    case "contact_seen": {
+      return {
+        title: t("notifications.contactSeen.title"),
+        message: t("notifications.contactSeen.message"),
+      };
+    }
+    case "feedback_seen": {
+      return {
+        title: t("notifications.feedbackSeen.title"),
+        message: t("notifications.feedbackSeen.message"),
+      };
+    }
+    case "ticket_in_progress": {
+      const num = (data.auctionNumber ?? 0) as number;
+      const product = resolveProductTitle(
+        data.productName ?? data.productTitle ?? "",
+        "",
+      );
+      return {
+        title: t("notifications.ticketInProgress.title"),
+        message:
+          product && num
+            ? t("notifications.ticketInProgress.messageAuctionProduct", {
+                product,
+                num,
+              })
+            : num
+              ? t("notifications.ticketInProgress.messageAuction", { num })
+              : t("notifications.ticketInProgress.message"),
       };
     }
     default:
@@ -1119,6 +1150,51 @@ function ChatModerationIcon({
   );
 }
 
+function FeedbackSeenIcon({ isUnread }: { isUnread: boolean }) {
+  return (
+    <div
+      style={{
+        width: 48,
+        height: 48,
+        borderRadius: "50%",
+        background: "transparent",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexShrink: 0,
+        marginTop: 1,
+        position: "relative" as const,
+      }}
+    >
+      <img
+        src="/loqta-removebg-preview.png"
+        alt="Loqta Zone"
+        style={{
+          width: 46,
+          height: 46,
+          objectFit: "contain",
+          filter: "drop-shadow(0 2px 8px rgba(201,169,110,0.55))",
+        }}
+      />
+      {isUnread && (
+        <span
+          style={{
+            position: "absolute",
+            bottom: -2,
+            right: -2,
+            width: 9,
+            height: 9,
+            borderRadius: "50%",
+            background: "#c9a96e",
+            border: "2px solid #080d1a",
+            animation: "nfDotPulse 1.8s ease-in-out infinite",
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
 function FormattedChatModerationMessage({ message }: { message: string }) {
   return (
     <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
@@ -1622,6 +1698,24 @@ const TYPE_CONFIG: Record<
     bg: "rgba(239, 68, 68, 0.1)",
     border: "rgba(239, 68, 68, 0.3)",
   },
+  contact_seen: {
+    Icon: MessageSquare,
+    color: "#64a0ff",
+    bg: "rgba(100,160,255,0.13)",
+    border: "rgba(100,160,255,0.25)",
+  },
+  feedback_seen: {
+    Icon: null,
+    color: "#c9a96e",
+    bg: "rgba(201,169,110,0.13)",
+    border: "rgba(201,169,110,0.28)",
+  },
+  ticket_in_progress: {
+    Icon: LifeBuoy,
+    color: "#64a0ff",
+    bg: "rgba(100,160,255,0.13)",
+    border: "rgba(100,160,255,0.25)",
+  },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1778,6 +1872,7 @@ export const NotificationBell = () => {
                   const isAuctionLoserType = notif.type === "auction_loser";
                   const isChatWarningType = notif.type === "chat_warning";
                   const isChatKickType = notif.type === "chat_kick";
+                  const isFeedbackSeenType = notif.type === "feedback_seen";
 
                   const isClickable =
                     !isPaymentConfirmed &&
@@ -1858,6 +1953,8 @@ export const NotificationBell = () => {
                           variant="kick"
                           isUnread={!notif.isRead}
                         />
+                      ) : isFeedbackSeenType ? (
+                        <FeedbackSeenIcon isUnread={!notif.isRead} />
                       ) : (
                         <div
                           className="nf-icon"

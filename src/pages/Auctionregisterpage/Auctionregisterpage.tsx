@@ -1365,6 +1365,8 @@ export default function AuctionRegisterPage() {
               auctionId={targetAuction.id}
               auctionNumber={targetAuction.auctionNumber}
               auctionStatus={targetAuction.status as any}
+              productId={productId || targetAuction.productId || ""}
+              productName={product ? resolveProductTitle(product.title) : ""}
               userId={user.uid}
               userName={user.displayName || "User"}
               userEmail={user.email || ""}

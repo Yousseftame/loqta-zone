@@ -128,22 +128,18 @@
     @apply border-border outline-ring/50;
   }
 
-  /* ── Dark base to prevent white flash before splash/content mounts.
-     Uses the CSS var so it still responds to light/dark mode properly
-     after the app loads, while defaulting to near-black on first paint. ── */
+  /* ── Splash screen color to prevent any flash before React mounts ── */
   html {
-    background-color: #080603;
+    background-color: #162B46;
   }
 
   body {
-    /* #080603 is shown instantly on page load before React hydrates.
-       Once the app is running, bg-background takes over per theme.   */
-    background-color: #080603;
+    background-color: #162B46;
     @apply text-foreground;
   }
 
   #root {
-    background-color: #080603;
+    background-color: #162B46;
     min-height: 100vh;
   }
 

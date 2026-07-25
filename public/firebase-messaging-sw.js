@@ -88,6 +88,16 @@ function resolveUrl(data) {
     case "voucher_created":
       return "/auctions";
 
+    case "contact_seen":
+    case "feedback_seen":
+      return "/contact";
+
+    case "ticket_in_progress":
+      if (data.productId) return "/auctions/register/" + data.productId;
+      if (data.auctionId) return "/auctions/" + data.auctionId;
+      if (data.url && data.url !== "/") return data.url;
+      return "/auctions";
+
     default:
       if (data.auctionId) return "/auctions/" + data.auctionId;
       return "/auctions";

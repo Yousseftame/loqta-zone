@@ -53,6 +53,16 @@ export { onBidSelected } from "./Notifications/bidWinnerNotification";
 
 export { onVoucherCreated } from "./Notifications/voucherNotification";
 
+// Contact / Feedback seen — notifies the logged-in submitter when admin
+// changes status from "new" → "seen" (in-app + browser FCM push)
+export {
+  onContactMessageSeen,
+  onFeedbackMessageSeen,
+} from "./Notifications/contactFeedbackSeenNotification";
+
+// Auction support ticket — notifies the user when admin sets status to "in_progress"
+export { onTicketInProgress } from "./Notifications/ticketInProgressNotification";
+
 
 
 // ── Auction winner resolution ─────────────────────────────────────────────────

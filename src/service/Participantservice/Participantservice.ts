@@ -37,16 +37,28 @@ function docToParticipant(auctionId: string, id: string, data: Record<string, an
   };
 }
 
+// ─── Fetch user details from /users/{uid} ─────────────────────────────────────
+
+export async function fetchUserDetails(
+  uid: string,
+): Promise<{ fullName: string; email: string }> {
+  try {
+    const snap = await getDoc(doc(db, "users", uid));
+    if (!snap.exists()) return { fullName: "Unknown", email: "" };
+    const d = snap.data();
+    return {
+      fullName: d.fullName || "Unknown",
+      email: d.email || "",
+    };
+  } catch {
+    return { fullName: "Unknown", email: "" };
+  }
+}
+
 // ─── Fetch user full name from /users/{uid} ───────────────────────────────────
 
 export async function fetchUserName(uid: string): Promise<string> {
-  try {
-    const snap = await getDoc(doc(db, "users", uid));
-    if (!snap.exists()) return "Unknown";
-    return snap.data().fullName || "Unknown";
-  } catch {
-    return "Unknown";
-  }
+  return (await fetchUserDetails(uid)).fullName;
 }
 
 // ─── Fetch product title from /products/{productId} ──────────────────────────
@@ -73,16 +85,17 @@ export async function fetchParticipantsForAuction(auctionId: string): Promise<Pa
   const participants = snap.docs.map((d) => docToParticipant(auctionId, d.id, d.data()));
 
   const uniqueUserIds = [...new Set(participants.map((p) => p.userId))];
-  const nameMap: Record<string, string> = {};
+  const detailMap: Record<string, { fullName: string; email: string }> = {};
   await Promise.all(
     uniqueUserIds.map(async (uid) => {
-      nameMap[uid] = await fetchUserName(uid);
+      detailMap[uid] = await fetchUserDetails(uid);
     }),
   );
 
   return participants.map((p) => ({
     ...p,
-    fullName: nameMap[p.userId] || "Unknown",
+    fullName: detailMap[p.userId]?.fullName || "Unknown",
+    email: detailMap[p.userId]?.email || "",
   }));
 }
 

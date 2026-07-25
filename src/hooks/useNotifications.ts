@@ -38,7 +38,10 @@ export type NotificationType =
   | "auction_winner"
   | "auction_loser"
   | "chat_warning"
-  | "chat_kick";
+  | "chat_kick"
+  | "contact_seen"
+  | "feedback_seen"
+  | "ticket_in_progress";
 
 
 export interface AppNotification {

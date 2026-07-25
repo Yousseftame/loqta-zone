@@ -105,6 +105,7 @@ export default function AdminFeedbackList() {
       !s ||
       f.name.toLowerCase().includes(s) ||
       f.email.toLowerCase().includes(s) ||
+      (f.phone || "").toLowerCase().includes(s) ||
       f.title.toLowerCase().includes(s) ||
       f.feedback.toLowerCase().includes(s);
     const matchesStatus = !statusFilter || f.status === statusFilter;
@@ -520,6 +521,17 @@ export default function AdminFeedbackList() {
                             >
                               {fb.email || "—"}
                             </p>
+                            {fb.phone ? (
+                              <p
+                                style={{
+                                  margin: "2px 0 0",
+                                  fontSize: "0.7rem",
+                                  color: colors.textMuted,
+                                }}
+                              >
+                                {fb.phone}
+                              </p>
+                            ) : null}
                           </div>
                         </Box>
                       </TableCell>

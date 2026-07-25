@@ -17,6 +17,7 @@ import {
 import {
   ArrowLeft,
   Mail,
+  Phone,
   User,
   Calendar,
   Star,
@@ -265,6 +266,7 @@ export default function AdminFeedbackView() {
                 {fb.name || "Anonymous"}
               </strong>
               {fb.email && <> · {fb.email}</>}
+              {fb.phone && <> · {fb.phone}</>}
             </p>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               {[1, 2, 3, 4, 5].map((s) => (
@@ -443,6 +445,11 @@ export default function AdminFeedbackView() {
                 label: "Email",
                 icon: <Mail size={14} />,
                 value: fb.email || "—",
+              },
+              {
+                label: "Phone",
+                icon: <Phone size={14} />,
+                value: fb.phone || "—",
               },
               {
                 label: "Category",

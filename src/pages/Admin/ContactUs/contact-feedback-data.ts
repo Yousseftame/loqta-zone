@@ -10,6 +10,8 @@ export interface ContactMessage {
   subject: string;
   message: string;
   status: ContactStatus;
+  /** Present only for logged-in submitters — used for seen notifications. */
+  userId?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -22,12 +24,15 @@ export interface FeedbackMessage {
   id: string;
   name: string;
   email: string;
+  phone: string;
   category: string;
   rating: number;
   title: string;
   feedback: string;
   recommend: string;
   status: FeedbackStatus;
+  /** Present only for logged-in submitters — used for seen notifications. */
+  userId?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

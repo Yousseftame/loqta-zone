@@ -954,16 +954,16 @@ const CSS = `
 .al-pill.upcoming .al-pdot { background:#93c5fd; }
 .al-pill.ended { background:rgba(248,113,113,0.1); color:#f87171; }
 .al-pill.ended .al-pdot { background:#f87171; }
-.al-wrap { max-width:1160px; margin:0 auto; padding:28px 40px 100px; display:grid; grid-template-columns:1fr 1.1fr; gap:24px; align-items:start; }
+.al-wrap { max-width:1160px; width:100%; margin:0 auto; padding:28px 40px 100px; display:grid; grid-template-columns:1fr 1.1fr; gap:24px; align-items:start; }
 @media(max-width:900px){ .al-wrap { grid-template-columns:1fr; padding:20px 20px 80px; } }
-.al-left { display:flex; flex-direction:column; gap:16px; }
+.al-left { display:flex; flex-direction:column; gap:16px; min-width:0; }
 .al-imgcard { position:relative; border-radius:20px; overflow:hidden; border:1px solid rgba(201,169,110,0.13); aspect-ratio:16/10; background:rgba(255,255,255,0.02); }
-.al-img { width:100%; height:100%; object-fit:cover; display:block; }
+.al-img { width:100%; height:100%; object-fit:contain; display:block; }
 .al-imgph { width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:80px; color:rgba(201,169,110,0.1); }
 .al-live-badge { position:absolute; top:14px; left:14px; background:rgba(74,222,128,0.15); color:#4ade80; border:1px solid rgba(74,222,128,0.3); border-radius:99px; padding:4px 12px; font-size:10px; font-weight:700; letter-spacing:0.14em; backdrop-filter:blur(6px); }
-.al-prodinfo { background:rgba(255,255,255,0.025); border:1px solid rgba(201,169,110,0.1); border-radius:16px; padding:20px 22px; }
-.al-prodtitle { font-size:20px; font-weight:700; color:rgb(229,224,198); margin-bottom:8px; }
-.al-proddesc { font-size:15px; line-height:1.7; color:rgba(229,224,198,0.78); margin-bottom:12px; font-weight:300; }
+.al-prodinfo { background:rgba(255,255,255,0.025); border:1px solid rgba(201,169,110,0.1); border-radius:16px; padding:20px 22px; min-width:0; overflow:hidden; }
+.al-prodtitle { font-size:20px; font-weight:700; color:rgb(229,224,198); margin-bottom:8px; word-wrap:break-word; }
+.al-proddesc { font-size:15px; line-height:1.7; color:rgba(229,224,198,0.78); margin-bottom:12px; font-weight:300; white-space:pre-wrap; word-break:break-word; overflow-wrap:break-word; max-width:100%; }
 .al-prodmeta { display:flex; flex-wrap:wrap; gap:6px; }
 .al-metachip { font-size:11px; font-weight:500; color:rgba(201,169,110); background:rgba(201,169,110,0.07); border:1px solid rgba(201,169,110,0.13); border-radius:99px; padding:3px 12px; }
 .al-metarow { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:rgba(201,169,110,0.07); border-radius:16px; overflow:hidden; border:1px solid rgba(201,169,110,0.1); }
@@ -972,7 +972,7 @@ const CSS = `
 .al-metalabel { font-size:9px; font-weight:600; color:rgba(229,224,198,0.25); letter-spacing:0.18em; text-transform:uppercase; margin-bottom:6px; }
 .al-metaval { font-size:18px; font-weight:700; color:rgba(229,224,198,0.85); }
 .al-metaval--sm { font-size:13px; font-weight:500; }
-.al-right { display:flex; flex-direction:column; gap:18px; }
+.al-right { display:flex; flex-direction:column; gap:18px; min-width:0; }
 .al-bidcard { background:rgba(255,255,255,0.028); border:1px solid rgba(201,169,110,0.18); border-radius:20px; padding:24px 26px; }
 .al-bidcard-top { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:18px; padding-bottom:18px; border-bottom:1px solid rgba(201,169,110,0.08); }
 .al-bidlabel { font-size:14px; font-weight:600; color:rgba(229,224,198,0.85); letter-spacing:0.2em; text-transform:uppercase; margin-bottom:6px; }
@@ -983,6 +983,7 @@ const CSS = `
 .al-cdnum { font-size:28px; font-weight:700; color:rgb(229,224,198); letter-spacing:0.04em; font-variant-numeric:tabular-nums; display:inline-block; transition:transform 0.4s cubic-bezier(0.34,1.56,0.64,1); }
 .al[dir="ltr"] .al-cdnum { transform-origin:right center; }
 .al[dir="rtl"] .al-cdnum { transform-origin:left center; }
+@media(max-width:500px){ .al-bidcard-top { flex-direction:column; gap:16px; } .al-countdownblock { text-align:start; } .al[dir="ltr"] .al-cdnum { transform-origin:left center; } .al[dir="rtl"] .al-cdnum { transform-origin:right center; } }
 .al-cdnum.urgent { animation:al-urgent 1.2s ease-in-out infinite; }
 .al-cdnum.ended { color:rgba(229,224,198,0.3); transform:scale(1); }
 .al-bidtype { font-size:14px; color:rgba(229,224,198,0.9); margin-bottom:18px; letter-spacing:0.04em; }

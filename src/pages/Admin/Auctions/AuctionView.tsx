@@ -9,6 +9,13 @@ import {
   DialogContent,
   DialogActions,
   CircularProgress,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  TablePagination,
+  IconButton,
 } from "@mui/material";
 import {
   ArrowLeft,
@@ -24,6 +31,11 @@ import {
   Radio,
   CheckCircle2,
   User,
+  RefreshCw,
+  CheckCircle,
+  XCircle,
+  CreditCard,
+  Tag,
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { doc, getDoc } from "firebase/firestore";
@@ -38,6 +50,11 @@ import { useAuctions } from "@/store/AdminContext/AuctionContext/AuctionContext"
 import { useProducts } from "@/store/AdminContext/ProductContext/ProductsCotnext";
 import AuctionChat from "@/pages/AuctionLivePage/components/AuctionChat";
 import { usePermissions } from "@/permissions/usePermissions";
+import type { Participant } from "@/pages/Admin/Participants/Participants-data";
+import {
+  fetchParticipantsForAuction,
+  deleteParticipant,
+} from "@/service/Participantservice/Participantservice";
 
 const statusIcon = (s: AuctionStatus) =>
   s === "live" ? (
@@ -68,6 +85,545 @@ async function fetchWinnerInfo(uid: string): Promise<WinnerInfo | null> {
   } catch {
     return null;
   }
+}
+
+// ─── Participants section (mirrors Auction Participants list) ─────────────────
+function AuctionParticipantsSection({
+  auctionId,
+  auctionNumber,
+}: {
+  auctionId: string;
+  auctionNumber: number;
+}) {
+  const navigate = useNavigate();
+  const { can } = usePermissions();
+  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [loadingPart, setLoadingPart] = useState(true);
+  const [page, setPage] = useState(0);
+  const [deleteDialog, setDeleteDialog] = useState(false);
+  const [partToDelete, setPartToDelete] = useState<Participant | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const rowsPerPage = 5;
+
+  const loadParticipants = async () => {
+    setLoadingPart(true);
+    try {
+      setParticipants(await fetchParticipantsForAuction(auctionId));
+      setPage(0);
+    } finally {
+      setLoadingPart(false);
+    }
+  };
+
+  useEffect(() => {
+    loadParticipants();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auctionId]);
+
+  const handleDelete = async () => {
+    if (!partToDelete) return;
+    setDeleting(true);
+    try {
+      await deleteParticipant(auctionId, partToDelete.id);
+      setParticipants((prev) => prev.filter((p) => p.id !== partToDelete.id));
+      setDeleteDialog(false);
+      setPartToDelete(null);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const paginated = participants.slice(
+    page * rowsPerPage,
+    (page + 1) * rowsPerPage,
+  );
+  const paidCount = participants.filter((p) => p.hasPaid).length;
+  const voucherCount = participants.filter((p) => p.voucherUsed).length;
+
+  return (
+    <>
+      <Paper
+        elevation={0}
+        sx={{
+          borderRadius: 3,
+          border: `1px solid ${colors.border}`,
+          overflow: "hidden",
+          mt: 3,
+        }}
+      >
+        <Box
+          sx={{
+            px: 2.5,
+            py: 1.75,
+            bgcolor: colors.primaryBg,
+            borderBottom: `1px solid ${colors.border}`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: 1,
+          }}
+        >
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1.5,
+              flexWrap: "wrap",
+            }}
+          >
+            <Users size={16} style={{ color: colors.primary }} />
+            <span
+              style={{
+                fontWeight: 700,
+                fontSize: "0.9rem",
+                color: colors.primaryDark,
+              }}
+            >
+              Participants for Auction #{auctionNumber}
+            </span>
+            <Chip
+              label={`${participants.length} total`}
+              size="small"
+              sx={{
+                bgcolor: colors.primary,
+                color: "#fff",
+                fontWeight: 700,
+                fontSize: "0.68rem",
+              }}
+            />
+            {paidCount > 0 && (
+              <Chip
+                label={`${paidCount} paid`}
+                size="small"
+                sx={{
+                  bgcolor: "#DCFCE7",
+                  color: "#22C55E",
+                  fontWeight: 700,
+                  fontSize: "0.68rem",
+                }}
+              />
+            )}
+            {voucherCount > 0 && (
+              <Chip
+                label={`${voucherCount} voucher`}
+                size="small"
+                sx={{
+                  bgcolor: "#F3E8FF",
+                  color: "#7C3AED",
+                  fontWeight: 700,
+                  fontSize: "0.68rem",
+                }}
+              />
+            )}
+          </Box>
+          <IconButton
+            size="small"
+            onClick={loadParticipants}
+            sx={{ color: colors.primary }}
+            title="Refresh participants"
+          >
+            <RefreshCw size={14} />
+          </IconButton>
+        </Box>
+
+        {loadingPart ? (
+          <Box sx={{ display: "flex", justifyContent: "center", py: 5 }}>
+            <CircularProgress size={26} sx={{ color: colors.primary }} />
+          </Box>
+        ) : participants.length === 0 ? (
+          <Box sx={{ py: 5, textAlign: "center" }}>
+            <Users
+              size={32}
+              style={{
+                color: colors.textMuted,
+                margin: "0 auto 8px",
+                display: "block",
+              }}
+            />
+            <p
+              style={{
+                color: colors.textSecondary,
+                fontSize: "0.85rem",
+                margin: 0,
+              }}
+            >
+              No participants found for this auction
+            </p>
+          </Box>
+        ) : (
+          <>
+            <Box sx={{ overflowX: "auto" }}>
+              <Table size="small" sx={{ minWidth: 720 }}>
+                <TableHead>
+                  <TableRow sx={{ bgcolor: "#F8FAFC" }}>
+                    {[
+                      "#",
+                      "User",
+                      "Payment ID",
+                      "Has Paid",
+                      "Voucher Used",
+                      "Joined At",
+                      "Actions",
+                    ].map((h) => (
+                      <TableCell
+                        key={h}
+                        sx={{
+                          fontWeight: 700,
+                          color: colors.primaryDark,
+                          fontSize: "0.68rem",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.05em",
+                          py: 1.25,
+                          ...(h === "Actions" && { textAlign: "center" }),
+                        }}
+                      >
+                        {h}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {paginated.map((participant, idx) => {
+                    const rank = page * rowsPerPage + idx + 1;
+                    return (
+                      <TableRow
+                        key={participant.id}
+                        sx={{ "&:hover": { bgcolor: colors.muted } }}
+                      >
+                        <TableCell sx={{ py: 1.25 }}>
+                          <span
+                            style={{
+                              fontSize: "0.78rem",
+                              color: colors.textMuted,
+                            }}
+                          >
+                            {rank}
+                          </span>
+                        </TableCell>
+                        <TableCell sx={{ py: 1.25 }}>
+                          <Box
+                            onClick={() =>
+                              navigate(`/admin/users/${participant.userId}`)
+                            }
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 1.25,
+                              cursor: "pointer",
+                              borderRadius: 1.5,
+                              py: 0.25,
+                              px: 0.5,
+                              mx: -0.5,
+                              transition: "background 0.15s",
+                              "&:hover": { bgcolor: colors.primaryBg },
+                            }}
+                            title="View user profile"
+                          >
+                            <Box
+                              sx={{
+                                width: 34,
+                                height: 34,
+                                borderRadius: "50%",
+                                bgcolor: colors.primaryBg,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                fontWeight: 700,
+                                color: colors.primary,
+                                fontSize: "0.75rem",
+                                flexShrink: 0,
+                              }}
+                            >
+                              {participant.fullName
+                                ? participant.fullName.charAt(0).toUpperCase()
+                                : "?"}
+                            </Box>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: 0.2,
+                                minWidth: 0,
+                              }}
+                            >
+                              <span
+                                style={{
+                                  fontWeight: 700,
+                                  fontSize: "0.85rem",
+                                  color: colors.primary,
+                                  textDecoration: "underline",
+                                  textUnderlineOffset: 2,
+                                }}
+                              >
+                                {participant.fullName || "Unknown"}
+                              </span>
+                              {participant.email ? (
+                                <span
+                                  style={{
+                                    fontSize: "0.72rem",
+                                    color: colors.textSecondary,
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    whiteSpace: "nowrap",
+                                  }}
+                                >
+                                  {participant.email}
+                                </span>
+                              ) : null}
+                              <span
+                                style={{
+                                  fontSize: "0.66rem",
+                                  fontFamily: "monospace",
+                                  color: colors.textMuted,
+                                  background: colors.muted,
+                                  padding: "1px 5px",
+                                  borderRadius: 3,
+                                  width: "fit-content",
+                                }}
+                              >
+                                {participant.userId.slice(0, 14)}…
+                              </span>
+                            </Box>
+                          </Box>
+                        </TableCell>
+                        <TableCell sx={{ py: 1.25 }}>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 0.5,
+                            }}
+                          >
+                            <CreditCard
+                              size={12}
+                              style={{ color: colors.textMuted }}
+                            />
+                            <span
+                              style={{
+                                fontSize: "0.72rem",
+                                fontFamily: "monospace",
+                                color: colors.textMuted,
+                              }}
+                            >
+                              {participant.paymentId || "—"}
+                            </span>
+                          </Box>
+                        </TableCell>
+                        <TableCell sx={{ py: 1.25 }}>
+                          {participant.hasPaid ? (
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 0.5,
+                              }}
+                            >
+                              <CheckCircle
+                                size={14}
+                                style={{ color: "#22C55E" }}
+                              />
+                              <span
+                                style={{
+                                  fontSize: "0.75rem",
+                                  color: "#22C55E",
+                                  fontWeight: 600,
+                                }}
+                              >
+                                Paid
+                              </span>
+                            </Box>
+                          ) : (
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 0.5,
+                              }}
+                            >
+                              <XCircle
+                                size={14}
+                                style={{ color: colors.error }}
+                              />
+                              <span
+                                style={{
+                                  fontSize: "0.75rem",
+                                  color: colors.error,
+                                  fontWeight: 600,
+                                }}
+                              >
+                                Unpaid
+                              </span>
+                            </Box>
+                          )}
+                        </TableCell>
+                        <TableCell sx={{ py: 1.25 }}>
+                          {participant.voucherUsed ? (
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 0.5,
+                              }}
+                            >
+                              <Tag size={13} style={{ color: "#7C3AED" }} />
+                              <span
+                                style={{
+                                  fontSize: "0.75rem",
+                                  color: "#7C3AED",
+                                  fontWeight: 600,
+                                }}
+                              >
+                                Yes
+                              </span>
+                            </Box>
+                          ) : (
+                            <span
+                              style={{
+                                fontSize: "0.75rem",
+                                color: colors.textMuted,
+                              }}
+                            >
+                              —
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell sx={{ py: 1.25 }}>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 0.5,
+                            }}
+                          >
+                            <Clock
+                              size={12}
+                              style={{ color: colors.textMuted }}
+                            />
+                            <span
+                              style={{
+                                fontSize: "0.75rem",
+                                color: colors.textMuted,
+                              }}
+                            >
+                              {participant.joinedAt.toLocaleString()}
+                            </span>
+                          </Box>
+                        </TableCell>
+                        <TableCell align="center" sx={{ py: 1.25 }}>
+                          {can("participants", "delete") && (
+                            <IconButton
+                              size="small"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPartToDelete(participant);
+                                setDeleteDialog(true);
+                              }}
+                              sx={{
+                                color: colors.error,
+                                "&:hover": { bgcolor: colors.errorBg },
+                                borderRadius: 1.5,
+                              }}
+                              title="Remove participant"
+                            >
+                              <Trash2 size={14} />
+                            </IconButton>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </Box>
+            <TablePagination
+              component="div"
+              count={participants.length}
+              page={page}
+              onPageChange={(_e, p) => setPage(p)}
+              rowsPerPage={rowsPerPage}
+              rowsPerPageOptions={[5]}
+              sx={{ borderTop: `1px solid ${colors.border}` }}
+            />
+          </>
+        )}
+      </Paper>
+
+      <Dialog
+        open={deleteDialog}
+        onClose={() => !deleting && setDeleteDialog(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 3 } }}
+      >
+        <DialogTitle
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 1.5,
+            color: colors.error,
+          }}
+        >
+          <AlertTriangle size={20} /> Remove Participant
+        </DialogTitle>
+        <DialogContent>
+          <p style={{ color: colors.textPrimary, marginBottom: 12 }}>
+            Remove{" "}
+            <strong>{partToDelete?.fullName || partToDelete?.userId}</strong>{" "}
+            from Auction #{auctionNumber}?
+          </p>
+          <Box
+            sx={{
+              bgcolor: colors.errorBg,
+              border: `1px solid ${colors.error}`,
+              borderRadius: 2,
+              p: 2,
+            }}
+          >
+            <p style={{ fontSize: "0.85rem", color: colors.error, margin: 0 }}>
+              This removes their participant record only. It does not change the
+              auction participant count automatically.
+            </p>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, gap: 1 }}>
+          <Button
+            onClick={() => setDeleteDialog(false)}
+            disabled={deleting}
+            variant="outlined"
+            sx={{
+              textTransform: "none",
+              borderColor: colors.border,
+              color: colors.textPrimary,
+              borderRadius: 2,
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDelete}
+            disabled={deleting}
+            variant="contained"
+            startIcon={
+              deleting ? (
+                <CircularProgress size={14} color="inherit" />
+              ) : (
+                <Trash2 size={16} />
+              )
+            }
+            sx={{
+              textTransform: "none",
+              bgcolor: colors.error,
+              "&:hover": { bgcolor: "#DC2626" },
+              borderRadius: 2,
+            }}
+          >
+            {deleting ? "Removing…" : "Remove"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
+  );
 }
 
 export default function AuctionView() {
@@ -879,6 +1435,12 @@ export default function AuctionView() {
           ))}
         </Box>
       </Paper>
+
+      {/* ── Participants (same details as Auction Participants page) ── */}
+      <AuctionParticipantsSection
+        auctionId={auction.id}
+        auctionNumber={auction.auctionNumber}
+      />
 
       {/* ── Chat Panel (read-only admin view) ── */}
       {auction.enableChat && (

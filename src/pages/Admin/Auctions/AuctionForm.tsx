@@ -511,18 +511,26 @@ export default function AuctionForm() {
               ) : (
                 <Box
                   sx={{
-                    height: 40,
+                    minHeight: 40,
                     border: `1.5px solid ${isNumberConflict ? colors.error : colors.primary}`,
                     borderRadius: 1,
                     bgcolor: isNumberConflict ? "#FEF2F2" : colors.primaryBg,
                     display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
+                    flexDirection: "column",
+                    justifyContent: "center",
                     px: 1.5,
-                    gap: 1,
+                    py: 1,
+                    gap: 0.75,
                   }}
                 >
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1,
+                      flexWrap: "wrap",
+                    }}
+                  >
                     <span
                       style={{
                         fontSize: "1.05rem",
@@ -543,14 +551,48 @@ export default function AuctionForm() {
                       </span>
                     )}
                   </Box>
-                  {/* Used numbers hint */}
+                  {/* Used numbers hint — wraps + scrolls when the list is long */}
                   {usedAuctionNumbers.size > 0 && (
-                    <span
-                      style={{ fontSize: "0.72rem", color: colors.textMuted }}
+                    <Box
+                      sx={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        alignItems: "center",
+                        gap: 0.5,
+                        maxHeight: { xs: 72, sm: 88 },
+                        overflowY: "auto",
+                        pr: 0.25,
+                      }}
                     >
-                      Used:{" "}
-                      {[...usedAuctionNumbers].sort((a, b) => a - b).join(", ")}
-                    </span>
+                      <span
+                        style={{
+                          fontSize: "0.72rem",
+                          color: colors.textMuted,
+                          fontWeight: 600,
+                          marginRight: 2,
+                        }}
+                      >
+                        Used:
+                      </span>
+                      {[...usedAuctionNumbers]
+                        .sort((a, b) => a - b)
+                        .map((n) => (
+                          <span
+                            key={n}
+                            style={{
+                              fontSize: "0.7rem",
+                              color: colors.textSecondary,
+                              background: "rgba(42,72,99,0.08)",
+                              padding: "1px 7px",
+                              borderRadius: 4,
+                              lineHeight: 1.45,
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {n}
+                          </span>
+                        ))}
+                    </Box>
                   )}
                 </Box>
               )}

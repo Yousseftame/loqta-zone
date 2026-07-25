@@ -37,6 +37,7 @@ function docToContact(id: string, data: Record<string, any>): ContactMessage {
     subject: data.subject ?? "",
     message: data.message ?? "",
     status:  data.status  ?? "new",
+    userId:  data.userId  ?? null,
     createdAt:
       data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
     updatedAt:
@@ -49,12 +50,14 @@ function docToFeedback(id: string, data: Record<string, any>): FeedbackMessage {
     id,
     name:      data.name      ?? "",
     email:     data.email     ?? "",
+    phone:     data.phone     ?? "",
     category:  data.category  ?? "",
     rating:    data.rating    ?? 0,
     title:     data.title     ?? "",
     feedback:  data.feedback  ?? "",
     recommend: data.recommend ?? "",
     status:    data.status    ?? "new",
+    userId:    data.userId    ?? null,
     createdAt:
       data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
     updatedAt:
@@ -83,15 +86,33 @@ export async function submitContactMessage(data: {
   subject: string;
   message: string;
 }): Promise<void> {
+  const currentUser = getCurrentUser();
+
+  // Logged-in users: use registered profile phone (same as feedback).
+  // Guests: use the phone they entered on the form.
+  let phone = data.phone;
+  if (currentUser?.uid) {
+    try {
+      const userSnap = await getDoc(doc(db, "users", currentUser.uid));
+      if (userSnap.exists()) {
+        phone = (userSnap.data().phone as string) ?? "";
+      }
+    } catch {
+      // Leave phone as provided / empty — don't block contact submit.
+    }
+  }
+
   await addDoc(collection(db, CONTACT_COLLECTION), {
     ...data,
+    phone,
+    // Only logged-in users get status-change notifications (guests have no userId).
+    userId:    currentUser?.uid ?? null,
     status:    "new",
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
 
   // 🔥 AUDIT LOG — fire-and-forget after the write succeeds
-  const currentUser = getCurrentUser();
   auditLogger.contactSubmitted(
     data.name,
     data.email,
@@ -157,15 +178,31 @@ export async function submitFeedbackMessage(data: {
   feedback:  string;
   recommend: string;
 }): Promise<void> {
+  // Resolve phone from the registered user profile (same source as email/name).
+  const currentUser = getCurrentUser();
+  let phone = "";
+  if (currentUser?.uid) {
+    try {
+      const userSnap = await getDoc(doc(db, "users", currentUser.uid));
+      if (userSnap.exists()) {
+        phone = (userSnap.data().phone as string) ?? "";
+      }
+    } catch {
+      // Leave phone empty if profile lookup fails — don't block feedback submit.
+    }
+  }
+
   await addDoc(collection(db, FEEDBACK_COLLECTION), {
     ...data,
+    phone,
+    // Feedback form is login-only; always attach uid when available.
+    userId:    currentUser?.uid ?? null,
     status:    "new",
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
 
   // 🔥 AUDIT LOG — fire-and-forget after the write succeeds
-  const currentUser = getCurrentUser();
   auditLogger.feedbackSubmitted(
     data.name,
     data.email,

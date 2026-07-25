@@ -239,6 +239,7 @@
       "submitBtn": "✦ Send Message",
       "submitting": "Sending…",
       "errorRequired": "Please fill in all required fields.",
+      "errorPhone": "Please enter a valid phone number (digits only, at least 10 digits).",
       "errorGeneric": "Something went wrong. Please try again.",
       "successMessage": "Your message has been received!",
       "successSub": "We'll get back to you within 24 hours.",
@@ -1244,6 +1245,20 @@
     "chatKick": {
       "title": "🚫 Removed from Auction",
       "message": "You have been removed from Auction #{{auctionNumber}} for {{reason}}. You can no longer participate in this auction."
+    },
+    "contactSeen": {
+      "title": "We've seen your message ✓",
+      "message": "Your contact message has been reviewed by our team. We're working on it and will reply within 24 hours."
+    },
+    "feedbackSeen": {
+      "title": "We've seen your feedback ✓",
+      "message": "Thank you for your feedback! Our team has reviewed it and is working on it now. We appreciate you sharing your experience with us."
+    },
+    "ticketInProgress": {
+      "title": "We're working on your ticket ✓",
+      "message": "Our support team has reviewed your ticket and is working on it now. We'll solve it as soon as possible.",
+      "messageAuction": "Our support team has reviewed your ticket for Auction #{{num}} and is working on it now. We'll solve it as soon as possible.",
+      "messageAuctionProduct": "Our support team has reviewed your ticket for \"{{product}}\" Auction #{{num}} and is working on it now. We'll solve it as soon as possible."
     }
   },
   "profilePage": {
