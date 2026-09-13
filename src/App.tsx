@@ -9,6 +9,15 @@ const App = () => {
   // splashDone: splash has fully exited → mount the real router
   const [splashDone, setSplashDone] = useState(false);
 
+  // We delay mounting the router by just 100ms. 
+  // This allows the Splash Screen video to successfully start playing and paint 
+  // before the main thread gets busy mounting the React Router and Homepage.
+  const [startApp, setStartApp] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setStartApp(true), 150);
+    return () => clearTimeout(t);
+  }, []);
+
   useEffect(() => {
     // Only init AOS after content mounts, so scroll animations fire fresh
     if (splashDone) {
@@ -26,16 +35,12 @@ const App = () => {
       {!splashDone && (
         <SplashScreen
           onComplete={() => setSplashDone(true)}
-          minDuration={2600} // ms — tune this to match your Firebase load time
+          minDuration={2600}
         />
       )}
 
-      {/*
-        RouterProvider + page content is NOT mounted until splash is done.
-        This means HeroSections, SplitText, AOS animations etc. are all
-        created fresh the moment the splash exits — they will always play.
-      */}
-      {splashDone && (
+      {/* Mount router after 150ms so background fetching begins, but doesn't choke the video's start */}
+      {startApp && (
         <>
           <RouterProvider router={routes} />
           <AdaptiveToastConfig />

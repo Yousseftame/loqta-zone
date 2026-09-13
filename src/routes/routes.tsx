@@ -5,6 +5,7 @@ import PermissionRoute from "@/permissions/PermissionRoute";
 import AuthLayout from "@/layouts/AuthLayout/AuthLayout";
 import DashboardLayout from "@/layouts/DashboardLayout/DashboardLayout";
 import MainLayout from "@/layouts/MainLayout/MainLayout";
+import AdminProviders from "@/components/AdminProviders/AdminProviders";
 
 // ── Auth pages ────────────────────────────────────────────────────────────────
 const Login = lazy(() => import("@/pages/Auth/Login/Login"));
@@ -161,7 +162,9 @@ export const routes = createBrowserRouter([
     path: "/admin",
     element: (
       <ProtectedRoute allowedRoles={["admin", "superAdmin"]}>
-        <DashboardLayout />
+        <AdminProviders>
+          <DashboardLayout />
+        </AdminProviders>
       </ProtectedRoute>
     ),
     errorElement: <NotFound />,

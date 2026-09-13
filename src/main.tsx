@@ -1,28 +1,13 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import './lib/i18n.ts'; // 
+import './lib/i18n.ts';
 import './index.css'
 import App from './App.tsx'
 import ClickSpark from './components/ClickSpark.tsx';
 import { AuthProvider } from './store/AuthContext/AuthContext.tsx';
-import { ProductProvider } from './store/AdminContext/ProductContext/ProductsCotnext.tsx';
-import { AuctionProvider } from './store/AdminContext/AuctionContext/AuctionContext.tsx';
-import { VoucherProvider } from './store/AdminContext/VoucherContext/VoucherContext.tsx';
 import "swiper/css";
 import "swiper/css/navigation";
 import "swiper/css/pagination";
-import { CategoryProvider } from './store/AdminContext/CategoryContext/CategoryContext.tsx';
-import { AuctionRequestProvider } from './store/AdminContext/AuctionRequestContext/AuctionRequestContext.tsx';
-import { ContactFeedbackProvider } from './store/AdminContext/ContactFeedbackContext/ContactFeedbackContext.tsx';
-import { BidProvider } from './store/AdminContext/Bidcontext/Bidcontext.tsx';
-import { ParticipantProvider } from './store/AdminContext/Participantcontext/Participantcontext.tsx';
-import { LastOfferProvider } from './store/AdminContext/LastOfferContext/LastOfferContext.tsx';
-import { HeroSlideProvider } from './store/AdminContext/HeroSlideContext/HeroSlideContext.tsx';
-import { LeftSectionProvider } from './store/AdminContext/LeftSectionContext/LeftSectionContext.tsx';
-import { RightSectionProvider } from './store/AdminContext/RightSectionContext/RightSectionContext.tsx';
-import { SupplierProvider } from './store/AdminContext/SupplierContext/SupplierContext.tsx';
-import { PurchaseProvider } from './store/AdminContext/PurchaseContext/PurchaseContext.tsx';
-import { TicketProvider } from './store/AdminContext/TicketContext/TicketContext.tsx';
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -33,39 +18,8 @@ createRoot(document.getElementById("root")!).render(
       sparkCount={8}
       duration={400}
     >
-      {/* Your content here */}
       <AuthProvider>
-        <CategoryProvider>
-          <ProductProvider>
-            <SupplierProvider>
-              <AuctionProvider>
-                <VoucherProvider>
-                  <AuctionRequestProvider>
-                    <ContactFeedbackProvider>
-                      <BidProvider>
-                        <ParticipantProvider>
-                          <LastOfferProvider>
-                            <HeroSlideProvider>
-                              <LeftSectionProvider>
-                                <RightSectionProvider>
-                                <PurchaseProvider>
-                                    <TicketProvider>
-                                      <App />
-                                    </TicketProvider>
-                                  </PurchaseProvider>
-                                </RightSectionProvider>
-                              </LeftSectionProvider>
-                            </HeroSlideProvider>
-                          </LastOfferProvider>
-                        </ParticipantProvider>
-                      </BidProvider>
-                    </ContactFeedbackProvider>
-                  </AuctionRequestProvider>
-                </VoucherProvider>
-              </AuctionProvider>
-            </SupplierProvider>
-          </ProductProvider>
-        </CategoryProvider>
+        <App />
       </AuthProvider>
     </ClickSpark>
   </StrictMode>,
