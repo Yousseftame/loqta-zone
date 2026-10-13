@@ -159,6 +159,10 @@ export async function createVoucher(
   const payload = {
     ...formToPayload(formData, createdByUid),
     usageCount: 0,           // ← new atomic counter, starts at 0
+    // Who receives the voucher_created notification (empty = nobody)
+    notifyUserIds: Array.isArray(formData.notifyUserIds)
+      ? [...new Set(formData.notifyUserIds.filter(Boolean))]
+      : [],
     createdAt:  serverTimestamp(),
     updatedAt:  serverTimestamp(),
   };

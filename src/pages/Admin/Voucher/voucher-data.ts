@@ -42,6 +42,8 @@ export interface VoucherFormData {
   maxUses:            string;
   isActive:           boolean;
   expiryDate:         string;
+  /** User IDs to notify on create — empty = notify nobody */
+  notifyUserIds:      string[];
 }
 
 // ─── Computed helpers ─────────────────────────────────────────────────────────
@@ -125,6 +127,7 @@ export const DEFAULT_VOUCHER_FORM: VoucherFormData = {
   maxUses:            "",
   isActive:           true,
   expiryDate:         "",
+  notifyUserIds:      [],
 };
 
 export function toDatetimeLocal(d: Date): string {

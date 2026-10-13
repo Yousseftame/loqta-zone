@@ -16,7 +16,7 @@ import {
   MenuItem,
   InputAdornment,
 } from "@mui/material";
-import { ArrowLeft, Save, Ticket, Info, RefreshCw } from "lucide-react";
+import { ArrowLeft, Save, Ticket, Info, RefreshCw, Users } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   collection,
@@ -24,6 +24,8 @@ import {
   getDoc,
   doc,
   Timestamp,
+  query,
+  orderBy,
 } from "firebase/firestore";
 import { db } from "@/firebase/firebase";
 import { colors } from "../Products/products-data";
@@ -35,6 +37,13 @@ import {
 } from "./voucher-data";
 import { useVouchers } from "@/store/AdminContext/VoucherContext/VoucherContext";
 import { resolveProductTitle } from "@/lib/resolveLocalized";
+
+interface NotifyUserOption {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+}
 
 const inputSx = {
   "& .MuiOutlinedInput-root": {
@@ -162,12 +171,52 @@ export default function VoucherForm() {
   const [auctionOptions, setAuctionOptions] = useState<AuctionOption[]>([]);
   const [loadingAuctions, setLoadingAuctions] = useState(true);
 
+  const [userOptions, setUserOptions] = useState<NotifyUserOption[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(!isEdit);
+  const [userSearch, setUserSearch] = useState("");
+
   useEffect(() => {
     loadAuctionOptions()
       .then(setAuctionOptions)
       .catch(() => setAuctionOptions([]))
       .finally(() => setLoadingAuctions(false));
   }, []);
+
+  // Load users only when creating (notification recipients picker)
+  useEffect(() => {
+    if (isEdit) return;
+    let cancelled = false;
+    (async () => {
+      setLoadingUsers(true);
+      try {
+        const snap = await getDocs(
+          query(collection(db, "users"), orderBy("createdAt", "desc")),
+        );
+        if (cancelled) return;
+        const opts: NotifyUserOption[] = snap.docs.map((d) => {
+          const data = d.data();
+          const name =
+            (data.fullName as string) ||
+            `${data.firstName ?? ""} ${data.lastName ?? ""}`.trim() ||
+            "—";
+          return {
+            id: d.id,
+            name,
+            email: (data.email as string) || "",
+            phone: (data.phone as string) || "",
+          };
+        });
+        setUserOptions(opts);
+      } catch {
+        if (!cancelled) setUserOptions([]);
+      } finally {
+        if (!cancelled) setLoadingUsers(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isEdit]);
 
   useEffect(() => {
     if (!isEdit || !id) return;
@@ -184,6 +233,7 @@ export default function VoucherForm() {
           maxUses: String(v.maxUses),
           isActive: v.isActive,
           expiryDate: toDatetimeLocal(v.expiryDate),
+          notifyUserIds: [],
         });
       }
       setLoadingVoucher(false);
@@ -246,6 +296,41 @@ export default function VoucherForm() {
     const opt = auctionOptions.find((a) => a.id === auctionId);
     if (!opt) return auctionId.slice(0, 8) + "…";
     return `${opt.productTitle || "—"} — Auction #${opt.auctionNumber}`;
+  };
+
+  const filteredUsers = userOptions.filter((u) => {
+    const q = userSearch.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      u.name.toLowerCase().includes(q) ||
+      u.email.toLowerCase().includes(q) ||
+      u.phone.toLowerCase().includes(q)
+    );
+  });
+
+  const toggleNotifyUser = (uid: string) => {
+    setForm((f) => {
+      const has = f.notifyUserIds.includes(uid);
+      return {
+        ...f,
+        notifyUserIds: has
+          ? f.notifyUserIds.filter((id) => id !== uid)
+          : [...f.notifyUserIds, uid],
+      };
+    });
+  };
+
+  const selectAllFilteredUsers = () => {
+    setForm((f) => ({
+      ...f,
+      notifyUserIds: [
+        ...new Set([...f.notifyUserIds, ...filteredUsers.map((u) => u.id)]),
+      ],
+    }));
+  };
+
+  const deselectAllUsers = () => {
+    setForm((f) => ({ ...f, notifyUserIds: [] }));
   };
 
   if (loadingVoucher) {
@@ -700,6 +785,193 @@ export default function VoucherForm() {
               }
             />
           </Box>
+
+          {/* Notify Users — create only */}
+          {!isEdit && (
+            <Box
+              sx={{
+                border: `1px solid ${colors.border}`,
+                borderRadius: 2,
+                overflow: "hidden",
+                bgcolor: "#fff",
+              }}
+            >
+              <Box
+                sx={{
+                  px: 2,
+                  py: 1.5,
+                  borderBottom: `1px solid ${colors.border}`,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                  flexWrap: "wrap",
+                }}
+              >
+                <Users size={16} style={{ color: colors.primary }} />
+                <span
+                  style={{
+                    fontWeight: 700,
+                    fontSize: "0.875rem",
+                    color: colors.textPrimary,
+                  }}
+                >
+                  Notify Users
+                </span>
+                <span
+                  style={{
+                    fontSize: "0.75rem",
+                    color: colors.textMuted,
+                    marginLeft: 4,
+                  }}
+                >
+                  {form.notifyUserIds.length} selected
+                </span>
+                <Box sx={{ ml: "auto", display: "flex", gap: 1 }}>
+                  <Button
+                    size="small"
+                    onClick={selectAllFilteredUsers}
+                    disabled={loadingUsers || filteredUsers.length === 0}
+                    sx={{
+                      textTransform: "none",
+                      fontSize: "0.75rem",
+                      fontWeight: 600,
+                      color: colors.primary,
+                      minWidth: 0,
+                      px: 1.25,
+                    }}
+                  >
+                    Select All
+                  </Button>
+                  <Button
+                    size="small"
+                    onClick={deselectAllUsers}
+                    disabled={form.notifyUserIds.length === 0}
+                    sx={{
+                      textTransform: "none",
+                      fontSize: "0.75rem",
+                      fontWeight: 600,
+                      color: colors.textSecondary,
+                      minWidth: 0,
+                      px: 1.25,
+                    }}
+                  >
+                    Deselect All
+                  </Button>
+                </Box>
+              </Box>
+
+              <Box sx={{ px: 2, pt: 1.5, pb: 1 }}>
+                <TextField
+                  size="small"
+                  fullWidth
+                  placeholder="Search by name, email, or phone…"
+                  value={userSearch}
+                  onChange={(e) => setUserSearch(e.target.value)}
+                  sx={inputSx}
+                />
+                <FormHelperText sx={{ mx: 0, mt: 0.75, color: colors.textMuted }}>
+                  Only selected users receive the voucher notification. Leave
+                  empty to notify nobody.
+                </FormHelperText>
+              </Box>
+
+              <Box
+                sx={{
+                  maxHeight: 280,
+                  overflowY: "auto",
+                  borderTop: `1px solid ${colors.border}`,
+                }}
+              >
+                {loadingUsers ? (
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "center",
+                      py: 4,
+                    }}
+                  >
+                    <CircularProgress
+                      size={22}
+                      sx={{ color: colors.primary }}
+                    />
+                  </Box>
+                ) : filteredUsers.length === 0 ? (
+                  <Box
+                    sx={{
+                      py: 3,
+                      textAlign: "center",
+                      color: colors.textMuted,
+                      fontSize: "0.85rem",
+                    }}
+                  >
+                    {userOptions.length === 0
+                      ? "No users found"
+                      : "No users match your search"}
+                  </Box>
+                ) : (
+                  filteredUsers.map((u) => {
+                    const checked = form.notifyUserIds.includes(u.id);
+                    return (
+                      <Box
+                        key={u.id}
+                        onClick={() => toggleNotifyUser(u.id)}
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 1,
+                          px: 1.5,
+                          py: 1,
+                          cursor: "pointer",
+                          borderBottom: `1px solid ${colors.border}`,
+                          bgcolor: checked ? colors.primaryBg : "transparent",
+                          "&:hover": { bgcolor: colors.muted },
+                          "&:last-child": { borderBottom: "none" },
+                        }}
+                      >
+                        <Checkbox
+                          size="small"
+                          checked={checked}
+                          tabIndex={-1}
+                          disableRipple
+                          sx={{
+                            color: colors.primary,
+                            "&.Mui-checked": { color: colors.primary },
+                            p: 0.5,
+                          }}
+                        />
+                        <Box sx={{ minWidth: 0, flex: 1 }}>
+                          <Box
+                            sx={{
+                              fontSize: "0.85rem",
+                              fontWeight: 600,
+                              color: colors.textPrimary,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {u.name}
+                          </Box>
+                          <Box
+                            sx={{
+                              fontSize: "0.72rem",
+                              color: colors.textMuted,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {[u.email, u.phone].filter(Boolean).join(" · ") ||
+                              u.id.slice(0, 10) + "…"}
+                          </Box>
+                        </Box>
+                      </Box>
+                    );
+                  })
+                )}
+              </Box>
+            </Box>
+          )}
 
           {/* Info banner */}
           <Box

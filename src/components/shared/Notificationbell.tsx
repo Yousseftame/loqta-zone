@@ -1964,9 +1964,6 @@ export const NotificationBell = () => {
   ];
 
   const labelMarkAllRead = isRTL ? "قراءة الكل" : "Mark all read";
-  const labelViewAll = isRTL
-    ? "✦ عرض كل الإشعارات"
-    : "✦ View all notifications";
   const labelCaughtUp = isRTL
     ? "لا توجد إشعارات جديدة!"
     : "You're all caught up!";
@@ -2224,11 +2221,6 @@ export const NotificationBell = () => {
               )}
             </div>
 
-            {notifications.length > 0 && (
-              <div className="nf-foot">
-                <button className="nf-foot-btn">{labelViewAll}</button>
-              </div>
-            )}
           </div>
         )}
 

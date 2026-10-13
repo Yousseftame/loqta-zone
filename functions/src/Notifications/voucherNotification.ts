@@ -114,19 +114,39 @@ export const onVoucherCreated = onDocumentCreated(
     const { title, body, voucherLabel, auctionLine, auctionItems, expiry } =
       buildNotification(code, type, discountAmount, expiryDate, maxUses, auctionInfos);
 
-    const usersSnap = await db.collection("users").get();
-    if (usersSnap.empty) {
+    // Notify only the users selected at create time (empty = notify nobody)
+    const notifyUserIds: string[] = Array.isArray(data.notifyUserIds)
+      ? [...new Set(
+          (data.notifyUserIds as unknown[])
+            .filter((id): id is string => typeof id === "string" && id.length > 0),
+        )]
+      : [];
+
+    if (notifyUserIds.length === 0) {
       await snap.ref.update({ notifiedAt: FieldValue.serverTimestamp() });
       return;
     }
 
+    const userSnaps = await Promise.all(
+      notifyUserIds.map((uid) => db.collection("users").doc(uid).get()),
+    );
+
     const tokenToUid = new Map<string, string>();
     const allUids: string[] = [];
-    usersSnap.docs.forEach((doc) => {
-      allUids.push(doc.id);
-      const tokens: string[] = doc.data()?.fcmTokens ?? [];
-      tokens.forEach((t: string) => { if (typeof t === "string" && t.length > 0) tokenToUid.set(t, doc.id); });
+    userSnaps.forEach((userSnap, idx) => {
+      const uid = notifyUserIds[idx];
+      if (!userSnap.exists) return;
+      allUids.push(uid);
+      const tokens: string[] = userSnap.data()?.fcmTokens ?? [];
+      tokens.forEach((t: string) => {
+        if (typeof t === "string" && t.length > 0) tokenToUid.set(t, uid);
+      });
     });
+
+    if (allUids.length === 0) {
+      await snap.ref.update({ notifiedAt: FieldValue.serverTimestamp() });
+      return;
+    }
 
     await Promise.allSettled(
       chunk(allUids, FIRESTORE_BATCH_MAX).map(async (uids) => {
