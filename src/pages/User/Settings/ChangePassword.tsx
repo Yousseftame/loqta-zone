@@ -272,7 +272,26 @@ export default function ChangePassword() {
      setTouched({ current: false, new: false, confirm: false });
      toast.success(t("changePasswordPage.toast.success"));
    } catch (err: any) {
-     // ... existing error handling unchanged
+     const code = (err?.code ?? "") as string;
+     if (
+       code === "auth/wrong-password" ||
+       code === "auth/invalid-credential" ||
+       code === "auth/invalid-login-credentials"
+     ) {
+       toast.error(t("changePasswordPage.errors.wrongPassword"));
+     } else if (code === "auth/too-many-requests") {
+       toast.error(t("changePasswordPage.errors.tooManyRequests"));
+     } else if (code === "auth/requires-recent-login") {
+       toast.error(t("changePasswordPage.errors.requiresRecentLogin"));
+     } else if (code === "auth/network-request-failed") {
+       toast.error(t("changePasswordPage.errors.networkError"));
+     } else if (code === "auth/weak-password") {
+       toast.error(t("changePasswordPage.errors.weakPassword"));
+     } else {
+       toast.error(
+         err?.message || t("changePasswordPage.errors.generic"),
+       );
+     }
    } finally {
      setSaving(false);
    }
