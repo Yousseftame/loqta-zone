@@ -3,6 +3,7 @@ import GuestTracker from "@/components/GuestTracker/GuestTracker";
 import Navbar from "@/components/Navbar/Navbar";
 import NavigateTop from "@/components/shared/NavigateTop";
 import NotificationBell from "@/components/shared/Notificationbell";
+import NotificationActionModals from "@/components/shared/NotificationActionModals";
 import PersistentLastOfferGate from "@/components/shared/PersistentLastOfferGate";
 import ScrollToTop from "@/components/shared/ScrollToTop";
 import { useFCM } from "@/hooks/useFCM";
@@ -31,6 +32,9 @@ export default function MainLayout() {
         Renders null when there is nothing to show.
       */}
       <PersistentLastOfferGate />
+
+      {/* Opens Last Offer / Lucky Spin from notification clicks (no live-page nav) */}
+      <NotificationActionModals />
     </div>
   );
 }

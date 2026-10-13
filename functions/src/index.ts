@@ -41,6 +41,10 @@ export { onAuctionRegistration } from "./Notifications/auctionRegistrationNotifi
 // with lastOfferEnabled=true so they can submit a backup offer
 export { onAuctionResolvedLastOffer } from "./Notifications/lastOfferAvailableNotification";
 
+// Lucky spin available — notifies non-winning participants (who haven't spun yet)
+// when auction resolves so they can spin for a next-entry discount
+export { onAuctionResolvedLuckySpin } from "./Notifications/luckySpinAvailableNotification";
+
 // ── Last Offer — winner selected notification ─────────────────────────────────
 // Fires when admin sets selectedbyAdmin=true + status="accepted" on a lastOffer doc.
 // Sends in-app + FCM push to the selected user with a deep-link to confirm purchase.

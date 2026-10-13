@@ -15,7 +15,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/store/AuthContext/AuthContext";
-import { X, Gavel, Trophy, Heart, Tag, Clock, Bell, Gift, MessageSquare, LifeBuoy } from "lucide-react";
+import { X, Gavel, Trophy, Heart, Tag, Clock, Bell, Gift, MessageSquare, LifeBuoy, Sparkles } from "lucide-react";
 import {
   useNotifications,
   type AppNotification,
@@ -23,6 +23,10 @@ import {
 } from "@/hooks/useNotifications";
 import { resolveProductTitle } from "@/lib/resolveLocalized";
 import { resolveModerationReason } from "@/lib/chatModerationI18n";
+import {
+  openLastOfferModal,
+  openLuckySpinModal,
+} from "@/lib/postAuctionModalEvents";
 
 // ── timeAgo ───────────────────────────────────────────────────────────────────
 function timeAgo(date: Date): string {
@@ -168,6 +172,41 @@ function getLocalizedNotif(
         message: product
           ? t("notifications.auctionLoser.message", { product, num })
           : t("notifications.auctionLoser.messageGeneric", { num }),
+      };
+    }
+    case "lucky_spin_available": {
+      const num = (data.auctionNumber ?? 0) as number;
+      const product = resolveProductTitle(data.productTitle ?? "");
+      return {
+        title: product
+          ? t("notifications.luckySpinAvailable.titleProduct", { product })
+          : t("notifications.luckySpinAvailable.title", { num }),
+        message: product
+          ? t("notifications.luckySpinAvailable.message", { product, num })
+          : t("notifications.luckySpinAvailable.messageGeneric", { num }),
+      };
+    }
+    case "lucky_spin_claimed": {
+      const percent = (data.percent ?? data.discountPercent ?? 0) as number;
+      const isFree = !!(data.isFree ?? percent >= 100);
+      const label = (data.label ?? data.prizeLabel ?? "") as string;
+      const product = resolveProductTitle(data.productTitle ?? "");
+      return {
+        title: t("notifications.luckySpinClaimed.title"),
+        message: isFree
+          ? product
+            ? t("notifications.luckySpinClaimed.messageFreeProduct", { product })
+            : t("notifications.luckySpinClaimed.messageFree")
+          : product
+            ? t("notifications.luckySpinClaimed.messagePercentProduct", {
+                percent,
+                product,
+                label,
+              })
+            : t("notifications.luckySpinClaimed.messagePercent", {
+                percent,
+                label,
+              }),
       };
     }
     case "chat_warning": {
@@ -1585,6 +1624,82 @@ function AuctionLoserIcon({ isUnread }: { isUnread: boolean }) {
   );
 }
 
+// ── LuckySpinAvailableIcon ────────────────────────────────────────────────────
+function LuckySpinAvailableIcon({ isUnread }: { isUnread: boolean }) {
+  return (
+    <div
+      style={{
+        width: 44,
+        height: 44,
+        borderRadius: 14,
+        flexShrink: 0,
+        marginTop: 1,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        position: "relative",
+        background: "rgba(201, 169, 110, 0.12)",
+        border: "1px solid rgba(201, 169, 110, 0.28)",
+      }}
+    >
+      <Sparkles size={20} strokeWidth={2.2} color="#c9a96e" />
+      {isUnread && (
+        <span
+          style={{
+            position: "absolute",
+            bottom: -2,
+            right: -2,
+            width: 9,
+            height: 9,
+            borderRadius: "50%",
+            background: "#c9a96e",
+            border: "2px solid #080d1a",
+            animation: "nfDotPulse 1.8s ease-in-out infinite",
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── LuckySpinClaimedIcon ──────────────────────────────────────────────────────
+function LuckySpinClaimedIcon({ isUnread }: { isUnread: boolean }) {
+  return (
+    <div
+      style={{
+        width: 44,
+        height: 44,
+        borderRadius: 14,
+        flexShrink: 0,
+        marginTop: 1,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        position: "relative",
+        background: "rgba(74, 222, 128, 0.12)",
+        border: "1px solid rgba(74, 222, 128, 0.28)",
+      }}
+    >
+      <Gift size={20} strokeWidth={2.2} color="#4ade80" />
+      {isUnread && (
+        <span
+          style={{
+            position: "absolute",
+            bottom: -2,
+            right: -2,
+            width: 9,
+            height: 9,
+            borderRadius: "50%",
+            background: "#4ade80",
+            border: "2px solid #080d1a",
+            animation: "nfDotPulse 1.8s ease-in-out infinite",
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
 // ── TYPE_CONFIG ───────────────────────────────────────────────────────────────
 const TYPE_CONFIG: Record<
   NotificationType,
@@ -1686,6 +1801,18 @@ const TYPE_CONFIG: Record<
     bg: "rgba(255, 157, 92, 0.1)",
     border: "rgba(255, 157, 92, 0.3)",
   },
+  lucky_spin_available: {
+    Icon: null,
+    color: "#c9a96e",
+    bg: "rgba(201, 169, 110, 0.1)",
+    border: "rgba(201, 169, 110, 0.3)",
+  },
+  lucky_spin_claimed: {
+    Icon: null,
+    color: "#4ade80",
+    bg: "rgba(74, 222, 128, 0.1)",
+    border: "rgba(74, 222, 128, 0.3)",
+  },
   chat_warning: {
     Icon: null,
     color: "#fbbf24",
@@ -1763,6 +1890,7 @@ export const NotificationBell = () => {
       notif.type === "voucher_created" ||
       notif.type === "auction_ended" ||
       notif.type === "auction_loser" ||
+      notif.type === "lucky_spin_claimed" ||
       notif.type === "chat_warning" ||
       notif.type === "chat_kick"
     ) {
@@ -1772,6 +1900,29 @@ export const NotificationBell = () => {
 
     markRead(notif.id);
     setOpen(false);
+
+    // Last offer — open modal in-place (no live-page navigation)
+    if (notif.type === "last_offer_available") {
+      if (!notif.auctionId) return;
+      openLastOfferModal({
+        auctionId: notif.auctionId,
+        productTitle: notif.productTitle,
+        winnerName: notif.winnerName,
+        winningBid: notif.winningBid,
+      });
+      return;
+    }
+
+    // Lucky spin — open modal in-place if not claimed yet
+    if (notif.type === "lucky_spin_available") {
+      if (!notif.auctionId) return;
+      openLuckySpinModal({
+        auctionId: notif.auctionId,
+        productTitle: notif.productTitle,
+        auctionNumber: notif.auctionNumber,
+      });
+      return;
+    }
 
     // auction_created — navigate to the product's auction page
     if (notif.type === "auction_created") {
@@ -1870,6 +2021,9 @@ export const NotificationBell = () => {
                   const isAuctionCreatedType = notif.type === "auction_created";
                   const isAuctionWinnerType = notif.type === "auction_winner";
                   const isAuctionLoserType = notif.type === "auction_loser";
+                  const isLuckySpinType = notif.type === "lucky_spin_available";
+                  const isLuckySpinClaimedType =
+                    notif.type === "lucky_spin_claimed";
                   const isChatWarningType = notif.type === "chat_warning";
                   const isChatKickType = notif.type === "chat_kick";
                   const isFeedbackSeenType = notif.type === "feedback_seen";
@@ -1879,6 +2033,7 @@ export const NotificationBell = () => {
                     !isVoucherType &&
                     !isAuctionEndedType &&
                     !isAuctionLoserType &&
+                    !isLuckySpinClaimedType &&
                     !isChatWarningType &&
                     !isChatKickType;
 
@@ -1901,6 +2056,8 @@ export const NotificationBell = () => {
                         isAuctionCreatedType ? "auction-created-item" : "",
                         isAuctionWinnerType ? "winner-item" : "",
                         isAuctionLoserType ? "loser-item" : "",
+                        isLuckySpinType ? "lucky-spin-item" : "",
+                        isLuckySpinClaimedType ? "lucky-spin-claimed-item" : "",
                       ]
                         .filter(Boolean)
                         .join(" ")}
@@ -1910,11 +2067,15 @@ export const NotificationBell = () => {
                       {!notif.isRead && (
                         <span
                           className={`nf-unread-bar${
-                            isPaymentConfirmed || isAuctionWinnerType
+                            isPaymentConfirmed ||
+                            isAuctionWinnerType ||
+                            isLuckySpinClaimedType
                               ? " nf-unread-green"
                               : isRegisteredType
                                 ? " nf-unread-teal"
-                                : isAuctionEndedType || isAuctionLoserType
+                                : isAuctionEndedType ||
+                                    isAuctionLoserType ||
+                                    isLuckySpinType
                                   ? " nf-unread-gold-dim"
                                   : isAuctionCreatedType
                                     ? " nf-unread-gold-bright"
@@ -1938,6 +2099,10 @@ export const NotificationBell = () => {
                         <AuctionWinnerIcon isUnread={!notif.isRead} />
                       ) : isAuctionLoserType ? (
                         <AuctionLoserIcon isUnread={!notif.isRead} />
+                      ) : isLuckySpinType ? (
+                        <LuckySpinAvailableIcon isUnread={!notif.isRead} />
+                      ) : isLuckySpinClaimedType ? (
+                        <LuckySpinClaimedIcon isUnread={!notif.isRead} />
                       ) : isAuctionCreatedType ? (
                         <AuctionCreatedIcon
                           isUnread={!notif.isRead}

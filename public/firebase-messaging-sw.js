@@ -64,8 +64,12 @@ function resolveUrl(data) {
       return "/auctions";
 
     case "last_offer_available":
-      if (data.auctionId) return "/auctions/" + data.auctionId + "?lastOffer=1";
-      return "/auctions";
+      // Open home — in-app notification / PersistentLastOfferGate handles the modal
+      // (do NOT send users back into an ended live room)
+      return "/";
+
+    case "lucky_spin_available":
+      return "/";
 
     case "last_offer_selected":
       if (data.auctionId) {

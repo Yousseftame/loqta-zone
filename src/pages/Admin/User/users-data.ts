@@ -2,6 +2,17 @@
 
 export type UserRole = "user" | "admin" | "superAdmin";
 
+/** Lucky spin win stored on users/{uid}/auctions/{auctionId}.luckySpin */
+export interface UserAuctionLuckySpin {
+  prizeId: string;
+  percent: number;
+  isFree: boolean;
+  label: string;
+  claimedAt: Date;
+  status: "available" | "redeemed";
+  redeemedOnAuctionId: string | null;
+}
+
 export interface UserAuction {
   auctionId: string;
   amount: number;
@@ -14,6 +25,8 @@ export interface UserAuction {
   voucherCode: string | null;
   voucherId: string | null;
   discountApplied: number;
+  // Lucky spin consolation prize for this auction (null if not spun / winner)
+  luckySpin: UserAuctionLuckySpin | null;
 }
 
 export interface AppUser {

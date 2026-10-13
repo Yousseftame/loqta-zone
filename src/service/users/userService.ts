@@ -1,10 +1,8 @@
 /**
  * userService.ts — Admin service for managing users.
  *
- * Change vs previous version:
- *   docToUserAuction now maps voucherCode / voucherId / discountApplied.
- *   These fields are already written to users/{uid}/auctions/{auctionId} by
- *   the applyVoucher Cloud Function — zero extra Firestore reads needed.
+ * users/{uid}/auctions/{auctionId} maps voucher fields (applyVoucher CF)
+ * and luckySpin (saveLuckySpinPrize) — zero extra Firestore reads needed.
  */
 
 import {
@@ -24,6 +22,7 @@ import { getFunctions, httpsCallable } from "firebase/functions";
 import { getAuth } from "firebase/auth";
 import app, { db } from "@/firebase/firebase";
 import type { AppUser, UserAuction, UserRole } from "@/pages/Admin/User/users-data";
+import { mapLuckySpinWin } from "@/service/luckySpinService/luckySpinService";
 
 const functions = getFunctions(app);
 
@@ -53,7 +52,7 @@ function docToUser(id: string, data: Record<string, any>): AppUser {
 }
 
 // Maps users/{uid}/auctions/{auctionId}.
-// All voucher fields are already on this doc (written by applyVoucher CF) — no extra reads.
+// Voucher + luckySpin fields live on this doc — no extra reads.
 function docToUserAuction(id: string, data: Record<string, any>): UserAuction {
   return {
     auctionId:       data.auctionId   ?? id,
@@ -67,6 +66,8 @@ function docToUserAuction(id: string, data: Record<string, any>): UserAuction {
     voucherCode:     data.voucherCode     ?? null,
     voucherId:       data.voucherId       ?? null,
     discountApplied: data.discountApplied ?? 0,
+    // Lucky spin — written by saveLuckySpinPrize when loser claims wheel reward
+    luckySpin:       mapLuckySpinWin(data.luckySpin),
   };
 }
 

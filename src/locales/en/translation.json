@@ -1058,6 +1058,11 @@
       "desc": "You need to join this auction before you can view or place bids.",
       "joinBtn": "Join this Auction"
     },
+    "alreadyEnded": {
+      "title": "Auction Has Ended",
+      "desc": "This auction is over and the live room is no longer available. Browse upcoming auctions or head back.",
+      "browseBtn": "Browse Auctions"
+    },
     "liveChat": "Live Chat",
     "chatOnline": "Online",
     "chatClosed": "Closed",
@@ -1132,6 +1137,29 @@
     "successTitle": "Offer Recorded!",
     "successNote": "You're in the backup pool. We'll reach out if the winner doesn't pay.",
     "done": "Done"
+  },
+  "luckySpin": {
+    "title": "THE LUCKY SPIN",
+    "subtitle": "Didn't win the auction? Spin the wheel to unlock your exclusive entry discount for the next event!",
+    "spinHub": "SPIN",
+    "spinBtn": "SPIN THE WHEEL",
+    "spinning": "Spinning… Good Luck!",
+    "prizeClaimed": "Prize Unlocked!",
+    "spinAgainTitle": "🎉 FREE RE-SPIN UNLOCKED!",
+    "spinAgainDesc": "You hit the lucky re-spin! Give the wheel another whirl and claim your prize.",
+    "spinAgainAction": "Spin Again Now!",
+    "congrats": "CONGRATULATIONS!",
+    "wonTag": "EXCLUSIVE BIDDER REWARD",
+    "youWon": "Your entry fee discount has been auto-credited to your account for your next auction room.",
+    "claimAndContinue": "Claim Reward & Continue",
+    "claimFailed": "Could not save your reward. Please try again.",
+    "audioOn": "SOUND ON",
+    "audioMuted": "MUTED",
+    "perks": {
+      "discounts": "Win up to 75% OFF entry fee",
+      "free": "100% Free Entry Golden Prize",
+      "respin": "Instant Re-Spin Opportunities"
+    }
   },
   "promoModal": {
     "title": "Promo Code",
@@ -1231,6 +1259,19 @@
       "message": "Thank you for joining the auction for \"{{product}}\" (#{{num}}). Don't give up, your next win is just around the corner!",
       "messageGeneric": "Thank you for participating in Auction #{{num}}. Don't give up, your next win is just around the corner!",
       "seeYouSoon": "✦ See you at the next auction →"
+    },
+    "luckySpinAvailable": {
+      "titleProduct": "Lucky Spin — {{product}}",
+      "title": "Lucky Spin — Auction #{{num}}",
+      "message": "You didn't win \"{{product}}\" (#{{num}}). Spin the lucky wheel for an exclusive discount on your next auction entry!",
+      "messageGeneric": "You didn't win Auction #{{num}}. Spin the lucky wheel for an exclusive discount on your next auction entry!"
+    },
+    "luckySpinClaimed": {
+      "title": "🎉 Lucky Spin Reward Claimed!",
+      "messageFree": "Congrats! You won FREE entry for your next auction!",
+      "messageFreeProduct": "Congrats! You won FREE entry for your next auction (from \"{{product}}\").",
+      "messagePercent": "Congrats! You won {{percent}}% OFF your next auction entry fee!",
+      "messagePercentProduct": "Congrats! You won {{percent}}% OFF your next auction entry fee (from \"{{product}}\")."
     },
     "auctionCreated": {
       "titleProduct": "New Auction — {{product}}",

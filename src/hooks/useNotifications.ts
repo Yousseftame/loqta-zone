@@ -37,6 +37,8 @@ export type NotificationType =
   | "auction_created"
   | "auction_winner"
   | "auction_loser"
+  | "lucky_spin_available"
+  | "lucky_spin_claimed"
   | "chat_warning"
   | "chat_kick"
   | "contact_seen"
@@ -59,6 +61,11 @@ export interface AppNotification {
   productTitle?: string;
   winnerName?: string;
   winningBid?: number;
+  // ── lucky_spin_claimed fields ──
+  percent?: number;
+  isFree?: boolean;
+  label?: string;
+  prizeId?: string;
   // ── auction_registered / auction_created fields ──
   auctionNumber?: number;
   entryFee?: number;
@@ -112,6 +119,10 @@ export function useNotifications() {
               entryType:        data.entryType        ?? undefined,
               startDate:        data.startDate        ?? undefined,
               productThumbnail: data.productThumbnail ?? undefined,
+              percent:          data.percent          ?? undefined,
+              isFree:           data.isFree           ?? undefined,
+              label:            data.label            ?? undefined,
+              prizeId:          data.prizeId          ?? undefined,
               createdAt:
                 data.createdAt instanceof Timestamp
                   ? data.createdAt.toDate()

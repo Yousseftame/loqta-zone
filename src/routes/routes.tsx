@@ -108,7 +108,6 @@ const CantFind = lazy(() => import("@/pages/CantFind/CantFind"));
 const LastOfferConfirmPage = lazy(
   () => import("@/pages/LastOfferConfirm/LastOfferConfirmPage"),
 );
-
 import { createBrowserRouter } from "react-router-dom";
 import AuditLogsPage from "@/pages/Admin/AuditLogs/AuditLogsPage";
 import SuppliersList from "@/pages/Admin/Suppliers/SuppliersList";

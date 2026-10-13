@@ -904,6 +904,51 @@ export default function UserView() {
                           </Box>
                         )}
 
+                        {/* Lucky Spin reward won on this auction (losers consolation) */}
+                        {ua.luckySpin && (
+                          <Box
+                            sx={{
+                              mt: 0.75,
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 0.8,
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            <span
+                              style={{
+                                fontSize: "0.7rem",
+                                fontWeight: 700,
+                                background: "rgba(201,169,110,0.12)",
+                                color: "#B45309",
+                                padding: "2px 9px",
+                                borderRadius: 99,
+                                border: "1px solid rgba(201,169,110,0.35)",
+                                letterSpacing: "0.02em",
+                              }}
+                            >
+                              🎡 Lucky Spin:{" "}
+                              {ua.luckySpin.isFree
+                                ? "FREE Entry"
+                                : `${ua.luckySpin.percent}% OFF`}
+                            </span>
+                            <span
+                              style={{
+                                fontSize: "0.68rem",
+                                fontWeight: 600,
+                                color:
+                                  ua.luckySpin.status === "redeemed"
+                                    ? "#64748B"
+                                    : "#CA8A04",
+                              }}
+                            >
+                              {ua.luckySpin.status === "redeemed"
+                                ? "Redeemed"
+                                : "Available"}
+                            </span>
+                          </Box>
+                        )}
+
                         {ua.totalAmount.length > 0 && (
                           <Box
                             sx={{

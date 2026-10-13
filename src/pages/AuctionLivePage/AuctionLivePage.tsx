@@ -25,6 +25,7 @@ import { useTranslation } from "react-i18next";
 import WinnerCelebration from "@/components/WinnerCelebration/Winnercelebration";
 import PostAuctionModal from "@/components/PostAuctionModal/PostAuctionModal";
 import LastOfferModal from "@/components/LastOfferModal/LastOfferModal";
+import LuckySpinModal from "@/components/LuckySpinModal/LuckySpinModal";
 import toast from "react-hot-toast";
 import { resolveProductTitle } from "@/lib/resolveLocalized";
 import AuctionChat from "./components/AuctionChat";
@@ -137,6 +138,7 @@ export default function AuctionLivePage() {
   const [showCelebration, setShowCelebration] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showLastOffer, setShowLastOffer] = useState(false);
+  const [showLuckySpin, setShowLuckySpin] = useState(false);
   const [resolvedWinner, setResolvedWinner] = useState<{
     name: string;
     bid: number;
@@ -150,6 +152,13 @@ export default function AuctionLivePage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [showLastOfferFromNotif, setShowLastOfferFromNotif] = useState(false);
   const lastOfferParamHandledRef = useRef(false);
+
+  // Block direct entry to an already-ended auction (typed URL / refresh / link /
+  // last-offer notification). Does NOT fire when the auction ends while the
+  // user is already watching.
+  const endedGateCheckedRef = useRef(false);
+  const blockEndedAccessRef = useRef(false);
+  const [blockEndedAccess, setBlockEndedAccess] = useState(false);
 
   useEffect(() => {
     userRef.current = user;
@@ -249,6 +258,20 @@ export default function AuctionLivePage() {
         auctionRef.current = auctionData;
         setAuction(auctionData);
         setPageLoading(false);
+
+        // Gate once on first snapshot: already ended → block room entry
+        if (!endedGateCheckedRef.current) {
+          endedGateCheckedRef.current = true;
+          const status = computeStatus(
+            auctionData.startTime,
+            auctionData.endTime,
+            auctionData.isActive,
+          );
+          if (status === "ended") {
+            blockEndedAccessRef.current = true;
+            setBlockEndedAccess(true);
+          }
+        }
       },
       () => setPageLoading(false),
     );
@@ -368,6 +391,8 @@ export default function AuctionLivePage() {
 
   useEffect(() => {
     if (!auction || winnerResolvedRef.current || isParticipant !== true) return;
+    // User opened an already-ended auction — do not run post-auction celebration flow
+    if (blockEndedAccessRef.current) return;
     const hasWinner = auction.winnerId && auction.winnerId !== "NO_WINNER";
     const noWinner = auction.winnerId === "NO_WINNER";
 
@@ -381,9 +406,15 @@ export default function AuctionLivePage() {
           const fresh = auctionRef.current;
           const currentIsWinner = fresh?.winnerId === userRef.current?.uid;
           setShowCelebration(false);
-          if (!currentIsWinner && fresh?.lastOfferEnabled)
-            setShowLastOffer(true);
-          else setShowModal(true);
+          if (!currentIsWinner) {
+            if (fresh?.lastOfferEnabled) {
+              setShowLastOffer(true);
+            } else {
+              setShowLuckySpin(true);
+            }
+          } else {
+            setShowModal(true);
+          }
         }, 10000);
       };
       getDoc(doc(db, "users", auction.winnerId!))
@@ -790,8 +821,44 @@ export default function AuctionLivePage() {
           </div>
         </div>
 
+        {/* ── ALREADY-ENDED OVERLAY (direct entry after auction finished) ── */}
+        {blockEndedAccess && (
+          <div className="al-overlay">
+            <div className="al-overlaybox">
+              <div className="al-overlayicon">🏁</div>
+              <div className="al-overlaytitle">
+                {t("auctionLive.alreadyEnded.title", "Auction Has Ended")}
+              </div>
+              <div className="al-overlaydesc">
+                {t(
+                  "auctionLive.alreadyEnded.desc",
+                  "This auction is over and the live room is no longer available. Browse upcoming auctions or head back.",
+                )}
+              </div>
+              <button
+                className="al-overlaybtn"
+                onClick={() => navigate("/")}
+              >
+                {t(
+                  "auctionLive.alreadyEnded.browseBtn",
+                  "Browse Auctions",
+                )}
+              </button>
+              <button
+                className="al-overlayback"
+                onClick={() => {
+                  if (window.history.length > 1) navigate(-1);
+                  else navigate("/");
+                }}
+              >
+                {t("auctionLive.goBack")}
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* ── KICKED / RESTRICTED OVERLAY ── */}
-        {isRestricted && (
+        {!blockEndedAccess && isRestricted && (
           <div className="al-overlay">
             <div className="al-overlaybox">
               <div className="al-overlayicon">🚫</div>
@@ -812,7 +879,7 @@ export default function AuctionLivePage() {
         )}
 
         {/* ── NON-PARTICIPANT OVERLAY ── */}
-        {!isRestricted && isParticipant === false && (
+        {!blockEndedAccess && !isRestricted && isParticipant === false && (
           <div className="al-overlay">
             <div className="al-overlaybox">
               <div className="al-overlayicon">🔒</div>
@@ -843,7 +910,7 @@ export default function AuctionLivePage() {
       {/* ── MODALS ─────────────────────────────────────────────────────────── */}
 
       {/* 1. Winner celebration (fires during the live session when auction resolves) */}
-      {canAccessRoom && showCelebration && resolvedWinner && (
+      {canAccessRoom && !blockEndedAccess && showCelebration && resolvedWinner && (
         <WinnerCelebration
           winnerName={resolvedWinner.name}
           winningBid={resolvedWinner.bid}
@@ -853,7 +920,7 @@ export default function AuctionLivePage() {
       )}
 
       {/* 2. Post-auction summary modal */}
-      {canAccessRoom && showModal && resolvedWinner && (
+      {canAccessRoom && !blockEndedAccess && showModal && resolvedWinner && (
         <PostAuctionModal
           winnerName={resolvedWinner.name}
           winningBid={resolvedWinner.bid}
@@ -865,7 +932,7 @@ export default function AuctionLivePage() {
       )}
 
       {/* 3. Last offer modal — shown when the auction resolves live (user was watching) */}
-      {canAccessRoom && showLastOffer && auction && user && (
+      {canAccessRoom && !blockEndedAccess && showLastOffer && auction && user && (
         <LastOfferModal
           auctionId={auction.id}
           userId={user.uid}
@@ -875,13 +942,21 @@ export default function AuctionLivePage() {
           productTitle={resolveProductTitle(product?.title)}
           onClose={() => {
             setShowLastOffer(false);
-            setShowModal(true);
+            if (!isWinner) {
+              setShowLuckySpin(true);
+            } else {
+              setShowModal(true);
+            }
           }}
         />
       )}
 
       {/* 4. Last offer modal — triggered by ?lastOffer=1 notification deep-link */}
-      {canAccessRoom && showLastOfferFromNotif && auction && user && (
+      {canAccessRoom &&
+        !blockEndedAccess &&
+        showLastOfferFromNotif &&
+        auction &&
+        user && (
         <LastOfferModal
           auctionId={auction.id}
           userId={user.uid}
@@ -889,7 +964,32 @@ export default function AuctionLivePage() {
           winningBid={auction.winningBid ?? auction.currentBid}
           winnerName={notifWinnerName}
           productTitle={resolveProductTitle(product?.title)}
-          onClose={() => setShowLastOfferFromNotif(false)}
+          onClose={() => {
+            setShowLastOfferFromNotif(false);
+            if (!isWinner) {
+              setShowLuckySpin(true);
+            } else {
+              setShowModal(true);
+            }
+          }}
+        />
+      )}
+
+      {/* 5. Lucky Spin modal — consolation wheel for all non-winning participants */}
+      {canAccessRoom &&
+        !blockEndedAccess &&
+        showLuckySpin &&
+        auction &&
+        user &&
+        !isWinner && (
+        <LuckySpinModal
+          auctionId={auction.id}
+          userId={user.uid}
+          productTitle={resolveProductTitle(product?.title)}
+          onClose={() => {
+            setShowLuckySpin(false);
+            setShowModal(true);
+          }}
         />
       )}
     </>
