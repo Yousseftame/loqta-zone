@@ -115,6 +115,7 @@ export default function AuctionForm() {
           entryFee: String(a.entryFee),
           isActive: a.isActive,
           lastOfferEnabled: a.lastOfferEnabled,
+          luckySpinEnabled: a.luckySpinEnabled ?? true,
           enableChat: a.enableChat ?? false,
         });
       }
@@ -1063,6 +1064,33 @@ export default function AuctionForm() {
                   }}
                 >
                   Enable Last Offer
+                </span>
+              }
+            />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={form.luckySpinEnabled}
+                  onChange={(e) => field("luckySpinEnabled", e.target.checked)}
+                  sx={{
+                    "& .MuiSwitch-switchBase.Mui-checked": {
+                      color: colors.primary,
+                    },
+                    "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
+                      bgcolor: colors.primary,
+                    },
+                  }}
+                />
+              }
+              label={
+                <span
+                  style={{
+                    fontSize: "0.875rem",
+                    fontWeight: 600,
+                    color: colors.textPrimary,
+                  }}
+                >
+                  Enable Lucky Spin
                 </span>
               }
             />

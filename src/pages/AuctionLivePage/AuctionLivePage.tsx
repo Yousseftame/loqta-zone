@@ -53,6 +53,7 @@ interface AuctionData {
   winnerId: string | null;
   winningBid: number | null;
   lastOfferEnabled: boolean;
+  luckySpinEnabled: boolean;
   enableChat: boolean;
 }
 
@@ -253,6 +254,7 @@ export default function AuctionLivePage() {
           winnerId: d.winnerId ?? null,
           winningBid: d.winningBid ?? null,
           lastOfferEnabled: d.lastOfferEnabled ?? true,
+          luckySpinEnabled: d.luckySpinEnabled ?? true,
           enableChat: d.enableChat ?? false,
         };
         auctionRef.current = auctionData;
@@ -409,8 +411,10 @@ export default function AuctionLivePage() {
           if (!currentIsWinner) {
             if (fresh?.lastOfferEnabled) {
               setShowLastOffer(true);
-            } else {
+            } else if (fresh?.luckySpinEnabled !== false) {
               setShowLuckySpin(true);
+            } else {
+              setShowModal(true);
             }
           } else {
             setShowModal(true);
@@ -942,7 +946,7 @@ export default function AuctionLivePage() {
           productTitle={resolveProductTitle(product?.title)}
           onClose={() => {
             setShowLastOffer(false);
-            if (!isWinner) {
+            if (!isWinner && auction.luckySpinEnabled !== false) {
               setShowLuckySpin(true);
             } else {
               setShowModal(true);
@@ -966,7 +970,7 @@ export default function AuctionLivePage() {
           productTitle={resolveProductTitle(product?.title)}
           onClose={() => {
             setShowLastOfferFromNotif(false);
-            if (!isWinner) {
+            if (!isWinner && auction.luckySpinEnabled !== false) {
               setShowLuckySpin(true);
             } else {
               setShowModal(true);
@@ -981,7 +985,8 @@ export default function AuctionLivePage() {
         showLuckySpin &&
         auction &&
         user &&
-        !isWinner && (
+        !isWinner &&
+        auction.luckySpinEnabled !== false && (
         <LuckySpinModal
           auctionId={auction.id}
           userId={user.uid}

@@ -1,6 +1,6 @@
 import CurvedLoop from "@/components/CurvedLoop";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useRef } from "react";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Navigation, Pagination, Autoplay } from "swiper/modules";
@@ -13,8 +13,16 @@ import AuctionRequestSection from "@/components/shared/Auctionrequestsection";
 import { useTranslation } from "react-i18next";
 import LiveAuctionsSection from "@/components/shared/LiveAuctionssection";
 import LeftRightSections from "@/components/HomeSections/LeftRightSections";
+import AuctionsComingSoon from "@/components/shared/AuctionsComingSoon";
+import { subscribeAuctionsSectionsEnabled } from "@/service/siteSettings/siteSettingsService";
 
 export default function Home() {
+  const [auctionsSectionsEnabled, setAuctionsSectionsEnabled] = useState(true);
+
+  useEffect(() => {
+    return subscribeAuctionsSectionsEnabled(setAuctionsSectionsEnabled);
+  }, []);
+
   return (
     <>
       <style>{`
@@ -46,8 +54,14 @@ export default function Home() {
       </div>
 
       <LiveAuctionsSection />
-      <AuctionSwiper />
-      <AuctionsSection />
+      {auctionsSectionsEnabled ? (
+        <>
+          <AuctionSwiper />
+          <AuctionsSection />
+        </>
+      ) : (
+        <AuctionsComingSoon />
+      )}
     </>
   );
 }

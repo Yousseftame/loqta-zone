@@ -57,6 +57,7 @@ function docToAuction(id: string, data: Record<string, any>): Auction {
     totalBids: data.totalBids ?? 0,
     totalParticipants: data.totalParticipants ?? 0,
     lastOfferEnabled: data.lastOfferEnabled ?? false,
+    luckySpinEnabled: data.luckySpinEnabled ?? true,
     createdAt:
       data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
     updatedAt:
@@ -91,7 +92,10 @@ function formToPayload(formData: AuctionFormData, createdBy = "") {
     entryType: formData.entryType,
     entryFee: formData.entryType === "paid" ? Number(formData.entryFee) : 0,
     isActive: formData.isActive,
-    lastOfferEnabled: formData.lastOfferEnabled,
+    // Decreasing auctions never use last offer
+    lastOfferEnabled:
+      formData.bidType === "decreasing" ? false : formData.lastOfferEnabled,
+    luckySpinEnabled: formData.luckySpinEnabled,
     enableChat: formData.enableChat,
     ...(createdBy && { createdBy }),
   };
@@ -185,7 +189,9 @@ export async function createAuction(
     winningBid: null,
     totalBids: 0,
     totalParticipants: 0,
-    lastOfferEnabled: formData.lastOfferEnabled,
+    lastOfferEnabled:
+      formData.bidType === "decreasing" ? false : formData.lastOfferEnabled,
+    luckySpinEnabled: formData.luckySpinEnabled,
     enableChat: formData.enableChat,
     createdAt: now,
     updatedAt: now,
@@ -255,7 +261,9 @@ export async function updateAuction(
     winningBid: null,
     totalBids: 0,
     totalParticipants: 0,
-    lastOfferEnabled: formData.lastOfferEnabled,
+    lastOfferEnabled:
+      formData.bidType === "decreasing" ? false : formData.lastOfferEnabled,
+    luckySpinEnabled: formData.luckySpinEnabled,
     enableChat: formData.enableChat,
     createdAt: new Date(),
     updatedAt: now,

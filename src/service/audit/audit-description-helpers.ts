@@ -384,6 +384,7 @@ export function describeAuctionUpdated(
     { key: "entryFee", label: "Entry fee", before: before.entryFee, after: after.entryFee, format: (v) => fmtEGP(Number(v)) },
     { key: "isActive", label: "Active", before: before.isActive, after: after.isActive },
     { key: "lastOfferEnabled", label: "Last offer", before: before.lastOfferEnabled, after: after.lastOfferEnabled },
+    { key: "luckySpinEnabled", label: "Lucky spin", before: before.luckySpinEnabled, after: after.luckySpinEnabled },
     { key: "enableChat", label: "Chat", before: before.enableChat, after: after.enableChat },
   ]);
 

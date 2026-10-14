@@ -253,6 +253,7 @@ export default function AuctionChat({
       } else {
         await kickChatUser({
           auctionId,
+          messageId: msg.id,
           targetUserId: msg.userId,
           targetUserName: msg.userName,
           auctionNumber,

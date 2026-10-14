@@ -49,6 +49,8 @@ export const onAuctionResolvedLuckySpin = onDocumentUpdated(
 
     if (!justResolved) return;
     if (after.luckySpinNotifiedAt) return;
+    // Mirror lastOfferEnabled gate — skip when Lucky Spin is disabled for this auction
+    if (!(after.luckySpinEnabled ?? true)) return;
 
     const winnerId: string       = after.winnerId as string;
     const auctionNumber: number  = after.auctionNumber ?? 0;

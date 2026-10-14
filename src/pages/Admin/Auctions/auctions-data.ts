@@ -35,6 +35,8 @@ export interface Auction {
   totalParticipants: number;
   // Last Offer
   lastOfferEnabled: boolean;
+  // Lucky Spin
+  luckySpinEnabled: boolean;
   // Meta
   createdAt: Date;
   updatedAt: Date;
@@ -57,6 +59,7 @@ export interface AuctionFormData {
   entryFee: string;
   isActive: boolean;
   lastOfferEnabled: boolean;
+  luckySpinEnabled: boolean;
   enableChat: boolean;
 }
 
@@ -87,8 +90,9 @@ export const DEFAULT_AUCTION_FORM: AuctionFormData = {
   entryType: "free",
   entryFee: "0",
   isActive: true,
-  lastOfferEnabled: false,
-  enableChat: false,
+  lastOfferEnabled: true,
+  luckySpinEnabled: true,
+  enableChat: true,
 };
 
 // ─── Styles ───────────────────────────────────────────────────────────────────

@@ -71,7 +71,12 @@ export default function DecreasingAuctionForm() {
   const { getAuction, addAuction, editAuction, auctions } = useAuctions();
   const { products } = useProducts();
 
-  const [form, setForm] = useState<AuctionFormData>({ ...DEFAULT_AUCTION_FORM, bidType: "decreasing", minimumPrice: "" });
+  const [form, setForm] = useState<AuctionFormData>({
+    ...DEFAULT_AUCTION_FORM,
+    bidType: "decreasing",
+    minimumPrice: "",
+    lastOfferEnabled: false, // decreasing auctions never use last offer
+  });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [loadingAuction, setLoadingAuction] = useState(isEdit);
@@ -115,6 +120,7 @@ export default function DecreasingAuctionForm() {
           entryFee: String(a.entryFee),
           isActive: a.isActive,
           lastOfferEnabled: false,
+          luckySpinEnabled: a.luckySpinEnabled ?? true,
           enableChat: a.enableChat ?? false,
         });
       }
@@ -230,10 +236,12 @@ export default function DecreasingAuctionForm() {
     }
     setSaving(true);
     try {
+      // Decreasing auctions never support last offer — always persist false
+      const payload = { ...form, lastOfferEnabled: false };
       if (isEdit && id) {
-        await editAuction(id, form);
+        await editAuction(id, payload);
       } else {
-        await addAuction(form);
+        await addAuction(payload);
       }
       navigate("/admin/auctions");
     } catch {
@@ -817,7 +825,7 @@ export default function DecreasingAuctionForm() {
             </Box>
           )}
 
-          {/* Active + Last Offer toggles */}
+          {/* Active + Lucky Spin + Chat toggles */}
           <Box sx={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
             <FormControlLabel
               control={
@@ -843,6 +851,34 @@ export default function DecreasingAuctionForm() {
                   }}
                 >
                   Active
+                </span>
+              }
+            />
+
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={form.luckySpinEnabled}
+                  onChange={(e) => field("luckySpinEnabled", e.target.checked)}
+                  sx={{
+                    "& .MuiSwitch-switchBase.Mui-checked": {
+                      color: colors.primary,
+                    },
+                    "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
+                      bgcolor: colors.primary,
+                    },
+                  }}
+                />
+              }
+              label={
+                <span
+                  style={{
+                    fontSize: "0.875rem",
+                    fontWeight: 600,
+                    color: colors.textPrimary,
+                  }}
+                >
+                  Enable Lucky Spin
                 </span>
               }
             />

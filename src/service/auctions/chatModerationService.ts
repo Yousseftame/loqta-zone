@@ -86,18 +86,26 @@ export async function warnChatUser(params: {
 }
 
 /**
- * Restrict user from the auction (blocks room, bids, chat) and post kick notice.
+ * Restrict user from the auction (blocks room, bids, chat) and replace the
+ * offending message with a public kick notice (same pattern as warn).
  * Participant + payment records are kept so entry-fee revenue stays in finance/analytics.
  */
 export async function kickChatUser(params: {
   auctionId: string;
+  messageId: string;
   targetUserId: string;
   targetUserName: string;
   auctionNumber: number;
   reason?: string;
 }): Promise<void> {
-  const { auctionId, targetUserId, targetUserName, auctionNumber, reason } =
-    params;
+  const {
+    auctionId,
+    messageId,
+    targetUserId,
+    targetUserName,
+    auctionNumber,
+    reason,
+  } = params;
 
   const customReason = reason?.trim() || null;
 
@@ -113,9 +121,9 @@ export async function kickChatUser(params: {
 
   await restrictUserFromAuctionFull(targetUserId, auctionId, userEmail);
 
-  await addDoc(collection(db, "auctions", auctionId, "chat"), {
+  // Replace the offending message with a public kick notice (mirrors warn)
+  await updateDoc(doc(db, "auctions", auctionId, "chat", messageId), {
     type: "system_kick",
-    auctionId,
     userId: "system",
     userName: "System",
     userPhotoURL: null,
@@ -124,7 +132,7 @@ export async function kickChatUser(params: {
     targetUserId,
     targetUserName,
     moderationReason: customReason,
-    createdAt: serverTimestamp(),
+    moderatedAt: serverTimestamp(),
   });
 
   await sendChatNotification(targetUserId, {

@@ -18,6 +18,8 @@ import {
   Paper,
   Box,
   CircularProgress,
+  FormControlLabel,
+  Switch,
 } from "@mui/material";
 import {
   Plus,
@@ -37,6 +39,7 @@ import {
   Gavel,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 import { colors } from "../Products/products-data";
 import {
   type Auction,
@@ -48,6 +51,10 @@ import { resolveTitle } from "../Products/products-data";
 import { useAuctions } from "@/store/AdminContext/AuctionContext/AuctionContext";
 import { useProducts } from "@/store/AdminContext/ProductContext/ProductsCotnext";
 import { usePermissions } from "@/permissions/usePermissions";
+import {
+  getAuctionsSectionsEnabled,
+  setAuctionsSectionsEnabled,
+} from "@/service/siteSettings/siteSettingsService";
 
 const statusIcon = (s: AuctionStatus) =>
   s === "live" ? (
@@ -72,8 +79,35 @@ export default function AuctionsList() {
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [auctionToDelete, setAuctionToDelete] = useState<Auction | null>(null);
   const [loadingDelete, setLoadingDelete] = useState(false);
-      const { can } = usePermissions();
+  const { can } = usePermissions();
 
+  const [sectionsEnabled, setSectionsEnabled] = useState(true);
+  const [sectionsSaving, setSectionsSaving] = useState(false);
+
+  useEffect(() => {
+    getAuctionsSectionsEnabled()
+      .then(setSectionsEnabled)
+      .catch(() => setSectionsEnabled(true));
+  }, []);
+
+  const handleToggleSections = async (checked: boolean) => {
+    setSectionsSaving(true);
+    const prev = sectionsEnabled;
+    setSectionsEnabled(checked);
+    try {
+      await setAuctionsSectionsEnabled(checked);
+      toast.success(
+        checked
+          ? "Home auction sections are now visible"
+          : "Home auction sections hidden — showing Coming Soon",
+      );
+    } catch {
+      setSectionsEnabled(prev);
+      toast.error("Failed to update home auction sections visibility");
+    } finally {
+      setSectionsSaving(false);
+    }
+  };
 
   useEffect(() => {
     let f = auctions;
@@ -208,7 +242,44 @@ export default function AuctionsList() {
             Manage your auction listings
           </p>
         </div>
-        <Box sx={{ display: "flex", gap: 1 }}>
+        <Box
+          sx={{
+            display: "flex",
+            gap: 1.5,
+            alignItems: "center",
+            flexWrap: "wrap",
+          }}
+        >
+          <FormControlLabel
+            control={
+              <Switch
+                checked={sectionsEnabled}
+                onChange={(e) => handleToggleSections(e.target.checked)}
+                disabled={sectionsSaving}
+                sx={{
+                  "& .MuiSwitch-switchBase.Mui-checked": {
+                    color: colors.primary,
+                  },
+                  "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
+                    bgcolor: colors.primary,
+                  },
+                }}
+              />
+            }
+            label={
+              <span
+                style={{
+                  fontSize: "0.8rem",
+                  fontWeight: 600,
+                  color: colors.textPrimary,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Show home auction sections
+              </span>
+            }
+            sx={{ mr: 1, ml: 0 }}
+          />
           <IconButton
             onClick={refreshAuctions}
             sx={{

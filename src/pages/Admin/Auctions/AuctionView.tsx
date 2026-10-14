@@ -1248,6 +1248,26 @@ export default function AuctionView() {
               ),
             },
             {
+              label: "Lucky Spin",
+              value: (
+                <Chip
+                  label={
+                    (auction.luckySpinEnabled ?? true) ? "Enabled" : "Disabled"
+                  }
+                  size="small"
+                  sx={{
+                    bgcolor: (auction.luckySpinEnabled ?? true)
+                      ? colors.successBg
+                      : colors.muted,
+                    color: (auction.luckySpinEnabled ?? true)
+                      ? colors.success
+                      : colors.textMuted,
+                    fontWeight: 700,
+                  }}
+                />
+              ),
+            },
+            {
               label: "Start Time",
               value: (
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
