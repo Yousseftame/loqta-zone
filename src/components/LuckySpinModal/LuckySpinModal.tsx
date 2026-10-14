@@ -210,6 +210,7 @@ export default function LuckySpinModal({
   const pointerRef = useRef<HTMLDivElement | null>(null);
   const animFrameRef = useRef<number | null>(null);
   const lastAngleRef = useRef(0);
+  const claimInFlightRef = useRef(false);
 
   const numSlices = LUCKY_SPIN_PRIZES.length; // 6
   const sliceAngle = 360 / numSlices; // 60°
@@ -224,6 +225,7 @@ export default function LuckySpinModal({
         if (cancelled || !existing) return;
         const prize = LUCKY_SPIN_PRIZES.find((p) => p.id === existing.prizeId);
         if (!prize) return;
+        claimInFlightRef.current = true;
         setWonPrize(prize);
         setIsClaimed(true);
         const targetIndex = LUCKY_SPIN_PRIZES.findIndex((p) => p.id === prize.id);
@@ -253,18 +255,13 @@ export default function LuckySpinModal({
     setSoundOn(state);
   };
 
-  const handleClaim = async () => {
-    if (claiming) return;
-    // Already saved (e.g. re-opened after claim) → just continue
-    if (isClaimed) {
-      onClose();
-      return;
-    }
-    if (!wonPrize) return;
+  const persistPrize = async (prize: LuckySpinPrize) => {
+    if (prize.isSpinAgain || claimInFlightRef.current) return;
+    claimInFlightRef.current = true;
     setClaiming(true);
 
     try {
-      await saveLuckySpinPrize(auctionId, userId, wonPrize, {
+      await saveLuckySpinPrize(auctionId, userId, prize, {
         productTitle: productTitle
           ? String(
               typeof productTitle === "string"
@@ -278,13 +275,14 @@ export default function LuckySpinModal({
       setIsClaimed(true);
       setShowCelebration(true);
       audioFX.playClaimSound();
-      onClaim?.(wonPrize);
+      onClaim?.(prize);
 
       setTimeout(() => {
         onClose();
       }, 2200);
     } catch (err: any) {
       console.error("[LuckySpinModal] Failed to save prize:", err);
+      claimInFlightRef.current = false;
       toast.error(
         err?.message ??
           t("luckySpin.claimFailed", "Could not save your reward. Please try again."),
@@ -293,8 +291,25 @@ export default function LuckySpinModal({
     }
   };
 
+  const handleClaim = async () => {
+    if (claiming) return;
+    // Already saved (auto-claim or re-open) → just continue
+    if (isClaimed) {
+      onClose();
+      return;
+    }
+    if (!wonPrize) return;
+    await persistPrize(wonPrize);
+  };
+
   const handleSpin = () => {
-    if (spinning || loadingExisting || isClaimed || (wonPrize && !spinAgainNotice))
+    if (
+      spinning ||
+      loadingExisting ||
+      isClaimed ||
+      claimInFlightRef.current ||
+      (wonPrize && !spinAgainNotice)
+    )
       return;
 
     setSpinning(true);
@@ -408,6 +423,8 @@ export default function LuckySpinModal({
       } else {
         setWonPrize(prize);
         audioFX.playWinFanfare();
+        // Persist immediately so close/reload cannot re-spin for a better prize
+        void persistPrize(prize);
       }
     }, duration);
   };
