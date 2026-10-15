@@ -342,6 +342,20 @@ function SlidePanel({
         }
         .lrs-skeleton-hidden-${id} { opacity: 0; pointer-events: none; }
         @keyframes lrs-shimmer-${id} { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+        /* Mobile: match hero banner display (full image, tight chrome) */
+        @media (max-width: 639px) {
+          .lrs-counter-${id} { display: none; }
+          .lrs-dots-${id} { bottom: 6px; }
+          .lrs-edge-top-${id},
+          .lrs-edge-bottom-${id} { height: 28px; opacity: 0.35; }
+          .lrs-vignette-${id} { opacity: 0.35; }
+          .lrs-img-${id} {
+            object-fit: contain;
+            object-position: center center;
+            filter: none;
+          }
+        }
       `}</style>
 
       <div
@@ -506,9 +520,9 @@ export default function LeftRightSections() {
           }
         }
 
-        /* Mobile: nice padding for cards */
+        /* Mobile: tight frame like hero (desktop padding unchanged above) */
         @media (max-width: 639px) {
-          .lrs-outer { padding: 1.5rem 1rem; }
+          .lrs-outer { padding: 10px 10px 12px; }
         }
 
         /* Panel row */
@@ -531,10 +545,16 @@ export default function LeftRightSections() {
           border: 1px solid rgba(255,255,255,0.06);
         }
 
-        /* Mobile: stack vertically, 1:1 */
+        /* Mobile: stack + same 2.35:1 frame as hero so wide banners show fully */
         @media (max-width: 639px) {
-          .lrs-wrapper { flex-direction: column; gap: 20px; }
-          .lrs-panel { flex: none; width: 100%; max-width: 100%; aspect-ratio: 1 / 1; border-radius: 20px; }
+          .lrs-wrapper { flex-direction: column; gap: 12px; }
+          .lrs-panel {
+            flex: none;
+            width: 100%;
+            max-width: 100%;
+            aspect-ratio: 2.35 / 1;
+            border-radius: 12px;
+          }
         }
 
         /* Tablet */
