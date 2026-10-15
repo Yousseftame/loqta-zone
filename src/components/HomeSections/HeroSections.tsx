@@ -305,8 +305,10 @@ export default function HeroSections() {
 
         @media (max-width: 639px) {
           .hs-root {
-            margin-top: ${NAVBAR_H}px;
-            aspect-ratio: 16 / 9;
+            /* +7px dark gap so the banner doesn't sit flush under the navbar */
+            margin-top: ${NAVBAR_H + 7}px;
+            /* Wider than 16:9 so contain letterboxing (dark bars) stays small */
+            aspect-ratio: 2.35 / 1;
             height: auto;
             min-height: unset;
           }
@@ -325,6 +327,14 @@ export default function HeroSections() {
           position: absolute; inset: 0; width: 100%; height: 100%;
           object-fit: cover; object-position: center center;
           display: block; -webkit-user-drag: none; pointer-events: none;
+        }
+
+        /* Mobile only: must come after .hs-img so it wins over cover */
+        @media (max-width: 639px) {
+          .hs-img {
+            object-fit: contain;
+            object-position: center center;
+          }
         }
         .hs-img-initial { opacity: 0; transition: opacity 1.1s cubic-bezier(0.4,0,0.2,1); }
         .hs-img-initial--in { opacity: 1; }
@@ -398,7 +408,11 @@ export default function HeroSections() {
         @media (max-width: 639px) {
           .hs-counter { display: none; }
           .hs-dot--active { width: 22px; }
-          .hs-dots { bottom: clamp(10px, 2.5vh, 20px); }
+          /* Sit dots on the banner edge — no big empty dark band */
+          .hs-dots { bottom: 6px; }
+          .hs-edge-top,
+          .hs-edge-bottom { height: 28px; opacity: 0.35; }
+          .hs-vignette { opacity: 0.35; }
         }
       `}</style>
 
