@@ -343,16 +343,17 @@ function SlidePanel({
         .lrs-skeleton-hidden-${id} { opacity: 0; pointer-events: none; }
         @keyframes lrs-shimmer-${id} { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
 
-        /* Mobile: match hero banner display (full image, tight chrome) */
+        /* Mobile: show full image; pin toward the center seam so halves meet */
         @media (max-width: 639px) {
           .lrs-counter-${id} { display: none; }
           .lrs-dots-${id} { bottom: 6px; }
           .lrs-edge-top-${id},
-          .lrs-edge-bottom-${id} { height: 28px; opacity: 0.35; }
-          .lrs-vignette-${id} { opacity: 0.35; }
+          .lrs-edge-bottom-${id} { display: none; }
+          .lrs-vignette-${id} { display: none; }
+          .lrs-bg-img-${id} { display: none; }
           .lrs-img-${id} {
             object-fit: contain;
-            object-position: center center;
+            object-position: ${id === "left" ? "right center" : "left center"};
             filter: none;
           }
         }
@@ -545,15 +546,23 @@ export default function LeftRightSections() {
           border: 1px solid rgba(255,255,255,0.06);
         }
 
-        /* Mobile: stack + same 2.35:1 frame as hero so wide banners show fully */
+        /* Mobile: flush side-by-side so the two halves complete one scene */
         @media (max-width: 639px) {
-          .lrs-wrapper { flex-direction: column; gap: 12px; }
+          .lrs-wrapper { flex-direction: row; gap: 0; }
           .lrs-panel {
-            flex: none;
-            width: 100%;
-            max-width: 100%;
-            aspect-ratio: 2.35 / 1;
-            border-radius: 12px;
+            flex: 1;
+            width: auto;
+            max-width: 50%;
+            aspect-ratio: 1 / 1;
+            border-radius: 0;
+            box-shadow: none;
+            border: none;
+          }
+          .lrs-panel:first-child {
+            border-radius: 12px 0 0 12px;
+          }
+          .lrs-panel:last-child {
+            border-radius: 0 12px 12px 0;
           }
         }
 
