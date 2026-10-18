@@ -343,7 +343,7 @@ function SlidePanel({
         .lrs-skeleton-hidden-${id} { opacity: 0; pointer-events: none; }
         @keyframes lrs-shimmer-${id} { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
 
-        /* Mobile: show full image; pin toward the center seam so halves meet */
+        /* Mobile: show full image, centered (panels are slightly separated) */
         @media (max-width: 639px) {
           .lrs-counter-${id} { display: none; }
           .lrs-dots-${id} { bottom: 6px; }
@@ -353,7 +353,7 @@ function SlidePanel({
           .lrs-bg-img-${id} { display: none; }
           .lrs-img-${id} {
             object-fit: contain;
-            object-position: ${id === "left" ? "right center" : "left center"};
+            object-position: center center;
             filter: none;
           }
         }
@@ -546,23 +546,17 @@ export default function LeftRightSections() {
           border: 1px solid rgba(255,255,255,0.06);
         }
 
-        /* Mobile: flush side-by-side so the two halves complete one scene */
+        /* Mobile: side-by-side with a small gap (like desktop, but tighter) */
         @media (max-width: 639px) {
-          .lrs-wrapper { flex-direction: row; gap: 0; }
+          .lrs-wrapper { flex-direction: row; gap: 10px; }
           .lrs-panel {
             flex: 1;
             width: auto;
-            max-width: 50%;
+            max-width: calc(50% - 5px);
             aspect-ratio: 1 / 1;
-            border-radius: 0;
-            box-shadow: none;
-            border: none;
-          }
-          .lrs-panel:first-child {
-            border-radius: 12px 0 0 12px;
-          }
-          .lrs-panel:last-child {
-            border-radius: 0 12px 12px 0;
+            border-radius: 14px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+            border: 1px solid rgba(255,255,255,0.06);
           }
         }
 
