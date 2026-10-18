@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 // ── Design tokens ─────────────────────────────────────────────
 const GOLD = "#c9a96e";
@@ -161,12 +161,12 @@ function FooterNavButton({
   );
 }
 
-// ── Animated link (anchor version) ───────────────────────────
+// ── Animated link (SPA navigation — no full page reload) ─────
 function FooterLink({ label, href }: { label: string; href: string }) {
   const [hovered, setHovered] = useState(false);
   return (
-    <a
-      href={href}
+    <Link
+      to={href}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
@@ -195,7 +195,7 @@ function FooterLink({ label, href }: { label: string; href: string }) {
         }}
       />
       {label}
-    </a>
+    </Link>
   );
 }
 
@@ -816,8 +816,8 @@ export default function Footer() {
             className="footer-legal-links"
             style={{ display: "flex", gap: 24, alignItems: "center" }}
           >
-            <a
-              href="/terms"
+            <Link
+              to="/terms"
               style={{
                 fontSize: 14,
                 color: "rgba(229,224,198,0.95)",
@@ -835,7 +835,7 @@ export default function Footer() {
               }}
             >
               {t("footer.legalLinks.terms")}
-            </a>
+            </Link>
           </div>
 
           {/* Made with */}
