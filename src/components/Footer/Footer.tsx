@@ -13,7 +13,7 @@ const CREAM = "rgb(229, 224, 198)";
 const socials = [
   {
     name: "Instagram",
-    href: "#",
+    href: "https://www.instagram.com/loqtazone/",
     icon: (
       <svg
         width="18"
@@ -33,7 +33,7 @@ const socials = [
   },
   {
     name: "Facebook",
-    href: "#",
+    href: "https://www.facebook.com/share/1ZeituLSMD/?mibextid=wwXIfr",
     icon: (
       <svg
         width="18"
@@ -50,26 +50,8 @@ const socials = [
     ),
   },
   {
-    name: "WhatsApp",
-    href: "#",
-    icon: (
-      <svg
-        width="18"
-        height="18"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
-      </svg>
-    ),
-  },
-  {
     name: "TikTok",
-    href: "#",
+    href: "https://www.tiktok.com/@loqta.zone?_r=1&_t=ZS-93oCpAmnGv2",
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
         <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.28 6.28 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.18 8.18 0 0 0 4.78 1.52V6.77a4.85 4.85 0 0 1-1.01-.08z" />
@@ -84,6 +66,8 @@ function SocialBtn({ item }: { item: (typeof socials)[0] }) {
   return (
     <a
       href={item.href}
+      target={item.href.startsWith("http") ? "_blank" : undefined}
+      rel={item.href.startsWith("http") ? "noopener noreferrer" : undefined}
       aria-label={item.name}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
