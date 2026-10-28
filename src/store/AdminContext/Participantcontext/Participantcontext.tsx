@@ -11,6 +11,7 @@ import {
   fetchParticipantsForAuction,
   deleteParticipant,
 } from "@/service/Participantservice/Participantservice";
+import { isPermissionDenied } from "@/lib/permissionErrors";
 
 interface ParticipantContextType {
   participants: Participant[];
@@ -50,9 +51,14 @@ export const ParticipantProvider = ({ children }: { children: ReactNode }) => {
       const data = await fetchParticipantsForAuction(auctionId);
       setParticipants(data);
     } catch (err: any) {
-      const msg = err?.message ?? "Failed to load participants";
-      setError(msg);
-      toast.error(msg);
+      setParticipants([]);
+      if (isPermissionDenied(err)) {
+        setError(null);
+      } else {
+        const msg = err?.message ?? "Failed to load participants";
+        setError(msg);
+        toast.error(msg);
+      }
     } finally {
       setLoading(false);
     }

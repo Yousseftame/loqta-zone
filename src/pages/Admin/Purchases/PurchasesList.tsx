@@ -58,6 +58,7 @@ import {
 } from "lucide-react";
 import { colors } from "@/pages/Admin/Products/products-data";
 import { usePurchases } from "@/store/AdminContext/PurchaseContext/PurchaseContext";
+import { usePermissions } from "@/permissions/usePermissions";
 import type {
   Purchase,
   PurchaseFormData,
@@ -110,10 +111,12 @@ function StatusChip({
   status,
   purchaseId,
   onChange,
+  disabled = false,
 }: {
   status: PurchaseStatus;
   purchaseId: string;
   onChange: (id: string, s: PurchaseStatus) => void;
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const cfg = STATUS_CONFIG[status];
@@ -122,18 +125,20 @@ function StatusChip({
       <Chip
         label={`${cfg.emoji} ${cfg.label}`}
         size="small"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          if (!disabled) setOpen((v) => !v);
+        }}
         sx={{
           bgcolor: cfg.bg,
           color: cfg.color,
           fontWeight: 700,
           fontSize: "0.7rem",
           border: `1px solid ${cfg.border}`,
-          cursor: "pointer",
-          "&:hover": { opacity: 0.85 },
+          cursor: disabled ? "default" : "pointer",
+          "&:hover": { opacity: disabled ? 1 : 0.85 },
         }}
       />
-      {open && (
+      {open && !disabled && (
         <>
           <Box
             onClick={() => setOpen(false)}
@@ -519,6 +524,7 @@ function PaymentHistoryDialog({
   onClose,
   onEdit,
   onDelete,
+  canPay = false,
 }: {
   open: boolean;
   purchase: Purchase | null;
@@ -527,6 +533,7 @@ function PaymentHistoryDialog({
   onClose: () => void;
   onEdit: (payment: PurchasePayment) => void;
   onDelete: (paymentId: string) => void;
+  canPay?: boolean;
 }) {
   const { accounts } = usePaymentAccounts();
 
@@ -766,7 +773,7 @@ function PaymentHistoryDialog({
                     </Box>
 
                     {/* Actions */}
-                    {!isDeleted && purchase.paymentType !== "cash" && (
+                    {!isDeleted && purchase.paymentType !== "cash" && canPay && (
                       <Box sx={{ display: "flex", gap: 0.5 }}>
                         <IconButton size="small" onClick={() => onEdit(pay)} sx={{ color: "#2563EB" }}>
                           <Edit size={14} />
@@ -1099,6 +1106,11 @@ export default function PurchasesList() {
     editPayment,
     removePayment,
   } = usePurchases();
+  const { can } = usePermissions();
+  const canCreate = can("purchases", "create");
+  const canUpdate = can("purchases", "update");
+  const canDelete = can("purchases", "delete");
+  const canPay = can("purchases", "pay");
 
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(0);
@@ -1506,24 +1518,26 @@ export default function PurchasesList() {
           >
             <RefreshCw size={18} />
           </IconButton>
-          <Button
-            variant="contained"
-            startIcon={<Plus size={18} />}
-            onClick={openAdd}
-            sx={{
-              bgcolor: colors.primary,
-              color: "white",
-              textTransform: "none",
-              px: 3,
-              py: 1.5,
-              borderRadius: 2,
-              fontWeight: 600,
-              boxShadow: "none",
-              "&:hover": { bgcolor: "#111" },
-            }}
-          >
-            New Purchase Order
-          </Button>
+          {canCreate && (
+            <Button
+              variant="contained"
+              startIcon={<Plus size={18} />}
+              onClick={openAdd}
+              sx={{
+                bgcolor: colors.primary,
+                color: "white",
+                textTransform: "none",
+                px: 3,
+                py: 1.5,
+                borderRadius: 2,
+                fontWeight: 600,
+                boxShadow: "none",
+                "&:hover": { bgcolor: "#111" },
+              }}
+            >
+              New Purchase Order
+            </Button>
+          )}
         </Box>
       </Box>
 
@@ -2101,6 +2115,7 @@ export default function PurchasesList() {
                           status={p.status}
                           purchaseId={p.id}
                           onChange={changeStatus}
+                          disabled={!canUpdate}
                         />
                       </TableCell>
 
@@ -2116,7 +2131,7 @@ export default function PurchasesList() {
                           }}
                         >
                           {/* Record Payment — only if not fully paid */}
-                          {isUnpaid && (
+                          {isUnpaid && canPay && (
                             <Tooltip title="Record Payment">
                               <IconButton
                                 size="small"
@@ -2133,7 +2148,7 @@ export default function PurchasesList() {
                           )}
 
                           {/* Mark fully paid — opens confirmation dialog */}
-                          {isUnpaid && (
+                          {isUnpaid && canPay && (
                             <Tooltip title="Mark as Fully Paid">
                               <IconButton
                                 size="small"
@@ -2165,37 +2180,41 @@ export default function PurchasesList() {
                           </Tooltip>
 
                           {/* Edit */}
-                          <Tooltip title="Edit">
-                            <IconButton
-                              size="small"
-                              onClick={() => openEdit(p)}
-                              sx={{
-                                color: "#2563EB",
-                                "&:hover": { bgcolor: "#DBEAFE" },
-                                borderRadius: 1.5,
-                              }}
-                            >
-                              <Edit size={15} />
-                            </IconButton>
-                          </Tooltip>
+                          {canUpdate && (
+                            <Tooltip title="Edit">
+                              <IconButton
+                                size="small"
+                                onClick={() => openEdit(p)}
+                                sx={{
+                                  color: "#2563EB",
+                                  "&:hover": { bgcolor: "#DBEAFE" },
+                                  borderRadius: 1.5,
+                                }}
+                              >
+                                <Edit size={15} />
+                              </IconButton>
+                            </Tooltip>
+                          )}
 
                           {/* Delete */}
-                          <Tooltip title="Delete">
-                            <IconButton
-                              size="small"
-                              onClick={() => {
-                                setToDelete(p);
-                                setDeleteDialog(true);
-                              }}
-                              sx={{
-                                color: colors.error,
-                                "&:hover": { bgcolor: "#FEE2E2" },
-                                borderRadius: 1.5,
-                              }}
-                            >
-                              <Trash2 size={15} />
-                            </IconButton>
-                          </Tooltip>
+                          {canDelete && (
+                            <Tooltip title="Delete">
+                              <IconButton
+                                size="small"
+                                onClick={() => {
+                                  setToDelete(p);
+                                  setDeleteDialog(true);
+                                }}
+                                sx={{
+                                  color: colors.error,
+                                  "&:hover": { bgcolor: "#FEE2E2" },
+                                  borderRadius: 1.5,
+                                }}
+                              >
+                                <Trash2 size={15} />
+                              </IconButton>
+                            </Tooltip>
+                          )}
                         </Box>
                       </TableCell>
                     </TableRow>
@@ -2247,6 +2266,7 @@ export default function PurchasesList() {
         purchase={historyTarget}
         payments={historyPayments}
         loadingHistory={loadingHistory}
+        canPay={canPay}
         onClose={() => {
           setHistoryDialog(false);
           setHistoryTarget(null);

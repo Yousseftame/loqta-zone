@@ -289,9 +289,9 @@ export const routes = createBrowserRouter([
       {
         path: "purchases",
         element: (
-          <ProtectedRoute allowedRoles={["superAdmin"]}>
+          <PermissionRoute module="purchases" action="read">
             <PurchasesList />
-          </ProtectedRoute>
+          </PermissionRoute>
         ),
       },
 

@@ -18,7 +18,7 @@ import toast from "react-hot-toast";
 import {
   LUCKY_SPIN_PRIZES,
   getUserAuctionLuckySpin,
-  saveLuckySpinPrize,
+  claimLuckySpinPrize,
   type LuckySpinPrize,
 } from "@/service/luckySpinService/luckySpinService";
 
@@ -255,54 +255,25 @@ export default function LuckySpinModal({
     setSoundOn(state);
   };
 
-  const persistPrize = async (prize: LuckySpinPrize) => {
-    if (prize.isSpinAgain || claimInFlightRef.current) return;
+  const finishClaimedPrize = (prize: LuckySpinPrize) => {
     claimInFlightRef.current = true;
-    setClaiming(true);
-
-    try {
-      await saveLuckySpinPrize(auctionId, userId, prize, {
-        productTitle: productTitle
-          ? String(
-              typeof productTitle === "string"
-                ? productTitle
-                : (productTitle as any)?.en ??
-                    (productTitle as any)?.ar ??
-                    "",
-            )
-          : undefined,
-      });
-      setIsClaimed(true);
-      setShowCelebration(true);
-      audioFX.playClaimSound();
-      onClaim?.(prize);
-
-      setTimeout(() => {
-        onClose();
-      }, 2200);
-    } catch (err: any) {
-      console.error("[LuckySpinModal] Failed to save prize:", err);
-      claimInFlightRef.current = false;
-      toast.error(
-        err?.message ??
-          t("luckySpin.claimFailed", "Could not save your reward. Please try again."),
-      );
-      setClaiming(false);
-    }
+    setIsClaimed(true);
+    setWonPrize(prize);
+    setShowCelebration(true);
+    audioFX.playClaimSound();
+    onClaim?.(prize);
+    setTimeout(() => onClose(), 2200);
   };
 
   const handleClaim = async () => {
     if (claiming) return;
-    // Already saved (auto-claim or re-open) → just continue
     if (isClaimed) {
       onClose();
       return;
     }
-    if (!wonPrize) return;
-    await persistPrize(wonPrize);
   };
 
-  const handleSpin = () => {
+  const handleSpin = async () => {
     if (
       spinning ||
       loadingExisting ||
@@ -315,18 +286,37 @@ export default function LuckySpinModal({
     setSpinning(true);
     setSpinAgainNotice(false);
     setWonPrize(null);
+    setClaiming(true);
 
-    // Pick target prize
-    const rand = Math.random();
-    let targetIndex = 0;
-    if (rand < 0.25) targetIndex = 0; // 10% OFF
-    else if (rand < 0.50) targetIndex = 1; // 25% OFF
-    else if (rand < 0.70) targetIndex = 2; // 50% OFF
-    else if (rand < 0.85) targetIndex = 3; // 75% OFF
-    else if (rand < 0.93) targetIndex = 5; // SPIN AGAIN
-    else targetIndex = 4; // FREE ENTRY (golden prize)
+    let prize: LuckySpinPrize;
+    try {
+      // Server rolls + persists (except spin_again). Client cannot forge prizes.
+      const result = await claimLuckySpinPrize(auctionId);
+      prize = result.prize;
 
-    const prize = LUCKY_SPIN_PRIZES[targetIndex];
+      if (result.alreadyClaimed) {
+        setClaiming(false);
+        setSpinning(false);
+        finishClaimedPrize(prize);
+        return;
+      }
+    } catch (err: any) {
+      console.error("[LuckySpinModal] claimLuckySpin failed:", err);
+      setSpinning(false);
+      setClaiming(false);
+      toast.error(
+        err?.message ??
+          t("luckySpin.claimFailed", "Could not save your reward. Please try again."),
+      );
+      return;
+    }
+
+    setClaiming(false);
+
+    const targetIndex = Math.max(
+      0,
+      LUCKY_SPIN_PRIZES.findIndex((p) => p.id === prize.id),
+    );
 
     const sliceCenterAngle = targetIndex * sliceAngle;
     const baseTargetAngle = (360 - sliceCenterAngle) % 360;
@@ -359,18 +349,17 @@ export default function LuckySpinModal({
       const elapsed = now - startTime;
       const progress = Math.min(1.0, elapsed / duration);
 
-      // Deceleration curve: easeOutQuart: 1 - (1 - t)^3.8
       const eased = 1 - Math.pow(1 - progress, 3.8);
       const currentAngle = startAngle + (endAngle - startAngle) * eased;
 
-      // ── Physical Ratchet Flapper Simulation ──
-      const pegPhase = (currentAngle % pegInterval);
+      const pegPhase = currentAngle % pegInterval;
       const inContact = pegPhase >= 16 && pegPhase < 29.4;
       const speedFactor = Math.max(0, 1 - Math.pow(progress, 1.8));
 
       if (inContact && speedFactor > 0.012) {
         const contactFraction = (pegPhase - 16) / (29.4 - 16);
-        const targetPush = Math.sin(contactFraction * (Math.PI * 0.5)) * (18 + 7 * speedFactor);
+        const targetPush =
+          Math.sin(contactFraction * (Math.PI * 0.5)) * (18 + 7 * speedFactor);
         needleAngle = targetPush;
         needleVelocity = 0;
         wasInContact = true;
@@ -413,7 +402,6 @@ export default function LuckySpinModal({
     animFrameRef.current = requestAnimationFrame(step);
     setRotation(endAngle);
 
-    // Landing sequence
     setTimeout(() => {
       setSpinning(false);
       audioFX.playRatchetClick(0.35);
@@ -423,8 +411,7 @@ export default function LuckySpinModal({
       } else {
         setWonPrize(prize);
         audioFX.playWinFanfare();
-        // Persist immediately so close/reload cannot re-spin for a better prize
-        void persistPrize(prize);
+        finishClaimedPrize(prize);
       }
     }, duration);
   };

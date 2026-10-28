@@ -28,6 +28,7 @@ import LastOfferModal from "@/components/LastOfferModal/LastOfferModal";
 import LuckySpinModal from "@/components/LuckySpinModal/LuckySpinModal";
 import toast from "react-hot-toast";
 import { resolveProductTitle } from "@/lib/resolveLocalized";
+import { getPublicDisplayName } from "@/service/users/publicProfileService";
 import AuctionChat from "./components/AuctionChat";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -351,17 +352,10 @@ export default function AuctionLivePage() {
     if (!unique.length) return;
     unique.forEach((id) => fetchedUserIds.current.add(id));
     Promise.all(
-      unique.map((uid) =>
-        getDoc(doc(db, "users", uid)).then((snap) => ({
-          uid,
-          name: snap.exists()
-            ? (snap.data().fullName ??
-              snap.data().displayName ??
-              snap.data().firstName ??
-              `${uid.slice(0, 6)}…`)
-            : `${uid.slice(0, 6)}…`,
-        })),
-      ),
+      unique.map(async (uid) => ({
+        uid,
+        name: await getPublicDisplayName(uid, `${uid.slice(0, 6)}…`),
+      })),
     )
       .then((results) => {
         setUserNames((prev) => {
@@ -421,16 +415,8 @@ export default function AuctionLivePage() {
           }
         }, 10000);
       };
-      getDoc(doc(db, "users", auction.winnerId!))
-        .then((snap) => {
-          const name = snap.exists()
-            ? (snap.data().fullName ??
-              snap.data().displayName ??
-              snap.data().firstName ??
-              t("auctionLive.winner"))
-            : t("auctionLive.winner");
-          fetchAndShow(name);
-        })
+      getPublicDisplayName(auction.winnerId!, t("auctionLive.winner"))
+        .then((name) => fetchAndShow(name))
         .catch(() => fetchAndShow(t("auctionLive.winner")));
     } else if (noWinner) {
       winnerResolvedRef.current = true;

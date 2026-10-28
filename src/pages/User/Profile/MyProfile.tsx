@@ -9,10 +9,6 @@ import {
   updateDoc,
   serverTimestamp,
   onSnapshot,
-  collection,
-  query,
-  where,
-  getDocs,
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { updateProfile } from "firebase/auth";
@@ -38,6 +34,7 @@ import { useTranslation } from "react-i18next";
 import { db, storage } from "@/firebase/firebase";
 import { useAuth } from "@/store/AuthContext/AuthContext";
 import { auditLogger, buildActor } from "@/service/audit/auditLogger";
+import { isFullNameTaken } from "@/service/users/publicProfileService";
 import type { AuditChange } from "@/service/audit/audit-log-data";
 
 // ─── Design tokens ─────────────────────────────────────────────────────────
@@ -409,21 +406,12 @@ export default function MyProfile() {
       }
       const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
 
-      // ── Check for duplicate name (only if name actually changed) ──
+      // ── Check for duplicate name via publicProfiles (no private user reads) ──
       const nameChanged = fullName !== profile.fullName;
-      if (nameChanged) {
-        const nameQuery = query(
-          collection(db, "users"),
-          where("fullName", "==", fullName),
-        );
-        const nameSnap = await getDocs(nameQuery);
-        // Exclude the current user's own document from the results
-        const duplicateExists = nameSnap.docs.some((d) => d.id !== user.uid);
-        if (duplicateExists) {
-          toast.error("This name is already taken. Please use a different name.");
-          setSaving(false);
-          return;
-        }
+      if (nameChanged && (await isFullNameTaken(fullName, user.uid))) {
+        toast.error("This name is already taken. Please use a different name.");
+        setSaving(false);
+        return;
       }
 
       await updateDoc(doc(db, "users", user.uid), {

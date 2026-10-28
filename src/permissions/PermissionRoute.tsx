@@ -41,7 +41,9 @@ export default function PermissionRoute({
 
   // Regular admin — check the specific action
   if (!can(module, action)) {
-    return <Navigate to="/admin" replace />;
+    // Avoid bouncing through /admin (superAdmin-only dashboard) which
+    // then redirects again — go straight to a page every admin can open.
+    return <Navigate to="/admin/hero-slides" replace />;
   }
 
   return <>{children}</>;

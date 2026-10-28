@@ -20,6 +20,8 @@ import {
   toggleCategoryActive,
 } from "@/service/categories/Categoryservice";
 import { useAuth } from "@/store/AuthContext/AuthContext";
+import { usePermissions } from "@/permissions/usePermissions";
+import { isPermissionDenied } from "@/lib/permissionErrors";
 
 interface CategoryContextType {
   categories: Category[];
@@ -46,7 +48,10 @@ export const useCategories = () => {
 
 export const CategoryProvider = ({ children }: { children: ReactNode }) => {
   const { user, role, loading: authLoading } = useAuth();
+  const { can, loading: permLoading } = usePermissions();
   const isAdmin = role === "admin" || role === "superAdmin";
+  const canRead =
+    role === "superAdmin" || (!permLoading && can("categories", "read"));
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -58,22 +63,28 @@ export const CategoryProvider = ({ children }: { children: ReactNode }) => {
       const data = await fetchCategories();
       setCategories(data);
     } catch (err: any) {
-      const msg = err?.message ?? "Failed to load categories";
-      setError(msg);
-      toast.error(msg);
+      setCategories([]);
+      if (isPermissionDenied(err)) {
+        setError(null);
+      } else {
+        const msg = err?.message ?? "Failed to load categories";
+        setError(msg);
+        toast.error(msg);
+      }
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (authLoading) return;
-    if (!user || !isAdmin) {
+    if (authLoading || permLoading) return;
+    if (!user || !isAdmin || !canRead) {
+      setCategories([]);
       setLoading(false);
       return;
     }
     refreshCategories();
-  }, [authLoading, user, isAdmin, refreshCategories]);
+  }, [authLoading, permLoading, user, isAdmin, canRead, refreshCategories]);
 
   const getCategory = useCallback(async (id: string) => {
     try {

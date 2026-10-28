@@ -76,14 +76,53 @@ async function resolveWinnerForAuction(auctionId: string): Promise<void> {
     return;
   }
 
-  // ── Fetch highest bid outside transaction ──────────────────────────────────
+  // ── Fetch candidate bids, then keep only legitimate ones ───────────────────
+  // Reject: missing userId, non-positive amount, bids after endTime, non-participants.
   const bidsSnap = await db
     .collection("auctions")
     .doc(auctionId)
     .collection("bids")
     .orderBy("amount", "desc")
-    .limit(1)
+    .limit(50)
     .get();
+
+  const maxLimit =
+    preData.maximumBidLimit == null ? null : Number(preData.maximumBidLimit);
+
+  type Candidate = { userId: string; amount: number };
+  const candidates: Candidate[] = [];
+
+  for (const bidDoc of bidsSnap.docs) {
+    const b = bidDoc.data();
+    const userId = b.userId as string | undefined;
+    const amount = Number(b.amount);
+    if (!userId || typeof userId !== "string") continue;
+    if (!Number.isFinite(amount) || amount <= 0) continue;
+    if (maxLimit != null && amount > maxLimit) continue;
+
+    const createdAt: Date | null =
+      b.createdAt instanceof Timestamp
+        ? b.createdAt.toDate()
+        : b.createdAt
+          ? new Date(b.createdAt)
+          : null;
+
+    // Allow 3s skew; reject clearly post-end bids
+    if (createdAt && createdAt.getTime() > endTime.getTime() + 3000) continue;
+
+    const participantSnap = await db
+      .collection("auctions")
+      .doc(auctionId)
+      .collection("Participants")
+      .doc(userId)
+      .get();
+    if (!participantSnap.exists) continue;
+
+    candidates.push({ userId, amount });
+  }
+
+  candidates.sort((a, b) => b.amount - a.amount);
+  const top = candidates[0] ?? null;
 
   // ── Transaction: re-read + write atomically ────────────────────────────────
   await db.runTransaction(async (transaction) => {
@@ -94,37 +133,29 @@ async function resolveWinnerForAuction(auctionId: string): Promise<void> {
 
     // Idempotency guard inside transaction (concurrent call may have beaten us)
     if (fresh.winnerId !== null && fresh.winnerId !== undefined) {
-      // console.log(`[winner] Auction ${auctionId} resolved by concurrent run — skipping.`);
       return;
     }
 
-    if (bidsSnap.empty) {
+    if (!top) {
       transaction.update(auctionRef, {
         winnerId:   "NO_WINNER",
         winningBid: 0,
         isActive:   false,
         updatedAt:  FieldValue.serverTimestamp(),
       });
-      // console.log(`[winner] Auction ${auctionId} → NO_WINNER (no bids).`);
       return;
     }
 
-    const topBid     = bidsSnap.docs[0].data();
-    const winnerId   = topBid.userId   as string;
-    const winningBid = topBid.amount   as number;
-
     transaction.update(auctionRef, {
-      winnerId,
-      winningBid,
+      winnerId: top.userId,
+      winningBid: top.amount,
       isActive:  false,
       updatedAt: FieldValue.serverTimestamp(),
     });
 
-    transaction.update(db.collection("users").doc(winnerId), {
+    transaction.update(db.collection("users").doc(top.userId), {
       totalWins: FieldValue.increment(1),
     });
-
-    // console.log(`[winner] Auction ${auctionId} → winner=${winnerId} bid=${winningBid}`);
   });
 }
 

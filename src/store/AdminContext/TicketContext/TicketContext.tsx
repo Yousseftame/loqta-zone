@@ -28,6 +28,8 @@ import {
   deleteTicket,
 } from "@/service/tickets/ticketService";
 import { useAuth } from "@/store/AuthContext/AuthContext";
+import { usePermissions } from "@/permissions/usePermissions";
+import { isPermissionDenied } from "@/lib/permissionErrors";
 
 const COLLECTION = "auctionSupportTickets";
 
@@ -87,20 +89,24 @@ function docToTicket(id: string, data: Record<string, any>): SupportTicket {
 
 export const TicketProvider = ({ children }: { children: ReactNode }) => {
   const { user, role, loading: authLoading } = useAuth();
+  const { can, loading: permLoading } = usePermissions();
 
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState<string | null>(null);
 
   const isAdmin = role === "admin" || role === "superAdmin";
+  const canRead =
+    role === "superAdmin" || (!permLoading && can("tickets", "read"));
 
   // Derived badge count — updates instantly when tickets array changes
   const openCount = tickets.filter((t) => t.status === "open").length;
 
   // ── Real-time listener (onSnapshot) ─────────────────────────────────────────
   useEffect(() => {
-    if (authLoading) return;
-    if (!user || !isAdmin) {
+    if (authLoading || permLoading) return;
+    if (!user || !isAdmin || !canRead) {
+      setTickets([]);
       setLoading(false);
       return;
     }
@@ -118,15 +124,20 @@ export const TicketProvider = ({ children }: { children: ReactNode }) => {
         setLoading(false);
       },
       (err) => {
-        const msg = err?.message ?? "Failed to load tickets";
-        setError(msg);
-        toast.error(msg);
+        setTickets([]);
+        if (isPermissionDenied(err)) {
+          setError(null);
+        } else {
+          const msg = err?.message ?? "Failed to load tickets";
+          setError(msg);
+          toast.error(msg);
+        }
         setLoading(false);
       },
     );
 
     return () => unsub();
-  }, [authLoading, user, isAdmin]);
+  }, [authLoading, permLoading, user, isAdmin, canRead]);
 
   // ── refreshTickets (manual, kept for API compat) ──────────────────────────
   const refreshTickets = useCallback(async () => {

@@ -32,6 +32,8 @@ import { useAuth } from "../../store/AuthContext/AuthContext";
 import { useContactFeedback } from "../../store/AdminContext/ContactFeedbackContext/ContactFeedbackContext";
 import { useTickets } from "../../store/AdminContext/TicketContext/TicketContext";
 import { auditLogger, buildActor } from "@/service/audit/auditLogger";
+import { usePermissions } from "@/permissions/usePermissions";
+import type { PermissionModule } from "@/permissions/permissions-data";
 
 // ── Logout Confirmation Modal ─────────────────────────────────────────────────
 
@@ -346,6 +348,7 @@ const Sidebar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, role } = useAuth();
+  const { can, loading: permLoading } = usePermissions();
   const { contactNewCount, feedbackNewCount } = useContactFeedback();
   const { openCount: ticketOpenCount } = useTickets();
 
@@ -388,6 +391,7 @@ const Sidebar = () => {
       icon: Truck,
       path: "/admin/suppliers",
       roles: ["admin", "superAdmin"],
+      permissionModule: "suppliers" as PermissionModule,
     },
 
     {
@@ -396,13 +400,15 @@ const Sidebar = () => {
       icon: Inventory2Icon,
       path: "/admin/Products",
       roles: ["admin", "superAdmin"],
+      permissionModule: "products" as PermissionModule,
     },
     {
       id: "purchases",
       label: "Purchases",
       icon: ShoppingCartIcon,
       path: "/admin/purchases",
-      roles: ["superAdmin"],
+      roles: ["admin", "superAdmin"],
+      permissionModule: "purchases" as PermissionModule,
     },
 
     {
@@ -411,6 +417,7 @@ const Sidebar = () => {
       icon: MenuBook,
       path: "/admin/auctions",
       roles: ["admin", "superAdmin"],
+      permissionModule: "auctions" as PermissionModule,
     },
     {
       id: "Support Tickets",
@@ -419,6 +426,7 @@ const Sidebar = () => {
       path: "/admin/tickets",
       roles: ["admin", "superAdmin"],
       badge: ticketOpenCount,
+      permissionModule: "tickets" as PermissionModule,
     },
 
     {
@@ -427,6 +435,7 @@ const Sidebar = () => {
       icon: CategoryIcon,
       path: "/admin/categories",
       roles: ["admin", "superAdmin"],
+      permissionModule: "categories" as PermissionModule,
     },
 
     {
@@ -435,6 +444,7 @@ const Sidebar = () => {
       icon: LocalActivityIcon,
       path: "/admin/vouchers",
       roles: ["admin", "superAdmin"],
+      permissionModule: "vouchers" as PermissionModule,
     },
     {
       id: "Auction Requests",
@@ -442,6 +452,7 @@ const Sidebar = () => {
       icon: AttachEmailIcon,
       path: "/admin/auctionRequests",
       roles: ["admin", "superAdmin"],
+      permissionModule: "auctionRequests" as PermissionModule,
     },
     {
       id: "Contacts",
@@ -450,6 +461,7 @@ const Sidebar = () => {
       path: "/admin/contacts",
       roles: ["admin", "superAdmin"],
       badge: contactNewCount,
+      permissionModule: "contacts" as PermissionModule,
     },
     {
       id: "Feedback",
@@ -458,6 +470,7 @@ const Sidebar = () => {
       path: "/admin/feedback",
       roles: ["admin", "superAdmin"],
       badge: feedbackNewCount,
+      permissionModule: "feedback" as PermissionModule,
     },
 
     {
@@ -466,6 +479,7 @@ const Sidebar = () => {
       icon: LocalOfferIcon,
       path: "/admin/lastoffers",
       roles: ["admin", "superAdmin"],
+      permissionModule: "lastOffers" as PermissionModule,
     },
     {
       id: "Bids",
@@ -473,6 +487,7 @@ const Sidebar = () => {
       icon: AddCardIcon,
       path: "/admin/bids",
       roles: ["admin", "superAdmin"],
+      permissionModule: "bids" as PermissionModule,
     },
     {
       id: "Auction Participants",
@@ -480,6 +495,7 @@ const Sidebar = () => {
       icon: FolderSharedIcon,
       path: "/admin/participants",
       roles: ["admin", "superAdmin"],
+      permissionModule: "participants" as PermissionModule,
     },
     {
       id: "Users",
@@ -487,6 +503,7 @@ const Sidebar = () => {
       icon: AccountCircleIcon,
       path: "/admin/users",
       roles: ["admin", "superAdmin"],
+      permissionModule: "users" as PermissionModule,
     },
     {
       id: "Admins",
@@ -525,9 +542,14 @@ const Sidebar = () => {
     },
   ];
 
-  const menuItems = allMenuItems.filter(
-    (item) => !role || item.roles.includes(role),
-  );
+  const menuItems = allMenuItems.filter((item) => {
+    if (!role || !item.roles.includes(role)) return false;
+    // Hide modules the assigned admin cannot read (superAdmin always can).
+    const mod = (item as { permissionModule?: PermissionModule })
+      .permissionModule;
+    if (mod && !permLoading && !can(mod, "read")) return false;
+    return true;
+  });
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full overflow-hidden">

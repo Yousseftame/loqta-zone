@@ -24,6 +24,8 @@ import {
   deleteFeedbackMessage,
 } from "@/service/contactFeedback/contactFeedbackService";
 import { useAuth } from "@/store/AuthContext/AuthContext";
+import { usePermissions } from "@/permissions/usePermissions";
+import { isPermissionDenied } from "@/lib/permissionErrors";
 
 interface ContactFeedbackContextType {
   // Contact
@@ -66,6 +68,7 @@ export const ContactFeedbackProvider = ({
   children: ReactNode;
 }) => {
   const { user, role, loading: authLoading } = useAuth();
+  const { can, loading: permLoading } = usePermissions();
 
   // ── Contact state ──────────────────────────────────────────────────────────
   const [contacts, setContacts] = useState<ContactMessage[]>([]);
@@ -78,6 +81,10 @@ export const ContactFeedbackProvider = ({
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
 
   const isAdmin = role === "admin" || role === "superAdmin";
+  const canReadContacts =
+    role === "superAdmin" || (!permLoading && can("contacts", "read"));
+  const canReadFeedback =
+    role === "superAdmin" || (!permLoading && can("feedback", "read"));
 
   // ── Derived badge counts ────────────────────────────────────────────────────
   const contactNewCount = contacts.filter((c) => c.status === "new").length;
@@ -91,9 +98,14 @@ export const ContactFeedbackProvider = ({
       const data = await fetchContactMessages();
       setContacts(data);
     } catch (err: any) {
-      const msg = err?.message ?? "Failed to load contact messages";
-      setContactError(msg);
-      toast.error(msg);
+      setContacts([]);
+      if (isPermissionDenied(err)) {
+        setContactError(null);
+      } else {
+        const msg = err?.message ?? "Failed to load contact messages";
+        setContactError(msg);
+        toast.error(msg);
+      }
     } finally {
       setContactLoading(false);
     }
@@ -107,9 +119,14 @@ export const ContactFeedbackProvider = ({
       const data = await fetchFeedbackMessages();
       setFeedbacks(data);
     } catch (err: any) {
-      const msg = err?.message ?? "Failed to load feedback messages";
-      setFeedbackError(msg);
-      toast.error(msg);
+      setFeedbacks([]);
+      if (isPermissionDenied(err)) {
+        setFeedbackError(null);
+      } else {
+        const msg = err?.message ?? "Failed to load feedback messages";
+        setFeedbackError(msg);
+        toast.error(msg);
+      }
     } finally {
       setFeedbackLoading(false);
     }
@@ -117,15 +134,32 @@ export const ContactFeedbackProvider = ({
 
   // ── Load on auth ───────────────────────────────────────────────────────────
   useEffect(() => {
-    if (authLoading) return;
+    if (authLoading || permLoading) return;
     if (!user || !isAdmin) {
       setContactLoading(false);
       setFeedbackLoading(false);
       return;
     }
-    refreshContacts();
-    refreshFeedbacks();
-  }, [authLoading, user, isAdmin, refreshContacts, refreshFeedbacks]);
+    if (canReadContacts) refreshContacts();
+    else {
+      setContacts([]);
+      setContactLoading(false);
+    }
+    if (canReadFeedback) refreshFeedbacks();
+    else {
+      setFeedbacks([]);
+      setFeedbackLoading(false);
+    }
+  }, [
+    authLoading,
+    permLoading,
+    user,
+    isAdmin,
+    canReadContacts,
+    canReadFeedback,
+    refreshContacts,
+    refreshFeedbacks,
+  ]);
 
   // ── Get single contact ─────────────────────────────────────────────────────
   const getContact = useCallback(async (id: string) => {

@@ -19,6 +19,7 @@ import {
   deleteBid,
   updateBid,
 } from "@/service/Bidadminservice/Bidadminservice";
+import { isPermissionDenied } from "@/lib/permissionErrors";
 
 interface BidContextType {
   bids: Bid[];
@@ -53,9 +54,14 @@ export const BidProvider = ({ children }: { children: ReactNode }) => {
       const data = await fetchBidsForAuction(auctionId);
       setBids(data);
     } catch (err: any) {
-      const msg = err?.message ?? "Failed to load bids";
-      setError(msg);
-      toast.error(msg);
+      setBids([]);
+      if (isPermissionDenied(err)) {
+        setError(null);
+      } else {
+        const msg = err?.message ?? "Failed to load bids";
+        setError(msg);
+        toast.error(msg);
+      }
     } finally {
       setLoading(false);
     }

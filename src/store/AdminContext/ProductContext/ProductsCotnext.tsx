@@ -20,6 +20,8 @@ import {
   toggleProductActive,
 } from "@/service/products/productService";
 import { useAuth } from "@/store/AuthContext/AuthContext";
+import { usePermissions } from "@/permissions/usePermissions";
+import { isPermissionDenied } from "@/lib/permissionErrors";
 
 interface ProductContextType {
   products: Product[];
@@ -47,7 +49,10 @@ export const useProducts = () => {
 
 export const ProductProvider = ({ children }: { children: ReactNode }) => {
   const { user, role, loading: authLoading } = useAuth();
+  const { can, loading: permLoading } = usePermissions();
   const isAdmin = role === "admin" || role === "superAdmin";
+  const canRead =
+    role === "superAdmin" || (!permLoading && can("products", "read"));
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -59,22 +64,28 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
       const data = await fetchProducts();
       setProducts(data);
     } catch (err: any) {
-      const msg = err?.message ?? "Failed to load products";
-      setError(msg);
-      toast.error(msg);
+      setProducts([]);
+      if (isPermissionDenied(err)) {
+        setError(null);
+      } else {
+        const msg = err?.message ?? "Failed to load products";
+        setError(msg);
+        toast.error(msg);
+      }
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (authLoading) return;
-    if (!user || !isAdmin) {
+    if (authLoading || permLoading) return;
+    if (!user || !isAdmin || !canRead) {
+      setProducts([]);
       setLoading(false);
       return;
     }
     refreshProducts();
-  }, [authLoading, user, isAdmin, refreshProducts]);
+  }, [authLoading, permLoading, user, isAdmin, canRead, refreshProducts]);
 
   const getProduct = useCallback(async (id: string) => {
     try {

@@ -20,6 +20,8 @@ import {
   toggleSupplierActive,
 } from "@/service/suppliers/supplierService";
 import { useAuth } from "@/store/AuthContext/AuthContext";
+import { usePermissions } from "@/permissions/usePermissions";
+import { isPermissionDenied } from "@/lib/permissionErrors";
 
 interface SupplierContextType {
   suppliers: Supplier[];
@@ -46,7 +48,10 @@ export const useSuppliers = () => {
 
 export const SupplierProvider = ({ children }: { children: ReactNode }) => {
   const { user, role, loading: authLoading } = useAuth();
+  const { can, loading: permLoading } = usePermissions();
   const isAdmin = role === "admin" || role === "superAdmin";
+  const canRead =
+    role === "superAdmin" || (!permLoading && can("suppliers", "read"));
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -58,22 +63,28 @@ export const SupplierProvider = ({ children }: { children: ReactNode }) => {
       const data = await fetchSuppliers();
       setSuppliers(data);
     } catch (err: any) {
-      const msg = err?.message ?? "Failed to load suppliers";
-      setError(msg);
-      toast.error(msg);
+      setSuppliers([]);
+      if (isPermissionDenied(err)) {
+        setError(null);
+      } else {
+        const msg = err?.message ?? "Failed to load suppliers";
+        setError(msg);
+        toast.error(msg);
+      }
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (authLoading) return;
-    if (!user || !isAdmin) {
+    if (authLoading || permLoading) return;
+    if (!user || !isAdmin || !canRead) {
+      setSuppliers([]);
       setLoading(false);
       return;
     }
     refreshSuppliers();
-  }, [authLoading, user, isAdmin, refreshSuppliers]);
+  }, [authLoading, permLoading, user, isAdmin, canRead, refreshSuppliers]);
 
   const getSupplier = useCallback(async (id: string) => {
     try {

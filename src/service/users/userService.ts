@@ -114,22 +114,10 @@ export async function fetchUser(uid: string): Promise<AppUser | null> {
 // ─── BLOCK / UNBLOCK ─────────────────────────────────────────────────────────
 
 export async function blockUserService(uid: string, isBlocked: boolean): Promise<void> {
+  // No Firestore fallback — blockUser CF enforces who may block whom.
   await refreshToken();
-  try {
-    const fn = httpsCallable(functions, "blockUser");
-    await fn({ targetUid: uid, isBlocked });
-  } catch (err: any) {
-    if (
-      err?.code === "functions/permission-denied" ||
-      err?.message?.includes("permission-denied") ||
-      err?.message?.includes("Insufficient permissions")
-    ) {
-      console.warn("[blockUserService] CF permission-denied — Firestore-only fallback.");
-      await updateDoc(doc(db, "users", uid), { isBlocked, updatedAt: serverTimestamp() });
-      return;
-    }
-    throw err;
-  }
+  const fn = httpsCallable(functions, "blockUser");
+  await fn({ targetUid: uid, isBlocked });
 }
 
 // ─── DELETE USER ──────────────────────────────────────────────────────────────
@@ -231,5 +219,8 @@ export async function updateAdminPermissionsService(
   uid: string,
   permissions: import("@/permissions/permissions-data").AdminPermissions,
 ): Promise<void> {
-  await updateDoc(doc(db, "users", uid), { permissions, updatedAt: serverTimestamp() });
+  // superAdmin-only Cloud Function — client cannot write permissions via rules.
+  await refreshToken();
+  const fn = httpsCallable(functions, "updateAdminPermissions");
+  await fn({ targetUid: uid, permissions });
 }

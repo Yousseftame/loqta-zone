@@ -27,6 +27,14 @@ import {
 
 // ─── Action label / color config ─────────────────────────────────────────────
 
+const ACTION_COLUMNS: PermissionAction[] = [
+  "create",
+  "read",
+  "update",
+  "delete",
+  "pay",
+];
+
 const ACTION_CONFIG: Record<
   PermissionAction,
   { label: string; color: string; bg: string }
@@ -35,6 +43,7 @@ const ACTION_CONFIG: Record<
   read: { label: "Read", color: "#2563EB", bg: "#DBEAFE" },
   update: { label: "Edit", color: "#D97706", bg: "#FEF3C7" },
   delete: { label: "Delete", color: "#DC2626", bg: "#FEE2E2" },
+  pay: { label: "Pay", color: "#7C3AED", bg: "#EDE9FE" },
 };
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -79,6 +88,7 @@ export default function PermissionsMatrix({
         read: false,
         update: false,
         delete: false,
+        pay: false,
       };
     }
     onChange(next);
@@ -259,7 +269,7 @@ export default function PermissionsMatrix({
           <Box
             sx={{
               display: "grid",
-              gridTemplateColumns: "1fr 36px 36px 36px 36px 60px",
+              gridTemplateColumns: "1fr 36px 36px 36px 36px 36px 60px",
               gap: 0,
               bgcolor: colors.primaryBg,
               borderBottom: `1px solid ${colors.border}`,
@@ -277,25 +287,23 @@ export default function PermissionsMatrix({
             >
               Module
             </span>
-            {(["create", "read", "update", "delete"] as PermissionAction[]).map(
-              (a) => (
-                <Tooltip key={a} title={ACTION_CONFIG[a].label} placement="top">
-                  <Box sx={{ display: "flex", justifyContent: "center" }}>
-                    <span
-                      style={{
-                        fontSize: "0.58rem",
-                        fontWeight: 700,
-                        color: ACTION_CONFIG[a].color,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.03em",
-                      }}
-                    >
-                      {ACTION_CONFIG[a].label.charAt(0)}
-                    </span>
-                  </Box>
-                </Tooltip>
-              ),
-            )}
+            {ACTION_COLUMNS.map((a) => (
+              <Tooltip key={a} title={ACTION_CONFIG[a].label} placement="top">
+                <Box sx={{ display: "flex", justifyContent: "center" }}>
+                  <span
+                    style={{
+                      fontSize: "0.58rem",
+                      fontWeight: 700,
+                      color: ACTION_CONFIG[a].color,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.03em",
+                    }}
+                  >
+                    {ACTION_CONFIG[a].label.charAt(0)}
+                  </span>
+                </Box>
+              </Tooltip>
+            ))}
             <span
               style={{
                 fontSize: "0.58rem",
@@ -317,7 +325,7 @@ export default function PermissionsMatrix({
                 key={m.key}
                 sx={{
                   display: "grid",
-                  gridTemplateColumns: "1fr 36px 36px 36px 36px 60px",
+                  gridTemplateColumns: "1fr 36px 36px 36px 36px 36px 60px",
                   gap: 0,
                   px: 1.5,
                   py: 0.75,
@@ -345,10 +353,8 @@ export default function PermissionsMatrix({
                   </span>
                 </Box>
 
-                {/* CRUD checkboxes */}
-                {(
-                  ["create", "read", "update", "delete"] as PermissionAction[]
-                ).map((action) => {
+                {/* CRUD + Pay checkboxes */}
+                {ACTION_COLUMNS.map((action) => {
                   const applicable = m.actions.includes(action);
                   const checked = isSuperAdmin
                     ? true

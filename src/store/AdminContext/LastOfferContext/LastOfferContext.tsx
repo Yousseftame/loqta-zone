@@ -15,6 +15,7 @@ import {
   updateLastOffer,
   deleteLastOffer,
 } from "@/service/LastOfferService/LastOfferService";
+import { isPermissionDenied } from "@/lib/permissionErrors";
 
 interface LastOfferContextType {
   offers: LastOffer[];
@@ -56,9 +57,14 @@ export const LastOfferProvider = ({ children }: { children: ReactNode }) => {
       const data = await fetchLastOffersForAuction(auctionId);
       setOffers(data);
     } catch (err: any) {
-      const msg = err?.message ?? "Failed to load last offers";
-      setError(msg);
-      toast.error(msg);
+      setOffers([]);
+      if (isPermissionDenied(err)) {
+        setError(null);
+      } else {
+        const msg = err?.message ?? "Failed to load last offers";
+        setError(msg);
+        toast.error(msg);
+      }
     } finally {
       setLoading(false);
     }

@@ -34,11 +34,25 @@ import {
   reload,
 } from "firebase/auth";
 import toast from "react-hot-toast";
-import app, { auth, db, storage } from "@/firebase/firebase";
-import { doc, setDoc, getDoc, updateDoc, deleteDoc, serverTimestamp, collection, query, where, getDocs } from "firebase/firestore";
+import app, { auth, db, storage, functions } from "@/firebase/firebase";
+import { doc, setDoc, getDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { httpsCallable } from "firebase/functions";
 import { unregisterFCMToken } from "@/hooks/useFCM";
 import { auditLogger, buildActor } from "@/service/audit/auditLogger";
+import {
+  ensureMyPublicProfile,
+  isFullNameTaken,
+} from "@/service/users/publicProfileService";
+
+async function syncVerifiedViaCloudFunction(): Promise<void> {
+  try {
+    const fn = httpsCallable(functions, "syncEmailVerified");
+    await fn({});
+  } catch (err) {
+    console.warn("[Auth] syncEmailVerified failed:", err);
+  }
+}
 
 export type UserRole = "user" | "admin" | "superAdmin";
 
@@ -113,6 +127,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             setUser(currentUser);
             setRole(userRole);
             setEmailVerificationPending(false);
+            void ensureMyPublicProfile();
           } else {
             // Unverified regular user:
             // Keep the Firebase session alive (auth.currentUser stays set so the
@@ -172,15 +187,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           throw new Error("email-not-verified");
         }
       } else {
-        // Firebase auth says verified — sync Firestore if not already synced
+        // Firebase auth says verified — sync Firestore via Cloud Function only
         if (userDoc.exists() && userDoc.data()?.verified !== true) {
-          await updateDoc(doc(db, "users", loggedUser.uid), { verified: true });
+          await syncVerifiedViaCloudFunction();
         }
       }
       // ── End verification gate ──────────────────────────────────────────────
 
       const userRole = await getRoleFromFirestore(loggedUser);
       setRole(userRole);
+      void ensureMyPublicProfile();
       toast.success("Login successful");
 
       // 🔥 LOG AUDIT: log in 
@@ -239,17 +255,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       );
       newUser = credential.user;
 
-      // 2) Now authenticated — check for duplicate fullName.
-      //    The onUserCreated Cloud Function may have already written a partial
-      //    doc; we check BEFORE doing any further work.
-      const nameQuery = query(
-        collection(db, "users"),
-        where("fullName", "==", fullName),
-      );
-      const nameSnap = await getDocs(nameQuery);
-      if (!nameSnap.empty) {
-        // Duplicate found — roll back: delete the Auth account AND the partial
-        // Firestore document that onUserCreated may have already written.
+      // 2) Check duplicate fullName via publicProfiles (no access to private user docs).
+      if (await isFullNameTaken(fullName)) {
         await deleteDoc(doc(db, "users", newUser.uid));
         await deleteUser(newUser);
         registrationInProgressRef.current = false;
@@ -411,8 +418,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     await reload(currentUser);
     const fresh = auth.currentUser!;
     if (fresh.emailVerified) {
-      // Sync Firestore verified field
-      await updateDoc(doc(db, "users", fresh.uid), { verified: true });
+      await syncVerifiedViaCloudFunction();
       // Lift the verification gate and admit the user into the app
       setEmailVerificationPending(false);
       setUser(fresh);

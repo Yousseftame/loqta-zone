@@ -21,6 +21,10 @@ import {
 import { db } from "@/firebase/firebase";
 import { CountdownBar } from "./CountdownBar";
 import { resolveProductTitle } from "@/lib/resolveLocalized";
+import {
+  getPublicProfile,
+  displayNameFromPublic,
+} from "@/service/users/publicProfileService";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -256,8 +260,8 @@ function usePastAuctions() {
         Promise.all(
           Array.from(winnerIds).map(async (uid) => {
             try {
-              const s = await getDoc(doc(db, "users", uid));
-              return s.exists() ? ([uid, s.data()] as const) : null;
+              const p = await getPublicProfile(uid);
+              return p ? ([uid, p] as const) : null;
             } catch {
               return null;
             }
@@ -281,12 +285,8 @@ function usePastAuctions() {
             ? p.thumbnail
             : (p.images?.[0] ?? "");
         const wid = data.winnerId as string;
-        const u = uMap[wid] ?? {};
-        const winnerName =
-          (u.fullName ??
-            u.displayName ??
-            `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim()) ||
-          "Unknown";
+        const u = uMap[wid] ?? null;
+        const winnerName = displayNameFromPublic(u, "Unknown");
         return {
           id: d.id,
           auctionNumber: data.auctionNumber ?? 0,
@@ -305,7 +305,7 @@ function usePastAuctions() {
           }),
           winner: {
             name: winnerName,
-            avatar: u.profileImage ?? "",
+            avatar: u?.profileImage ?? "",
             country: "🇪🇬",
             countryName: "Egypt",
           },

@@ -17,6 +17,8 @@ import {
   updateAuctionRequest,
 } from "@/service/auctionRequest/auctionRequestService";
 import { useAuth } from "@/store/AuthContext/AuthContext";
+import { usePermissions } from "@/permissions/usePermissions";
+import { isPermissionDenied } from "@/lib/permissionErrors";
 
 interface AuctionRequestContextType {
   requests: AuctionRequest[];
@@ -49,11 +51,14 @@ export const AuctionRequestProvider = ({
   children: ReactNode;
 }) => {
   const { user, role, loading: authLoading } = useAuth();
+  const { can, loading: permLoading } = usePermissions();
   const [requests, setRequests] = useState<AuctionRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const isAdmin = role === "admin" || role === "superAdmin";
+  const canRead =
+    role === "superAdmin" || (!permLoading && can("auctionRequests", "read"));
 
   const refreshRequests = useCallback(async () => {
     setLoading(true);
@@ -62,27 +67,30 @@ export const AuctionRequestProvider = ({
       const data = await fetchAuctionRequests();
       setRequests(data);
     } catch (err: any) {
-      const msg = err?.message ?? "Failed to load auction requests";
-      setError(msg);
-      toast.error(msg);
+      setRequests([]);
+      if (isPermissionDenied(err)) {
+        setError(null);
+      } else {
+        const msg = err?.message ?? "Failed to load auction requests";
+        setError(msg);
+        toast.error(msg);
+      }
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (authLoading) return;
+    if (authLoading || permLoading) return;
 
-    // ← KEY FIX: only fetch if user is admin/superAdmin
-    // Regular users cannot list the AuctionRequests collection
-    if (!user || !isAdmin) {
+    if (!user || !isAdmin || !canRead) {
       setLoading(false);
       setRequests([]);
       return;
     }
 
     refreshRequests();
-  }, [authLoading, user, isAdmin, refreshRequests]);
+  }, [authLoading, permLoading, user, isAdmin, canRead, refreshRequests]);
 
   const getRequest = useCallback(async (id: string) => {
     try {

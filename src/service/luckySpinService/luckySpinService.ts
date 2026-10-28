@@ -1,23 +1,13 @@
 /**
  * luckySpinService.ts
  *
- * Lucky Spin prize definitions + persistence on the user collection.
- *
- * Stored at:
- *   users/{uid}/auctions/{auctionId}.luckySpin  → history per auction (admin Joined Auctions)
- *   users/{uid}.luckySpinCredit                 → active credit for the next entry fee
+ * Prize definitions + read helpers.
+ * Claiming is server-side only via claimLuckySpin Cloud Function.
  */
 
-import {
-  collection,
-  doc,
-  getDoc,
-  updateDoc,
-  addDoc,
-  serverTimestamp,
-  Timestamp,
-} from "firebase/firestore";
-import { db } from "@/firebase/firebase";
+import { doc, getDoc, Timestamp } from "firebase/firestore";
+import { httpsCallable } from "firebase/functions";
+import { db, functions } from "@/firebase/firebase";
 
 export type LuckySpinPrizeType =
   | "10_off"
@@ -33,14 +23,13 @@ export interface LuckySpinPrize {
   id: LuckySpinPrizeType;
   label: string;
   labelAr: string;
-  percent: number; // 10, 25, 50, 75, 100 for free, 0 for spin_again
+  percent: number;
   isFree: boolean;
   isSpinAgain: boolean;
   color: string;
   textColor: string;
 }
 
-/** Persisted win on users/{uid}/auctions/{auctionId} */
 export interface LuckySpinWin {
   prizeId: LuckySpinPrizeType;
   percent: number;
@@ -51,7 +40,6 @@ export interface LuckySpinWin {
   redeemedOnAuctionId: string | null;
 }
 
-/** Active redeemable credit on users/{uid} */
 export interface LuckySpinCredit {
   prizeId: LuckySpinPrizeType;
   percent: number;
@@ -147,9 +135,6 @@ export function mapLuckySpinWin(raw: any): LuckySpinWin | null {
   };
 }
 
-/**
- * Returns the lucky spin win for this user+auction if already claimed.
- */
 export async function getUserAuctionLuckySpin(
   userId: string,
   auctionId: string,
@@ -159,126 +144,58 @@ export async function getUserAuctionLuckySpin(
   return mapLuckySpinWin(snap.data()?.luckySpin);
 }
 
-export interface SaveLuckySpinOptions {
-  productTitle?: string;
-  auctionNumber?: number;
+export interface ClaimLuckySpinResult {
+  alreadyClaimed: boolean;
+  prize: LuckySpinPrize;
 }
 
 /**
- * Persist a lucky spin prize:
- *  1) users/{uid}/auctions/{auctionId}.luckySpin  (history for admin)
- *  2) users/{uid}.luckySpinCredit                 (active next-entry credit)
- *  3) users/{uid}/notifications                   (prize-claimed message)
- *
- * Guards against overwriting an existing win for the same auction.
+ * Server rolls + persists the prize. Clients never write luckySpin fields.
  */
-export async function saveLuckySpinPrize(
+export async function claimLuckySpinPrize(
   auctionId: string,
-  userId: string,
-  prize: LuckySpinPrize,
-  opts: SaveLuckySpinOptions = {},
-): Promise<LuckySpinWin> {
-  if (prize.isSpinAgain) {
-    throw new Error("spin_again is not a claimable prize");
-  }
-
-  const auctionRef = doc(db, "users", userId, "auctions", auctionId);
-  const userRef = doc(db, "users", userId);
-
-  const existingSnap = await getDoc(auctionRef);
-  if (!existingSnap.exists()) {
-    throw new Error("User has no join record for this auction");
-  }
-
-  const existing = mapLuckySpinWin(existingSnap.data()?.luckySpin);
-  if (existing) {
-    return existing;
-  }
-
-  let productTitle = opts.productTitle ?? "";
-  let auctionNumber = opts.auctionNumber;
-
-  if (!productTitle || auctionNumber == null) {
-    try {
-      const auctionSnap = await getDoc(doc(db, "auctions", auctionId));
-      if (auctionSnap.exists()) {
-        const a = auctionSnap.data();
-        auctionNumber = auctionNumber ?? a.auctionNumber;
-        if (!productTitle && a.productId) {
-          const pSnap = await getDoc(doc(db, "products", a.productId));
-          if (pSnap.exists()) {
-            const title = pSnap.data()?.title;
-            productTitle =
-              typeof title === "string"
-                ? title
-                : (title?.en ?? title?.ar ?? "");
-          }
-        }
-      }
-    } catch {
-      /* non-fatal */
-    }
-  }
-
-  const winPayload = {
-    prizeId: prize.id,
-    percent: prize.percent,
-    isFree: prize.isFree,
-    label: prize.label,
-    claimedAt: serverTimestamp(),
-    status: "available" as LuckySpinStatus,
-    redeemedOnAuctionId: null,
+): Promise<ClaimLuckySpinResult> {
+  const fn = httpsCallable(functions, "claimLuckySpin");
+  const res = await fn({ auctionId });
+  const data = res.data as {
+    alreadyClaimed?: boolean;
+    prize?: {
+      id: LuckySpinPrizeType;
+      label: string;
+      percent: number;
+      isFree: boolean;
+      isSpinAgain: boolean;
+    };
   };
 
-  await updateDoc(auctionRef, { luckySpin: winPayload });
-
-  await updateDoc(userRef, {
-    luckySpinCredit: {
-      prizeId: prize.id,
-      percent: prize.percent,
-      isFree: prize.isFree,
-      label: prize.label,
-      sourceAuctionId: auctionId,
-      claimedAt: serverTimestamp(),
-      status: "available" as LuckySpinStatus,
-    },
-    updatedAt: serverTimestamp(),
-  });
-
-  // Prize-claimed notification (informational)
-  const title = "🎉 Lucky Spin Reward Claimed!";
-  const message = prize.isFree
-    ? productTitle
-      ? `Congrats! You won FREE entry for your next auction (from "${productTitle}").`
-      : "Congrats! You won FREE entry for your next auction!"
-    : productTitle
-      ? `Congrats! You won ${prize.percent}% OFF your next auction entry fee (from "${productTitle}").`
-      : `Congrats! You won ${prize.percent}% OFF your next auction entry fee!`;
-
-  try {
-    await addDoc(collection(db, "users", userId, "notifications"), {
-      type: "lucky_spin_claimed",
-      auctionId,
-      productTitle: productTitle || "",
-      auctionNumber: auctionNumber ?? 0,
-      prizeId: prize.id,
-      percent: prize.percent,
-      isFree: prize.isFree,
-      label: prize.label,
-      title,
-      message,
-      isRead: false,
-      createdAt: serverTimestamp(),
-    });
-  } catch (err) {
-    console.warn("[luckySpinService] Failed to write claimed notification:", err);
+  const id = data.prize?.id;
+  const fromCatalog = LUCKY_SPIN_PRIZES.find((p) => p.id === id);
+  if (!fromCatalog || !data.prize) {
+    throw new Error("Invalid lucky spin response");
   }
 
   return {
-    prizeId: prize.id,
-    percent: prize.percent,
-    isFree: prize.isFree,
-    label: prize.label,
+    alreadyClaimed: !!data.alreadyClaimed,
+    prize: fromCatalog,
+  };
+}
+
+/** @deprecated Use claimLuckySpinPrize — kept name for older imports */
+export async function saveLuckySpinPrize(
+  auctionId: string,
+  _userId: string,
+  _prize: LuckySpinPrize,
+  _opts: { productTitle?: string; auctionNumber?: number } = {},
+): Promise<LuckySpinWin> {
+  const result = await claimLuckySpinPrize(auctionId);
+  if (result.prize.isSpinAgain) {
+    throw new Error("spin_again is not a claimable prize");
+  }
+  return {
+    prizeId: result.prize.id,
+    percent: result.prize.percent,
+    isFree: result.prize.isFree,
+    label: result.prize.label,
     claimedAt: new Date(),
     status: "available",
     redeemedOnAuctionId: null,

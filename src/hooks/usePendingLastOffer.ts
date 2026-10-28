@@ -17,6 +17,7 @@ import {
 import { db } from "@/firebase/firebase";
 import { useAuth } from "@/store/AuthContext/AuthContext";
 import { resolveProductTitle } from "@/lib/resolveLocalized";
+import { getPublicDisplayName } from "@/service/users/publicProfileService";
 
 const DISMISSED_PREFIX = "lo_dismissed_";
 
@@ -139,16 +140,18 @@ export function usePendingLastOffer(): {
         const uniqueWinnerIds  = [...new Set(stillPending.map((a) => a.winnerId))];
         const uniqueProductIds = [...new Set(stillPending.map((a) => a.productId).filter(Boolean))];
 
-        const [winnerSnaps, productSnaps] = await Promise.all([
-          Promise.all(uniqueWinnerIds.map((id) => getDoc(doc(db, "users", id)))),
+        const [winnerNamesList, productSnaps] = await Promise.all([
+          Promise.all(
+            uniqueWinnerIds.map((id) =>
+              getPublicDisplayName(id, "The Winner"),
+            ),
+          ),
           Promise.all(uniqueProductIds.map((id) => getDoc(doc(db, "products", id)))),
         ]);
 
         const winnerNames: Record<string, string> = {};
-        winnerSnaps.forEach((snap, i) => {
-          const d = snap.exists() ? snap.data() : {};
-          winnerNames[uniqueWinnerIds[i]] =
-            d.fullName ?? d.displayName ?? d.firstName ?? "The Winner";
+        uniqueWinnerIds.forEach((id, i) => {
+          winnerNames[id] = winnerNamesList[i];
         });
 
         // ← i18n FIX: resolve { en, ar } or legacy plain string

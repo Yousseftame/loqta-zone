@@ -2,10 +2,42 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // Admin gate — reads Firestore role (self-escalation blocked by user update rules).
+    // Role changes must go through Cloud Functions (Admin SDK) only.
     function isAdmin() {
-      return request.auth != null &&
+      return isSignedIn() &&
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get("role", "user") in ["admin", "superAdmin"];
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get("role", "user")
+          in ["admin", "superAdmin"];
+    }
+
+    function isSuperAdmin() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get("role", "user")
+          == "superAdmin";
+    }
+
+    // Module permissions (users/{uid}.permissions.{module}.{action}).
+    // superAdmin always passes. Regular admins cannot escalate — permissions
+    // field is locked from client writes (updateAdminPermissions CF only).
+    function hasPermission(module, action) {
+      return isSuperAdmin() || (
+        isAdmin() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data
+          .get("permissions", {})
+          .get(module, {})
+          .get(action, false) == true
+      );
     }
 
     function isRestricted(auctionId) {
@@ -18,41 +50,123 @@ service cloud.firestore {
         && a.startTime <= request.time
         && a.endTime >= request.time;
     }
-    
-    
+
+    // Profile / FCM only — verified, totalBids, luckySpinCredit, role, wallet
+    // are NEVER writable by the client (Cloud Functions / Admin SDK only).
+    function userSelfUpdateKeys() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly([
+          "firstName", "lastName", "fullName", "phone", "profileImage",
+          "fcmTokens", "updatedAt"
+        ]);
+    }
+
+    // Hard invariants on every self-update AND admin client updates.
+    // Role / block / wallet / stats / verified / permissions → Cloud Functions only.
+    function privilegedFieldsUnchanged() {
+      return request.resource.data.role == resource.data.role
+        && request.resource.data.get("isBlocked", false) == resource.data.get("isBlocked", false)
+        && request.resource.data.get("walletBalance", 0) == resource.data.get("walletBalance", 0)
+        && request.resource.data.get("totalWins", 0) == resource.data.get("totalWins", 0)
+        && request.resource.data.get("totalBids", 0) == resource.data.get("totalBids", 0)
+        && request.resource.data.get("verified", false) == resource.data.get("verified", false)
+        && request.resource.data.get("email", "") == resource.data.get("email", "")
+        && request.resource.data.get("createdAt", request.time) == resource.data.get("createdAt", request.time)
+        && request.resource.data.get("createdBy", "") == resource.data.get("createdBy", "")
+        && request.resource.data.get("luckySpinCredit", null)
+             == resource.data.get("luckySpinCredit", null)
+        && request.resource.data.get("permissions", null)
+             == resource.data.get("permissions", null);
+    }
+
+    // Admin client may only touch notes / auction restrictions (block & permissions via CF).
+    function adminUserUpdateKeys() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(["internalNotes", "restrictedAuctions", "updatedAt"]);
+    }
+
+    // ── Public profiles (display name + avatar ONLY — no email/phone/wallet) ──
+    match /publicProfiles/{uid} {
+      allow read: if isSignedIn();
+      allow write: if false; // Admin SDK / Cloud Functions only
+    }
 
     // ── Users ─────────────────────────────────────────────────────────────────
     match /users/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
-      allow read, write: if isAdmin();
-      allow read:        if request.auth != null;
+      // Private: owner or users.read. Other users use publicProfiles.
+      allow get: if isOwner(uid) || hasPermission("users", "read");
+      allow list: if hasPermission("users", "read");
+
+      // Self-registration create — force safe defaults (cannot self-create as admin).
+      allow create: if isOwner(uid)
+        && request.resource.data.role == "user"
+        && request.resource.data.get("isBlocked", false) == false
+        && request.resource.data.get("walletBalance", 0) == 0
+        && request.resource.data.get("totalBids", 0) == 0
+        && request.resource.data.get("totalWins", 0) == 0
+        && request.resource.data.get("verified", false) == false
+        && request.resource.data.get("permissions", null) == null
+        && request.resource.data.keys().hasAll([
+          "firstName", "lastName", "fullName", "email", "role", "createdAt"
+        ]);
+
+      // Self update — profile + FCM only.
+      allow update: if isOwner(uid)
+        && userSelfUpdateKeys()
+        && privilegedFieldsUnchanged();
+
+      // Registration rollback (duplicate name) — unverified user docs only.
+      allow delete: if isOwner(uid)
+        && resource.data.get("role", "user") == "user"
+        && resource.data.get("verified", false) == false;
+
+      // Admins may manage notes/restrictions only (users.update).
+      // Role / isBlocked / permissions / wallet / verified / stats → Cloud Functions.
+      // Regular admins can only update role="user" targets (not other admins/superAdmins).
+      allow update: if hasPermission("users", "update")
+        && privilegedFieldsUnchanged()
+        && adminUserUpdateKeys()
+        && (
+          resource.data.get("role", "user") == "user"
+          || isSuperAdmin()
+        );
+      allow delete: if hasPermission("users", "delete")
+        && (
+          resource.data.get("role", "user") == "user"
+          || isSuperAdmin()
+        );
+      // Admin create of user docs is not used from client (createAdminAccount = Admin SDK).
 
       match /notifications/{notifId} {
-        allow read, delete: if request.auth != null && request.auth.uid == uid;
-        allow update:       if request.auth != null && request.auth.uid == uid;
+        allow read, delete: if isOwner(uid);
+        allow update: if isOwner(uid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["isRead"])
+          && request.resource.data.isRead == true;
 
-        allow create: if request.auth != null &&
-          request.auth.uid == uid &&
+        // Simulated payment confirm (LastOfferConfirmPage) — locked type + unread.
+        allow create: if isOwner(uid) &&
           request.resource.data.type == "payment_confirmed" &&
           request.resource.data.keys().hasAll(["type", "auctionId", "title", "message", "isRead", "createdAt"]) &&
           request.resource.data.isRead == false;
 
+        // Admin / CF notifications (lucky_spin_claimed etc. via Admin SDK bypasses rules).
         allow create: if isAdmin();
       }
 
+      // Join records + luckySpin — Cloud Functions / Admin SDK only.
       match /auctions/{auctionId} {
-        allow read:   if request.auth != null && (request.auth.uid == uid || isAdmin());
-        allow create: if request.auth != null && request.auth.uid == uid;
-        allow update: if request.auth != null && request.auth.uid == uid;
-        allow delete: if false;
+        allow read: if isOwner(uid) || isAdmin();
+        allow create, update, delete: if false;
       }
     }
 
     // ── Auction Requests ──────────────────────────────────────────────────────
     match /AuctionRequests/{requestId} {
-      allow read, write: if isAdmin();
-      allow read:        if request.auth != null && resource.data.userId == request.auth.uid;
-      allow create:      if request.auth != null &&
+      allow read: if hasPermission("auctionRequests", "read")
+        || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow update: if hasPermission("auctionRequests", "update");
+      allow delete: if hasPermission("auctionRequests", "update");
+      allow create: if isSignedIn() &&
         request.resource.data.userId == request.auth.uid &&
         request.resource.data.status == "pending";
     }
@@ -60,64 +174,49 @@ service cloud.firestore {
     // ── Auctions ──────────────────────────────────────────────────────────────
     match /auctions/{auctionId} {
       allow read: if true;
-      allow create: if isAdmin();
+      allow create: if hasPermission("auctions", "create");
 
-      allow update: if request.auth != null && (
-        (isAdmin() && resource.data.endTime > request.time) ||
-        (isAdmin() && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(["winnerId", "winningBid", "updatedAt"])) ||
-        (request.auth != null &&
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(["totalParticipants"]) &&
-          request.resource.data.totalParticipants == resource.data.totalParticipants + 1) ||
-        (request.auth != null &&
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(["currentBid", "totalBids"]) &&
-          request.resource.data.currentBid > resource.data.currentBid &&
-          request.resource.data.totalBids == resource.data.totalBids + 1 &&
-          resource.data.endTime > request.time &&
-          resource.data.isActive == true &&
-          !isRestricted(auctionId)) ||
-        (request.auth != null &&
-          resource.data.get("bidType", "") == "decreasing" &&
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(["currentBid", "totalBids", "endTime", "isActive"]) &&
-          request.resource.data.totalBids == resource.data.totalBids + 1 &&
-          resource.data.endTime > request.time &&
-          resource.data.isActive == true &&
-          !isRestricted(auctionId))
+      // Bidding / join / resolve write via Cloud Functions (Admin SDK) only.
+      allow update: if hasPermission("auctions", "update") && (
+        resource.data.endTime > request.time
+        || request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(["winnerId", "winningBid", "updatedAt", "isActive"])
       );
 
-      allow delete: if isAdmin();
+      allow delete: if hasPermission("auctions", "delete");
 
       match /Participants/{userId} {
-        allow read: if request.auth != null && (request.auth.uid == userId || isAdmin());
-        allow create: if request.auth != null && request.auth.uid == userId;
-        allow update: if false;
-        allow delete: if isAdmin();
+        allow read: if isSignedIn() && (
+          request.auth.uid == userId || hasPermission("participants", "read")
+        );
+        // Join is Cloud Function only (Admin SDK).
+        allow create, update: if false;
+        allow delete: if hasPermission("participants", "delete");
       }
 
       match /bids/{bidId} {
-        allow read: if request.auth != null && (
+        allow read: if isSignedIn() && (
           exists(/databases/$(database)/documents/auctions/$(auctionId)/Participants/$(request.auth.uid)) ||
-          isAdmin()
+          hasPermission("bids", "read")
         );
-        allow create: if request.auth != null &&
-          request.resource.data.userId == request.auth.uid &&
-          exists(/databases/$(database)/documents/auctions/$(auctionId)/Participants/$(request.auth.uid)) &&
-          !isRestricted(auctionId);
-        allow update: if isAdmin() &&
+        // Bids are created only by placeBidCallable (Admin SDK).
+        allow create: if false;
+        allow update: if hasPermission("bids", "update") &&
           request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(["status", "selectedbyAdmin", "notifiedBidSelectedAt"]);
-        allow delete: if isAdmin();
+        allow delete: if hasPermission("bids", "delete");
       }
 
       match /lastOffers/{offerId} {
-        allow read, delete: if isAdmin();
-        allow update: if isAdmin() &&
+        allow read: if hasPermission("lastOffers", "read")
+          || (isSignedIn() &&
+            exists(/databases/$(database)/documents/auctions/$(auctionId)/Participants/$(request.auth.uid)) &&
+            resource.data.userId == request.auth.uid);
+        allow delete: if hasPermission("lastOffers", "delete");
+        allow update: if hasPermission("lastOffers", "update") &&
           request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(["status", "selectedbyAdmin", "notifiedLastOfferSelectedAt"]);
-        allow read: if request.auth != null &&
-          exists(/databases/$(database)/documents/auctions/$(auctionId)/Participants/$(request.auth.uid)) &&
-          resource.data.userId == request.auth.uid;
-        allow create: if request.auth != null &&
+        allow create: if isSignedIn() &&
           exists(/databases/$(database)/documents/auctions/$(auctionId)/Participants/$(request.auth.uid)) &&
           request.resource.data.userId == request.auth.uid &&
           request.resource.data.status == "pending" &&
@@ -125,86 +224,113 @@ service cloud.firestore {
       }
 
       match /chat/{chatId} {
-        allow read: if request.auth != null && (
+        allow read: if isSignedIn() && (
           exists(/databases/$(database)/documents/auctions/$(auctionId)/Participants/$(request.auth.uid)) ||
-          isAdmin()
+          hasPermission("auctions", "read")
         );
-        allow create: if request.auth != null &&
+        allow create: if isSignedIn() &&
           request.resource.data.userId == request.auth.uid &&
           request.resource.data.get("type", "user") == "user" &&
           exists(/databases/$(database)/documents/auctions/$(auctionId)/Participants/$(request.auth.uid)) &&
           !isRestricted(auctionId) &&
           isAuctionLive(auctionId);
-        allow create: if isAdmin() &&
+        allow create: if hasPermission("auctions", "update") &&
           request.resource.data.userId == "system" &&
           request.resource.data.type == "system_kick";
-        allow update, delete: if isAdmin();
+        allow update, delete: if hasPermission("auctions", "update");
       }
 
       match /restricted/{userId} {
-        allow read:  if isAdmin() || (request.auth != null && request.auth.uid == userId);
-        allow write: if isAdmin();
+        allow read:  if hasPermission("auctions", "update")
+          || (isSignedIn() && request.auth.uid == userId);
+        allow write: if hasPermission("auctions", "update");
       }
     }
-    
-    
-
 
     // ── Products ──────────────────────────────────────────────────────────────
     match /products/{productId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow create: if hasPermission("products", "create");
+      allow update: if hasPermission("products", "update");
+      allow delete: if hasPermission("products", "delete");
     }
 
     // ── Categories ────────────────────────────────────────────────────────────
     match /categories/{categoryId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow create: if hasPermission("categories", "create");
+      allow update: if hasPermission("categories", "update");
+      allow delete: if hasPermission("categories", "delete");
     }
 
-// ── Suppliers ──────────────────────────────────────────────────────────────
-match /suppliers/{supplierId} {
-  allow read: if true;
-  allow write: if isAdmin();
-}
+    // ── Suppliers ─────────────────────────────────────────────────────────────
+    match /suppliers/{supplierId} {
+      allow read: if true;
+      allow create: if hasPermission("suppliers", "create");
+      allow update: if hasPermission("suppliers", "update");
+      allow delete: if hasPermission("suppliers", "delete");
+    }
 
     // ── Vouchers ──────────────────────────────────────────────────────────────
+    // Codes are secrets — admin UI only. Users redeem via applyVoucher / validateVoucher CFs.
     match /vouchers/{voucherId} {
-      allow read:  if request.auth != null;
-      allow write: if isAdmin();
+      allow read:   if hasPermission("vouchers", "read");
+      allow create: if hasPermission("vouchers", "create");
+      allow update: if hasPermission("vouchers", "update");
+      allow delete: if hasPermission("vouchers", "delete");
       match /usages/{userId} {
-        allow read:   if request.auth != null && (request.auth.uid == userId || isAdmin());
+        allow read:   if isSignedIn() && (
+          request.auth.uid == userId || hasPermission("vouchers", "read")
+        );
         allow create: if false;
         allow update: if false;
-        allow delete: if isAdmin();
+        allow delete: if hasPermission("vouchers", "delete");
       }
     }
 
     // ── Contact Messages ──────────────────────────────────────────────────────
     match /contactMessages/{messageId} {
-      allow create:               if true;
-      allow read, update, delete: if isAdmin();
+      allow create: if true;
+      allow read:   if hasPermission("contacts", "read");
+      allow update: if hasPermission("contacts", "update");
+      allow delete: if hasPermission("contacts", "delete");
     }
 
     // ── Feedback Messages ─────────────────────────────────────────────────────
     match /feedbackMessages/{messageId} {
-      allow create:               if true;
-      allow read, update, delete: if isAdmin();
+      allow create: if true;
+      allow read:   if hasPermission("feedback", "read");
+      allow update: if hasPermission("feedback", "update");
+      allow delete: if hasPermission("feedback", "delete");
+    }
+
+    // ── Site settings ─────────────────────────────────────────────────────────
+    match /siteSettings/{docId} {
+      allow read:  if true;
+      allow write: if isAdmin();
     }
 
     // ── Analytics ─────────────────────────────────────────────────────────────
     match /analytics/{docId} {
-      // "dashboard" is readable by anyone — used on the public homepage stats section.
-      // "topAuctions" contains financial data — admins only.
       allow read: if docId == "dashboard" || isAdmin();
       allow write: if false;
     }
 
     // ── Transactions ──────────────────────────────────────────────────────────
+    // Finance dashboard edit/delete = superAdmin only.
+    // Purchase flows need read + create (expense / payment / reversal logs).
     match /transactions/{id} {
-      allow read, create: if isAdmin();
-      allow delete:       if isAdmin();
-      allow update: if isAdmin() &&
+      allow read: if isSuperAdmin()
+        || hasPermission("purchases", "read")
+        || hasPermission("purchases", "create")
+        || hasPermission("purchases", "pay")
+        || hasPermission("purchases", "delete");
+      allow create: if isSuperAdmin()
+        || hasPermission("purchases", "create")
+        || hasPermission("purchases", "pay")
+        || hasPermission("purchases", "delete");
+      allow delete: if isSuperAdmin();
+      allow update: if isSuperAdmin() &&
         request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly([
             "type", "amount", "method", "category", "note",
@@ -213,9 +339,9 @@ match /suppliers/{supplierId} {
           ]);
     }
 
-    // ── Finance stats ─────────────────────────────────────────────────────────
+    // ── Finance stats (superAdmin only; writes via Admin SDK CF) ───────────────
     match /finance_stats/{docId} {
-      allow read:  if isAdmin();
+      allow read:  if isSuperAdmin();
       allow write: if false;
     }
 
@@ -238,43 +364,48 @@ match /suppliers/{supplierId} {
     }
 
     // ── Audit Logs ────────────────────────────────────────────────────────────
-    // Client-side audit logger writes from guests + all users — must never block login.
     match /auditLogs/{logId} {
       allow create: if true;
       allow read: if isAdmin();
       allow update, delete: if false;
     }
-    
-    
-      // ── Auction Support Tickets ───────────────────────────────────────────────
+
+    // ── Auction Support Tickets ───────────────────────────────────────────────
     match /auctionSupportTickets/{ticketId} {
-      allow create:               if request.auth != null;
-      allow read:                 if isAdmin() || (request.auth != null && resource.data.userId == request.auth.uid);
-      allow update, delete:       if isAdmin();
+      allow create: if isSignedIn();
+      allow read:   if hasPermission("tickets", "read")
+        || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow update: if hasPermission("tickets", "update");
+      allow delete: if hasPermission("tickets", "delete");
     }
-    
-    // ── Payment Accounts ──────────────────────────────────────────────────────────
-match /paymentAccounts/{accountId} {
-  allow read, write: if isAdmin();
-}
- 
-// ── Purchases ─────────────────────────────────────────────────────────────────
-match /purchases/{purchaseId} {
-  allow read, write: if isAdmin();
 
-  // Payment audit trail (credit / partial payments)
-  match /purchasePayments/{paymentId} {
-    allow read, write: if isAdmin();
-  }
-}
+    // ── Payment Accounts ──────────────────────────────────────────────────────
+    // Write = Finance (superAdmin). Read also for purchase payment flows.
+    match /paymentAccounts/{accountId} {
+      allow read: if isSuperAdmin()
+        || hasPermission("purchases", "read")
+        || hasPermission("purchases", "create")
+        || hasPermission("purchases", "pay");
+      allow write: if isSuperAdmin();
+    }
 
-// ── Owners ────────────────────────────────────────────────────────────────────
-match /owners/{ownerId} {
-  allow read, write: if isAdmin();
-}
+    // ── Purchases ─────────────────────────────────────────────────────────────
+    match /purchases/{purchaseId} {
+      allow read:   if hasPermission("purchases", "read");
+      allow create: if hasPermission("purchases", "create");
+      allow update: if hasPermission("purchases", "update")
+        || hasPermission("purchases", "pay");
+      allow delete: if hasPermission("purchases", "delete");
+      match /purchasePayments/{paymentId} {
+        allow read: if hasPermission("purchases", "read")
+          || hasPermission("purchases", "pay");
+        allow create, update, delete: if hasPermission("purchases", "pay");
+      }
+    }
 
-
-
-
+    // ── Owners (superAdmin / Finance only) ────────────────────────────────────
+    match /owners/{ownerId} {
+      allow read, write: if isSuperAdmin();
+    }
   }
 }

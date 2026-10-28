@@ -27,6 +27,8 @@ import {
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/firebase/firebase";
 import { useAuth } from "@/store/AuthContext/AuthContext";
+import { usePermissions } from "@/permissions/usePermissions";
+import { isPermissionDenied } from "@/lib/permissionErrors";
 import { auditLogger, buildActor } from "@/service/audit/auditLogger";
 import {
   titleFromProductData,
@@ -70,7 +72,10 @@ export const useAuctions = () => {
 
 export const AuctionProvider = ({ children }: { children: ReactNode }) => {
   const { user, role, loading: authLoading } = useAuth();
+  const { can, loading: permLoading } = usePermissions();
   const isAdmin = role === "admin" || role === "superAdmin";
+  const canRead =
+    role === "superAdmin" || (!permLoading && can("auctions", "read"));
   const adminName = user?.displayName ?? "Admin";
   const [auctions, setAuctions] = useState<Auction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,22 +88,28 @@ export const AuctionProvider = ({ children }: { children: ReactNode }) => {
       const data = await fetchAuctions();
       setAuctions(data);
     } catch (err: any) {
-      const msg = err?.message ?? "Failed to load auctions";
-      setError(msg);
-      toast.error(msg);
+      setAuctions([]);
+      if (isPermissionDenied(err)) {
+        setError(null);
+      } else {
+        const msg = err?.message ?? "Failed to load auctions";
+        setError(msg);
+        toast.error(msg);
+      }
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (authLoading) return;
-    if (!user || !isAdmin) {
+    if (authLoading || permLoading) return;
+    if (!user || !isAdmin || !canRead) {
+      setAuctions([]);
       setLoading(false);
       return;
     }
     refreshAuctions();
-  }, [authLoading, user, isAdmin, refreshAuctions]);
+  }, [authLoading, permLoading, user, isAdmin, canRead, refreshAuctions]);
 
   const getAuction = useCallback(async (id: string) => {
     try {

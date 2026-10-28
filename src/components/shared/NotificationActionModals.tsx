@@ -26,6 +26,7 @@ import LuckySpinModal from "@/components/LuckySpinModal/LuckySpinModal";
 import { dismissPendingLastOffer } from "@/hooks/usePendingLastOffer";
 import { getUserAuctionLuckySpin } from "@/service/luckySpinService/luckySpinService";
 import { resolveProductTitle } from "@/lib/resolveLocalized";
+import { getPublicDisplayName } from "@/service/users/publicProfileService";
 import {
   OPEN_LAST_OFFER_EVENT,
   OPEN_LUCKY_SPIN_EVENT,
@@ -99,15 +100,10 @@ export default function NotificationActionModals() {
         let winnerName = detail.winnerName ?? "";
         const winnerId = a.winnerId as string | undefined;
         if ((!winnerName || winnerName === "The winner") && winnerId && winnerId !== "NO_WINNER") {
-          const wSnap = await getDoc(doc(db, "users", winnerId));
-          if (wSnap.exists()) {
-            const u = wSnap.data();
-            winnerName =
-              u.fullName ??
-              u.displayName ??
-              `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim() ??
-              (isRtl ? "الفائز" : "The Winner");
-          }
+          winnerName = await getPublicDisplayName(
+            winnerId,
+            isRtl ? "الفائز" : "The Winner",
+          );
         }
 
         // Prevent PersistentLastOfferGate from also opening this auction

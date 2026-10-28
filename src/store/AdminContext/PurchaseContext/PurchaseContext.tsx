@@ -35,6 +35,8 @@ import {
   deletePurchasePayment,
 } from "@/service/purchases/purchaseService";
 import { useAuth } from "@/store/AuthContext/AuthContext";
+import { usePermissions } from "@/permissions/usePermissions";
+import { isPermissionDenied } from "@/lib/permissionErrors";
 import { auditLogger, buildActor } from "@/service/audit/auditLogger";
 import {
   describePurchaseCreated,
@@ -83,6 +85,7 @@ export const usePurchases = () => {
 
 export const PurchaseProvider = ({ children }: { children: ReactNode }) => {
   const { user, role, loading: authLoading } = useAuth();
+  const { can, loading: permLoading } = usePermissions();
 
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [loading, setLoading] = useState(true);
@@ -107,22 +110,31 @@ export const PurchaseProvider = ({ children }: { children: ReactNode }) => {
       const data = await fetchPurchases();
       setPurchases(data);
     } catch (err: unknown) {
-      const msg = (err as Error)?.message ?? "Failed to load purchases";
-      setError(msg);
-      toast.error(msg);
+      setPurchases([]);
+      if (isPermissionDenied(err)) {
+        setError(null);
+      } else {
+        const msg = (err as Error)?.message ?? "Failed to load purchases";
+        setError(msg);
+        toast.error(msg);
+      }
     } finally {
       setLoading(false);
     }
   }, []);
 
+  const canReadPurchases =
+    role === "superAdmin" || (!permLoading && can("purchases", "read"));
+
   useEffect(() => {
-    if (authLoading) return;
-    if (!user || role !== "superAdmin") {
+    if (authLoading || permLoading) return;
+    if (!user || !canReadPurchases) {
+      setPurchases([]);
       setLoading(false);
       return;
     }
     refreshPurchases();
-  }, [authLoading, user, role, refreshPurchases]);
+  }, [authLoading, permLoading, user, canReadPurchases, refreshPurchases]);
 
   // ── CRUD ─────────────────────────────────────────────────────────────────────
 

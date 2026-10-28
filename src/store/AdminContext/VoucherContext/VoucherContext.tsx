@@ -20,6 +20,8 @@ import {
   toggleVoucherActive,
 } from "@/service/vouchers/voucherService";
 import { useAuth } from "@/store/AuthContext/AuthContext";
+import { usePermissions } from "@/permissions/usePermissions";
+import { isPermissionDenied } from "@/lib/permissionErrors";
 
 interface VoucherContextType {
   vouchers: Voucher[];
@@ -43,7 +45,9 @@ export const useVouchers = () => {
 
 export const VoucherProvider = ({ children }: { children: ReactNode }) => {
   const { user, role, loading: authLoading } = useAuth();
+  const { can, loading: permLoading } = usePermissions();
   const isAdmin = role === "admin" || role === "superAdmin";
+  const canRead = role === "superAdmin" || (!permLoading && can("vouchers", "read"));
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -55,22 +59,28 @@ export const VoucherProvider = ({ children }: { children: ReactNode }) => {
       const { vouchers: data } = await fetchVouchers(); // ✅ destructure the object
       setVouchers(data);
     } catch (err: any) {
-      const msg = err?.message ?? "Failed to load vouchers";
-      setError(msg);
-      toast.error(msg);
+      setVouchers([]);
+      if (isPermissionDenied(err)) {
+        setError(null);
+      } else {
+        const msg = err?.message ?? "Failed to load vouchers";
+        setError(msg);
+        toast.error(msg);
+      }
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (authLoading) return;
-    if (!user || !isAdmin) {
+    if (authLoading || permLoading) return;
+    if (!user || !isAdmin || !canRead) {
+      setVouchers([]);
       setLoading(false);
       return;
     }
     refreshVouchers();
-  }, [authLoading, user, isAdmin, refreshVouchers]);
+  }, [authLoading, permLoading, user, isAdmin, canRead, refreshVouchers]);
 
   const getVoucher = useCallback(async (id: string) => {
     try {

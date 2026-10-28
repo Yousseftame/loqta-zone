@@ -15,7 +15,20 @@ if (!admin.apps.length) {
 setGlobalOptions({ maxInstances: 10 });
 
 // ── Auth / Role management ───────────────────────────────────────────────────
-export { onUserCreated, setUserRole, blockUser, deleteUser, createAdminAccount } from "./Auth/auth";
+export {
+  onUserCreated,
+  setUserRole,
+  blockUser,
+  deleteUser,
+  createAdminAccount,
+  updateAdminPermissions,
+} from "./Auth/auth";
+export { syncEmailVerified } from "./Auth/syncEmailVerified";
+export {
+  onUserWrittenPublicProfile,
+  ensureMyPublicProfile,
+  backfillPublicProfiles,
+} from "./Users/publicProfiles";
 
 
 
@@ -74,6 +87,10 @@ export { onTicketInProgress } from "./Notifications/ticketInProgressNotification
 // onBidWritten          — Firestore trigger, handles last-second bid edge case
 // resolveAuctionWinners — Scheduled safety net every 10 min (fallback only)
 export { triggerResolveAuction, onBidWritten, resolveAuctionWinners } from "./Auctions/auctionWinner";
+export { joinAuctionsCallable } from "./Auctions/joinAuction";
+export { claimLuckySpin } from "./Auctions/claimLuckySpin";
+export { onBidCreatedUserStats } from "./Auctions/onBidCreatedUserStats";
+export { placeBidCallable } from "./Auctions/placeBid";
 
 
 

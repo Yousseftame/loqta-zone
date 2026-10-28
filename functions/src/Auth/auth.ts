@@ -264,6 +264,56 @@ export const createAdminAccount = onCall(async (request) => {
     ...(role === "admin" && resolvedPermissions ? { permissions: resolvedPermissions } : {}),
   };
 });
+// ─────────────────────────────────────────────────────────────────────────────
+// 4. updateAdminPermissions  (superAdmin only)
+// ─────────────────────────────────────────────────────────────────────────────
+// Client rules lock the permissions field. Only this CF may change it.
+export const updateAdminPermissions = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "You must be signed in.");
+  }
+
+  const callerRole = await getCallerRole(request.auth.uid);
+  if (callerRole !== "superAdmin") {
+    throw new HttpsError(
+      "permission-denied",
+      "Only superAdmins can update admin permissions.",
+    );
+  }
+
+  const { targetUid, permissions } = request.data as {
+    targetUid: string;
+    permissions: Record<string, Record<string, boolean>> | null;
+  };
+
+  if (!targetUid || typeof permissions !== "object") {
+    throw new HttpsError(
+      "invalid-argument",
+      "targetUid and permissions are required.",
+    );
+  }
+
+  const targetSnap = await db.collection("users").doc(targetUid).get();
+  if (!targetSnap.exists) {
+    throw new HttpsError("not-found", "Target user not found.");
+  }
+
+  const targetRole = (targetSnap.data()?.role as UserRole) ?? "user";
+  if (targetRole !== "admin") {
+    throw new HttpsError(
+      "failed-precondition",
+      "Permissions can only be set on role=admin accounts.",
+    );
+  }
+
+  await db.collection("users").doc(targetUid).update({
+    permissions,
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+
+  return { success: true };
+});
+
 export const deleteUser = onCall(async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "You must be signed in.");
